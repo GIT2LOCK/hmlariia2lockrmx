@@ -17,16 +17,16 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 210 50% 15%;
 
-    --primary: 82 70% 40%;
+    --primary: 210 70% 25%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 70% 25%;
+    --secondary: 82 70% 40%;
     --secondary-foreground: 0 0% 100%;
 
     --muted: 210 20% 94%;
     --muted-foreground: 210 20% 45%;
 
-    --accent: 210 70% 25%;
+    --accent: 82 70% 40%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84% 60%;
@@ -34,24 +34,24 @@ All colors MUST be HSL.
 
     --border: 210 25% 88%;
     --input: 210 25% 88%;
-    --ring: 82 70% 40%;
+    --ring: 210 70% 25%;
 
     --radius: 0.75rem;
 
-    --sidebar-background: 82 70% 40%;
+    --sidebar-background: 210 70% 25%;
     --sidebar-foreground: 0 0% 100%;
-    --sidebar-primary: 210 70% 25%;
+    --sidebar-primary: 82 70% 40%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 82 60% 45%;
+    --sidebar-accent: 210 60% 30%;
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 82 50% 50%;
-    --sidebar-ring: 210 70% 25%;
+    --sidebar-border: 210 50% 35%;
+    --sidebar-ring: 82 70% 40%;
 
     /* Custom brand colors */
-    --brand-green: 82 70% 40%;
-    --brand-green-light: 82 60% 50%;
     --brand-blue: 210 70% 25%;
     --brand-blue-light: 210 60% 35%;
+    --brand-green: 82 70% 40%;
+    --brand-green-light: 82 60% 50%;
   }
 
   .dark {
