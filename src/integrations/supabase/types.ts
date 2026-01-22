@@ -254,18 +254,21 @@ export type Database = {
           email_id: number
           email_principal: string | null
           email_secundario: string | null
+          verificado: boolean
         }
         Insert: {
           email_alternativo?: string | null
           email_id?: number
           email_principal?: string | null
           email_secundario?: string | null
+          verificado?: boolean
         }
         Update: {
           email_alternativo?: string | null
           email_id?: number
           email_principal?: string | null
           email_secundario?: string | null
+          verificado?: boolean
         }
         Relationships: []
       }
@@ -377,9 +380,14 @@ export type Database = {
           cpf_id: number
           data_criacao: string | null
           email_id: number
+          email_verificado: boolean
+          email_verification_expires: string | null
+          email_verification_token: string | null
           nome: string
           permissao_id: number
           senha: string
+          totp_enabled: boolean
+          totp_secret: string | null
           user_id: number
         }
         Insert: {
@@ -387,9 +395,14 @@ export type Database = {
           cpf_id: number
           data_criacao?: string | null
           email_id: number
+          email_verificado?: boolean
+          email_verification_expires?: string | null
+          email_verification_token?: string | null
           nome: string
           permissao_id: number
           senha: string
+          totp_enabled?: boolean
+          totp_secret?: string | null
           user_id?: number
         }
         Update: {
@@ -397,9 +410,14 @@ export type Database = {
           cpf_id?: number
           data_criacao?: string | null
           email_id?: number
+          email_verificado?: boolean
+          email_verification_expires?: string | null
+          email_verification_token?: string | null
           nome?: string
           permissao_id?: number
           senha?: string
+          totp_enabled?: boolean
+          totp_secret?: string | null
           user_id?: number
         }
         Relationships: [

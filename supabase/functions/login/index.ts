@@ -64,6 +64,8 @@ serve(async (req) => {
         senha,
         ativo,
         permissao_id,
+        email_verificado,
+        totp_enabled,
         tb_permissao!inner (nome, descricao)
       `)
       .eq("email_id", emailData.email_id)
@@ -90,6 +92,39 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ error: "E-mail ou senha incorretos" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Check if email is verified
+    if (!userData.email_verificado) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          requiresEmailVerification: true,
+          user: {
+            id: userData.user_id,
+            nome: userData.nome,
+            email: email,
+          },
+          message: "E-mail não verificado. Verifique sua caixa de entrada.",
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Check if 2FA is enabled
+    if (userData.totp_enabled) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          requires2FA: true,
+          user: {
+            id: userData.user_id,
+            nome: userData.nome,
+          },
+          message: "Digite o código do seu autenticador.",
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
