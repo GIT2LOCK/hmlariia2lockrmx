@@ -17,6 +17,36 @@ const formatCpf = (value: string): string => {
   return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
 };
 
+// Validação de CPF com algoritmo dos dígitos verificadores
+const validateCpf = (cpf: string): boolean => {
+  const digits = cpf.replace(/\D/g, "");
+  
+  if (digits.length !== 11) return false;
+  
+  // Verifica se todos os dígitos são iguais
+  if (/^(\d)\1+$/.test(digits)) return false;
+  
+  // Calcula primeiro dígito verificador
+  let sum = 0;
+  for (let i = 0; i < 9; i++) {
+    sum += parseInt(digits[i]) * (10 - i);
+  }
+  let remainder = (sum * 10) % 11;
+  if (remainder === 10 || remainder === 11) remainder = 0;
+  if (remainder !== parseInt(digits[9])) return false;
+  
+  // Calcula segundo dígito verificador
+  sum = 0;
+  for (let i = 0; i < 10; i++) {
+    sum += parseInt(digits[i]) * (11 - i);
+  }
+  remainder = (sum * 10) % 11;
+  if (remainder === 10 || remainder === 11) remainder = 0;
+  if (remainder !== parseInt(digits[10])) return false;
+  
+  return true;
+};
+
 // Validação de senha forte
 const validatePassword = (password: string): { valid: boolean; message: string } => {
   if (password.length < 8) {
@@ -87,11 +117,10 @@ const Index = () => {
     e.preventDefault();
     
     // Validar CPF completo
-    const cpfDigits = signupCpf.replace(/\D/g, "");
-    if (cpfDigits.length !== 11) {
+    if (!validateCpf(signupCpf)) {
       toast({
         title: "Erro",
-        description: "CPF inválido. Digite os 11 dígitos.",
+        description: "CPF inválido. Verifique os dígitos informados.",
         variant: "destructive",
       });
       return;
