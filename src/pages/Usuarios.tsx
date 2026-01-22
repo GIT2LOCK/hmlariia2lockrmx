@@ -20,7 +20,7 @@ const mockUsuarios = [
     nome: "João Silva",
     email: "joao.silva@escritorio.com",
     cpf: "111.222.333-44",
-    permissao: "Administrador",
+    permissao: "SUPERADMIN",
     ativo: true,
     demandas_atribuidas: 3,
   },
@@ -29,7 +29,7 @@ const mockUsuarios = [
     nome: "Maria Santos",
     email: "maria.santos@escritorio.com",
     cpf: "222.333.444-55",
-    permissao: "Contador",
+    permissao: "ADMIN",
     ativo: true,
     demandas_atribuidas: 5,
   },
@@ -38,7 +38,7 @@ const mockUsuarios = [
     nome: "Pedro Oliveira",
     email: "pedro.oliveira@escritorio.com",
     cpf: "333.444.555-66",
-    permissao: "Assistente",
+    permissao: "USER",
     ativo: true,
     demandas_atribuidas: 2,
   },
@@ -47,7 +47,7 @@ const mockUsuarios = [
     nome: "Ana Costa",
     email: "ana.costa@escritorio.com",
     cpf: "444.555.666-77",
-    permissao: "Contador",
+    permissao: "VIEWER",
     ativo: false,
     demandas_atribuidas: 0,
   },
@@ -56,7 +56,7 @@ const mockUsuarios = [
     nome: "Lucas Ferreira",
     email: "lucas.ferreira@escritorio.com",
     cpf: "555.666.777-88",
-    permissao: "Assistente",
+    permissao: "USER",
     ativo: true,
     demandas_atribuidas: 4,
   },
@@ -64,12 +64,14 @@ const mockUsuarios = [
 
 const getPermissaoColor = (permissao: string) => {
   switch (permissao) {
-    case "Administrador":
+    case "SUPERADMIN":
+      return "bg-purple-100 text-purple-700";
+    case "ADMIN":
       return "bg-red-100 text-red-700";
-    case "Contador":
+    case "USER":
       return "bg-blue-100 text-blue-700";
-    case "Assistente":
-      return "bg-green-100 text-green-700";
+    case "VIEWER":
+      return "bg-gray-100 text-gray-700";
     default:
       return "bg-gray-100 text-gray-700";
   }
