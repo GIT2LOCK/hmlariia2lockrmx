@@ -9,6 +9,7 @@ import PasswordChecklist from "@/components/PasswordChecklist";
 import { signup, login } from "@/services/authService";
 import { EmailVerificationModal } from "@/components/EmailVerificationModal";
 import { TwoFactorModal } from "@/components/TwoFactorModal";
+import { useUser } from "@/contexts/UserContext";
 
 // Função para aplicar máscara de CPF
 const formatCpf = (value: string): string => {
@@ -71,6 +72,7 @@ const validatePassword = (password: string): { valid: boolean; message: string }
 
 const Index = () => {
   const navigate = useNavigate();
+  const { refreshUser } = useUser();
   const [isLoginMode, setIsLoginMode] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -106,6 +108,8 @@ const Index = () => {
     setIsLoading(false);
     
     if (result.success) {
+      // Refresh user context to update authentication state
+      refreshUser();
       toast({
         title: "Login realizado!",
         description: `Bem-vindo de volta, ${result.user?.nome}!`,
