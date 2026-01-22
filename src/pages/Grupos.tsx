@@ -11,36 +11,75 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Search, UsersRound, Pencil, Trash2, Shield } from "lucide-react";
+import { Plus, Search, UsersRound, Pencil, Trash2, Shield, Crown, UserCog, User, Eye } from "lucide-react";
+import { UserRole } from "@/contexts/UserContext";
 
-const mockGrupos = [
+export interface Grupo {
+  id: number;
+  nome: string;
+  descricao: string;
+  role: UserRole;
+  membros: number;
+}
+
+const getGrupoIcon = (role: UserRole) => {
+  switch (role) {
+    case "SUPERADMIN":
+      return Crown;
+    case "ADMIN":
+      return UserCog;
+    case "USER":
+      return User;
+    case "VIEWER":
+      return Eye;
+    default:
+      return Shield;
+  }
+};
+
+const getGrupoColor = (role: UserRole) => {
+  switch (role) {
+    case "SUPERADMIN":
+      return "bg-purple-100 text-purple-700";
+    case "ADMIN":
+      return "bg-red-100 text-red-700";
+    case "USER":
+      return "bg-blue-100 text-blue-700";
+    case "VIEWER":
+      return "bg-gray-100 text-gray-700";
+    default:
+      return "bg-gray-100 text-gray-700";
+  }
+};
+
+export const mockGrupos: Grupo[] = [
   {
     id: 1,
-    nome: "Administradores",
-    descricao: "Acesso total ao sistema",
-    membros: 2,
-    permissoes: ["Criar", "Editar", "Excluir", "Visualizar"],
+    nome: "SUPERADMIN",
+    descricao: "Controle total e irrestrito do sistema",
+    role: "SUPERADMIN",
+    membros: 1,
   },
   {
     id: 2,
-    nome: "Contadores",
-    descricao: "Acesso às demandas e relatórios",
-    membros: 5,
-    permissoes: ["Editar", "Visualizar"],
+    nome: "ADMIN",
+    descricao: "Gestão administrativa (exceto sobre Superadmins)",
+    role: "ADMIN",
+    membros: 2,
   },
   {
     id: 3,
-    nome: "Assistentes",
-    descricao: "Acesso limitado às demandas",
-    membros: 8,
-    permissoes: ["Visualizar"],
+    nome: "USER",
+    descricao: "Operacional focado em demandas próprias",
+    role: "USER",
+    membros: 5,
   },
   {
     id: 4,
-    nome: "Financeiro",
-    descricao: "Acesso aos relatórios financeiros",
+    nome: "VIEWER",
+    descricao: "Somente visualização",
+    role: "VIEWER",
     membros: 3,
-    permissoes: ["Visualizar", "Exportar"],
   },
 ];
 
@@ -100,33 +139,43 @@ const Grupos = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredGrupos.map((grupo) => (
-                    <TableRow
-                      key={grupo.id}
-                      className={`cursor-pointer hover:bg-muted/50 ${
-                        selectedGrupo?.id === grupo.id ? "bg-muted" : ""
-                      }`}
-                      onClick={() => setSelectedGrupo(grupo)}
-                    >
-                      <TableCell className="font-medium">{grupo.nome}</TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {grupo.descricao}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">{grupo.membros} usuário(s)</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button variant="ghost" size="icon">
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="text-destructive">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {filteredGrupos.map((grupo) => {
+                    const IconComponent = getGrupoIcon(grupo.role);
+                    return (
+                      <TableRow
+                        key={grupo.id}
+                        className={`cursor-pointer hover:bg-muted/50 ${
+                          selectedGrupo?.id === grupo.id ? "bg-muted" : ""
+                        }`}
+                        onClick={() => setSelectedGrupo(grupo)}
+                      >
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Badge className={`${getGrupoColor(grupo.role)} flex items-center gap-1`}>
+                              <IconComponent className="h-3 w-3" />
+                              {grupo.nome}
+                            </Badge>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {grupo.descricao}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="secondary">{grupo.membros} usuário(s)</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button variant="ghost" size="icon">
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="text-destructive">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </CardContent>
@@ -151,14 +200,14 @@ const Grupos = () => {
                 </div>
 
                 <div className="pt-4 border-t">
-                  <h4 className="font-medium mb-3">Permissões</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedGrupo.permissoes.map((permissao, index) => (
-                      <Badge key={index} variant="outline">
-                        {permissao}
-                      </Badge>
-                    ))}
-                  </div>
+                  <h4 className="font-medium mb-3">Nível de Acesso</h4>
+                  <Badge className={`${getGrupoColor(selectedGrupo.role)} flex items-center gap-1 w-fit`}>
+                    {(() => {
+                      const IconComponent = getGrupoIcon(selectedGrupo.role);
+                      return <IconComponent className="h-3 w-3" />;
+                    })()}
+                    {selectedGrupo.role}
+                  </Badge>
                 </div>
 
                 <div className="pt-4 border-t">
@@ -167,10 +216,6 @@ const Grupos = () => {
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Membros:</span>
                       <span>{selectedGrupo.membros}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Permissões:</span>
-                      <span>{selectedGrupo.permissoes.length}</span>
                     </div>
                   </div>
                 </div>
