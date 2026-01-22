@@ -186,16 +186,22 @@ const Usuarios = () => {
 
   // Check if user can toggle active status
   const canToggleAtivo = (targetUserId: number, targetPermissaoNome: string): boolean => {
+    // Cannot toggle own status (except SUPERADMIN)
+    if (currentUser.id === targetUserId && currentUser.role !== "SUPERADMIN") return false;
+    // VIEWER and USER cannot toggle anyone
     if (currentUser.role === "VIEWER" || currentUser.role === "USER") return false;
-    if (currentUser.id === targetUserId) return false;
+    // ADMIN cannot toggle SUPERADMIN users
     if (currentUser.role === "ADMIN" && targetPermissaoNome === "SUPERADMIN") return false;
     return true;
   };
 
   // Check if user can delete
   const canDelete = (targetUserId: number, targetPermissaoNome: string): boolean => {
+    // Cannot delete own user (except SUPERADMIN)
+    if (currentUser.id === targetUserId && currentUser.role !== "SUPERADMIN") return false;
+    // VIEWER and USER cannot delete anyone
     if (currentUser.role === "VIEWER" || currentUser.role === "USER") return false;
-    if (currentUser.id === targetUserId) return false;
+    // ADMIN cannot delete SUPERADMIN users
     if (currentUser.role === "ADMIN" && targetPermissaoNome === "SUPERADMIN") return false;
     return true;
   };
