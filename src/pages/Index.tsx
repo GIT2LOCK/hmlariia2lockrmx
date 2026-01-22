@@ -6,6 +6,7 @@ import { Eye, EyeOff, Mail, Lock, User, CreditCard } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import logo from "@/assets/logo.png";
 import PasswordChecklist from "@/components/PasswordChecklist";
+import { signup, login } from "@/services/authService";
 
 // Função para aplicar máscara de CPF
 const formatCpf = (value: string): string => {
@@ -59,14 +60,27 @@ const Index = () => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
+    
+    const result = await login({
+      email: loginEmail,
+      senha: loginPassword,
+    });
+    
+    setIsLoading(false);
+    
+    if (result.success) {
       toast({
         title: "Login realizado!",
-        description: "Bem-vindo de volta ao Web Contador.",
+        description: `Bem-vindo de volta, ${result.user?.nome}!`,
       });
       navigate("/dashboard");
-    }, 1500);
+    } else {
+      toast({
+        title: "Erro",
+        description: result.message,
+        variant: "destructive",
+      });
+    }
   };
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -106,17 +120,18 @@ const Index = () => {
     // Concatenar nome e sobrenome para enviar ao banco
     const nomeCompleto = `${signupNome.trim()} ${signupSobrenome.trim()}`;
     
-    // Usuário será criado com permissão VIEWER por padrão
-    console.log("Criando usuário:", {
+    setIsLoading(true);
+    
+    const result = await signup({
       nome: nomeCompleto,
       email: signupEmail,
       cpf: signupCpf,
-      permissao: "VIEWER" // Permissão padrão
+      senha: signupPassword,
     });
     
-    setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
+    setIsLoading(false);
+    
+    if (result.success) {
       toast({
         title: "Conta criada!",
         description: "Sua conta foi criada com sucesso. Você está no grupo VIEWER.",
@@ -129,7 +144,13 @@ const Index = () => {
       setSignupCpf("");
       setSignupPassword("");
       setSignupConfirmPassword("");
-    }, 1500);
+    } else {
+      toast({
+        title: "Erro",
+        description: result.message,
+        variant: "destructive",
+      });
+    }
   };
 
   const handleForgotPassword = async (e: React.FormEvent) => {
