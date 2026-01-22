@@ -15,10 +15,10 @@ import {
 import { Plus, Pencil, Trash2, Shield, Mail, Tag, Building } from "lucide-react";
 
 const mockPermissoes = [
-  { id: 1, nome: "Administrador", descricao: "Acesso total ao sistema" },
-  { id: 2, nome: "Contador", descricao: "Acesso às demandas e relatórios" },
-  { id: 3, nome: "Assistente", descricao: "Acesso limitado às demandas" },
-  { id: 4, nome: "Visualizador", descricao: "Apenas visualização" },
+  { id: 1, nome: "SUPERADMIN", descricao: "Controle total e irrestrito do sistema" },
+  { id: 2, nome: "ADMIN", descricao: "Gestão administrativa (exceto sobre Superadmins)" },
+  { id: 3, nome: "USER", descricao: "Operacional focado em demandas próprias" },
+  { id: 4, nome: "VIEWER", descricao: "Somente visualização" },
 ];
 
 const mockVias = [
