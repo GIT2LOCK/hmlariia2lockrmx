@@ -6,7 +6,9 @@ import {
   FileText, 
   LogOut,
   PanelLeftClose,
-  PanelLeft
+  PanelLeft,
+  UsersRound,
+  Webhook
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -38,12 +40,14 @@ const menuItems = [
   { title: "Demandas", url: "/dashboard/demandas", icon: ClipboardList },
   { title: "Empresas", url: "/dashboard/empresas", icon: FileText },
   { title: "Pessoas", url: "/dashboard/pessoas", icon: Users },
-  { title: "Usuários", url: "/dashboard/usuarios", icon: Users },
   { title: "Relatórios", url: "/dashboard/relatorios", icon: FileText },
 ];
 
-const configItems = [
+const sistemaItems = [
   { title: "Configurações", url: "/dashboard/configuracoes", icon: Settings },
+  { title: "Usuários", url: "/dashboard/usuarios", icon: Users },
+  { title: "Grupos", url: "/dashboard/grupos", icon: UsersRound },
+  { title: "Webhook", url: "/dashboard/webhook", icon: Webhook },
 ];
 
 export function AppSidebar() {
@@ -115,7 +119,7 @@ export function AppSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {configItems.map((item) => (
+              {sistemaItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton 
                     asChild 
