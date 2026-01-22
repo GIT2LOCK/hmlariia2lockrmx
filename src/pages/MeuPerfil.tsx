@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { useUser } from "@/contexts/UserContext";
 import { User, Mail, Phone, Lock, Save } from "lucide-react";
+import { TwoFactorSettings } from "@/components/TwoFactorSettings";
+import { getStoredUser } from "@/services/authService";
 
 const formatPhoneMask = (value: string): string => {
   // Remove tudo que não é número
@@ -29,7 +31,9 @@ const formatPhoneMask = (value: string): string => {
 
 const MeuPerfil = () => {
   const { user } = useUser();
+  const storedUser = getStoredUser();
   const [isEditing, setIsEditing] = useState(false);
+  const [is2FAEnabled, setIs2FAEnabled] = useState(false);
   const [formData, setFormData] = useState({
     nome: user.nome,
     sobrenome: user.sobrenome,
@@ -176,10 +180,10 @@ const MeuPerfil = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Lock className="h-5 w-5" />
-              Segurança
+              Alterar Senha
             </CardTitle>
             <CardDescription>
-              Gerencie sua senha de acesso
+              Atualize sua senha de acesso
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -200,6 +204,15 @@ const MeuPerfil = () => {
             <Button className="mt-4">Alterar Senha</Button>
           </CardContent>
         </Card>
+
+        {/* Two-Factor Authentication */}
+        <div className="lg:col-span-3">
+          <TwoFactorSettings 
+            userId={storedUser?.id || 0}
+            isEnabled={is2FAEnabled}
+            onStatusChange={setIs2FAEnabled}
+          />
+        </div>
       </div>
     </div>
   );
