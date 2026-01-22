@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -11,18 +12,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Search, UsersRound, Pencil, Trash2, Shield, Crown, UserCog, User, Eye } from "lucide-react";
+import { Search, UsersRound, Shield, Crown, UserCog, User, Eye, Users } from "lucide-react";
+import { usePermissoes, useUsuarios } from "@/hooks/useUsuarios";
 import { UserRole } from "@/contexts/UserContext";
 
-export interface Grupo {
-  id: number;
-  nome: string;
-  descricao: string;
-  role: UserRole;
-  membros: number;
-}
-
-const getGrupoIcon = (role: UserRole) => {
+const getGrupoIcon = (role: string) => {
   switch (role) {
     case "SUPERADMIN":
       return Crown;
@@ -37,59 +31,46 @@ const getGrupoIcon = (role: UserRole) => {
   }
 };
 
-const getGrupoColor = (role: UserRole) => {
+const getGrupoColor = (role: string) => {
   switch (role) {
     case "SUPERADMIN":
-      return "bg-purple-100 text-purple-700";
+      return "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300";
     case "ADMIN":
-      return "bg-red-100 text-red-700";
+      return "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300";
     case "USER":
-      return "bg-blue-100 text-blue-700";
+      return "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300";
     case "VIEWER":
-      return "bg-gray-100 text-gray-700";
+      return "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300";
     default:
-      return "bg-gray-100 text-gray-700";
+      return "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300";
   }
 };
 
-export const mockGrupos: Grupo[] = [
-  {
-    id: 1,
-    nome: "SUPERADMIN",
-    descricao: "Controle total e irrestrito do sistema",
-    role: "SUPERADMIN",
-    membros: 1,
-  },
-  {
-    id: 2,
-    nome: "ADMIN",
-    descricao: "Gestão administrativa (exceto sobre Superadmins)",
-    role: "ADMIN",
-    membros: 2,
-  },
-  {
-    id: 3,
-    nome: "USER",
-    descricao: "Operacional focado em demandas próprias",
-    role: "USER",
-    membros: 5,
-  },
-  {
-    id: 4,
-    nome: "VIEWER",
-    descricao: "Somente visualização",
-    role: "VIEWER",
-    membros: 3,
-  },
-];
-
 const Grupos = () => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedGrupo, setSelectedGrupo] = useState<typeof mockGrupos[0] | null>(null);
+  const [selectedGrupo, setSelectedGrupo] = useState<number | null>(null);
+  const { permissoes, isLoading, error, refetch } = usePermissoes();
+  const { usuarios } = useUsuarios();
 
-  const filteredGrupos = mockGrupos.filter((grupo) =>
+  const filteredGrupos = permissoes.filter((grupo) =>
     grupo.nome.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const selectedPermissao = permissoes.find(p => p.permissao_id === selectedGrupo);
+  const membrosDoGrupo = usuarios.filter(u => u.permissao_id === selectedGrupo);
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <Card className="border-destructive">
+          <CardContent className="flex flex-col items-center justify-center py-10">
+            <p className="text-destructive mb-4">{error}</p>
+            <Button onClick={refetch}>Tentar novamente</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -100,10 +81,6 @@ const Grupos = () => {
             Gerenciar grupos de usuários e permissões
           </p>
         </div>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Novo Grupo
-        </Button>
       </div>
 
       <div className="relative">
@@ -125,7 +102,7 @@ const Grupos = () => {
                 Lista de Grupos
               </CardTitle>
               <CardDescription>
-                {filteredGrupos.length} grupo(s) encontrado(s)
+                {isLoading ? "Carregando..." : `${filteredGrupos.length} grupo(s) encontrado(s)`}
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
@@ -135,47 +112,49 @@ const Grupos = () => {
                     <TableHead>Nome</TableHead>
                     <TableHead>Descrição</TableHead>
                     <TableHead>Membros</TableHead>
-                    <TableHead className="w-24">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredGrupos.map((grupo) => {
-                    const IconComponent = getGrupoIcon(grupo.role);
-                    return (
-                      <TableRow
-                        key={grupo.id}
-                        className={`cursor-pointer hover:bg-muted/50 ${
-                          selectedGrupo?.id === grupo.id ? "bg-muted" : ""
-                        }`}
-                        onClick={() => setSelectedGrupo(grupo)}
-                      >
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Badge className={`${getGrupoColor(grupo.role)} flex items-center gap-1`}>
-                              <IconComponent className="h-3 w-3" />
-                              {grupo.nome}
-                            </Badge>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {grupo.descricao}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="secondary">{grupo.membros} usuário(s)</Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            <Button variant="ghost" size="icon">
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="text-destructive">
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
+                  {isLoading ? (
+                    Array.from({ length: 4 }).map((_, i) => (
+                      <TableRow key={i}>
+                        <TableCell><Skeleton className="h-6 w-28" /></TableCell>
+                        <TableCell><Skeleton className="h-5 w-48" /></TableCell>
+                        <TableCell><Skeleton className="h-6 w-24" /></TableCell>
                       </TableRow>
-                    );
-                  })}
+                    ))
+                  ) : (
+                    filteredGrupos.map((grupo) => {
+                      const IconComponent = getGrupoIcon(grupo.nome);
+                      return (
+                        <TableRow
+                          key={grupo.permissao_id}
+                          className={`cursor-pointer hover:bg-muted/50 ${
+                            selectedGrupo === grupo.permissao_id ? "bg-muted" : ""
+                          }`}
+                          onClick={() => setSelectedGrupo(grupo.permissao_id)}
+                        >
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Badge className={`${getGrupoColor(grupo.nome)} flex items-center gap-1`}>
+                                <IconComponent className="h-3 w-3" />
+                                {grupo.nome}
+                              </Badge>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {grupo.descricao || "Sem descrição"}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="secondary" className="flex items-center gap-1 w-fit">
+                              <Users className="h-3 w-3" />
+                              {grupo.membros} usuário(s)
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -183,7 +162,7 @@ const Grupos = () => {
         </div>
 
         <div>
-          {selectedGrupo ? (
+          {selectedPermissao ? (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -193,21 +172,20 @@ const Grupos = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <h3 className="font-semibold text-lg">{selectedGrupo.nome}</h3>
-                  <p className="text-sm text-muted-foreground">
-                    {selectedGrupo.descricao}
-                  </p>
-                </div>
-
-                <div className="pt-4 border-t">
-                  <h4 className="font-medium mb-3">Nível de Acesso</h4>
-                  <Badge className={`${getGrupoColor(selectedGrupo.role)} flex items-center gap-1 w-fit`}>
+                  <div className="flex items-center gap-2 mb-2">
                     {(() => {
-                      const IconComponent = getGrupoIcon(selectedGrupo.role);
-                      return <IconComponent className="h-3 w-3" />;
+                      const IconComponent = getGrupoIcon(selectedPermissao.nome);
+                      return (
+                        <Badge className={`${getGrupoColor(selectedPermissao.nome)} flex items-center gap-1`}>
+                          <IconComponent className="h-4 w-4" />
+                          {selectedPermissao.nome}
+                        </Badge>
+                      );
                     })()}
-                    {selectedGrupo.role}
-                  </Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedPermissao.descricao || "Sem descrição"}
+                  </p>
                 </div>
 
                 <div className="pt-4 border-t">
@@ -215,14 +193,35 @@ const Grupos = () => {
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Membros:</span>
-                      <span>{selectedGrupo.membros}</span>
+                      <span className="font-medium">{selectedPermissao.membros}</span>
                     </div>
                   </div>
                 </div>
 
-                <Button className="w-full" variant="outline">
-                  Gerenciar Membros
-                </Button>
+                {membrosDoGrupo.length > 0 && (
+                  <div className="pt-4 border-t">
+                    <h4 className="font-medium mb-3">Membros do Grupo</h4>
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {membrosDoGrupo.map((membro) => (
+                        <div 
+                          key={membro.user_id} 
+                          className="flex items-center justify-between p-2 bg-muted/50 rounded-md"
+                        >
+                          <div>
+                            <p className="text-sm font-medium">{membro.nome}</p>
+                            <p className="text-xs text-muted-foreground">{membro.email}</p>
+                          </div>
+                          <Badge 
+                            variant={membro.ativo ? "default" : "secondary"}
+                            className={membro.ativo ? "bg-green-100 text-green-700 text-xs" : "text-xs"}
+                          >
+                            {membro.ativo ? "Ativo" : "Inativo"}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           ) : (
