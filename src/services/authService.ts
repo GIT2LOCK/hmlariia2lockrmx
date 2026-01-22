@@ -155,6 +155,14 @@ export function getStoredUser(): AuthUser | null {
   }
 }
 
+export function updateStoredUser(user: Partial<AuthUser>): void {
+  const currentUser = getStoredUser();
+  if (currentUser) {
+    const updatedUser = { ...currentUser, ...user };
+    localStorage.setItem("auth_user", JSON.stringify(updatedUser));
+  }
+}
+
 export function isAuthenticated(): boolean {
   const token = localStorage.getItem("auth_token");
   const expires = localStorage.getItem("auth_expires");
@@ -168,6 +176,47 @@ export function isAuthenticated(): boolean {
   }
 
   return true;
+}
+
+// Sync user data from database to localStorage
+export async function syncUserFromDatabase(): Promise<AuthUser | null> {
+  const storedUser = getStoredUser();
+  if (!storedUser) return null;
+
+  try {
+    const { data, error } = await supabase
+      .from("tb_usuario")
+      .select(`
+        user_id,
+        nome,
+        permissao_id,
+        tb_permissao (nome, descricao),
+        tb_email (email_principal)
+      `)
+      .eq("user_id", storedUser.id)
+      .maybeSingle();
+
+    if (error || !data) {
+      console.error("Error syncing user from database:", error);
+      return null;
+    }
+
+    const updatedUser: AuthUser = {
+      id: data.user_id,
+      nome: data.nome,
+      email: (data.tb_email as any)?.email_principal || storedUser.email,
+      permissao: (data.tb_permissao as any)?.nome || storedUser.permissao,
+      permissao_descricao: (data.tb_permissao as any)?.descricao || storedUser.permissao_descricao,
+    };
+
+    // Update localStorage with fresh data
+    localStorage.setItem("auth_user", JSON.stringify(updatedUser));
+    
+    return updatedUser;
+  } catch (error) {
+    console.error("Error syncing user:", error);
+    return null;
+  }
 }
 
 // Send email verification code

@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useUser } from "@/contexts/UserContext";
 import { Loader2 } from "lucide-react";
@@ -7,8 +8,15 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { isAuthenticated, isLoading } = useUser();
+  const { isAuthenticated, isLoading, syncFromDatabase } = useUser();
   const location = useLocation();
+
+  // Sync user data from database on route change to get latest permissions
+  useEffect(() => {
+    if (isAuthenticated) {
+      syncFromDatabase();
+    }
+  }, [isAuthenticated, location.pathname]);
 
   // Show loading spinner while checking authentication
   if (isLoading) {

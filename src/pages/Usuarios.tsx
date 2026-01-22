@@ -31,10 +31,23 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Plus, Search, UserCog, Crown, User, Eye, Trash2, Shield, ShieldCheck, Mail, Loader2 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Plus, Search, UserCog, Crown, User, Eye, Trash2, Shield, Mail, Lock } from "lucide-react";
 import { useUsuarios, usePermissoes } from "@/hooks/useUsuarios";
 import { useToast } from "@/hooks/use-toast";
-import { UserRole } from "@/contexts/UserContext";
+import { useUser, UserRole } from "@/contexts/UserContext";
+
+// Permission hierarchy: SUPERADMIN=1, ADMIN=2, USER=3, VIEWER=4
+const PERMISSION_IDS: Record<string, number> = {
+  SUPERADMIN: 1,
+  ADMIN: 2,
+  USER: 3,
+  VIEWER: 4,
+};
 
 const getGrupoColor = (role: string) => {
   switch (role) {
@@ -72,6 +85,7 @@ const Usuarios = () => {
   const { usuarios, isLoading, error, toggleUsuarioAtivo, updateUsuarioPermissao, deleteUsuario, refetch } = useUsuarios();
   const { permissoes } = usePermissoes();
   const { toast } = useToast();
+  const { user: currentUser } = useUser();
 
   const filteredUsuarios = usuarios.filter(
     (usuario) =>
@@ -79,6 +93,41 @@ const Usuarios = () => {
       usuario.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       usuario.cpf.includes(searchTerm)
   );
+
+  // Check if the current user can edit a target user's permission
+  const canEditPermission = (targetUserId: number, targetPermissaoNome: string): { allowed: boolean; reason?: string } => {
+    // User cannot edit their own permission (except SUPERADMIN)
+    if (currentUser.id === targetUserId && currentUser.role !== "SUPERADMIN") {
+      return { allowed: false, reason: "Você não pode alterar sua própria permissão" };
+    }
+
+    // VIEWER and USER cannot change anyone's permission
+    if (currentUser.role === "VIEWER" || currentUser.role === "USER") {
+      return { allowed: false, reason: "Você não tem permissão para alterar grupos" };
+    }
+
+    // ADMIN cannot edit SUPERADMIN users
+    if (currentUser.role === "ADMIN" && targetPermissaoNome === "SUPERADMIN") {
+      return { allowed: false, reason: "Administradores não podem editar Superadministradores" };
+    }
+
+    return { allowed: true };
+  };
+
+  // Get allowed permission options for the current user when editing a target user
+  const getAllowedPermissions = (targetUserId: number, targetPermissaoNome: string) => {
+    // SUPERADMIN can set any permission
+    if (currentUser.role === "SUPERADMIN") {
+      return permissoes;
+    }
+
+    // ADMIN cannot promote to SUPERADMIN
+    if (currentUser.role === "ADMIN") {
+      return permissoes.filter(p => p.nome !== "SUPERADMIN");
+    }
+
+    return [];
+  };
 
   const handleToggleAtivo = async (userId: number, currentStatus: boolean) => {
     setUpdatingUserId(userId);
@@ -135,6 +184,22 @@ const Usuarios = () => {
     }
   };
 
+  // Check if user can toggle active status
+  const canToggleAtivo = (targetUserId: number, targetPermissaoNome: string): boolean => {
+    if (currentUser.role === "VIEWER" || currentUser.role === "USER") return false;
+    if (currentUser.id === targetUserId) return false;
+    if (currentUser.role === "ADMIN" && targetPermissaoNome === "SUPERADMIN") return false;
+    return true;
+  };
+
+  // Check if user can delete
+  const canDelete = (targetUserId: number, targetPermissaoNome: string): boolean => {
+    if (currentUser.role === "VIEWER" || currentUser.role === "USER") return false;
+    if (currentUser.id === targetUserId) return false;
+    if (currentUser.role === "ADMIN" && targetPermissaoNome === "SUPERADMIN") return false;
+    return true;
+  };
+
   const totalAtivos = usuarios.filter((u) => u.ativo).length;
   const totalInativos = usuarios.filter((u) => !u.ativo).length;
 
@@ -160,10 +225,12 @@ const Usuarios = () => {
             Gerenciar usuários internos do sistema
           </p>
         </div>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Novo Usuário
-        </Button>
+        {(currentUser.role === "SUPERADMIN" || currentUser.role === "ADMIN") && (
+          <Button>
+            <Plus className="h-4 w-4 mr-2" />
+            Novo Usuário
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -269,10 +336,18 @@ const Usuarios = () => {
                 filteredUsuarios.map((usuario) => {
                   const IconComponent = getGrupoIcon(usuario.permissao_nome);
                   const isUpdating = updatingUserId === usuario.user_id;
+                  const permissionCheck = canEditPermission(usuario.user_id, usuario.permissao_nome);
+                  const allowedPermissions = getAllowedPermissions(usuario.user_id, usuario.permissao_nome);
+                  const isOwnUser = currentUser.id === usuario.user_id;
                   
                   return (
-                    <TableRow key={usuario.user_id}>
-                      <TableCell className="font-medium">{usuario.nome}</TableCell>
+                    <TableRow key={usuario.user_id} className={isOwnUser ? "bg-muted/30" : ""}>
+                      <TableCell className="font-medium">
+                        {usuario.nome}
+                        {isOwnUser && (
+                          <Badge variant="outline" className="ml-2 text-xs">Você</Badge>
+                        )}
+                      </TableCell>
                       <TableCell className="text-muted-foreground">
                         {usuario.email}
                       </TableCell>
@@ -280,31 +355,46 @@ const Usuarios = () => {
                         {usuario.cpf}
                       </TableCell>
                       <TableCell>
-                        <Select
-                          value={usuario.permissao_id.toString()}
-                          onValueChange={(value) => handlePermissaoChange(usuario.user_id, value)}
-                          disabled={isUpdating}
-                        >
-                          <SelectTrigger className={`w-[140px] h-8 ${getGrupoColor(usuario.permissao_nome)}`}>
-                            <div className="flex items-center gap-1">
-                              <IconComponent className="h-3 w-3" />
-                              <SelectValue />
-                            </div>
-                          </SelectTrigger>
-                          <SelectContent>
-                            {permissoes.map((perm) => {
-                              const PermIcon = getGrupoIcon(perm.nome);
-                              return (
-                                <SelectItem key={perm.permissao_id} value={perm.permissao_id.toString()}>
-                                  <div className="flex items-center gap-2">
-                                    <PermIcon className="h-3 w-3" />
-                                    {perm.nome}
-                                  </div>
-                                </SelectItem>
-                              );
-                            })}
-                          </SelectContent>
-                        </Select>
+                        {permissionCheck.allowed ? (
+                          <Select
+                            value={usuario.permissao_id.toString()}
+                            onValueChange={(value) => handlePermissaoChange(usuario.user_id, value)}
+                            disabled={isUpdating}
+                          >
+                            <SelectTrigger className={`w-[140px] h-8 ${getGrupoColor(usuario.permissao_nome)}`}>
+                              <div className="flex items-center gap-1">
+                                <IconComponent className="h-3 w-3" />
+                                <SelectValue />
+                              </div>
+                            </SelectTrigger>
+                            <SelectContent>
+                              {allowedPermissions.map((perm) => {
+                                const PermIcon = getGrupoIcon(perm.nome);
+                                return (
+                                  <SelectItem key={perm.permissao_id} value={perm.permissao_id.toString()}>
+                                    <div className="flex items-center gap-2">
+                                      <PermIcon className="h-3 w-3" />
+                                      {perm.nome}
+                                    </div>
+                                  </SelectItem>
+                                );
+                              })}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-md text-sm ${getGrupoColor(usuario.permissao_nome)}`}>
+                                <IconComponent className="h-3 w-3" />
+                                {usuario.permissao_nome}
+                                <Lock className="h-3 w-3 ml-1 opacity-50" />
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>{permissionCheck.reason}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
@@ -333,38 +423,67 @@ const Usuarios = () => {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Switch
-                          checked={usuario.ativo}
-                          onCheckedChange={() => handleToggleAtivo(usuario.user_id, usuario.ativo)}
-                          disabled={isUpdating}
-                        />
+                        {canToggleAtivo(usuario.user_id, usuario.permissao_nome) ? (
+                          <Switch
+                            checked={usuario.ativo}
+                            onCheckedChange={() => handleToggleAtivo(usuario.user_id, usuario.ativo)}
+                            disabled={isUpdating}
+                          />
+                        ) : (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="inline-flex">
+                                <Switch
+                                  checked={usuario.ativo}
+                                  disabled={true}
+                                />
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Você não pode alterar este status</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
                       </TableCell>
                       <TableCell>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Excluir usuário?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Tem certeza que deseja excluir <strong>{usuario.nome}</strong>? 
-                                Esta ação não pode ser desfeita.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => handleDeleteUsuario(usuario.user_id, usuario.nome)}
-                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                              >
-                                Excluir
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                        {canDelete(usuario.user_id, usuario.permissao_nome) ? (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Excluir usuário?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Tem certeza que deseja excluir <strong>{usuario.nome}</strong>? 
+                                  Esta ação não pode ser desfeita.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleDeleteUsuario(usuario.user_id, usuario.nome)}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                >
+                                  Excluir
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        ) : (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button variant="ghost" size="icon" disabled className="text-muted-foreground">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Você não pode excluir este usuário</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
                       </TableCell>
                     </TableRow>
                   );
