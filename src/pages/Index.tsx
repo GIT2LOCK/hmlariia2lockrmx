@@ -1,92 +1,319 @@
-import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { LogIn, BarChart3, FileText, Users } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, User } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import logo from "@/assets/logo.png";
 
 const Index = () => {
-  const navigate = useNavigate();
+  const [isLoginMode, setIsLoginMode] = useState(true);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const { toast } = useToast();
+
+  // Form states
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [signupName, setSignupName] = useState("");
+  const [signupEmail, setSignupEmail] = useState("");
+  const [signupPassword, setSignupPassword] = useState("");
+  const [signupConfirmPassword, setSignupConfirmPassword] = useState("");
+  const [forgotEmail, setForgotEmail] = useState("");
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setTimeout(() => {
+      setIsLoading(false);
+      toast({
+        title: "Login realizado!",
+        description: "Bem-vindo de volta ao Web Contador.",
+      });
+    }, 1500);
+  };
+
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (signupPassword !== signupConfirmPassword) {
+      toast({
+        title: "Erro",
+        description: "As senhas não coincidem.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setIsLoading(true);
+    setTimeout(() => {
+      setIsLoading(false);
+      toast({
+        title: "Conta criada!",
+        description: "Sua conta foi criada com sucesso.",
+      });
+      setIsLoginMode(true);
+    }, 1500);
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setTimeout(() => {
+      setIsLoading(false);
+      toast({
+        title: "E-mail enviado!",
+        description: "Verifique sua caixa de entrada para redefinir sua senha.",
+      });
+      setIsForgotPassword(false);
+    }, 1500);
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,hsl(var(--brand-green)/0.08),transparent_50%),radial-gradient(ellipse_at_bottom_right,hsl(var(--brand-blue)/0.08),transparent_50%)]" />
-      
-      {/* Header */}
-      <header className="relative z-10 border-b border-border/50 bg-card/80 backdrop-blur-sm">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <img src={logo} alt="Web Contador" className="h-10 object-contain" />
-          <Button 
-            onClick={() => navigate("/auth")}
-            className="bg-primary hover:bg-brand-blue-light text-primary-foreground"
-          >
-            <LogIn className="mr-2 h-4 w-4" />
-            Entrar
-          </Button>
-        </div>
-      </header>
+    <div className="min-h-screen flex bg-background overflow-hidden relative">
+      {/* Forms Container */}
+      <div className="w-full flex relative">
+        {/* Login Form - Left side initially */}
+        <div 
+          className={`w-1/2 min-h-screen flex items-center justify-center p-8 absolute inset-y-0 left-0 transition-all duration-700 ease-in-out ${
+            isLoginMode ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'
+          }`}
+        >
+          <div className="w-full max-w-md space-y-8">
+            {!isForgotPassword ? (
+              <>
+                <div className="text-center">
+                  <img src={logo} alt="Web Contador" className="h-14 mx-auto mb-6" />
+                  <h1 className="text-3xl font-bold text-foreground">Entrar na Conta</h1>
+                  <p className="text-muted-foreground mt-2">Use seu e-mail para login</p>
+                </div>
 
-      {/* Hero */}
-      <main className="relative z-10 container mx-auto px-4 py-20">
-        <div className="max-w-3xl mx-auto text-center space-y-8">
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground leading-tight">
-            Gestão contábil{" "}
-            <span className="text-secondary">inteligente</span>{" "}
-            para sua empresa
-          </h1>
-          <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
-            Simplifique sua contabilidade com nossa plataforma moderna e intuitiva. 
-            Relatórios automáticos, gestão fiscal e muito mais.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
-            <Button 
-              size="lg"
-              onClick={() => navigate("/auth")}
-              className="bg-primary hover:bg-brand-blue-light text-primary-foreground font-medium px-8"
-            >
-              Começar agora
-            </Button>
-            <Button 
-              size="lg"
-              variant="outline"
-              className="border-border hover:bg-muted"
-            >
-              Saiba mais
-            </Button>
+                <form onSubmit={handleLogin} className="space-y-4">
+                  <div className="relative">
+                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <Input
+                      type="email"
+                      placeholder="E-mail"
+                      value={loginEmail}
+                      onChange={(e) => setLoginEmail(e.target.value)}
+                      className="pl-12 h-12 bg-muted border-0 rounded-lg"
+                      required
+                    />
+                  </div>
+
+                  <div className="relative">
+                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <Input
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Senha"
+                      value={loginPassword}
+                      onChange={(e) => setLoginPassword(e.target.value)}
+                      className="pl-12 pr-12 h-12 bg-muted border-0 rounded-lg"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    </button>
+                  </div>
+
+                  <div className="text-right">
+                    <button
+                      type="button"
+                      onClick={() => setIsForgotPassword(true)}
+                      className="text-sm text-secondary hover:text-brand-green-light font-medium"
+                    >
+                      Esqueceu sua senha?
+                    </button>
+                  </div>
+
+                  <Button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full h-12 bg-secondary hover:bg-brand-green-light text-secondary-foreground font-semibold rounded-full"
+                  >
+                    {isLoading ? "ENTRANDO..." : "ENTRAR"}
+                  </Button>
+                </form>
+              </>
+            ) : (
+              <>
+                <div className="text-center">
+                  <img src={logo} alt="Web Contador" className="h-14 mx-auto mb-6" />
+                  <h1 className="text-3xl font-bold text-foreground">Recuperar Senha</h1>
+                  <p className="text-muted-foreground mt-2">Digite seu e-mail para receber o link</p>
+                </div>
+
+                <form onSubmit={handleForgotPassword} className="space-y-4">
+                  <div className="relative">
+                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <Input
+                      type="email"
+                      placeholder="E-mail"
+                      value={forgotEmail}
+                      onChange={(e) => setForgotEmail(e.target.value)}
+                      className="pl-12 h-12 bg-muted border-0 rounded-lg"
+                      required
+                    />
+                  </div>
+
+                  <Button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full h-12 bg-secondary hover:bg-brand-green-light text-secondary-foreground font-semibold rounded-full"
+                  >
+                    {isLoading ? "ENVIANDO..." : "ENVIAR LINK"}
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => setIsForgotPassword(false)}
+                    className="w-full text-muted-foreground hover:text-foreground"
+                  >
+                    Voltar ao login
+                  </Button>
+                </form>
+              </>
+            )}
           </div>
         </div>
 
-        {/* Features */}
-        <div className="grid md:grid-cols-3 gap-6 mt-24 max-w-4xl mx-auto">
-          <div className="bg-card p-6 rounded-xl border border-border/50 shadow-lg hover:shadow-xl transition-shadow">
-            <div className="w-12 h-12 rounded-lg bg-secondary/10 flex items-center justify-center mb-4">
-              <BarChart3 className="h-6 w-6 text-secondary" />
+        {/* Signup Form - Right side initially */}
+        <div 
+          className={`w-1/2 min-h-screen flex items-center justify-center p-8 absolute inset-y-0 right-0 transition-all duration-700 ease-in-out ${
+            !isLoginMode ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'
+          }`}
+        >
+          <div className="w-full max-w-md space-y-8">
+            <div className="text-center">
+              <img src={logo} alt="Web Contador" className="h-14 mx-auto mb-6" />
+              <h1 className="text-3xl font-bold text-foreground">Criar Conta</h1>
+              <p className="text-muted-foreground mt-2">Use seu e-mail para cadastro</p>
             </div>
-            <h3 className="text-lg font-semibold text-foreground mb-2">Relatórios Automáticos</h3>
-            <p className="text-muted-foreground text-sm">
-              Gere relatórios financeiros completos com apenas um clique.
-            </p>
-          </div>
-          
-          <div className="bg-card p-6 rounded-xl border border-border/50 shadow-lg hover:shadow-xl transition-shadow">
-            <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
-              <FileText className="h-6 w-6 text-primary" />
-            </div>
-            <h3 className="text-lg font-semibold text-foreground mb-2">Gestão Fiscal</h3>
-            <p className="text-muted-foreground text-sm">
-              Mantenha suas obrigações fiscais sempre em dia e organizadas.
-            </p>
-          </div>
-          
-          <div className="bg-card p-6 rounded-xl border border-border/50 shadow-lg hover:shadow-xl transition-shadow">
-            <div className="w-12 h-12 rounded-lg bg-secondary/10 flex items-center justify-center mb-4">
-              <Users className="h-6 w-6 text-secondary" />
-            </div>
-            <h3 className="text-lg font-semibold text-foreground mb-2">Multi-empresas</h3>
-            <p className="text-muted-foreground text-sm">
-              Gerencie múltiplas empresas em uma única plataforma.
-            </p>
+
+            <form onSubmit={handleSignup} className="space-y-4">
+              <div className="relative">
+                <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Nome completo"
+                  value={signupName}
+                  onChange={(e) => setSignupName(e.target.value)}
+                  className="pl-12 h-12 bg-muted border-0 rounded-lg"
+                  required
+                />
+              </div>
+
+              <div className="relative">
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Input
+                  type="email"
+                  placeholder="E-mail"
+                  value={signupEmail}
+                  onChange={(e) => setSignupEmail(e.target.value)}
+                  className="pl-12 h-12 bg-muted border-0 rounded-lg"
+                  required
+                />
+              </div>
+
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Senha"
+                  value={signupPassword}
+                  onChange={(e) => setSignupPassword(e.target.value)}
+                  className="pl-12 pr-12 h-12 bg-muted border-0 rounded-lg"
+                  required
+                  minLength={6}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </button>
+              </div>
+
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Input
+                  type={showConfirmPassword ? "text" : "password"}
+                  placeholder="Confirmar senha"
+                  value={signupConfirmPassword}
+                  onChange={(e) => setSignupConfirmPassword(e.target.value)}
+                  className="pl-12 pr-12 h-12 bg-muted border-0 rounded-lg"
+                  required
+                  minLength={6}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </button>
+              </div>
+
+              <Button
+                type="submit"
+                disabled={isLoading}
+                className="w-full h-12 bg-secondary hover:bg-brand-green-light text-secondary-foreground font-semibold rounded-full"
+              >
+                {isLoading ? "CADASTRANDO..." : "CADASTRAR"}
+              </Button>
+            </form>
           </div>
         </div>
-      </main>
+      </div>
+
+      {/* Sliding Panel */}
+      <div 
+        className={`absolute inset-y-0 w-1/2 bg-primary transition-transform duration-700 ease-in-out z-20 flex flex-col items-center justify-center text-primary-foreground p-8 ${
+          isLoginMode ? 'right-0' : 'right-1/2'
+        }`}
+      >
+        <div className="max-w-sm text-center space-y-6">
+          {isLoginMode ? (
+            <>
+              <h2 className="text-3xl font-bold">Olá, Amigo!</h2>
+              <p className="text-primary-foreground/80">
+                Preencha seus dados pessoais e comece sua jornada conosco
+              </p>
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={() => {
+                  setIsLoginMode(false);
+                  setIsForgotPassword(false);
+                }}
+                className="mt-4 border-primary-foreground text-primary-foreground bg-transparent hover:bg-primary-foreground hover:text-primary font-semibold px-12 rounded-full"
+              >
+                CADASTRAR
+              </Button>
+            </>
+          ) : (
+            <>
+              <h2 className="text-3xl font-bold">Bem-vindo de Volta!</h2>
+              <p className="text-primary-foreground/80">
+                Para continuar conectado, faça login com suas informações pessoais
+              </p>
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={() => setIsLoginMode(true)}
+                className="mt-4 border-primary-foreground text-primary-foreground bg-transparent hover:bg-primary-foreground hover:text-primary font-semibold px-12 rounded-full"
+              >
+                ENTRAR
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 };
