@@ -467,7 +467,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_permission: { Args: { user_id_param: number }; Returns: number }
     }
     Enums: {
       [_ in never]: never
