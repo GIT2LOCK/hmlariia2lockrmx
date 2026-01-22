@@ -70,47 +70,42 @@ const Index = () => {
 
   return (
     <div className="min-h-screen flex bg-background overflow-hidden relative">
-      {/* Sliding Panel - Left side */}
+      {/* Sliding Panel */}
       <div 
-        className={`absolute inset-y-0 w-[37.5%] bg-primary transition-transform duration-700 ease-in-out z-20 flex flex-col items-center justify-center text-primary-foreground p-8 ${
-          isLoginMode ? 'left-0' : 'left-[62.5%]'
+        className={`absolute inset-y-0 w-[37.5%] bg-primary z-20 flex flex-col items-center justify-center text-primary-foreground p-8 transition-all duration-700 ease-[cubic-bezier(0.65,0,0.35,1)] ${
+          isLoginMode ? 'translate-x-0' : 'translate-x-[166.67%]'
         }`}
       >
-        <div className="max-w-sm text-center space-y-6">
-          {isLoginMode ? (
-            <>
-              <h2 className="text-3xl font-bold">Olá, Amigo!</h2>
-              <p className="text-primary-foreground/80">
-                Preencha seus dados pessoais e comece sua jornada conosco
-              </p>
-              <Button
-                variant="outline"
-                size="lg"
-                onClick={() => {
-                  setIsLoginMode(false);
-                  setIsForgotPassword(false);
-                }}
-                className="mt-4 border-primary-foreground text-primary-foreground bg-transparent hover:bg-primary-foreground hover:text-primary font-semibold px-12 rounded-full"
-              >
-                CADASTRAR
-              </Button>
-            </>
-          ) : (
-            <>
-              <h2 className="text-3xl font-bold">Bem-vindo de Volta!</h2>
-              <p className="text-primary-foreground/80">
-                Para continuar conectado, faça login com suas informações pessoais
-              </p>
-              <Button
-                variant="outline"
-                size="lg"
-                onClick={() => setIsLoginMode(true)}
-                className="mt-4 border-primary-foreground text-primary-foreground bg-transparent hover:bg-primary-foreground hover:text-primary font-semibold px-12 rounded-full"
-              >
-                ENTRAR
-              </Button>
-            </>
-          )}
+        <div className={`max-w-sm text-center space-y-6 transition-opacity duration-500 ${isLoginMode ? 'opacity-100 delay-300' : 'opacity-0'}`}>
+          <h2 className="text-3xl font-bold">Olá, Amigo!</h2>
+          <p className="text-primary-foreground/80">
+            Preencha seus dados pessoais e comece sua jornada conosco
+          </p>
+          <Button
+            variant="outline"
+            size="lg"
+            onClick={() => {
+              setIsLoginMode(false);
+              setIsForgotPassword(false);
+            }}
+            className="mt-4 border-primary-foreground text-primary-foreground bg-transparent hover:bg-primary-foreground hover:text-primary font-semibold px-12 rounded-full"
+          >
+            CADASTRAR
+          </Button>
+        </div>
+        <div className={`max-w-sm text-center space-y-6 absolute transition-opacity duration-500 ${!isLoginMode ? 'opacity-100 delay-300' : 'opacity-0'}`}>
+          <h2 className="text-3xl font-bold">Bem-vindo de Volta!</h2>
+          <p className="text-primary-foreground/80">
+            Para continuar conectado, faça login com suas informações pessoais
+          </p>
+          <Button
+            variant="outline"
+            size="lg"
+            onClick={() => setIsLoginMode(true)}
+            className="mt-4 border-primary-foreground text-primary-foreground bg-transparent hover:bg-primary-foreground hover:text-primary font-semibold px-12 rounded-full"
+          >
+            ENTRAR
+          </Button>
         </div>
       </div>
 
@@ -118,11 +113,13 @@ const Index = () => {
       <div className="w-full flex relative">
         {/* Login Form - Right side */}
         <div 
-          className={`w-[62.5%] min-h-screen flex items-center justify-center p-8 absolute inset-y-0 right-0 transition-all duration-700 ease-in-out ${
-            isLoginMode ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'
+          className={`w-[62.5%] min-h-screen flex items-center justify-center p-8 absolute inset-y-0 right-0 transition-all duration-700 ease-[cubic-bezier(0.65,0,0.35,1)] ${
+            isLoginMode 
+              ? 'opacity-100 translate-x-0 z-10' 
+              : 'opacity-0 translate-x-[20%] z-0 pointer-events-none'
           }`}
         >
-          <div className="w-full max-w-md space-y-8">
+          <div className={`w-full max-w-md space-y-8 transition-transform duration-700 delay-100 ${isLoginMode ? 'translate-y-0' : 'translate-y-4'}`}>
             {!isForgotPassword ? (
               <>
                 <div className="text-center">
@@ -227,11 +224,13 @@ const Index = () => {
 
         {/* Signup Form - Left side */}
         <div 
-          className={`w-[62.5%] min-h-screen flex items-center justify-center p-8 absolute inset-y-0 left-0 transition-all duration-700 ease-in-out ${
-            !isLoginMode ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'
+          className={`w-[62.5%] min-h-screen flex items-center justify-center p-8 absolute inset-y-0 left-0 transition-all duration-700 ease-[cubic-bezier(0.65,0,0.35,1)] ${
+            !isLoginMode 
+              ? 'opacity-100 translate-x-0 z-10' 
+              : 'opacity-0 -translate-x-[20%] z-0 pointer-events-none'
           }`}
         >
-          <div className="w-full max-w-md space-y-8">
+          <div className={`w-full max-w-md space-y-8 transition-transform duration-700 delay-100 ${!isLoginMode ? 'translate-y-0' : 'translate-y-4'}`}>
             <div className="text-center">
               <img src={logo} alt="Web Contador" className="h-14 mx-auto mb-6" />
               <h1 className="text-3xl font-bold text-foreground">Criar Conta</h1>
