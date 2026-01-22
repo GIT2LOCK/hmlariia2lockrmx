@@ -4,14 +4,13 @@ import {
   Settings, 
   Users, 
   FileText, 
-  HelpCircle,
   LogOut,
   PanelLeftClose,
   PanelLeft
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
-import logo from "@/assets/logo.png";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 import {
   Sidebar,
@@ -26,7 +25,13 @@ import {
   SidebarFooter,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { Button } from "@/components/ui/button";
+
+const mockUser = {
+  nome: "João",
+  sobrenome: "Silva",
+  cargo: "Administrador",
+  avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face",
+};
 
 const menuItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
@@ -55,12 +60,23 @@ export function AppSidebar() {
       collapsible="icon"
     >
       <SidebarHeader className="p-3 border-b border-primary-foreground/20">
-        <div className="flex items-center justify-center">
-          <img 
-            src={logo} 
-            alt="Web Contador" 
-            className={`transition-all duration-300 ${collapsed ? 'h-8 w-8 object-contain' : 'h-9'}`}
-          />
+        <div className={`flex items-center ${collapsed ? 'justify-center' : 'gap-3'}`}>
+          <Avatar className={`${collapsed ? 'h-8 w-8' : 'h-10 w-10'} transition-all duration-300`}>
+            <AvatarImage src={mockUser.avatar} alt={`${mockUser.nome} ${mockUser.sobrenome}`} />
+            <AvatarFallback className="bg-primary-foreground/20 text-primary-foreground">
+              {mockUser.nome[0]}{mockUser.sobrenome[0]}
+            </AvatarFallback>
+          </Avatar>
+          {!collapsed && (
+            <div className="flex flex-col">
+              <span className="text-sm font-medium text-primary-foreground">
+                {mockUser.nome} {mockUser.sobrenome}
+              </span>
+              <span className="text-xs text-primary-foreground/60">
+                {mockUser.cargo}
+              </span>
+            </div>
+          )}
         </div>
       </SidebarHeader>
 
