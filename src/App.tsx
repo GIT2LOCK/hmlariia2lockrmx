@@ -7,8 +7,12 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import { DashboardLayout } from "./components/DashboardLayout";
 import Dashboard from "./pages/Dashboard";
-import Tasks from "./pages/Tasks";
-import SettingsPage from "./pages/SettingsPage";
+import Demandas from "./pages/Demandas";
+import Empresas from "./pages/Empresas";
+import Pessoas from "./pages/Pessoas";
+import Usuarios from "./pages/Usuarios";
+import Configuracoes from "./pages/Configuracoes";
+import Relatorios from "./pages/Relatorios";
 
 const queryClient = new QueryClient();
 
@@ -22,8 +26,12 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/dashboard" element={<DashboardLayout />}>
             <Route index element={<Dashboard />} />
-            <Route path="tasks" element={<Tasks />} />
-            <Route path="settings" element={<SettingsPage />} />
+            <Route path="demandas" element={<Demandas />} />
+            <Route path="empresas" element={<Empresas />} />
+            <Route path="pessoas" element={<Pessoas />} />
+            <Route path="usuarios" element={<Usuarios />} />
+            <Route path="configuracoes" element={<Configuracoes />} />
+            <Route path="relatorios" element={<Relatorios />} />
           </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

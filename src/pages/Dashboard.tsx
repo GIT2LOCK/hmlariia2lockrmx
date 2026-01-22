@@ -1,11 +1,12 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ClipboardList, Users, FileText, CheckCircle } from "lucide-react";
+import { ClipboardList, Users, AlertCircle, Mail, MessageSquare, Clock } from "lucide-react";
 
 const stats = [
-  { title: "Tasks Pendentes", value: "12", icon: ClipboardList, color: "text-blue-500" },
-  { title: "Tasks Concluídas", value: "48", icon: CheckCircle, color: "text-green-500" },
-  { title: "Usuários Ativos", value: "8", icon: Users, color: "text-purple-500" },
-  { title: "Relatórios", value: "24", icon: FileText, color: "text-orange-500" },
+  { title: "Total de Demandas", value: "50", icon: ClipboardList, color: "text-blue-500" },
+  { title: "Sem Responsável", value: "8", icon: Users, color: "text-red-500" },
+  { title: "A Vencer (7 dias)", value: "12", icon: Clock, color: "text-yellow-500" },
+  { title: "Via Email", value: "28", icon: Mail, color: "text-purple-500" },
+  { title: "Via WhatsApp", value: "22", icon: MessageSquare, color: "text-green-500" },
 ];
 
 const Dashboard = () => {
@@ -13,10 +14,10 @@ const Dashboard = () => {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-foreground">Dashboard</h2>
-        <p className="text-muted-foreground">Bem-vindo ao painel de controle</p>
+        <p className="text-muted-foreground">Visão geral do sistema de demandas</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         {stats.map((stat) => (
           <Card key={stat.title}>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -35,28 +36,35 @@ const Dashboard = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
-            <CardTitle>Tasks Recentes</CardTitle>
-            <CardDescription>Últimas tasks cadastradas no sistema</CardDescription>
+            <CardTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-yellow-500" />
+              Demandas Sem Atribuição
+            </CardTitle>
+            <CardDescription>Demandas aguardando responsável</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
               {[
-                { id: 1, title: "Revisar documentação fiscal", status: "Pendente" },
-                { id: 2, title: "Atualizar cadastro de clientes", status: "Em andamento" },
-                { id: 3, title: "Gerar relatório mensal", status: "Concluído" },
-                { id: 4, title: "Conferir lançamentos contábeis", status: "Pendente" },
-              ].map((task) => (
-                <div key={task.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                  <span className="font-medium">{task.title}</span>
-                  <span className={`text-sm px-2 py-1 rounded-full ${
-                    task.status === "Concluído" 
-                      ? "bg-green-100 text-green-700" 
-                      : task.status === "Em andamento"
-                      ? "bg-blue-100 text-blue-700"
-                      : "bg-yellow-100 text-yellow-700"
-                  }`}>
-                    {task.status}
-                  </span>
+                { id: 1, titulo: "Declaração de IR", empresa: "Comércio ABC", prazo: "2024-02-10", via: "WhatsApp" },
+                { id: 2, titulo: "Regularização fiscal", empresa: "Serviços Gerais ME", prazo: "2024-02-08", via: "WhatsApp" },
+                { id: 3, titulo: "Análise de balanço", empresa: "Indústria XYZ", prazo: "2024-02-12", via: "Email" },
+                { id: 4, titulo: "Emissão de guias", empresa: "Tech Solutions", prazo: "2024-02-15", via: "Email" },
+              ].map((demanda) => (
+                <div key={demanda.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                  <div>
+                    <span className="font-medium">{demanda.titulo}</span>
+                    <p className="text-sm text-muted-foreground">{demanda.empresa}</p>
+                  </div>
+                  <div className="text-right">
+                    <span className={`text-sm px-2 py-1 rounded-full ${
+                      demanda.via === "WhatsApp" 
+                        ? "bg-green-100 text-green-700" 
+                        : "bg-purple-100 text-purple-700"
+                    }`}>
+                      {demanda.via}
+                    </span>
+                    <p className="text-xs text-muted-foreground mt-1">Prazo: {demanda.prazo}</p>
+                  </div>
                 </div>
               ))}
             </div>
@@ -65,24 +73,34 @@ const Dashboard = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle>Atividade Recente</CardTitle>
-            <CardDescription>Últimas ações realizadas</CardDescription>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-red-500" />
+              Demandas a Vencer
+            </CardTitle>
+            <CardDescription>Prazo nos próximos 7 dias</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
               {[
-                { action: "Task #123 foi concluída", time: "Há 5 minutos", user: "João Silva" },
-                { action: "Novo usuário cadastrado", time: "Há 1 hora", user: "Admin" },
-                { action: "Relatório exportado", time: "Há 2 horas", user: "Maria Santos" },
-                { action: "Configurações atualizadas", time: "Há 3 horas", user: "Admin" },
-              ].map((activity, index) => (
-                <div key={index} className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
-                  <div className="h-2 w-2 mt-2 rounded-full bg-primary" />
-                  <div className="flex-1">
-                    <p className="font-medium">{activity.action}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {activity.user} · {activity.time}
-                    </p>
+                { id: 1, titulo: "Regularização fiscal", empresa: "Serviços Gerais ME", prazo: "2024-02-08", responsavel: "Não atribuído" },
+                { id: 2, titulo: "Declaração de IR", empresa: "Comércio ABC", prazo: "2024-02-10", responsavel: "Não atribuído" },
+                { id: 3, titulo: "Análise de balanço", empresa: "Indústria XYZ", prazo: "2024-02-12", responsavel: "Maria Santos" },
+                { id: 4, titulo: "Revisão de balanço", empresa: "Tech Solutions", prazo: "2024-02-15", responsavel: "João Silva" },
+              ].map((demanda) => (
+                <div key={demanda.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                  <div>
+                    <span className="font-medium">{demanda.titulo}</span>
+                    <p className="text-sm text-muted-foreground">{demanda.empresa}</p>
+                  </div>
+                  <div className="text-right">
+                    <span className={`text-sm ${
+                      demanda.responsavel === "Não atribuído" 
+                        ? "text-red-500" 
+                        : "text-muted-foreground"
+                    }`}>
+                      {demanda.responsavel}
+                    </span>
+                    <p className="text-xs text-muted-foreground mt-1">{demanda.prazo}</p>
                   </div>
                 </div>
               ))}
