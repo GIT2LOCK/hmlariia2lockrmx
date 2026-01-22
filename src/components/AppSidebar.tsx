@@ -58,6 +58,24 @@ interface MenuSection {
 // Menus por perfil
 const getMenusByRole = (role: UserRole): MenuSection[] => {
   switch (role) {
+    case "VIEWER":
+      return [
+        {
+          label: "Menu Principal",
+          items: [
+            { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+            { title: "Demandas", url: "/dashboard/demandas", icon: ClipboardList },
+            { title: "Empresas", url: "/dashboard/empresas", icon: Building2 },
+          ],
+        },
+        {
+          label: "Conta",
+          items: [
+            { title: "Meu Perfil", url: "/dashboard/perfil", icon: User },
+          ],
+        },
+      ];
+
     case "USER":
       return [
         {
@@ -76,7 +94,7 @@ const getMenusByRole = (role: UserRole): MenuSection[] => {
         },
       ];
     
-    case "MANAGER":
+    case "ADMIN":
       return [
         {
           label: "Menu Principal",
@@ -90,6 +108,15 @@ const getMenusByRole = (role: UserRole): MenuSection[] => {
           ],
         },
         {
+          label: "Sistema",
+          items: [
+            { title: "Configurações", url: "/dashboard/configuracoes", icon: Settings },
+            { title: "Usuários", url: "/dashboard/usuarios", icon: UserCog },
+            { title: "Grupos", url: "/dashboard/grupos", icon: UsersRound },
+            { title: "Webhook", url: "/dashboard/webhook", icon: Webhook },
+          ],
+        },
+        {
           label: "Conta",
           items: [
             { title: "Meu Perfil", url: "/dashboard/perfil", icon: User },
@@ -97,7 +124,7 @@ const getMenusByRole = (role: UserRole): MenuSection[] => {
         },
       ];
     
-    case "ADMIN":
+    case "SUPERADMIN":
       return [
         {
           label: "Menu Principal",
@@ -176,9 +203,10 @@ export function AppSidebar() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="USER">👤 Operacional (USER)</SelectItem>
-                <SelectItem value="MANAGER">👔 Supervisor (MANAGER)</SelectItem>
-                <SelectItem value="ADMIN">🔧 Administrador (ADMIN)</SelectItem>
+                <SelectItem value="SUPERADMIN">🔑 Superadmin</SelectItem>
+                <SelectItem value="ADMIN">🛠️ Admin</SelectItem>
+                <SelectItem value="USER">👷 User</SelectItem>
+                <SelectItem value="VIEWER">👁️ Viewer</SelectItem>
               </SelectContent>
             </Select>
           </div>
