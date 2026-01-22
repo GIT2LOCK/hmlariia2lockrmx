@@ -16,37 +16,7 @@ import {
   Calendar,
   TrendingUp 
 } from "lucide-react";
-
-const mockRelatorios = [
-  {
-    id: 1,
-    titulo: "Demandas por Empresa",
-    descricao: "Total de demandas agrupadas por empresa",
-    icone: Building2,
-    cor: "bg-blue-100 text-blue-700",
-  },
-  {
-    id: 2,
-    titulo: "Demandas por Responsável",
-    descricao: "Total de demandas por responsável interno",
-    icone: Users,
-    cor: "bg-green-100 text-green-700",
-  },
-  {
-    id: 3,
-    titulo: "Demandas por Período",
-    descricao: "Análise de demandas em intervalo de datas",
-    icone: Calendar,
-    cor: "bg-purple-100 text-purple-700",
-  },
-  {
-    id: 4,
-    titulo: "Ranking de Empresas",
-    descricao: "Empresas com mais demandas abertas",
-    icone: TrendingUp,
-    cor: "bg-orange-100 text-orange-700",
-  },
-];
+import { useUser } from "@/contexts/UserContext";
 
 const mockDadosEmpresa = [
   { empresa: "Tech Solutions LTDA", total: 15, concluidas: 10, pendentes: 5 },
@@ -64,6 +34,43 @@ const mockDadosResponsavel = [
 ];
 
 const Relatorios = () => {
+  const { user } = useUser();
+  const canViewByResponsavel = user.role === "SUPERADMIN" || user.role === "ADMIN";
+
+  const mockRelatorios = [
+    {
+      id: 1,
+      titulo: "Demandas por Empresa",
+      descricao: "Total de demandas agrupadas por empresa",
+      icone: Building2,
+      cor: "bg-blue-100 text-blue-700",
+      visible: true,
+    },
+    {
+      id: 2,
+      titulo: "Demandas por Responsável",
+      descricao: "Total de demandas por responsável interno",
+      icone: Users,
+      cor: "bg-green-100 text-green-700",
+      visible: canViewByResponsavel,
+    },
+    {
+      id: 3,
+      titulo: "Demandas por Período",
+      descricao: "Análise de demandas em intervalo de datas",
+      icone: Calendar,
+      cor: "bg-purple-100 text-purple-700",
+      visible: true,
+    },
+    {
+      id: 4,
+      titulo: "Ranking de Empresas",
+      descricao: "Empresas com mais demandas abertas",
+      icone: TrendingUp,
+      cor: "bg-orange-100 text-orange-700",
+      visible: true,
+    },
+  ].filter(r => r.visible);
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -144,43 +151,45 @@ const Relatorios = () => {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              Demandas por Responsável
-            </CardTitle>
-            <CardDescription>
-              Performance dos responsáveis internos
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {mockDadosResponsavel.map((item, index) => (
-                <div key={index} className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">{item.responsavel}</span>
-                    <span className="text-sm text-muted-foreground">
-                      {item.total} demandas
-                    </span>
+        {canViewByResponsavel && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                Demandas por Responsável
+              </CardTitle>
+              <CardDescription>
+                Performance dos responsáveis internos
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {mockDadosResponsavel.map((item, index) => (
+                  <div key={index} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">{item.responsavel}</span>
+                      <span className="text-sm text-muted-foreground">
+                        {item.total} demandas
+                      </span>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-2">
+                      <div
+                        className="bg-primary h-2 rounded-full"
+                        style={{
+                          width: `${(item.concluidas / item.total) * 100}%`,
+                        }}
+                      />
+                    </div>
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>{item.concluidas} concluídas</span>
+                      <span>{Math.round((item.concluidas / item.total) * 100)}% de conclusão</span>
+                    </div>
                   </div>
-                  <div className="w-full bg-muted rounded-full h-2">
-                    <div
-                      className="bg-primary h-2 rounded-full"
-                      style={{
-                        width: `${(item.concluidas / item.total) * 100}%`,
-                      }}
-                    />
-                  </div>
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>{item.concluidas} concluídas</span>
-                    <span>{Math.round((item.concluidas / item.total) * 100)}% de conclusão</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       <Card>
