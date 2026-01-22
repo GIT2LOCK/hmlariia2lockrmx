@@ -30,14 +30,15 @@ import { Button } from "@/components/ui/button";
 
 const menuItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Tasks", url: "/dashboard/tasks", icon: ClipboardList },
-  { title: "Usuários", url: "/dashboard/users", icon: Users },
-  { title: "Relatórios", url: "/dashboard/reports", icon: FileText },
+  { title: "Demandas", url: "/dashboard/demandas", icon: ClipboardList },
+  { title: "Empresas", url: "/dashboard/empresas", icon: FileText },
+  { title: "Pessoas", url: "/dashboard/pessoas", icon: Users },
+  { title: "Usuários", url: "/dashboard/usuarios", icon: Users },
+  { title: "Relatórios", url: "/dashboard/relatorios", icon: FileText },
 ];
 
 const configItems = [
-  { title: "Configurações", url: "/dashboard/settings", icon: Settings },
-  { title: "Ajuda", url: "/dashboard/help", icon: HelpCircle },
+  { title: "Configurações", url: "/dashboard/configuracoes", icon: Settings },
 ];
 
 export function AppSidebar() {
