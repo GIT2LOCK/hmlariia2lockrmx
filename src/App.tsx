@@ -15,33 +15,40 @@ import Configuracoes from "./pages/Configuracoes";
 import Relatorios from "./pages/Relatorios";
 import Grupos from "./pages/Grupos";
 import WebhookConfig from "./pages/WebhookConfig";
+import Triagem from "./pages/Triagem";
+import MeuPerfil from "./pages/MeuPerfil";
+import { UserProvider } from "./contexts/UserContext";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/dashboard" element={<DashboardLayout />}>
-            <Route index element={<Dashboard />} />
-            <Route path="demandas" element={<Demandas />} />
-            <Route path="empresas" element={<Empresas />} />
-            <Route path="pessoas" element={<Pessoas />} />
-            <Route path="usuarios" element={<Usuarios />} />
-            <Route path="configuracoes" element={<Configuracoes />} />
-            <Route path="relatorios" element={<Relatorios />} />
-            <Route path="grupos" element={<Grupos />} />
-            <Route path="webhook" element={<WebhookConfig />} />
-          </Route>
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+    <UserProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/dashboard" element={<DashboardLayout />}>
+              <Route index element={<Dashboard />} />
+              <Route path="demandas" element={<Demandas />} />
+              <Route path="empresas" element={<Empresas />} />
+              <Route path="pessoas" element={<Pessoas />} />
+              <Route path="usuarios" element={<Usuarios />} />
+              <Route path="configuracoes" element={<Configuracoes />} />
+              <Route path="relatorios" element={<Relatorios />} />
+              <Route path="grupos" element={<Grupos />} />
+              <Route path="webhook" element={<WebhookConfig />} />
+              <Route path="triagem" element={<Triagem />} />
+              <Route path="perfil" element={<MeuPerfil />} />
+            </Route>
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </UserProvider>
   </QueryClientProvider>
 );
 

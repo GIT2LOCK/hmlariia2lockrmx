@@ -9,11 +9,25 @@ import {
   PanelLeft,
   UsersRound,
   Webhook,
-  Building2
+  Building2,
+  AlertCircle,
+  Clock,
+  User,
+  BarChart3,
+  Inbox,
+  UserCog
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useUser, UserRole } from "@/contexts/UserContext";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 import {
   Sidebar,
@@ -28,36 +42,106 @@ import {
   SidebarFooter,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { LucideIcon } from "lucide-react";
 
-const mockUser = {
-  nome: "Rebo",
-  sobrenome: "Lador",
-  cargo: "Administrador",
-  avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face",
+interface MenuItem {
+  title: string;
+  url: string;
+  icon: LucideIcon;
+}
+
+interface MenuSection {
+  label: string;
+  items: MenuItem[];
+}
+
+// Menus por perfil
+const getMenusByRole = (role: UserRole): MenuSection[] => {
+  switch (role) {
+    case "USER":
+      return [
+        {
+          label: "Menu Principal",
+          items: [
+            { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+            { title: "Minhas Demandas", url: "/dashboard/demandas", icon: ClipboardList },
+            { title: "Empresas", url: "/dashboard/empresas", icon: Building2 },
+          ],
+        },
+        {
+          label: "Conta",
+          items: [
+            { title: "Meu Perfil", url: "/dashboard/perfil", icon: User },
+          ],
+        },
+      ];
+    
+    case "MANAGER":
+      return [
+        {
+          label: "Menu Principal",
+          items: [
+            { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+            { title: "Triagem / Fila", url: "/dashboard/triagem", icon: Inbox },
+            { title: "Demandas", url: "/dashboard/demandas", icon: ClipboardList },
+            { title: "Empresas", url: "/dashboard/empresas", icon: Building2 },
+            { title: "Pessoas", url: "/dashboard/pessoas", icon: Users },
+            { title: "Relatórios", url: "/dashboard/relatorios", icon: BarChart3 },
+          ],
+        },
+        {
+          label: "Conta",
+          items: [
+            { title: "Meu Perfil", url: "/dashboard/perfil", icon: User },
+          ],
+        },
+      ];
+    
+    case "ADMIN":
+      return [
+        {
+          label: "Menu Principal",
+          items: [
+            { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+            { title: "Triagem / Fila", url: "/dashboard/triagem", icon: Inbox },
+            { title: "Demandas", url: "/dashboard/demandas", icon: ClipboardList },
+            { title: "Empresas", url: "/dashboard/empresas", icon: Building2 },
+            { title: "Pessoas", url: "/dashboard/pessoas", icon: Users },
+            { title: "Relatórios", url: "/dashboard/relatorios", icon: BarChart3 },
+          ],
+        },
+        {
+          label: "Sistema",
+          items: [
+            { title: "Configurações", url: "/dashboard/configuracoes", icon: Settings },
+            { title: "Usuários", url: "/dashboard/usuarios", icon: UserCog },
+            { title: "Grupos", url: "/dashboard/grupos", icon: UsersRound },
+            { title: "Webhook", url: "/dashboard/webhook", icon: Webhook },
+          ],
+        },
+        {
+          label: "Conta",
+          items: [
+            { title: "Meu Perfil", url: "/dashboard/perfil", icon: User },
+          ],
+        },
+      ];
+    
+    default:
+      return [];
+  }
 };
-
-const menuItems = [
-  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Demandas", url: "/dashboard/demandas", icon: ClipboardList },
-  { title: "Empresas", url: "/dashboard/empresas", icon: Building2 },
-  { title: "Pessoas", url: "/dashboard/pessoas", icon: Users },
-  { title: "Relatórios", url: "/dashboard/relatorios", icon: FileText },
-];
-
-const sistemaItems = [
-  { title: "Configurações", url: "/dashboard/configuracoes", icon: Settings },
-  { title: "Usuários", url: "/dashboard/usuarios", icon: Users },
-  { title: "Grupos", url: "/dashboard/grupos", icon: UsersRound },
-  { title: "Webhook", url: "/dashboard/webhook", icon: Webhook },
-];
 
 export function AppSidebar() {
   const { state, toggleSidebar } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
   const currentPath = location.pathname;
+  const { user, setRole } = useUser();
 
   const isActive = (path: string) => currentPath === path;
+
+  const menuSections = getMenusByRole(user.role);
 
   return (
     <Sidebar
@@ -67,80 +151,70 @@ export function AppSidebar() {
       <SidebarHeader className="p-3 border-b border-primary-foreground/20">
         <div className={`flex items-center ${collapsed ? 'justify-center' : 'gap-3'}`}>
           <Avatar className={`${collapsed ? 'h-8 w-8' : 'h-10 w-10'} transition-all duration-300`}>
-            <AvatarImage src={mockUser.avatar} alt={`${mockUser.nome} ${mockUser.sobrenome}`} />
+            <AvatarImage src={user.avatar} alt={`${user.nome} ${user.sobrenome}`} />
             <AvatarFallback className="bg-primary-foreground/20 text-primary-foreground">
-              {mockUser.nome[0]}{mockUser.sobrenome[0]}
+              {user.nome[0]}{user.sobrenome[0]}
             </AvatarFallback>
           </Avatar>
           {!collapsed && (
             <div className="flex flex-col">
               <span className="text-sm font-medium text-primary-foreground">
-                {mockUser.nome} {mockUser.sobrenome}
+                {user.nome} {user.sobrenome}
               </span>
               <span className="text-xs text-primary-foreground/60">
-                {mockUser.cargo}
+                {user.cargo}
               </span>
             </div>
           )}
         </div>
+        
+        {/* Seletor de perfil para testes */}
+        {!collapsed && (
+          <div className="mt-3">
+            <Select value={user.role} onValueChange={(value: UserRole) => setRole(value)}>
+              <SelectTrigger className="h-8 text-xs bg-primary-foreground/10 border-primary-foreground/20 text-primary-foreground">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="USER">👤 Operacional (USER)</SelectItem>
+                <SelectItem value="MANAGER">👔 Supervisor (MANAGER)</SelectItem>
+                <SelectItem value="ADMIN">🔧 Administrador (ADMIN)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </SidebarHeader>
 
       <SidebarContent className="bg-primary">
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-primary-foreground/60 text-xs uppercase tracking-wider">
-            Menu Principal
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {menuItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton 
-                    asChild 
-                    isActive={isActive(item.url)}
-                    tooltip={item.title}
-                    className="text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10 data-[active=true]:bg-primary-foreground/20 data-[active=true]:text-primary-foreground"
-                  >
-                    <NavLink 
-                      to={item.url} 
-                      className="flex items-center gap-3"
+        {menuSections.map((section) => (
+          <SidebarGroup key={section.label}>
+            <SidebarGroupLabel className="text-primary-foreground/60 text-xs uppercase tracking-wider">
+              {section.label}
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {section.items.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton 
+                      asChild 
+                      isActive={isActive(item.url)}
+                      tooltip={item.title}
+                      className="text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10 data-[active=true]:bg-primary-foreground/20 data-[active=true]:text-primary-foreground"
                     >
-                      <item.icon className="h-5 w-5" />
-                      <span>{item.title}</span>
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-primary-foreground/60 text-xs uppercase tracking-wider">
-            Sistema
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {sistemaItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton 
-                    asChild 
-                    isActive={isActive(item.url)}
-                    tooltip={item.title}
-                    className="text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10 data-[active=true]:bg-primary-foreground/20 data-[active=true]:text-primary-foreground"
-                  >
-                    <NavLink 
-                      to={item.url} 
-                      className="flex items-center gap-3"
-                    >
-                      <item.icon className="h-5 w-5" />
-                      <span>{item.title}</span>
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+                      <NavLink 
+                        to={item.url} 
+                        className="flex items-center gap-3"
+                      >
+                        <item.icon className="h-5 w-5" />
+                        <span>{item.title}</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
       </SidebarContent>
 
       <SidebarFooter className="border-t border-primary-foreground/20 bg-primary px-2 py-2">
