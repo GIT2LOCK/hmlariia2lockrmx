@@ -2,9 +2,38 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Eye, EyeOff, Mail, Lock, User } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, User, CreditCard } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import logo from "@/assets/logo.png";
+
+// Função para aplicar máscara de CPF
+const formatCpf = (value: string): string => {
+  const digits = value.replace(/\D/g, "").slice(0, 11);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+  if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
+  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+};
+
+// Validação de senha forte
+const validatePassword = (password: string): { valid: boolean; message: string } => {
+  if (password.length < 8) {
+    return { valid: false, message: "A senha deve ter no mínimo 8 caracteres." };
+  }
+  if (!/[a-z]/.test(password)) {
+    return { valid: false, message: "A senha deve conter pelo menos uma letra minúscula." };
+  }
+  if (!/[A-Z]/.test(password)) {
+    return { valid: false, message: "A senha deve conter pelo menos uma letra maiúscula." };
+  }
+  if (!/[0-9]/.test(password)) {
+    return { valid: false, message: "A senha deve conter pelo menos um número." };
+  }
+  if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+    return { valid: false, message: "A senha deve conter pelo menos um caractere especial." };
+  }
+  return { valid: true, message: "" };
+};
 
 const Index = () => {
   const navigate = useNavigate();
@@ -18,8 +47,10 @@ const Index = () => {
   // Form states
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
-  const [signupName, setSignupName] = useState("");
+  const [signupNome, setSignupNome] = useState("");
+  const [signupSobrenome, setSignupSobrenome] = useState("");
   const [signupEmail, setSignupEmail] = useState("");
+  const [signupCpf, setSignupCpf] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
   const [signupConfirmPassword, setSignupConfirmPassword] = useState("");
   const [forgotEmail, setForgotEmail] = useState("");
@@ -39,6 +70,29 @@ const Index = () => {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validar CPF completo
+    const cpfDigits = signupCpf.replace(/\D/g, "");
+    if (cpfDigits.length !== 11) {
+      toast({
+        title: "Erro",
+        description: "CPF inválido. Digite os 11 dígitos.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Validar senha forte
+    const passwordValidation = validatePassword(signupPassword);
+    if (!passwordValidation.valid) {
+      toast({
+        title: "Erro",
+        description: passwordValidation.message,
+        variant: "destructive",
+      });
+      return;
+    }
+    
     if (signupPassword !== signupConfirmPassword) {
       toast({
         title: "Erro",
@@ -47,14 +101,33 @@ const Index = () => {
       });
       return;
     }
+    
+    // Concatenar nome e sobrenome para enviar ao banco
+    const nomeCompleto = `${signupNome.trim()} ${signupSobrenome.trim()}`;
+    
+    // Usuário será criado com permissão VIEWER por padrão
+    console.log("Criando usuário:", {
+      nome: nomeCompleto,
+      email: signupEmail,
+      cpf: signupCpf,
+      permissao: "VIEWER" // Permissão padrão
+    });
+    
     setIsLoading(true);
     setTimeout(() => {
       setIsLoading(false);
       toast({
         title: "Conta criada!",
-        description: "Sua conta foi criada com sucesso.",
+        description: "Sua conta foi criada com sucesso. Você está no grupo VIEWER.",
       });
       setIsLoginMode(true);
+      // Limpar campos
+      setSignupNome("");
+      setSignupSobrenome("");
+      setSignupEmail("");
+      setSignupCpf("");
+      setSignupPassword("");
+      setSignupConfirmPassword("");
     }, 1500);
   };
 
@@ -241,16 +314,28 @@ const Index = () => {
             </div>
 
             <form onSubmit={handleSignup} className="space-y-4">
-              <div className="relative">
-                <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                <Input
-                  type="text"
-                  placeholder="Nome completo"
-                  value={signupName}
-                  onChange={(e) => setSignupName(e.target.value)}
-                  className="pl-12 h-12 bg-muted border-0 rounded-lg"
-                  required
-                />
+              <div className="flex gap-3">
+                <div className="relative flex-1">
+                  <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    placeholder="Nome"
+                    value={signupNome}
+                    onChange={(e) => setSignupNome(e.target.value)}
+                    className="pl-12 h-12 bg-muted border-0 rounded-lg"
+                    required
+                  />
+                </div>
+                <div className="relative flex-1">
+                  <Input
+                    type="text"
+                    placeholder="Sobrenome"
+                    value={signupSobrenome}
+                    onChange={(e) => setSignupSobrenome(e.target.value)}
+                    className="h-12 bg-muted border-0 rounded-lg"
+                    required
+                  />
+                </div>
               </div>
 
               <div className="relative">
@@ -266,6 +351,19 @@ const Index = () => {
               </div>
 
               <div className="relative">
+                <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="CPF"
+                  value={signupCpf}
+                  onChange={(e) => setSignupCpf(formatCpf(e.target.value))}
+                  className="pl-12 h-12 bg-muted border-0 rounded-lg"
+                  required
+                  maxLength={14}
+                />
+              </div>
+
+              <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <Input
                   type={showPassword ? "text" : "password"}
@@ -274,7 +372,7 @@ const Index = () => {
                   onChange={(e) => setSignupPassword(e.target.value)}
                   className="pl-12 pr-12 h-12 bg-muted border-0 rounded-lg"
                   required
-                  minLength={6}
+                  minLength={8}
                 />
                 <button
                   type="button"
@@ -284,6 +382,10 @@ const Index = () => {
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
               </div>
+              
+              <p className="text-xs text-muted-foreground -mt-2">
+                Mín. 8 caracteres, incluindo maiúscula, minúscula, número e caractere especial.
+              </p>
 
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
@@ -294,7 +396,7 @@ const Index = () => {
                   onChange={(e) => setSignupConfirmPassword(e.target.value)}
                   className="pl-12 pr-12 h-12 bg-muted border-0 rounded-lg"
                   required
-                  minLength={6}
+                  minLength={8}
                 />
                 <button
                   type="button"
