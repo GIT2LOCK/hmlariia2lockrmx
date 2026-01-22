@@ -70,11 +70,55 @@ const Index = () => {
 
   return (
     <div className="min-h-screen flex bg-background overflow-hidden relative">
+      {/* Sliding Panel - Left side */}
+      <div 
+        className={`absolute inset-y-0 w-1/2 bg-primary transition-transform duration-700 ease-in-out z-20 flex flex-col items-center justify-center text-primary-foreground p-8 ${
+          isLoginMode ? 'left-0' : 'left-1/2'
+        }`}
+      >
+        <div className="max-w-sm text-center space-y-6">
+          {isLoginMode ? (
+            <>
+              <h2 className="text-3xl font-bold">Olá, Amigo!</h2>
+              <p className="text-primary-foreground/80">
+                Preencha seus dados pessoais e comece sua jornada conosco
+              </p>
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={() => {
+                  setIsLoginMode(false);
+                  setIsForgotPassword(false);
+                }}
+                className="mt-4 border-primary-foreground text-primary-foreground bg-transparent hover:bg-primary-foreground hover:text-primary font-semibold px-12 rounded-full"
+              >
+                CADASTRAR
+              </Button>
+            </>
+          ) : (
+            <>
+              <h2 className="text-3xl font-bold">Bem-vindo de Volta!</h2>
+              <p className="text-primary-foreground/80">
+                Para continuar conectado, faça login com suas informações pessoais
+              </p>
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={() => setIsLoginMode(true)}
+                className="mt-4 border-primary-foreground text-primary-foreground bg-transparent hover:bg-primary-foreground hover:text-primary font-semibold px-12 rounded-full"
+              >
+                ENTRAR
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+
       {/* Forms Container */}
       <div className="w-full flex relative">
-        {/* Login Form - Left side initially */}
+        {/* Login Form - Right side */}
         <div 
-          className={`w-1/2 min-h-screen flex items-center justify-center p-8 absolute inset-y-0 left-0 transition-all duration-700 ease-in-out ${
+          className={`w-1/2 min-h-screen flex items-center justify-center p-8 absolute inset-y-0 right-0 transition-all duration-700 ease-in-out ${
             isLoginMode ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'
           }`}
         >
@@ -181,9 +225,9 @@ const Index = () => {
           </div>
         </div>
 
-        {/* Signup Form - Right side initially */}
+        {/* Signup Form - Left side */}
         <div 
-          className={`w-1/2 min-h-screen flex items-center justify-center p-8 absolute inset-y-0 right-0 transition-all duration-700 ease-in-out ${
+          className={`w-1/2 min-h-screen flex items-center justify-center p-8 absolute inset-y-0 left-0 transition-all duration-700 ease-in-out ${
             !isLoginMode ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'
           }`}
         >
@@ -268,50 +312,6 @@ const Index = () => {
               </Button>
             </form>
           </div>
-        </div>
-      </div>
-
-      {/* Sliding Panel */}
-      <div 
-        className={`absolute inset-y-0 w-1/2 bg-primary transition-transform duration-700 ease-in-out z-20 flex flex-col items-center justify-center text-primary-foreground p-8 ${
-          isLoginMode ? 'right-0' : 'right-1/2'
-        }`}
-      >
-        <div className="max-w-sm text-center space-y-6">
-          {isLoginMode ? (
-            <>
-              <h2 className="text-3xl font-bold">Olá, Amigo!</h2>
-              <p className="text-primary-foreground/80">
-                Preencha seus dados pessoais e comece sua jornada conosco
-              </p>
-              <Button
-                variant="outline"
-                size="lg"
-                onClick={() => {
-                  setIsLoginMode(false);
-                  setIsForgotPassword(false);
-                }}
-                className="mt-4 border-primary-foreground text-primary-foreground bg-transparent hover:bg-primary-foreground hover:text-primary font-semibold px-12 rounded-full"
-              >
-                CADASTRAR
-              </Button>
-            </>
-          ) : (
-            <>
-              <h2 className="text-3xl font-bold">Bem-vindo de Volta!</h2>
-              <p className="text-primary-foreground/80">
-                Para continuar conectado, faça login com suas informações pessoais
-              </p>
-              <Button
-                variant="outline"
-                size="lg"
-                onClick={() => setIsLoginMode(true)}
-                className="mt-4 border-primary-foreground text-primary-foreground bg-transparent hover:bg-primary-foreground hover:text-primary font-semibold px-12 rounded-full"
-              >
-                ENTRAR
-              </Button>
-            </>
-          )}
         </div>
       </div>
     </div>
