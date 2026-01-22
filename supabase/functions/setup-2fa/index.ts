@@ -6,22 +6,33 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Generate a base32 secret for TOTP
+// Generate a base32 secret for TOTP (16 characters = 80 bits, standard for TOTP)
 function generateTotpSecret(): string {
   const base32Chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
   let secret = "";
-  const randomBytes = new Uint8Array(20);
+  const randomBytes = new Uint8Array(10); // 10 bytes = 80 bits = 16 base32 chars
   crypto.getRandomValues(randomBytes);
   
-  for (let i = 0; i < 20; i++) {
-    secret += base32Chars[randomBytes[i] % 32];
+  // Convert bytes to base32
+  let bits = "";
+  for (const byte of randomBytes) {
+    bits += byte.toString(2).padStart(8, "0");
   }
-  return secret;
+  
+  // Take 5 bits at a time to create base32 characters
+  for (let i = 0; i < 80; i += 5) {
+    const chunk = bits.slice(i, i + 5);
+    const index = parseInt(chunk, 2);
+    secret += base32Chars[index];
+  }
+  
+  return secret; // Returns 16 character base32 string
 }
 
 // Generate TOTP code from secret
-async function generateTotpCode(secret: string, timeStep: number = 30): Promise<string> {
-  const time = Math.floor(Date.now() / 1000 / timeStep);
+async function generateTotpCode(secret: string, offset: number = 0): Promise<string> {
+  const timeStep = 30;
+  const time = Math.floor(Date.now() / 1000 / timeStep) + offset;
   const timeBuffer = new ArrayBuffer(8);
   const timeView = new DataView(timeBuffer);
   timeView.setBigUint64(0, BigInt(time), false);
@@ -34,6 +45,12 @@ async function generateTotpCode(secret: string, timeStep: number = 30): Promise<
     if (val === -1) continue;
     bits += val.toString(2).padStart(5, "0");
   }
+  
+  // Pad bits to multiple of 8
+  while (bits.length % 8 !== 0) {
+    bits += "0";
+  }
+  
   const keyBytes = new Uint8Array(bits.length / 8);
   for (let i = 0; i < keyBytes.length; i++) {
     keyBytes[i] = parseInt(bits.slice(i * 8, (i + 1) * 8), 2);
@@ -51,12 +68,12 @@ async function generateTotpCode(secret: string, timeStep: number = 30): Promise<
   const signatureArray = new Uint8Array(signature);
 
   // Dynamic truncation
-  const offset = signatureArray[signatureArray.length - 1] & 0x0f;
+  const offsetIdx = signatureArray[signatureArray.length - 1] & 0x0f;
   const code =
-    ((signatureArray[offset] & 0x7f) << 24) |
-    ((signatureArray[offset + 1] & 0xff) << 16) |
-    ((signatureArray[offset + 2] & 0xff) << 8) |
-    (signatureArray[offset + 3] & 0xff);
+    ((signatureArray[offsetIdx] & 0x7f) << 24) |
+    ((signatureArray[offsetIdx + 1] & 0xff) << 16) |
+    ((signatureArray[offsetIdx + 2] & 0xff) << 8) |
+    (signatureArray[offsetIdx + 3] & 0xff);
 
   return (code % 1000000).toString().padStart(6, "0");
 }
@@ -103,8 +120,10 @@ serve(async (req) => {
     const email = (userData.tb_email as unknown as { email_principal: string }).email_principal;
 
     if (action === "generate") {
-      // Generate new TOTP secret
+      // Generate new TOTP secret (16 chars, valid base32)
       const secret = generateTotpSecret();
+      
+      console.log("Generated TOTP secret:", secret, "Length:", secret.length);
       
       // Save secret temporarily (not enabled yet)
       const { error: updateError } = await supabase
@@ -121,9 +140,12 @@ serve(async (req) => {
       }
 
       // Generate QR code URL for Google Authenticator
-      const issuer = encodeURIComponent("Web Contador");
-      const accountName = encodeURIComponent(email);
-      const otpauthUrl = `otpauth://totp/${issuer}:${accountName}?secret=${secret}&issuer=${issuer}&algorithm=SHA1&digits=6&period=30`;
+      // Format: otpauth://totp/LABEL?PARAMETERS
+      const issuer = "WebContador";
+      const label = `${issuer}:${email}`;
+      const otpauthUrl = `otpauth://totp/${encodeURIComponent(label)}?secret=${secret}&issuer=${encodeURIComponent(issuer)}&algorithm=SHA1&digits=6&period=30`;
+      
+      console.log("Generated otpauth URL:", otpauthUrl);
 
       return new Response(
         JSON.stringify({
@@ -151,17 +173,14 @@ serve(async (req) => {
         );
       }
 
-      // Verify TOTP code (check current and previous time window for clock skew)
-      const expectedCode = await generateTotpCode(userData.totp_secret);
-      const previousCode = await generateTotpCode(userData.totp_secret, 30);
+      // Verify TOTP code (check current and adjacent time windows for clock skew)
+      const currentCode = await generateTotpCode(userData.totp_secret, 0);
+      const previousCode = await generateTotpCode(userData.totp_secret, -1);
+      const nextCode = await generateTotpCode(userData.totp_secret, 1);
       
-      // Generate code for previous time window
-      const time = Math.floor(Date.now() / 1000 / 30) - 1;
-      const timeBuffer = new ArrayBuffer(8);
-      const timeView = new DataView(timeBuffer);
-      timeView.setBigUint64(0, BigInt(time), false);
+      console.log("Verifying code:", code, "Expected:", currentCode, "Prev:", previousCode, "Next:", nextCode);
 
-      if (code !== expectedCode && code !== previousCode) {
+      if (code !== currentCode && code !== previousCode && code !== nextCode) {
         return new Response(
           JSON.stringify({ error: "Código 2FA inválido" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -204,6 +223,16 @@ serve(async (req) => {
 
       return new Response(
         JSON.stringify({ success: true, message: "2FA desativado com sucesso" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (action === "status") {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          enabled: userData.totp_enabled || false,
+        }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
