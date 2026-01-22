@@ -526,8 +526,10 @@ const Index = () => {
       <TwoFactorModal
         isOpen={show2FAModal}
         onClose={() => setShow2FAModal(false)}
-        onSuccess={() => {
+        onSuccess={(user) => {
           setShow2FAModal(false);
+          setPendingUser(null);
+          refreshUser();
           navigate("/dashboard");
         }}
         userId={pendingUser?.id || 0}
