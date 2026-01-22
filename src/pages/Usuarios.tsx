@@ -12,7 +12,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Search, UserCog, Shield } from "lucide-react";
+import { Plus, Search, UserCog, Crown, User, Eye } from "lucide-react";
+import { mockGrupos } from "./Grupos";
+import { UserRole } from "@/contexts/UserContext";
 
 const mockUsuarios = [
   {
@@ -20,7 +22,7 @@ const mockUsuarios = [
     nome: "João Silva",
     email: "joao.silva@escritorio.com",
     cpf: "111.222.333-44",
-    permissao: "SUPERADMIN",
+    grupoId: 1, // SUPERADMIN
     ativo: true,
     demandas_atribuidas: 3,
   },
@@ -29,7 +31,7 @@ const mockUsuarios = [
     nome: "Maria Santos",
     email: "maria.santos@escritorio.com",
     cpf: "222.333.444-55",
-    permissao: "ADMIN",
+    grupoId: 2, // ADMIN
     ativo: true,
     demandas_atribuidas: 5,
   },
@@ -38,7 +40,7 @@ const mockUsuarios = [
     nome: "Pedro Oliveira",
     email: "pedro.oliveira@escritorio.com",
     cpf: "333.444.555-66",
-    permissao: "USER",
+    grupoId: 3, // USER
     ativo: true,
     demandas_atribuidas: 2,
   },
@@ -47,7 +49,7 @@ const mockUsuarios = [
     nome: "Ana Costa",
     email: "ana.costa@escritorio.com",
     cpf: "444.555.666-77",
-    permissao: "VIEWER",
+    grupoId: 4, // VIEWER
     ativo: false,
     demandas_atribuidas: 0,
   },
@@ -56,14 +58,18 @@ const mockUsuarios = [
     nome: "Lucas Ferreira",
     email: "lucas.ferreira@escritorio.com",
     cpf: "555.666.777-88",
-    permissao: "USER",
+    grupoId: 3, // USER
     ativo: true,
     demandas_atribuidas: 4,
   },
 ];
 
-const getPermissaoColor = (permissao: string) => {
-  switch (permissao) {
+const getGrupoById = (grupoId: number) => {
+  return mockGrupos.find(g => g.id === grupoId);
+};
+
+const getGrupoColor = (role: UserRole) => {
+  switch (role) {
     case "SUPERADMIN":
       return "bg-purple-100 text-purple-700";
     case "ADMIN":
@@ -74,6 +80,21 @@ const getPermissaoColor = (permissao: string) => {
       return "bg-gray-100 text-gray-700";
     default:
       return "bg-gray-100 text-gray-700";
+  }
+};
+
+const getGrupoIcon = (role: UserRole) => {
+  switch (role) {
+    case "SUPERADMIN":
+      return Crown;
+    case "ADMIN":
+      return UserCog;
+    case "USER":
+      return User;
+    case "VIEWER":
+      return Eye;
+    default:
+      return User;
   }
 };
 
@@ -174,7 +195,7 @@ const Usuarios = () => {
                 <TableHead>Nome</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>CPF</TableHead>
-                <TableHead>Permissão</TableHead>
+                <TableHead>Grupo</TableHead>
                 <TableHead>Demandas</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Ativo</TableHead>
@@ -191,13 +212,20 @@ const Usuarios = () => {
                     {usuario.cpf}
                   </TableCell>
                   <TableCell>
-                    <Badge
-                      variant="secondary"
-                      className={`${getPermissaoColor(usuario.permissao)} flex items-center gap-1 w-fit`}
-                    >
-                      <Shield className="h-3 w-3" />
-                      {usuario.permissao}
-                    </Badge>
+                    {(() => {
+                      const grupo = getGrupoById(usuario.grupoId);
+                      if (!grupo) return <Badge variant="secondary">Sem grupo</Badge>;
+                      const IconComponent = getGrupoIcon(grupo.role);
+                      return (
+                        <Badge
+                          variant="secondary"
+                          className={`${getGrupoColor(grupo.role)} flex items-center gap-1 w-fit`}
+                        >
+                          <IconComponent className="h-3 w-3" />
+                          {grupo.nome}
+                        </Badge>
+                      );
+                    })()}
                   </TableCell>
                   <TableCell>{usuario.demandas_atribuidas}</TableCell>
                   <TableCell>
