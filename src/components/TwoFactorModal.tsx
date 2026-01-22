@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { Shield, Loader2 } from "lucide-react";
 import { verify2FA } from "@/services/authService";
@@ -22,6 +23,7 @@ export function TwoFactorModal({
   userName,
 }: TwoFactorModalProps) {
   const [code, setCode] = useState("");
+  const [rememberDevice, setRememberDevice] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
@@ -36,7 +38,7 @@ export function TwoFactorModal({
     }
 
     setIsLoading(true);
-    const result = await verify2FA(userId, code);
+    const result = await verify2FA(userId, code, rememberDevice);
     setIsLoading(false);
 
     if (result.success && result.user) {
@@ -55,8 +57,14 @@ export function TwoFactorModal({
     }
   };
 
+  const handleClose = () => {
+    setCode("");
+    setRememberDevice(false);
+    onClose();
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <div className="flex justify-center mb-4">
@@ -86,6 +94,21 @@ export function TwoFactorModal({
               <InputOTPSlot index={5} />
             </InputOTPGroup>
           </InputOTP>
+
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="remember-device"
+              checked={rememberDevice}
+              onCheckedChange={(checked) => setRememberDevice(checked === true)}
+              disabled={isLoading}
+            />
+            <label
+              htmlFor="remember-device"
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+            >
+              Lembrar este dispositivo por 30 dias
+            </label>
+          </div>
 
           <Button
             onClick={handleVerify}

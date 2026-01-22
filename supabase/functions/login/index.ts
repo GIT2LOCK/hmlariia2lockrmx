@@ -28,7 +28,7 @@ serve(async (req) => {
   }
 
   try {
-    const { email, senha } = await req.json();
+    const { email, senha, deviceToken } = await req.json();
 
     if (!email || !senha) {
       return new Response(
@@ -114,6 +114,55 @@ serve(async (req) => {
 
     // Check if 2FA is enabled
     if (userData.totp_enabled) {
+      // Check if device is trusted (remembered)
+      if (deviceToken) {
+        const { data: trustedDevice } = await supabase
+          .from("tb_dispositivo")
+          .select("dispositivo_id, remember_until")
+          .eq("user_id", userData.user_id)
+          .eq("device_token", deviceToken)
+          .eq("is_active", true)
+          .maybeSingle();
+
+        // If device is trusted and not expired, skip 2FA
+        if (trustedDevice && trustedDevice.remember_until) {
+          const rememberUntil = new Date(trustedDevice.remember_until);
+          if (rememberUntil > new Date()) {
+            // Update last activity
+            await supabase
+              .from("tb_dispositivo")
+              .update({ last_activity: new Date().toISOString() })
+              .eq("dispositivo_id", trustedDevice.dispositivo_id);
+
+            // Generate session token
+            const sessionToken = generateSessionToken();
+            const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
+            const permissao = userData.tb_permissao as unknown as { nome: string; descricao: string } | null;
+
+            return new Response(
+              JSON.stringify({
+                success: true,
+                message: "Login realizado com sucesso",
+                user: {
+                  id: userData.user_id,
+                  nome: userData.nome,
+                  email: email,
+                  permissao: permissao?.nome || "VIEWER",
+                  permissao_descricao: permissao?.descricao,
+                },
+                session: {
+                  token: sessionToken,
+                  expires_at: expiresAt,
+                },
+              }),
+              { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+        }
+      }
+
+      // 2FA required
       return new Response(
         JSON.stringify({
           success: false,
