@@ -184,18 +184,19 @@ export function TwoFactorSettings({ userId, isEnabled, onStatusChange }: TwoFact
   return (
     <>
       <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
+        <CardHeader className="p-4 md:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-              <CardTitle className="flex items-center gap-2">
-                <Shield className="h-5 w-5" />
-                Autenticação de Dois Fatores (2FA)
+              <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                <Shield className="h-4 w-4 md:h-5 md:w-5" />
+                <span className="hidden sm:inline">Autenticação de Dois Fatores (2FA)</span>
+                <span className="sm:hidden">2FA</span>
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-xs md:text-sm">
                 Adicione uma camada extra de segurança à sua conta
               </CardDescription>
             </div>
-            <Badge variant={isEnabled ? "default" : "secondary"} className={isEnabled ? "bg-green-500" : ""}>
+            <Badge variant={isEnabled ? "default" : "secondary"} className={`self-start sm:self-auto ${isEnabled ? "bg-green-500" : ""}`}>
               {isEnabled ? (
                 <>
                   <ShieldCheck className="h-3 w-3 mr-1" />
@@ -210,20 +211,20 @@ export function TwoFactorSettings({ userId, isEnabled, onStatusChange }: TwoFact
             </Badge>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-4 md:p-6 pt-0 md:pt-0">
           <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs md:text-sm text-muted-foreground">
               A autenticação de dois fatores adiciona uma camada extra de segurança exigindo um código 
               do Google Authenticator além da sua senha ao fazer login.
             </p>
 
             {isEnabled ? (
-              <div className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 md:p-4 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800">
                 <div className="flex items-center gap-3">
-                  <ShieldCheck className="h-8 w-8 text-green-600" />
+                  <ShieldCheck className="h-6 w-6 md:h-8 md:w-8 text-green-600 flex-shrink-0" />
                   <div>
-                    <p className="font-medium text-green-800 dark:text-green-200">2FA está ativo</p>
-                    <p className="text-sm text-green-600 dark:text-green-400">
+                    <p className="font-medium text-sm md:text-base text-green-800 dark:text-green-200">2FA está ativo</p>
+                    <p className="text-xs md:text-sm text-green-600 dark:text-green-400">
                       Sua conta está protegida com autenticação de dois fatores.
                     </p>
                   </div>
@@ -232,22 +233,23 @@ export function TwoFactorSettings({ userId, isEnabled, onStatusChange }: TwoFact
                   variant="destructive" 
                   onClick={() => setShowDisableDialog(true)}
                   disabled={isLoading}
+                  className="w-full sm:w-auto"
                 >
                   Desativar 2FA
                 </Button>
               </div>
             ) : (
-              <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 md:p-4 bg-muted rounded-lg">
                 <div className="flex items-center gap-3">
-                  <QrCode className="h-8 w-8 text-muted-foreground" />
+                  <QrCode className="h-6 w-6 md:h-8 md:w-8 text-muted-foreground flex-shrink-0" />
                   <div>
-                    <p className="font-medium">Configure o Google Authenticator</p>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="font-medium text-sm md:text-base">Configure o Google Authenticator</p>
+                    <p className="text-xs md:text-sm text-muted-foreground">
                       Escaneie o QR Code com o app para começar.
                     </p>
                   </div>
                 </div>
-                <Button onClick={handleGenerateQR} disabled={isLoading}>
+                <Button onClick={handleGenerateQR} disabled={isLoading} className="w-full sm:w-auto">
                   {isLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
