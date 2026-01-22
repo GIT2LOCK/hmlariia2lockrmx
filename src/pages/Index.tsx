@@ -72,8 +72,8 @@ const Index = () => {
     <div className="min-h-screen flex bg-background overflow-hidden relative">
       {/* Sliding Panel - Left side */}
       <div 
-        className={`absolute inset-y-0 w-[30%] bg-primary transition-transform duration-700 ease-in-out z-20 flex flex-col items-center justify-center text-primary-foreground p-8 ${
-          isLoginMode ? 'left-0' : 'left-[70%]'
+        className={`absolute inset-y-0 w-[37.5%] bg-primary transition-transform duration-700 ease-in-out z-20 flex flex-col items-center justify-center text-primary-foreground p-8 ${
+          isLoginMode ? 'left-0' : 'left-[62.5%]'
         }`}
       >
         <div className="max-w-sm text-center space-y-6">
@@ -118,7 +118,7 @@ const Index = () => {
       <div className="w-full flex relative">
         {/* Login Form - Right side */}
         <div 
-          className={`w-[70%] min-h-screen flex items-center justify-center p-8 absolute inset-y-0 right-0 transition-all duration-700 ease-in-out ${
+          className={`w-[62.5%] min-h-screen flex items-center justify-center p-8 absolute inset-y-0 right-0 transition-all duration-700 ease-in-out ${
             isLoginMode ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'
           }`}
         >
@@ -227,7 +227,7 @@ const Index = () => {
 
         {/* Signup Form - Left side */}
         <div 
-          className={`w-[70%] min-h-screen flex items-center justify-center p-8 absolute inset-y-0 left-0 transition-all duration-700 ease-in-out ${
+          className={`w-[62.5%] min-h-screen flex items-center justify-center p-8 absolute inset-y-0 left-0 transition-all duration-700 ease-in-out ${
             !isLoginMode ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'
           }`}
         >
