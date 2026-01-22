@@ -76,7 +76,7 @@ const Index = () => {
           isLoginMode ? 'translate-x-0' : 'translate-x-[166.67%]'
         }`}
       >
-        <div className={`max-w-sm text-center space-y-6 transition-opacity duration-500 ${isLoginMode ? 'opacity-100 delay-300' : 'opacity-0'}`}>
+        <div className={`max-w-sm text-center space-y-6 transition-opacity duration-500 ${isLoginMode ? 'opacity-100 delay-300' : 'opacity-0 pointer-events-none'}`}>
           <h2 className="text-3xl font-bold">Olá, Amigo!</h2>
           <p className="text-primary-foreground/80">
             Preencha seus dados pessoais e comece sua jornada conosco
@@ -93,7 +93,7 @@ const Index = () => {
             CADASTRAR
           </Button>
         </div>
-        <div className={`max-w-sm text-center space-y-6 absolute transition-opacity duration-500 ${!isLoginMode ? 'opacity-100 delay-300' : 'opacity-0'}`}>
+        <div className={`max-w-sm text-center space-y-6 absolute transition-opacity duration-500 ${!isLoginMode ? 'opacity-100 delay-300' : 'opacity-0 pointer-events-none'}`}>
           <h2 className="text-3xl font-bold">Bem-vindo de Volta!</h2>
           <p className="text-primary-foreground/80">
             Para continuar conectado, faça login com suas informações pessoais
