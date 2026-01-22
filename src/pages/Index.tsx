@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Eye, EyeOff, Mail, Lock, User, CreditCard } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import logo from "@/assets/logo.png";
+import PasswordChecklist from "@/components/PasswordChecklist";
 
 // Função para aplicar máscara de CPF
 const formatCpf = (value: string): string => {
@@ -383,9 +384,9 @@ const Index = () => {
                 </button>
               </div>
               
-              <p className="text-xs text-muted-foreground -mt-2">
-                Mín. 8 caracteres, incluindo maiúscula, minúscula, número e caractere especial.
-              </p>
+              <div className="-mt-2">
+                <PasswordChecklist password={signupPassword} />
+              </div>
 
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
