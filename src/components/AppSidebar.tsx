@@ -5,7 +5,9 @@ import {
   Users, 
   FileText, 
   HelpCircle,
-  LogOut
+  LogOut,
+  PanelLeftClose,
+  PanelLeft
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -39,7 +41,7 @@ const configItems = [
 ];
 
 export function AppSidebar() {
-  const { state } = useSidebar();
+  const { state, toggleSidebar } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
   const currentPath = location.pathname;
@@ -48,22 +50,32 @@ export function AppSidebar() {
 
   return (
     <Sidebar
-      className="border-r border-border"
+      className="border-r border-border bg-primary"
       collapsible="icon"
     >
-      <SidebarHeader className="p-4 border-b border-border">
-        <div className="flex items-center gap-3">
+      <SidebarHeader className="p-3 border-b border-primary-foreground/20">
+        <div className="flex items-center justify-between">
           <img 
             src={logo} 
             alt="Web Contador" 
-            className={`transition-all duration-300 ${collapsed ? 'h-8 w-8 object-contain' : 'h-10'}`}
+            className={`transition-all duration-300 ${collapsed ? 'h-8 w-8 object-contain' : 'h-9'}`}
           />
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleSidebar}
+            className={`text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 ${collapsed ? 'hidden' : ''}`}
+          >
+            <PanelLeftClose className="h-5 w-5" />
+          </Button>
         </div>
       </SidebarHeader>
 
-      <SidebarContent>
+      <SidebarContent className="bg-primary">
         <SidebarGroup>
-          <SidebarGroupLabel>Menu Principal</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-primary-foreground/60 text-xs uppercase tracking-wider">
+            Menu Principal
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {menuItems.map((item) => (
@@ -72,11 +84,11 @@ export function AppSidebar() {
                     asChild 
                     isActive={isActive(item.url)}
                     tooltip={item.title}
+                    className="text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10 data-[active=true]:bg-primary-foreground/20 data-[active=true]:text-primary-foreground"
                   >
                     <NavLink 
                       to={item.url} 
                       className="flex items-center gap-3"
-                      activeClassName="bg-primary/10 text-primary font-medium"
                     >
                       <item.icon className="h-5 w-5" />
                       <span>{item.title}</span>
@@ -89,7 +101,9 @@ export function AppSidebar() {
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel>Sistema</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-primary-foreground/60 text-xs uppercase tracking-wider">
+            Sistema
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {configItems.map((item) => (
@@ -98,11 +112,11 @@ export function AppSidebar() {
                     asChild 
                     isActive={isActive(item.url)}
                     tooltip={item.title}
+                    className="text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10 data-[active=true]:bg-primary-foreground/20 data-[active=true]:text-primary-foreground"
                   >
                     <NavLink 
                       to={item.url} 
                       className="flex items-center gap-3"
-                      activeClassName="bg-primary/10 text-primary font-medium"
                     >
                       <item.icon className="h-5 w-5" />
                       <span>{item.title}</span>
@@ -115,10 +129,20 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-4 border-t border-border">
+      <SidebarFooter className="p-3 border-t border-primary-foreground/20 bg-primary">
+        {collapsed && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleSidebar}
+            className="w-full text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 mb-2"
+          >
+            <PanelLeft className="h-5 w-5" />
+          </Button>
+        )}
         <Button 
           variant="ghost" 
-          className="w-full justify-start gap-3 text-muted-foreground hover:text-destructive"
+          className={`w-full text-primary-foreground/70 hover:text-red-300 hover:bg-primary-foreground/10 ${collapsed ? 'justify-center' : 'justify-start gap-3'}`}
           asChild
         >
           <NavLink to="/">
