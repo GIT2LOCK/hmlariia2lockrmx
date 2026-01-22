@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { getStoredUser, AuthUser } from "@/services/authService";
+import { getStoredUser, syncUserFromDatabase, AuthUser } from "@/services/authService";
 
 export type UserRole = "SUPERADMIN" | "ADMIN" | "USER" | "VIEWER";
 
@@ -18,22 +18,12 @@ interface UserContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   refreshUser: () => void;
+  syncFromDatabase: () => Promise<void>;
   canEdit: boolean;
   canManageUsers: boolean;
   canManageAdmins: boolean;
   hasFullAccess: boolean;
 }
-
-// Helper to get role description/cargo based on role
-const getRoleCargo = (role: UserRole): string => {
-  const cargos: Record<UserRole, string> = {
-    SUPERADMIN: "Superadministrador",
-    ADMIN: "Administrador",
-    USER: "Usuário",
-    VIEWER: "Visualizador",
-  };
-  return cargos[role] || "Usuário";
-};
 
 // Helper to split full name into nome/sobrenome
 const splitName = (fullName: string): { nome: string; sobrenome: string } => {
@@ -77,9 +67,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
         nome,
         sobrenome,
         email: storedUser.email || "",
-        cargo: role, // Show role name (SUPERADMIN, ADMIN, etc.) instead of description
+        cargo: role,
         role,
-        avatar: "", // Could be loaded from a profile table later
+        avatar: "",
       });
       setIsAuthenticated(true);
     } else {
@@ -89,8 +79,33 @@ export function UserProvider({ children }: { children: ReactNode }) {
     setIsLoading(false);
   };
 
+  // Sync user data from database (for real-time permission updates)
+  const syncFromDatabase = async () => {
+    const updatedUser = await syncUserFromDatabase();
+    if (updatedUser) {
+      const { nome, sobrenome } = splitName(updatedUser.nome);
+      const role = (updatedUser.permissao as UserRole) || "VIEWER";
+      
+      setUser({
+        id: updatedUser.id,
+        nome,
+        sobrenome,
+        email: updatedUser.email || "",
+        cargo: role,
+        role,
+        avatar: "",
+      });
+    }
+  };
+
   useEffect(() => {
     loadUser();
+    
+    // Sync from database on initial load if authenticated
+    const storedUser = getStoredUser();
+    if (storedUser) {
+      syncFromDatabase();
+    }
     
     // Listen for storage changes (e.g., login/logout in another tab)
     const handleStorageChange = (e: StorageEvent) => {
@@ -119,6 +134,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       isLoading,
       isAuthenticated,
       refreshUser,
+      syncFromDatabase,
       canEdit, 
       canManageUsers, 
       canManageAdmins, 
@@ -139,6 +155,7 @@ export function useUser(): UserContextType {
       isLoading: true,
       isAuthenticated: false,
       refreshUser: () => {},
+      syncFromDatabase: async () => {},
       canEdit: false,
       canManageUsers: false,
       canManageAdmins: false,
