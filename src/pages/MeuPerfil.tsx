@@ -84,43 +84,43 @@ const MeuPerfil = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-foreground">Meu Perfil</h2>
-        <p className="text-muted-foreground">
+        <h2 className="text-xl md:text-2xl font-bold text-foreground">Meu Perfil</h2>
+        <p className="text-sm md:text-base text-muted-foreground">
           Gerencie suas informações pessoais e segurança
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 md:gap-6">
         <Card className="lg:col-span-1">
-          <CardHeader className="text-center">
-            <div className="flex justify-center mb-4">
-              <Avatar className="h-24 w-24">
+          <CardHeader className="text-center p-4 md:p-6">
+            <div className="flex justify-center mb-3 md:mb-4">
+              <Avatar className="h-16 w-16 md:h-24 md:w-24">
                 <AvatarImage src={user.avatar} alt={`${user.nome} ${user.sobrenome}`} />
-                <AvatarFallback className="text-2xl">
+                <AvatarFallback className="text-lg md:text-2xl">
                   {user.nome[0]}{user.sobrenome[0]}
                 </AvatarFallback>
               </Avatar>
             </div>
-            <CardTitle>{user.nome} {user.sobrenome}</CardTitle>
-            <CardDescription>{user.cargo}</CardDescription>
+            <CardTitle className="text-base md:text-lg">{user.nome} {user.sobrenome}</CardTitle>
+            <CardDescription className="text-xs md:text-sm">{user.cargo}</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-3 text-sm">
+          <CardContent className="p-4 md:p-6 pt-0 md:pt-0">
+            <div className="space-y-2 md:space-y-3 text-xs md:text-sm">
               <div className="flex items-center gap-2 text-muted-foreground">
-                <Mail className="h-4 w-4" />
-                <span>{user.email}</span>
+                <Mail className="h-3 w-3 md:h-4 md:w-4 flex-shrink-0" />
+                <span className="truncate">{user.email}</span>
               </div>
               <div className="flex items-center gap-2 text-muted-foreground">
-                <User className="h-4 w-4" />
+                <User className="h-3 w-3 md:h-4 md:w-4 flex-shrink-0" />
                 <span>Perfil: {user.role}</span>
               </div>
             </div>
 
-            <Separator className="my-4" />
+            <Separator className="my-3 md:my-4" />
 
-            <Button variant="outline" className="w-full">
+            <Button variant="outline" className="w-full text-xs md:text-sm">
               Alterar foto
             </Button>
           </CardContent>
@@ -128,43 +128,45 @@ const MeuPerfil = () => {
 
         <div className="lg:col-span-3">
           <Tabs defaultValue="dados" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="dados" className="flex items-center gap-2">
-                <User className="h-4 w-4" />
-                Dados Pessoais
+            <TabsList className="grid w-full grid-cols-3 h-auto">
+              <TabsTrigger value="dados" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm py-2 px-1 md:px-3">
+                <User className="h-3 w-3 md:h-4 md:w-4" />
+                <span className="hidden sm:inline">Dados Pessoais</span>
+                <span className="sm:hidden">Dados</span>
               </TabsTrigger>
-              <TabsTrigger value="seguranca" className="flex items-center gap-2">
-                <Shield className="h-4 w-4" />
-                Segurança
+              <TabsTrigger value="seguranca" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm py-2 px-1 md:px-3">
+                <Shield className="h-3 w-3 md:h-4 md:w-4" />
+                <span>Segurança</span>
               </TabsTrigger>
-              <TabsTrigger value="dispositivos" className="flex items-center gap-2">
-                <Monitor className="h-4 w-4" />
-                Dispositivos
+              <TabsTrigger value="dispositivos" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm py-2 px-1 md:px-3">
+                <Monitor className="h-3 w-3 md:h-4 md:w-4" />
+                <span className="hidden sm:inline">Dispositivos</span>
+                <span className="sm:hidden">Devices</span>
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="dados" className="space-y-6 mt-6">
+            <TabsContent value="dados" className="space-y-4 md:space-y-6 mt-4 md:mt-6">
               <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
+                <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 md:p-6">
                   <div>
-                    <CardTitle className="flex items-center gap-2">
-                      <User className="h-5 w-5" />
+                    <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                      <User className="h-4 w-4 md:h-5 md:w-5" />
                       Dados Pessoais
                     </CardTitle>
-                    <CardDescription>
+                    <CardDescription className="text-xs md:text-sm">
                       Atualize suas informações de contato
                     </CardDescription>
                   </div>
                   {!isEditing && (
-                    <Button variant="outline" onClick={() => setIsEditing(true)}>
+                    <Button variant="outline" onClick={() => setIsEditing(true)} className="w-full sm:w-auto">
                       Editar
                     </Button>
                   )}
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                <CardContent className="space-y-4 p-4 md:p-6 pt-0 md:pt-0">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="nome">Nome</Label>
+                      <Label htmlFor="nome" className="text-xs md:text-sm">Nome</Label>
                       <Input
                         id="nome"
                         value={formData.nome}
@@ -172,10 +174,11 @@ const MeuPerfil = () => {
                           setFormData({ ...formData, nome: e.target.value })
                         }
                         disabled={!isEditing}
+                        className="text-sm"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="sobrenome">Sobrenome</Label>
+                      <Label htmlFor="sobrenome" className="text-xs md:text-sm">Sobrenome</Label>
                       <Input
                         id="sobrenome"
                         value={formData.sobrenome}
@@ -183,12 +186,13 @@ const MeuPerfil = () => {
                           setFormData({ ...formData, sobrenome: e.target.value })
                         }
                         disabled={!isEditing}
+                        className="text-sm"
                       />
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
+                    <Label htmlFor="email" className="text-xs md:text-sm">Email</Label>
                     <Input
                       id="email"
                       type="email"
@@ -197,11 +201,12 @@ const MeuPerfil = () => {
                         setFormData({ ...formData, email: e.target.value })
                       }
                       disabled={!isEditing}
+                      className="text-sm"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="telefone">Telefone</Label>
+                    <Label htmlFor="telefone" className="text-xs md:text-sm">Telefone</Label>
                     <Input
                       id="telefone"
                       value={formData.telefone}
@@ -209,16 +214,17 @@ const MeuPerfil = () => {
                       placeholder="(XX) X-XXXX-XXXX"
                       maxLength={17}
                       disabled={!isEditing}
+                      className="text-sm"
                     />
                   </div>
 
                   {isEditing && (
-                    <div className="flex gap-2 pt-4">
-                      <Button onClick={handleSave}>
+                    <div className="flex flex-col sm:flex-row gap-2 pt-4">
+                      <Button onClick={handleSave} className="w-full sm:w-auto">
                         <Save className="h-4 w-4 mr-2" />
                         Salvar
                       </Button>
-                      <Button variant="outline" onClick={() => setIsEditing(false)}>
+                      <Button variant="outline" onClick={() => setIsEditing(false)} className="w-full sm:w-auto">
                         Cancelar
                       </Button>
                     </div>
@@ -227,33 +233,33 @@ const MeuPerfil = () => {
               </Card>
             </TabsContent>
 
-            <TabsContent value="seguranca" className="space-y-6 mt-6">
+            <TabsContent value="seguranca" className="space-y-4 md:space-y-6 mt-4 md:mt-6">
               <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Lock className="h-5 w-5" />
+                <CardHeader className="p-4 md:p-6">
+                  <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                    <Lock className="h-4 w-4 md:h-5 md:w-5" />
                     Alterar Senha
                   </CardTitle>
-                  <CardDescription>
+                  <CardDescription className="text-xs md:text-sm">
                     Atualize sua senha de acesso
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-4 md:p-6 pt-0 md:pt-0">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="senha-atual">Senha Atual</Label>
-                      <Input id="senha-atual" type="password" placeholder="••••••••" />
+                      <Label htmlFor="senha-atual" className="text-xs md:text-sm">Senha Atual</Label>
+                      <Input id="senha-atual" type="password" placeholder="••••••••" className="text-sm" />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="nova-senha">Nova Senha</Label>
-                      <Input id="nova-senha" type="password" placeholder="••••••••" />
+                      <Label htmlFor="nova-senha" className="text-xs md:text-sm">Nova Senha</Label>
+                      <Input id="nova-senha" type="password" placeholder="••••••••" className="text-sm" />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="confirmar-senha">Confirmar Nova Senha</Label>
-                      <Input id="confirmar-senha" type="password" placeholder="••••••••" />
+                      <Label htmlFor="confirmar-senha" className="text-xs md:text-sm">Confirmar Nova Senha</Label>
+                      <Input id="confirmar-senha" type="password" placeholder="••••••••" className="text-sm" />
                     </div>
                   </div>
-                  <Button className="mt-4">Alterar Senha</Button>
+                  <Button className="mt-4 w-full sm:w-auto">Alterar Senha</Button>
                 </CardContent>
               </Card>
 

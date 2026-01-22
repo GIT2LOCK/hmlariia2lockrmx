@@ -231,10 +231,33 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen flex bg-background overflow-hidden relative">
-      {/* Sliding Panel */}
+    <div className="min-h-screen flex flex-col md:flex-row bg-background overflow-hidden relative">
+      {/* Mobile Header - Toggle between Login/Signup */}
+      <div className="md:hidden bg-primary p-4 text-center">
+        <h2 className="text-xl font-bold text-primary-foreground mb-2">
+          {isLoginMode ? "Bem-vindo!" : "Criar Conta"}
+        </h2>
+        <p className="text-sm text-primary-foreground/80 mb-3">
+          {isLoginMode 
+            ? "Não tem uma conta?" 
+            : "Já tem uma conta?"}
+        </p>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            setIsLoginMode(!isLoginMode);
+            setIsForgotPassword(false);
+          }}
+          className="border-primary-foreground text-primary-foreground bg-transparent hover:bg-primary-foreground hover:text-primary font-semibold px-8 rounded-full"
+        >
+          {isLoginMode ? "CADASTRAR" : "ENTRAR"}
+        </Button>
+      </div>
+
+      {/* Sliding Panel - Desktop only */}
       <div 
-        className={`absolute inset-y-0 w-[37.5%] bg-primary z-20 flex flex-col items-center justify-center text-primary-foreground p-8 transition-all duration-700 ease-[cubic-bezier(0.65,0,0.35,1)] ${
+        className={`hidden md:flex absolute inset-y-0 w-[37.5%] bg-primary z-20 flex-col items-center justify-center text-primary-foreground p-8 transition-all duration-700 ease-[cubic-bezier(0.65,0,0.35,1)] ${
           isLoginMode ? 'translate-x-0' : 'translate-x-[166.67%]'
         }`}
       >
@@ -272,53 +295,53 @@ const Index = () => {
       </div>
 
       {/* Forms Container */}
-      <div className="w-full flex relative">
-        {/* Login Form - Right side */}
+      <div className="flex-1 flex relative">
+        {/* Login Form - Right side on desktop, full width on mobile */}
         <div 
-          className={`w-[62.5%] min-h-screen flex items-center justify-center p-8 absolute inset-y-0 right-0 transition-all duration-700 ease-[cubic-bezier(0.65,0,0.35,1)] ${
+          className={`w-full md:w-[62.5%] min-h-[calc(100vh-100px)] md:min-h-screen flex items-center justify-center p-4 md:p-8 md:absolute md:inset-y-0 md:right-0 transition-all duration-700 ease-[cubic-bezier(0.65,0,0.35,1)] ${
             isLoginMode 
-              ? 'opacity-100 translate-x-0 z-10' 
-              : 'opacity-0 translate-x-[20%] z-0 pointer-events-none'
+              ? 'opacity-100 translate-x-0 z-10 block' 
+              : 'opacity-0 md:translate-x-[20%] z-0 pointer-events-none hidden md:flex'
           }`}
         >
-          <div className={`w-full max-w-md space-y-8 transition-transform duration-700 delay-100 ${isLoginMode ? 'translate-y-0' : 'translate-y-4'}`}>
+          <div className={`w-full max-w-md space-y-6 md:space-y-8 transition-transform duration-700 delay-100 ${isLoginMode ? 'translate-y-0' : 'translate-y-4'}`}>
             {!isForgotPassword ? (
               <>
                 <div className="text-center">
-                  <img src={logo} alt="Web Contador" className="h-14 mx-auto mb-6" />
-                  <h1 className="text-3xl font-bold text-foreground">Entrar na Conta</h1>
-                  <p className="text-muted-foreground mt-2">Use seu e-mail para login</p>
+                  <img src={logo} alt="Web Contador" className="h-10 md:h-14 mx-auto mb-4 md:mb-6" />
+                  <h1 className="text-2xl md:text-3xl font-bold text-foreground">Entrar na Conta</h1>
+                  <p className="text-sm md:text-base text-muted-foreground mt-2">Use seu e-mail para login</p>
                 </div>
 
-                <form onSubmit={handleLogin} className="space-y-4">
+                <form onSubmit={handleLogin} className="space-y-3 md:space-y-4">
                   <div className="relative">
-                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <Mail className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
                     <Input
                       type="email"
                       placeholder="E-mail"
                       value={loginEmail}
                       onChange={(e) => setLoginEmail(e.target.value)}
-                      className="pl-12 h-12 bg-muted border-0 rounded-lg"
+                      className="pl-10 md:pl-12 h-10 md:h-12 bg-muted border-0 rounded-lg text-sm md:text-base"
                       required
                     />
                   </div>
 
                   <div className="relative">
-                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <Lock className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
                     <Input
                       type={showPassword ? "text" : "password"}
                       placeholder="Senha"
                       value={loginPassword}
                       onChange={(e) => setLoginPassword(e.target.value)}
-                      className="pl-12 pr-12 h-12 bg-muted border-0 rounded-lg"
+                      className="pl-10 md:pl-12 pr-10 md:pr-12 h-10 md:h-12 bg-muted border-0 rounded-lg text-sm md:text-base"
                       required
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      className="absolute right-3 md:right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                     >
-                      {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                      {showPassword ? <EyeOff className="h-4 w-4 md:h-5 md:w-5" /> : <Eye className="h-4 w-4 md:h-5 md:w-5" />}
                     </button>
                   </div>
 
@@ -326,7 +349,7 @@ const Index = () => {
                     <button
                       type="button"
                       onClick={() => setIsForgotPassword(true)}
-                      className="text-sm text-secondary hover:text-brand-green-light font-medium"
+                      className="text-xs md:text-sm text-secondary hover:text-brand-green-light font-medium"
                     >
                       Esqueceu sua senha?
                     </button>
@@ -335,7 +358,7 @@ const Index = () => {
                   <Button
                     type="submit"
                     disabled={isLoading}
-                    className="w-full h-12 bg-secondary hover:bg-brand-green-light text-secondary-foreground font-semibold rounded-full"
+                    className="w-full h-10 md:h-12 bg-secondary hover:bg-brand-green-light text-secondary-foreground font-semibold rounded-full text-sm md:text-base"
                   >
                     {isLoading ? "ENTRANDO..." : "ENTRAR"}
                   </Button>
@@ -344,20 +367,20 @@ const Index = () => {
             ) : (
               <>
                 <div className="text-center">
-                  <img src={logo} alt="Web Contador" className="h-14 mx-auto mb-6" />
-                  <h1 className="text-3xl font-bold text-foreground">Recuperar Senha</h1>
-                  <p className="text-muted-foreground mt-2">Digite seu e-mail para receber o link</p>
+                  <img src={logo} alt="Web Contador" className="h-10 md:h-14 mx-auto mb-4 md:mb-6" />
+                  <h1 className="text-2xl md:text-3xl font-bold text-foreground">Recuperar Senha</h1>
+                  <p className="text-sm md:text-base text-muted-foreground mt-2">Digite seu e-mail para receber o link</p>
                 </div>
 
-                <form onSubmit={handleForgotPassword} className="space-y-4">
+                <form onSubmit={handleForgotPassword} className="space-y-3 md:space-y-4">
                   <div className="relative">
-                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <Mail className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
                     <Input
                       type="email"
                       placeholder="E-mail"
                       value={forgotEmail}
                       onChange={(e) => setForgotEmail(e.target.value)}
-                      className="pl-12 h-12 bg-muted border-0 rounded-lg"
+                      className="pl-10 md:pl-12 h-10 md:h-12 bg-muted border-0 rounded-lg text-sm md:text-base"
                       required
                     />
                   </div>
@@ -365,7 +388,7 @@ const Index = () => {
                   <Button
                     type="submit"
                     disabled={isLoading}
-                    className="w-full h-12 bg-secondary hover:bg-brand-green-light text-secondary-foreground font-semibold rounded-full"
+                    className="w-full h-10 md:h-12 bg-secondary hover:bg-brand-green-light text-secondary-foreground font-semibold rounded-full text-sm md:text-base"
                   >
                     {isLoading ? "ENVIANDO..." : "ENVIAR LINK"}
                   </Button>
@@ -374,7 +397,7 @@ const Index = () => {
                     type="button"
                     variant="ghost"
                     onClick={() => setIsForgotPassword(false)}
-                    className="w-full text-muted-foreground hover:text-foreground"
+                    className="w-full text-muted-foreground hover:text-foreground text-sm"
                   >
                     Voltar ao login
                   </Button>
@@ -384,31 +407,31 @@ const Index = () => {
           </div>
         </div>
 
-        {/* Signup Form - Left side */}
+        {/* Signup Form - Left side on desktop, full width on mobile */}
         <div 
-          className={`w-[62.5%] min-h-screen flex items-center justify-center p-8 absolute inset-y-0 left-0 transition-all duration-700 ease-[cubic-bezier(0.65,0,0.35,1)] ${
+          className={`w-full md:w-[62.5%] min-h-[calc(100vh-100px)] md:min-h-screen flex items-center justify-center p-4 md:p-8 md:absolute md:inset-y-0 md:left-0 transition-all duration-700 ease-[cubic-bezier(0.65,0,0.35,1)] ${
             !isLoginMode 
-              ? 'opacity-100 translate-x-0 z-10' 
-              : 'opacity-0 -translate-x-[20%] z-0 pointer-events-none'
+              ? 'opacity-100 translate-x-0 z-10 block' 
+              : 'opacity-0 md:-translate-x-[20%] z-0 pointer-events-none hidden md:flex'
           }`}
         >
-          <div className={`w-full max-w-md space-y-8 transition-transform duration-700 delay-100 ${!isLoginMode ? 'translate-y-0' : 'translate-y-4'}`}>
+          <div className={`w-full max-w-md space-y-6 md:space-y-8 transition-transform duration-700 delay-100 ${!isLoginMode ? 'translate-y-0' : 'translate-y-4'}`}>
             <div className="text-center">
-              <img src={logo} alt="Web Contador" className="h-14 mx-auto mb-6" />
-              <h1 className="text-3xl font-bold text-foreground">Criar Conta</h1>
-              <p className="text-muted-foreground mt-2">Use seu e-mail para cadastro</p>
+              <img src={logo} alt="Web Contador" className="h-10 md:h-14 mx-auto mb-4 md:mb-6" />
+              <h1 className="text-2xl md:text-3xl font-bold text-foreground">Criar Conta</h1>
+              <p className="text-sm md:text-base text-muted-foreground mt-2">Use seu e-mail para cadastro</p>
             </div>
 
-            <form onSubmit={handleSignup} className="space-y-4">
-              <div className="flex gap-3">
+            <form onSubmit={handleSignup} className="space-y-3 md:space-y-4">
+              <div className="flex flex-col sm:flex-row gap-3">
                 <div className="relative flex-1">
-                  <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  <User className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
                   <Input
                     type="text"
                     placeholder="Nome"
                     value={signupNome}
                     onChange={(e) => setSignupNome(e.target.value)}
-                    className="pl-12 h-12 bg-muted border-0 rounded-lg"
+                    className="pl-10 md:pl-12 h-10 md:h-12 bg-muted border-0 rounded-lg text-sm md:text-base"
                     required
                   />
                 </div>
@@ -418,85 +441,85 @@ const Index = () => {
                     placeholder="Sobrenome"
                     value={signupSobrenome}
                     onChange={(e) => setSignupSobrenome(e.target.value)}
-                    className="h-12 bg-muted border-0 rounded-lg"
+                    className="h-10 md:h-12 bg-muted border-0 rounded-lg text-sm md:text-base"
                     required
                   />
                 </div>
               </div>
 
               <div className="relative">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Mail className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
                 <Input
                   type="email"
                   placeholder="E-mail"
                   value={signupEmail}
                   onChange={(e) => setSignupEmail(e.target.value)}
-                  className="pl-12 h-12 bg-muted border-0 rounded-lg"
+                  className="pl-10 md:pl-12 h-10 md:h-12 bg-muted border-0 rounded-lg text-sm md:text-base"
                   required
                 />
               </div>
 
               <div className="relative">
-                <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <CreditCard className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
                 <Input
                   type="text"
                   placeholder="CPF"
                   value={signupCpf}
                   onChange={(e) => setSignupCpf(formatCpf(e.target.value))}
-                  className="pl-12 h-12 bg-muted border-0 rounded-lg"
+                  className="pl-10 md:pl-12 h-10 md:h-12 bg-muted border-0 rounded-lg text-sm md:text-base"
                   required
                   maxLength={14}
                 />
               </div>
 
               <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Lock className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
                 <Input
                   type={showPassword ? "text" : "password"}
                   placeholder="Senha"
                   value={signupPassword}
                   onChange={(e) => setSignupPassword(e.target.value)}
-                  className="pl-12 pr-12 h-12 bg-muted border-0 rounded-lg"
+                  className="pl-10 md:pl-12 pr-10 md:pr-12 h-10 md:h-12 bg-muted border-0 rounded-lg text-sm md:text-base"
                   required
                   minLength={8}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  className="absolute right-3 md:right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
-                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  {showPassword ? <EyeOff className="h-4 w-4 md:h-5 md:w-5" /> : <Eye className="h-4 w-4 md:h-5 md:w-5" />}
                 </button>
               </div>
               
-              <div className="-mt-2">
+              <div className="-mt-1 md:-mt-2">
                 <PasswordChecklist password={signupPassword} />
               </div>
 
               <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Lock className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
                 <Input
                   type={showConfirmPassword ? "text" : "password"}
                   placeholder="Confirmar senha"
                   value={signupConfirmPassword}
                   onChange={(e) => setSignupConfirmPassword(e.target.value)}
-                  className="pl-12 pr-12 h-12 bg-muted border-0 rounded-lg"
+                  className="pl-10 md:pl-12 pr-10 md:pr-12 h-10 md:h-12 bg-muted border-0 rounded-lg text-sm md:text-base"
                   required
                   minLength={8}
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  className="absolute right-3 md:right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
-                  {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  {showConfirmPassword ? <EyeOff className="h-4 w-4 md:h-5 md:w-5" /> : <Eye className="h-4 w-4 md:h-5 md:w-5" />}
                 </button>
               </div>
 
               <Button
                 type="submit"
                 disabled={isLoading}
-                className="w-full h-12 bg-secondary hover:bg-brand-green-light text-secondary-foreground font-semibold rounded-full"
+                className="w-full h-10 md:h-12 bg-secondary hover:bg-brand-green-light text-secondary-foreground font-semibold rounded-full text-sm md:text-base"
               >
                 {isLoading ? "CADASTRANDO..." : "CADASTRAR"}
               </Button>
