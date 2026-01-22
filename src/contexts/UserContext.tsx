@@ -33,8 +33,8 @@ const mockUsers: Record<UserRole, User> = {
   },
   ADMIN: {
     id: 2,
-    nome: "Rebo",
-    sobrenome: "Lador",
+    nome: "João",
+    sobrenome: "Silva",
     email: "admin@escritorio.com",
     cargo: "Administrador",
     role: "ADMIN",
