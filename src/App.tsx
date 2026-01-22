@@ -18,6 +18,7 @@ import WebhookConfig from "./pages/WebhookConfig";
 import Triagem from "./pages/Triagem";
 import MeuPerfil from "./pages/MeuPerfil";
 import { UserProvider } from "./contexts/UserContext";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -30,7 +31,14 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
-            <Route path="/dashboard" element={<DashboardLayout />}>
+            <Route 
+              path="/dashboard" 
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout />
+                </ProtectedRoute>
+              }
+            >
               <Route index element={<Dashboard />} />
               <Route path="demandas" element={<Demandas />} />
               <Route path="empresas" element={<Empresas />} />
