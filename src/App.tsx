@@ -13,6 +13,8 @@ import Pessoas from "./pages/Pessoas";
 import Usuarios from "./pages/Usuarios";
 import Configuracoes from "./pages/Configuracoes";
 import Relatorios from "./pages/Relatorios";
+import Grupos from "./pages/Grupos";
+import WebhookConfig from "./pages/WebhookConfig";
 
 const queryClient = new QueryClient();
 
@@ -32,6 +34,8 @@ const App = () => (
             <Route path="usuarios" element={<Usuarios />} />
             <Route path="configuracoes" element={<Configuracoes />} />
             <Route path="relatorios" element={<Relatorios />} />
+            <Route path="grupos" element={<Grupos />} />
+            <Route path="webhook" element={<WebhookConfig />} />
           </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
