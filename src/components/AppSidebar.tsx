@@ -121,25 +121,31 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-3 border-t border-primary-foreground/20 bg-primary">
-        <Button 
-          variant="ghost" 
-          className={`w-full text-primary-foreground/70 hover:text-red-300 hover:bg-primary-foreground/10 ${collapsed ? 'justify-center' : 'justify-start gap-3'}`}
-          asChild
-        >
-          <NavLink to="/">
-            <LogOut className="h-5 w-5" />
-            {!collapsed && <span>Sair</span>}
-          </NavLink>
-        </Button>
-        <Button
-          variant="ghost"
-          onClick={toggleSidebar}
-          className={`w-full text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 mt-2 ${collapsed ? 'justify-center' : 'justify-start gap-3'}`}
-        >
-          {collapsed ? <PanelLeft className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
-          {!collapsed && <span>Minimizar</span>}
-        </Button>
+      <SidebarFooter className="border-t border-primary-foreground/20 bg-primary px-2 py-2">
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton 
+              asChild
+              tooltip="Sair"
+              className="text-primary-foreground/80 hover:text-red-300 hover:bg-primary-foreground/10"
+            >
+              <NavLink to="/" className="flex items-center gap-3">
+                <LogOut className="h-5 w-5" />
+                <span>Sair</span>
+              </NavLink>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton 
+              onClick={toggleSidebar}
+              tooltip={collapsed ? "Expandir" : "Minimizar"}
+              className="text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10"
+            >
+              {collapsed ? <PanelLeft className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
+              <span>Minimizar</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarFooter>
     </Sidebar>
   );
