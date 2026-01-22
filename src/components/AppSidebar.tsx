@@ -8,7 +8,8 @@ import {
   PanelLeftClose,
   PanelLeft,
   UsersRound,
-  Webhook
+  Webhook,
+  Building2
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -38,7 +39,7 @@ const mockUser = {
 const menuItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Demandas", url: "/dashboard/demandas", icon: ClipboardList },
-  { title: "Empresas", url: "/dashboard/empresas", icon: FileText },
+  { title: "Empresas", url: "/dashboard/empresas", icon: Building2 },
   { title: "Pessoas", url: "/dashboard/pessoas", icon: Users },
   { title: "Relatórios", url: "/dashboard/relatorios", icon: FileText },
 ];
