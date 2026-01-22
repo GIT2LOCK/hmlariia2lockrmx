@@ -21,13 +21,6 @@ import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useUser, UserRole } from "@/contexts/UserContext";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 import {
   Sidebar,
@@ -164,7 +157,7 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const location = useLocation();
   const currentPath = location.pathname;
-  const { user, setRole } = useUser();
+  const { user } = useUser();
 
   const isActive = (path: string) => currentPath === path;
 
@@ -194,23 +187,6 @@ export function AppSidebar() {
             </div>
           )}
         </div>
-        
-        {/* Seletor de perfil para testes */}
-        {!collapsed && (
-          <div className="mt-3">
-            <Select value={user.role} onValueChange={(value: UserRole) => setRole(value)}>
-              <SelectTrigger className="h-8 text-xs bg-primary-foreground/10 border-primary-foreground/20 text-primary-foreground">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="SUPERADMIN">🔑 Superadmin</SelectItem>
-                <SelectItem value="ADMIN">🛠️ Admin</SelectItem>
-                <SelectItem value="USER">👷 User</SelectItem>
-                <SelectItem value="VIEWER">👁️ Viewer</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        )}
       </SidebarHeader>
 
       <SidebarContent className="bg-primary">

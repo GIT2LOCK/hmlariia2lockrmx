@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { getStoredUser, AuthUser } from "@/services/authService";
 
 export type UserRole = "SUPERADMIN" | "ADMIN" | "USER" | "VIEWER";
 
@@ -14,71 +15,115 @@ interface User {
 
 interface UserContextType {
   user: User;
-  setRole: (role: UserRole) => void;
+  isLoading: boolean;
+  isAuthenticated: boolean;
+  refreshUser: () => void;
   canEdit: boolean;
   canManageUsers: boolean;
   canManageAdmins: boolean;
   hasFullAccess: boolean;
 }
 
-const mockUsers: Record<UserRole, User> = {
-  SUPERADMIN: {
-    id: 1,
-    nome: "Super",
-    sobrenome: "Admin",
-    email: "superadmin@escritorio.com",
-    cargo: "Superadministrador",
-    role: "SUPERADMIN",
-    avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face",
-  },
-  ADMIN: {
-    id: 2,
-    nome: "João",
-    sobrenome: "Silva",
-    email: "admin@escritorio.com",
-    cargo: "Administrador",
-    role: "ADMIN",
-    avatar: "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=150&h=150&fit=crop&crop=face",
-  },
-  USER: {
-    id: 3,
-    nome: "Carlos",
-    sobrenome: "Operador",
-    email: "carlos@escritorio.com",
-    cargo: "Assistente Contábil",
-    role: "USER",
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face",
-  },
-  VIEWER: {
-    id: 4,
-    nome: "Ana",
-    sobrenome: "Auditora",
-    email: "ana@escritorio.com",
-    cargo: "Auditora",
-    role: "VIEWER",
-    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&h=150&fit=crop&crop=face",
-  },
+// Helper to get role description/cargo based on role
+const getRoleCargo = (role: UserRole): string => {
+  const cargos: Record<UserRole, string> = {
+    SUPERADMIN: "Superadministrador",
+    ADMIN: "Administrador",
+    USER: "Usuário",
+    VIEWER: "Visualizador",
+  };
+  return cargos[role] || "Usuário";
+};
+
+// Helper to split full name into nome/sobrenome
+const splitName = (fullName: string): { nome: string; sobrenome: string } => {
+  const parts = fullName.trim().split(" ");
+  if (parts.length === 1) {
+    return { nome: parts[0], sobrenome: "" };
+  }
+  return {
+    nome: parts[0],
+    sobrenome: parts.slice(1).join(" "),
+  };
+};
+
+// Default user when not authenticated
+const defaultUser: User = {
+  id: 0,
+  nome: "Visitante",
+  sobrenome: "",
+  email: "",
+  cargo: "Não autenticado",
+  role: "VIEWER",
+  avatar: "",
 };
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export function UserProvider({ children }: { children: ReactNode }) {
-  const [role, setRoleState] = useState<UserRole>("SUPERADMIN");
+  const [user, setUser] = useState<User>(defaultUser);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  const setRole = (newRole: UserRole) => {
-    setRoleState(newRole);
+  const loadUser = () => {
+    const storedUser = getStoredUser();
+    
+    if (storedUser) {
+      const { nome, sobrenome } = splitName(storedUser.nome);
+      const role = (storedUser.permissao as UserRole) || "VIEWER";
+      
+      setUser({
+        id: storedUser.id,
+        nome,
+        sobrenome,
+        email: storedUser.email || "",
+        cargo: storedUser.permissao_descricao || getRoleCargo(role),
+        role,
+        avatar: "", // Could be loaded from a profile table later
+      });
+      setIsAuthenticated(true);
+    } else {
+      setUser(defaultUser);
+      setIsAuthenticated(false);
+    }
+    setIsLoading(false);
   };
 
-  const user = mockUsers[role];
+  useEffect(() => {
+    loadUser();
+    
+    // Listen for storage changes (e.g., login/logout in another tab)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "auth_user") {
+        loadUser();
+      }
+    };
+    
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
 
-  // Permissões baseadas no perfil
-  const canEdit = role === "SUPERADMIN" || role === "ADMIN" || role === "USER";
-  const canManageUsers = role === "SUPERADMIN" || role === "ADMIN";
-  const canManageAdmins = role === "SUPERADMIN";
-  const hasFullAccess = role === "SUPERADMIN";
+  const refreshUser = () => {
+    loadUser();
+  };
+
+  // Permissões baseadas no perfil real
+  const canEdit = user.role === "SUPERADMIN" || user.role === "ADMIN" || user.role === "USER";
+  const canManageUsers = user.role === "SUPERADMIN" || user.role === "ADMIN";
+  const canManageAdmins = user.role === "SUPERADMIN";
+  const hasFullAccess = user.role === "SUPERADMIN";
 
   return (
-    <UserContext.Provider value={{ user, setRole, canEdit, canManageUsers, canManageAdmins, hasFullAccess }}>
+    <UserContext.Provider value={{ 
+      user, 
+      isLoading,
+      isAuthenticated,
+      refreshUser,
+      canEdit, 
+      canManageUsers, 
+      canManageAdmins, 
+      hasFullAccess 
+    }}>
       {children}
     </UserContext.Provider>
   );
