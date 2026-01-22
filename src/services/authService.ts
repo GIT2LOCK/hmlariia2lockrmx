@@ -35,7 +35,36 @@ export interface AuthResponse {
   requires2FA?: boolean;
 }
 
+export interface Device {
+  dispositivo_id: number;
+  device_token: string;
+  ip_address: string;
+  location_country: string;
+  location_state: string;
+  location_city: string;
+  device_type: string;
+  browser_name: string;
+  os_name: string;
+  login_at: string;
+  last_activity: string;
+  remember_until: string | null;
+  is_active: boolean;
+}
+
 const SUPABASE_URL = "https://vaszvkujzyzpoqmqpphz.supabase.co";
+const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZhc3p2a3Vqenl6cG9xbXFwcGh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI5NTIzNDgsImV4cCI6MjA3ODUyODM0OH0.vZ4JbfmzfFFs-GX-P3HnV04X1ylkxNraex5jqVpTvIM";
+
+// Generate a unique device token
+export function getDeviceToken(): string {
+  let token = localStorage.getItem("device_token");
+  if (!token) {
+    const array = new Uint8Array(16);
+    crypto.getRandomValues(array);
+    token = Array.from(array, (b) => b.toString(16).padStart(2, "0")).join("");
+    localStorage.setItem("device_token", token);
+  }
+  return token;
+}
 
 export async function signup(data: SignupData): Promise<AuthResponse> {
   try {
@@ -43,7 +72,7 @@ export async function signup(data: SignupData): Promise<AuthResponse> {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZhc3p2a3Vqenl6cG9xbXFwcGh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI5NTIzNDgsImV4cCI6MjA3ODUyODM0OH0.vZ4JbfmzfFFs-GX-P3HnV04X1ylkxNraex5jqVpTvIM",
+        "apikey": ANON_KEY,
       },
       body: JSON.stringify(data),
     });
@@ -76,13 +105,15 @@ export async function signup(data: SignupData): Promise<AuthResponse> {
 
 export async function login(data: LoginData): Promise<AuthResponse> {
   try {
+    const deviceToken = getDeviceToken();
+    
     const response = await fetch(`${SUPABASE_URL}/functions/v1/login`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZhc3p2a3Vqenl6cG9xbXFwcGh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI5NTIzNDgsImV4cCI6MjA3ODUyODM0OH0.vZ4JbfmzfFFs-GX-P3HnV04X1ylkxNraex5jqVpTvIM",
+        "apikey": ANON_KEY,
       },
-      body: JSON.stringify(data),
+      body: JSON.stringify({ ...data, deviceToken }),
     });
 
     const result = await response.json();
@@ -226,7 +257,7 @@ export async function sendVerificationEmail(userId: number, email: string, nome:
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZhc3p2a3Vqenl6cG9xbXFwcGh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI5NTIzNDgsImV4cCI6MjA3ODUyODM0OH0.vZ4JbfmzfFFs-GX-P3HnV04X1ylkxNraex5jqVpTvIM",
+        "apikey": ANON_KEY,
       },
       body: JSON.stringify({ userId, email, nome }),
     });
@@ -252,7 +283,7 @@ export async function verifyEmail(userId: number, code: string): Promise<{ succe
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZhc3p2a3Vqenl6cG9xbXFwcGh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI5NTIzNDgsImV4cCI6MjA3ODUyODM0OH0.vZ4JbfmzfFFs-GX-P3HnV04X1ylkxNraex5jqVpTvIM",
+        "apikey": ANON_KEY,
       },
       body: JSON.stringify({ userId, code }),
     });
@@ -272,15 +303,23 @@ export async function verifyEmail(userId: number, code: string): Promise<{ succe
 }
 
 // Verify 2FA code and complete login
-export async function verify2FA(userId: number, code: string): Promise<AuthResponse> {
+export async function verify2FA(userId: number, code: string, rememberDevice: boolean = false): Promise<AuthResponse> {
   try {
+    const deviceToken = getDeviceToken();
+    
     const response = await fetch(`${SUPABASE_URL}/functions/v1/verify-2fa`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZhc3p2a3Vqenl6cG9xbXFwcGh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI5NTIzNDgsImV4cCI6MjA3ODUyODM0OH0.vZ4JbfmzfFFs-GX-P3HnV04X1ylkxNraex5jqVpTvIM",
+        "apikey": ANON_KEY,
       },
-      body: JSON.stringify({ userId, code }),
+      body: JSON.stringify({ 
+        userId, 
+        code, 
+        rememberDevice,
+        deviceToken,
+        userAgent: navigator.userAgent,
+      }),
     });
 
     const result = await response.json();
@@ -312,6 +351,69 @@ export async function verify2FA(userId: number, code: string): Promise<AuthRespo
       success: false,
       message: "Erro de conexão. Tente novamente.",
       error: String(error),
+    };
+  }
+}
+
+// Get user devices
+export async function getUserDevices(userId: number): Promise<{ success: boolean; devices: Device[]; error?: string }> {
+  try {
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/get-devices`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": ANON_KEY,
+      },
+      body: JSON.stringify({ userId }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      return {
+        success: false,
+        devices: [],
+        error: result.error || "Erro ao buscar dispositivos",
+      };
+    }
+
+    return {
+      success: true,
+      devices: result.devices,
+    };
+  } catch (error) {
+    console.error("Get devices error:", error);
+    return {
+      success: false,
+      devices: [],
+      error: "Erro de conexão. Tente novamente.",
+    };
+  }
+}
+
+// Revoke device
+export async function revokeDevice(userId: number, deviceId?: number, revokeAll: boolean = false): Promise<{ success: boolean; message: string }> {
+  try {
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/revoke-device`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": ANON_KEY,
+      },
+      body: JSON.stringify({ userId, deviceId, revokeAll }),
+    });
+
+    const result = await response.json();
+
+    return {
+      success: response.ok && result.success,
+      message: result.message || result.error || "Erro desconhecido",
+    };
+  } catch (error) {
+    console.error("Revoke device error:", error);
+    return {
+      success: false,
+      message: "Erro de conexão. Tente novamente.",
     };
   }
 }

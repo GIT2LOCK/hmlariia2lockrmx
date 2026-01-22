@@ -248,6 +248,65 @@ export type Database = {
           },
         ]
       }
+      tb_dispositivo: {
+        Row: {
+          browser_name: string | null
+          device_token: string
+          device_type: string
+          dispositivo_id: number
+          ip_address: string | null
+          is_active: boolean
+          last_activity: string
+          location_city: string | null
+          location_country: string | null
+          location_state: string | null
+          login_at: string
+          os_name: string | null
+          remember_until: string | null
+          user_id: number
+        }
+        Insert: {
+          browser_name?: string | null
+          device_token: string
+          device_type?: string
+          dispositivo_id?: number
+          ip_address?: string | null
+          is_active?: boolean
+          last_activity?: string
+          location_city?: string | null
+          location_country?: string | null
+          location_state?: string | null
+          login_at?: string
+          os_name?: string | null
+          remember_until?: string | null
+          user_id: number
+        }
+        Update: {
+          browser_name?: string | null
+          device_token?: string
+          device_type?: string
+          dispositivo_id?: number
+          ip_address?: string | null
+          is_active?: boolean
+          last_activity?: string
+          location_city?: string | null
+          location_country?: string | null
+          location_state?: string | null
+          login_at?: string
+          os_name?: string | null
+          remember_until?: string | null
+          user_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tb_dispositivo_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "tb_usuario"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       tb_email: {
         Row: {
           email_alternativo: string | null
