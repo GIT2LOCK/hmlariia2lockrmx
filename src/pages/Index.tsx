@@ -7,6 +7,8 @@ import { useToast } from "@/hooks/use-toast";
 import logo from "@/assets/logo.png";
 import PasswordChecklist from "@/components/PasswordChecklist";
 import { signup, login } from "@/services/authService";
+import { EmailVerificationModal } from "@/components/EmailVerificationModal";
+import { TwoFactorModal } from "@/components/TwoFactorModal";
 
 // Função para aplicar máscara de CPF
 const formatCpf = (value: string): string => {
@@ -87,6 +89,11 @@ const Index = () => {
   const [signupConfirmPassword, setSignupConfirmPassword] = useState("");
   const [forgotEmail, setForgotEmail] = useState("");
 
+  // Verification modal states
+  const [showEmailVerification, setShowEmailVerification] = useState(false);
+  const [show2FAModal, setShow2FAModal] = useState(false);
+  const [pendingUser, setPendingUser] = useState<{ id: number; nome: string; email?: string } | null>(null);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -104,6 +111,21 @@ const Index = () => {
         description: `Bem-vindo de volta, ${result.user?.nome}!`,
       });
       navigate("/dashboard");
+    } else if (result.requiresEmailVerification && result.user) {
+      // User needs to verify email
+      setPendingUser({
+        id: result.user.id,
+        nome: result.user.nome,
+        email: result.user.email || loginEmail,
+      });
+      setShowEmailVerification(true);
+    } else if (result.requires2FA && result.user) {
+      // User has 2FA enabled
+      setPendingUser({
+        id: result.user.id,
+        nome: result.user.nome,
+      });
+      setShow2FAModal(true);
     } else {
       toast({
         title: "Erro",
@@ -160,13 +182,15 @@ const Index = () => {
     
     setIsLoading(false);
     
-    if (result.success) {
-      toast({
-        title: "Conta criada!",
-        description: "Sua conta foi criada com sucesso. Você está no grupo VIEWER.",
+    if (result.success && result.user) {
+      // Show email verification modal
+      setPendingUser({
+        id: result.user.id,
+        nome: result.user.nome,
+        email: signupEmail,
       });
-      setIsLoginMode(true);
-      // Limpar campos
+      setShowEmailVerification(true);
+      // Clear form
       setSignupNome("");
       setSignupSobrenome("");
       setSignupEmail("");
@@ -469,6 +493,35 @@ const Index = () => {
           </div>
         </div>
       </div>
+
+      {/* Email Verification Modal */}
+      <EmailVerificationModal
+        isOpen={showEmailVerification}
+        onClose={() => setShowEmailVerification(false)}
+        onSuccess={() => {
+          setShowEmailVerification(false);
+          setIsLoginMode(true);
+          toast({
+            title: "E-mail verificado!",
+            description: "Agora você pode fazer login.",
+          });
+        }}
+        userId={pendingUser?.id || 0}
+        email={pendingUser?.email || ""}
+        nome={pendingUser?.nome || ""}
+      />
+
+      {/* 2FA Modal */}
+      <TwoFactorModal
+        isOpen={show2FAModal}
+        onClose={() => setShow2FAModal(false)}
+        onSuccess={() => {
+          setShow2FAModal(false);
+          navigate("/dashboard");
+        }}
+        userId={pendingUser?.id || 0}
+        userName={pendingUser?.nome || ""}
+      />
     </div>
   );
 };

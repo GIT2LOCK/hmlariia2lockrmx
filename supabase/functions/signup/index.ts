@@ -134,7 +134,7 @@ serve(async (req) => {
       );
     }
 
-    // 3. Create user with VIEWER permission (permissao_id = 4)
+    // 3. Create user with VIEWER permission (permissao_id = 4) - email not verified yet
     const { data: userData, error: userError } = await supabase
       .from("tb_usuario")
       .insert({
@@ -144,6 +144,7 @@ serve(async (req) => {
         cpf_id: cpfData.cpf_id,
         permissao_id: 4, // VIEWER
         ativo: true,
+        email_verificado: false, // Requires email verification
       })
       .select("user_id, nome, permissao_id")
       .single();
@@ -162,12 +163,14 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        message: "Usuário criado com sucesso",
+        message: "Usuário criado com sucesso. Verifique seu e-mail para ativar sua conta.",
         user: {
           id: userData.user_id,
           nome: userData.nome,
+          email: email,
           permissao: "VIEWER",
         },
+        requiresEmailVerification: true,
       }),
       { status: 201, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
