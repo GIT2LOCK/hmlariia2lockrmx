@@ -142,6 +142,7 @@ serve(async (req) => {
         user: {
           id: userData.user_id,
           nome: userData.nome,
+          email: email,
           permissao: permissao?.nome || "VIEWER",
           permissao_descricao: permissao?.descricao,
         },
