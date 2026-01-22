@@ -54,20 +54,12 @@ export function AppSidebar() {
       collapsible="icon"
     >
       <SidebarHeader className="p-3 border-b border-primary-foreground/20">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-center">
           <img 
             src={logo} 
             alt="Web Contador" 
             className={`transition-all duration-300 ${collapsed ? 'h-8 w-8 object-contain' : 'h-9'}`}
           />
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggleSidebar}
-            className={`text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 ${collapsed ? 'hidden' : ''}`}
-          >
-            <PanelLeftClose className="h-5 w-5" />
-          </Button>
         </div>
       </SidebarHeader>
 
@@ -130,16 +122,6 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="p-3 border-t border-primary-foreground/20 bg-primary">
-        {collapsed && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggleSidebar}
-            className="w-full text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 mb-2"
-          >
-            <PanelLeft className="h-5 w-5" />
-          </Button>
-        )}
         <Button 
           variant="ghost" 
           className={`w-full text-primary-foreground/70 hover:text-red-300 hover:bg-primary-foreground/10 ${collapsed ? 'justify-center' : 'justify-start gap-3'}`}
@@ -149,6 +131,14 @@ export function AppSidebar() {
             <LogOut className="h-5 w-5" />
             {!collapsed && <span>Sair</span>}
           </NavLink>
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={toggleSidebar}
+          className="w-full text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 mt-2"
+        >
+          {collapsed ? <PanelLeft className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
         </Button>
       </SidebarFooter>
     </Sidebar>
