@@ -42,9 +42,9 @@ export function useUsuarios() {
           totp_enabled,
           data_criacao,
           permissao_id,
-          tb_permissao!inner (nome, descricao),
-          tb_email!inner (email_principal),
-          tb_cpf!inner (cpf_numero)
+          tb_permissao (nome, descricao),
+          tb_email (email_principal),
+          tb_cpf (cpf_numero)
         `)
         .order("user_id");
 

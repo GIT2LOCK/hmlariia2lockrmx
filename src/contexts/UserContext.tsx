@@ -77,7 +77,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         nome,
         sobrenome,
         email: storedUser.email || "",
-        cargo: storedUser.permissao_descricao || getRoleCargo(role),
+        cargo: role, // Show role name (SUPERADMIN, ADMIN, etc.) instead of description
         role,
         avatar: "", // Could be loaded from a profile table later
       });
