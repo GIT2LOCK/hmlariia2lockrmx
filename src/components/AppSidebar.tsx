@@ -134,11 +134,11 @@ export function AppSidebar() {
         </Button>
         <Button
           variant="ghost"
-          size="icon"
           onClick={toggleSidebar}
-          className="w-full text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 mt-2"
+          className={`w-full text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 mt-2 ${collapsed ? 'justify-center' : 'justify-start gap-3'}`}
         >
           {collapsed ? <PanelLeft className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
+          {!collapsed && <span>Minimizar</span>}
         </Button>
       </SidebarFooter>
     </Sidebar>
