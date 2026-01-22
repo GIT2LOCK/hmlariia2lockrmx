@@ -11,6 +11,7 @@ import { User, Mail, Phone, Lock, Save, Monitor, Shield } from "lucide-react";
 import { TwoFactorSettings } from "@/components/TwoFactorSettings";
 import { DevicesTab } from "@/components/DevicesTab";
 import { getStoredUser } from "@/services/authService";
+import { supabase } from "@/integrations/supabase/client";
 
 const formatPhoneMask = (value: string): string => {
   // Remove tudo que não é número
@@ -36,12 +37,41 @@ const MeuPerfil = () => {
   const storedUser = getStoredUser();
   const [isEditing, setIsEditing] = useState(false);
   const [is2FAEnabled, setIs2FAEnabled] = useState(false);
+  const [isLoading2FA, setIsLoading2FA] = useState(true);
   const [formData, setFormData] = useState({
     nome: user.nome,
     sobrenome: user.sobrenome,
     email: user.email,
     telefone: "(11) 9-9999-0000",
   });
+
+  // Carregar status do 2FA do banco de dados
+  useEffect(() => {
+    const load2FAStatus = async () => {
+      if (!storedUser?.id) {
+        setIsLoading2FA(false);
+        return;
+      }
+      
+      try {
+        const { data, error } = await supabase
+          .from("tb_usuario")
+          .select("totp_enabled")
+          .eq("user_id", storedUser.id)
+          .maybeSingle();
+        
+        if (data) {
+          setIs2FAEnabled(data.totp_enabled || false);
+        }
+      } catch (err) {
+        console.error("Erro ao carregar status 2FA:", err);
+      } finally {
+        setIsLoading2FA(false);
+      }
+    };
+    
+    load2FAStatus();
+  }, [storedUser?.id]);
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const formatted = formatPhoneMask(e.target.value);
