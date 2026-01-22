@@ -129,10 +129,21 @@ export function UserProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useUser() {
+export function useUser(): UserContextType {
   const context = useContext(UserContext);
-  if (context === undefined) {
-    throw new Error("useUser must be used within a UserProvider");
+  if (!context) {
+    // Return a safe default during initial render to prevent crashes
+    console.warn("useUser called outside of UserProvider, returning default context");
+    return {
+      user: defaultUser,
+      isLoading: true,
+      isAuthenticated: false,
+      refreshUser: () => {},
+      canEdit: false,
+      canManageUsers: false,
+      canManageAdmins: false,
+      hasFullAccess: false,
+    };
   }
   return context;
 }
