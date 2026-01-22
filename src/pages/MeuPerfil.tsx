@@ -8,6 +8,25 @@ import { Separator } from "@/components/ui/separator";
 import { useUser } from "@/contexts/UserContext";
 import { User, Mail, Phone, Lock, Save } from "lucide-react";
 
+const formatPhoneMask = (value: string): string => {
+  // Remove tudo que não é número
+  const numbers = value.replace(/\D/g, "");
+  
+  // Limita a 11 dígitos
+  const limited = numbers.slice(0, 11);
+  
+  // Aplica a máscara (XX) X-XXXX-XXXX
+  if (limited.length <= 2) {
+    return limited.length ? `(${limited}` : "";
+  } else if (limited.length <= 3) {
+    return `(${limited.slice(0, 2)}) ${limited.slice(2)}`;
+  } else if (limited.length <= 7) {
+    return `(${limited.slice(0, 2)}) ${limited.slice(2, 3)}-${limited.slice(3)}`;
+  } else {
+    return `(${limited.slice(0, 2)}) ${limited.slice(2, 3)}-${limited.slice(3, 7)}-${limited.slice(7)}`;
+  }
+};
+
 const MeuPerfil = () => {
   const { user } = useUser();
   const [isEditing, setIsEditing] = useState(false);
@@ -15,8 +34,13 @@ const MeuPerfil = () => {
     nome: user.nome,
     sobrenome: user.sobrenome,
     email: user.email,
-    telefone: "(11) 99999-0000",
+    telefone: "(11) 9-9999-0000",
   });
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatPhoneMask(e.target.value);
+    setFormData({ ...formData, telefone: formatted });
+  };
 
   const handleSave = () => {
     setIsEditing(false);
@@ -127,9 +151,9 @@ const MeuPerfil = () => {
               <Input
                 id="telefone"
                 value={formData.telefone}
-                onChange={(e) =>
-                  setFormData({ ...formData, telefone: e.target.value })
-                }
+                onChange={handlePhoneChange}
+                placeholder="(XX) X-XXXX-XXXX"
+                maxLength={17}
                 disabled={!isEditing}
               />
             </div>
