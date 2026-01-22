@@ -19,7 +19,42 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Search, Filter } from "lucide-react";
+import { Plus, Search, Filter, Clock, AlertTriangle } from "lucide-react";
+
+// Função para calcular tempo restante ou excedido
+const calcularTempoRestante = (prazoFim: Date): { texto: string; excedido: boolean } => {
+  const agora = new Date();
+  const diff = prazoFim.getTime() - agora.getTime();
+  
+  if (diff <= 0) {
+    // Prazo excedido - calcular quanto tempo passou
+    const diffExcedido = Math.abs(diff);
+    const minutosExcedidos = Math.floor(diffExcedido / (1000 * 60));
+    const horasExcedidas = Math.floor(minutosExcedidos / 60);
+    const diasExcedidos = Math.floor(horasExcedidas / 24);
+    
+    if (diasExcedidos > 0) {
+      return { texto: `Excedido há ${diasExcedidos}d ${horasExcedidas % 24}h`, excedido: true };
+    } else if (horasExcedidas > 0) {
+      return { texto: `Excedido há ${horasExcedidas}h ${minutosExcedidos % 60}min`, excedido: true };
+    } else {
+      return { texto: `Excedido há ${minutosExcedidos}min`, excedido: true };
+    }
+  }
+  
+  // Prazo ainda não expirou
+  const minutosRestantes = Math.floor(diff / (1000 * 60));
+  const horasRestantes = Math.floor(minutosRestantes / 60);
+  const diasRestantes = Math.floor(horasRestantes / 24);
+  
+  if (diasRestantes > 0) {
+    return { texto: `${diasRestantes}d ${horasRestantes % 24}h restantes`, excedido: false };
+  } else if (horasRestantes > 0) {
+    return { texto: `${horasRestantes}h ${minutosRestantes % 60}min restantes`, excedido: false };
+  } else {
+    return { texto: `${minutosRestantes}min restantes`, excedido: false };
+  }
+};
 
 const mockDemandas = [
   {
@@ -29,7 +64,7 @@ const mockDemandas = [
     cnpj: "12.345.678/0001-90",
     responsavel: "João Silva",
     via: "Email",
-    prazo_fim: "2024-02-15",
+    prazo_fim: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 horas
     status: "Em andamento",
   },
   {
@@ -39,7 +74,7 @@ const mockDemandas = [
     cnpj: "98.765.432/0001-10",
     responsavel: null,
     via: "WhatsApp",
-    prazo_fim: "2024-02-10",
+    prazo_fim: new Date(Date.now() - 30 * 60 * 1000), // Excedido há 30 min
     status: "Pendente",
   },
   {
@@ -49,7 +84,7 @@ const mockDemandas = [
     cnpj: "11.222.333/0001-44",
     responsavel: "Maria Santos",
     via: "Email",
-    prazo_fim: "2024-02-20",
+    prazo_fim: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000), // 1 dia
     status: "Concluído",
   },
   {
@@ -59,7 +94,7 @@ const mockDemandas = [
     cnpj: "55.666.777/0001-88",
     responsavel: null,
     via: "WhatsApp",
-    prazo_fim: "2024-02-08",
+    prazo_fim: new Date(Date.now() - 3 * 60 * 60 * 1000), // Excedido há 3 horas
     status: "Pendente",
   },
   {
@@ -69,7 +104,7 @@ const mockDemandas = [
     cnpj: "12.345.678/0001-90",
     responsavel: "João Silva",
     via: "Email",
-    prazo_fim: "2024-02-25",
+    prazo_fim: new Date(Date.now() + 45 * 60 * 1000), // 45 minutos
     status: "Em andamento",
   },
 ];
@@ -223,7 +258,22 @@ const DemandasTable = ({
                   {demanda.via}
                 </Badge>
               </TableCell>
-              <TableCell>{demanda.prazo_fim}</TableCell>
+              <TableCell>
+                {(() => {
+                  const { texto, excedido } = calcularTempoRestante(demanda.prazo_fim);
+                  return excedido ? (
+                    <div className="flex items-center gap-1 text-red-600 font-medium">
+                      <AlertTriangle className="h-4 w-4" />
+                      <span>Prazo excedido</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1 text-muted-foreground">
+                      <Clock className="h-4 w-4" />
+                      <span>{texto}</span>
+                    </div>
+                  );
+                })()}
+              </TableCell>
               <TableCell>
                 <Badge
                   variant="secondary"
