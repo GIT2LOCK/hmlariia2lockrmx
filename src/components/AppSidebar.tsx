@@ -17,10 +17,10 @@ import {
   Inbox,
   UserCog
 } from "lucide-react";
-import { NavLink } from "@/components/NavLink";
-import { useLocation } from "react-router-dom";
+import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useUser, UserRole } from "@/contexts/UserContext";
+import { logout } from "@/services/authService";
 
 import {
   Sidebar,
@@ -156,12 +156,19 @@ export function AppSidebar() {
   const { state, toggleSidebar } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
+  const navigate = useNavigate();
   const currentPath = location.pathname;
-  const { user } = useUser();
+  const { user, refreshUser } = useUser();
 
   const isActive = (path: string) => currentPath === path;
 
   const menuSections = getMenusByRole(user.role);
+
+  const handleLogout = () => {
+    logout();
+    refreshUser();
+    navigate("/", { replace: true });
+  };
 
   return (
     <Sidebar
@@ -225,14 +232,12 @@ export function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton 
-              asChild
+              onClick={handleLogout}
               tooltip="Sair"
               className="text-primary-foreground/80 hover:text-red-300 hover:bg-primary-foreground/10"
             >
-              <NavLink to="/" className="flex items-center gap-3">
-                <LogOut className="h-5 w-5" />
-                <span>Sair</span>
-              </NavLink>
+              <LogOut className="h-5 w-5" />
+              <span>Sair</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
