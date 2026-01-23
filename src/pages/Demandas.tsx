@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, Search, Filter, Clock, AlertTriangle } from "lucide-react";
+import { NovaDemandaModal } from "@/components/NovaDemandaModal";
 
 // Função para calcular tempo restante ou excedido
 const calcularTempoRestante = (prazoFim: Date): { texto: string; excedido: boolean } => {
@@ -136,6 +137,7 @@ const getViaColor = (via: string) => {
 const Demandas = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterVia, setFilterVia] = useState("todas");
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const filteredDemandas = mockDemandas.filter((demanda) => {
     const matchesSearch =
@@ -160,11 +162,13 @@ const Demandas = () => {
             Gerencie todas as demandas do escritório
           </p>
         </div>
-        <Button>
+        <Button onClick={() => setIsModalOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Nova Demanda
         </Button>
       </div>
+
+      <NovaDemandaModal open={isModalOpen} onOpenChange={setIsModalOpen} />
 
       <div className="flex gap-4">
         <div className="relative flex-1">
