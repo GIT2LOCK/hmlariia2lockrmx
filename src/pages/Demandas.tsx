@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select";
 import { Plus, Search, Filter, Clock, AlertTriangle, Loader2, Mail, MessageSquare, Phone } from "lucide-react";
 import { NovaDemandaModal } from "@/components/NovaDemandaModal";
+import { VisualizarDemandaModal } from "@/components/VisualizarDemandaModal";
 import { supabase } from "@/integrations/supabase/client";
 import { useUser } from "@/contexts/UserContext";
 
@@ -140,6 +141,8 @@ const Demandas = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterVia, setFilterVia] = useState("todas");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [selectedDemanda, setSelectedDemanda] = useState<Demanda | null>(null);
   const [demandas, setDemandas] = useState<Demanda[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useUser();
@@ -211,6 +214,11 @@ const Demandas = () => {
     fetchDemandas();
   };
 
+  const handleDemandaClick = (demanda: Demanda) => {
+    setSelectedDemanda(demanda);
+    setIsViewModalOpen(true);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -229,6 +237,13 @@ const Demandas = () => {
       <NovaDemandaModal 
         open={isModalOpen} 
         onOpenChange={setIsModalOpen} 
+        onSuccess={handleDemandaCriada}
+      />
+
+      <VisualizarDemandaModal
+        open={isViewModalOpen}
+        onOpenChange={setIsViewModalOpen}
+        demanda={selectedDemanda}
         onSuccess={handleDemandaCriada}
       />
 
@@ -271,13 +286,13 @@ const Demandas = () => {
         </TabsList>
 
         <TabsContent value="todas">
-          <DemandasTable demandas={filteredDemandas} isLoading={isLoading} />
+          <DemandasTable demandas={filteredDemandas} isLoading={isLoading} onDemandaClick={handleDemandaClick} />
         </TabsContent>
         <TabsContent value="minhas">
-          <DemandasTable demandas={minhasDemandas} isLoading={isLoading} />
+          <DemandasTable demandas={minhasDemandas} isLoading={isLoading} onDemandaClick={handleDemandaClick} />
         </TabsContent>
         <TabsContent value="sem-atribuicao">
-          <DemandasTable demandas={semAtribuicao} isLoading={isLoading} />
+          <DemandasTable demandas={semAtribuicao} isLoading={isLoading} onDemandaClick={handleDemandaClick} />
         </TabsContent>
       </Tabs>
     </div>
@@ -287,9 +302,11 @@ const Demandas = () => {
 const DemandasTable = ({
   demandas,
   isLoading,
+  onDemandaClick,
 }: {
   demandas: Demanda[];
   isLoading: boolean;
+  onDemandaClick: (demanda: Demanda) => void;
 }) => (
   <Card>
     <CardContent className="p-0">
@@ -318,7 +335,11 @@ const DemandasTable = ({
           </TableHeader>
           <TableBody>
             {demandas.map((demanda) => (
-              <TableRow key={demanda.dem_id} className="cursor-pointer hover:bg-muted/50">
+              <TableRow 
+                key={demanda.dem_id} 
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => onDemandaClick(demanda)}
+              >
                 <TableCell className="font-medium">{demanda.titulo_demanda}</TableCell>
                 <TableCell>
                   <div>
