@@ -60,6 +60,9 @@ const formatCEP = (value: string) => {
   return digits.replace(/^(\d{5})(\d)/, "$1-$2").slice(0, 9);
 };
 
+// Função para remover máscara e retornar apenas dígitos
+const removeMask = (value: string) => value.replace(/\D/g, "");
+
 export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaModalProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -111,12 +114,12 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
 
       if (emailError) throw emailError;
 
-      // 2. Criar registro de telefone
+      // 2. Criar registro de telefone (salvar apenas dígitos)
       const { data: telefoneData, error: telefoneError } = await supabase
         .from("tb_numero")
         .insert({
-          telefone_principal: formData.telefonePrincipal || null,
-          telefone_secundario: formData.telefoneSecundario || null,
+          telefone_principal: formData.telefonePrincipal ? removeMask(formData.telefonePrincipal) : null,
+          telefone_secundario: formData.telefoneSecundario ? removeMask(formData.telefoneSecundario) : null,
         })
         .select("tel_id")
         .single();
@@ -133,7 +136,7 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
             numero: formData.numero || null,
             complemento: formData.complemento || null,
             bairro: formData.bairro,
-            cep: formData.cep,
+            cep: removeMask(formData.cep),
             uf: formData.uf,
           })
           .select("end_id")
@@ -148,7 +151,7 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
         .from("tb_cnpj")
         .insert({
           razao_social: formData.razaoSocial,
-          cnpj_numero: formData.cnpj,
+          cnpj_numero: removeMask(formData.cnpj),
           responsavel_nome: formData.responsavelNome || null,
           email_id: emailData.email_id,
           tel_id: telefoneData.tel_id,
