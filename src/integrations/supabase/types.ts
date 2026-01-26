@@ -526,6 +526,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      atualizar_prioridade_demandas_excedidas: {
+        Args: never
+        Returns: undefined
+      }
       get_user_permission: { Args: { user_id_param: number }; Returns: number }
     }
     Enums: {
