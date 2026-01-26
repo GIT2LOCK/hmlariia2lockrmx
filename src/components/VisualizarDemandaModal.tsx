@@ -327,10 +327,19 @@ export function VisualizarDemandaModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 [&>button]:hidden">
         {/* Header com gradiente */}
         <div className="relative bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-6 border-b">
-          <div className="flex items-start justify-between">
+          {/* Botão fechar customizado */}
+          <button
+            onClick={() => onOpenChange(false)}
+            className="absolute right-4 top-4 rounded-full p-2 opacity-70 ring-offset-background transition-all hover:opacity-100 hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+          >
+            <X className="h-4 w-4" />
+            <span className="sr-only">Fechar</span>
+          </button>
+
+          <div className="flex items-start justify-between pr-12">
             <div className="flex items-start gap-4">
               <div className="p-3 rounded-xl bg-primary/10 border border-primary/20">
                 {isEditing ? (
