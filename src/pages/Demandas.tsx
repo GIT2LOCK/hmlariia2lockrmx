@@ -98,14 +98,15 @@ const getStatusColor = (statusNome: string) => {
 
 const getPrioridadeColor = (nivel: number) => {
   switch (nivel) {
-    case 1:
-      return "bg-green-100 text-green-700";
-    case 2:
-      return "bg-yellow-100 text-yellow-700";
-    case 3:
-      return "bg-orange-100 text-orange-700";
-    case 4:
+    case 1: // Crítica
       return "bg-red-100 text-red-700";
+    case 2: // Alta
+      return "bg-orange-100 text-orange-700";
+    case 3: // Média
+      return "bg-yellow-100 text-yellow-700";
+    case 4: // Baixa
+    case 5: // Muito baixa
+      return "bg-green-100 text-green-700";
     default:
       return "bg-gray-100 text-gray-700";
   }
