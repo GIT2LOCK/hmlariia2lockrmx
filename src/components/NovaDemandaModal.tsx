@@ -174,7 +174,7 @@ export function NovaDemandaModal({ open, onOpenChange, onSuccess }: NovaDemandaM
           .from("tb_cpf")
           .insert({
             nome: empresas.find(e => e.cnpj_id === empresaId)?.razao_social || "Empresa",
-            cpf_numero: "000.000.000-00",
+            cpf_numero: "00000000000", // 11 dígitos sem máscara
           })
           .select("cpf_id")
           .single();
