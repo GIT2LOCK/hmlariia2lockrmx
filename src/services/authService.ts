@@ -33,6 +33,7 @@ export interface AuthResponse {
   error?: string;
   requiresEmailVerification?: boolean;
   requires2FA?: boolean;
+  requires2FASetup?: boolean;
 }
 
 export interface Device {
@@ -91,7 +92,7 @@ export async function signup(data: SignupData): Promise<AuthResponse> {
       success: true,
       message: result.message,
       user: result.user,
-      requiresEmailVerification: result.requiresEmailVerification,
+      requires2FASetup: result.requires2FASetup,
     };
   } catch (error) {
     console.error("Signup error:", error);
@@ -123,16 +124,6 @@ export async function login(data: LoginData): Promise<AuthResponse> {
         success: false,
         message: result.error || "Erro ao fazer login",
         error: result.error,
-      };
-    }
-
-    // Check if email verification is required
-    if (result.requiresEmailVerification) {
-      return {
-        success: false,
-        message: result.message,
-        user: result.user,
-        requiresEmailVerification: true,
       };
     }
 

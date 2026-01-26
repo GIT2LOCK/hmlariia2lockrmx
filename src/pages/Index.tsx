@@ -7,8 +7,8 @@ import { useToast } from "@/hooks/use-toast";
 import logo from "@/assets/logo.png";
 import PasswordChecklist from "@/components/PasswordChecklist";
 import { signup, login } from "@/services/authService";
-import { EmailVerificationModal } from "@/components/EmailVerificationModal";
 import { TwoFactorModal } from "@/components/TwoFactorModal";
+import { TwoFactorSetupModal } from "@/components/TwoFactorSetupModal";
 import { useUser } from "@/contexts/UserContext";
 
 // Função para aplicar máscara de CPF
@@ -99,8 +99,8 @@ const Index = () => {
   const [forgotEmail, setForgotEmail] = useState("");
 
   // Verification modal states
-  const [showEmailVerification, setShowEmailVerification] = useState(false);
   const [show2FAModal, setShow2FAModal] = useState(false);
+  const [show2FASetupModal, setShow2FASetupModal] = useState(false);
   const [pendingUser, setPendingUser] = useState<{ id: number; nome: string; email?: string } | null>(null);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -122,14 +122,6 @@ const Index = () => {
         description: `Bem-vindo de volta, ${result.user?.nome}!`,
       });
       navigate("/dashboard");
-    } else if (result.requiresEmailVerification && result.user) {
-      // User needs to verify email
-      setPendingUser({
-        id: result.user.id,
-        nome: result.user.nome,
-        email: result.user.email || loginEmail,
-      });
-      setShowEmailVerification(true);
     } else if (result.requires2FA && result.user) {
       // User has 2FA enabled
       setPendingUser({
@@ -193,14 +185,14 @@ const Index = () => {
     
     setIsLoading(false);
     
-    if (result.success && result.user) {
-      // Show email verification modal
+    if (result.success && result.user && result.requires2FASetup) {
+      // Show 2FA setup modal - mandatory after registration
       setPendingUser({
         id: result.user.id,
         nome: result.user.nome,
         email: signupEmail,
       });
-      setShowEmailVerification(true);
+      setShow2FASetupModal(true);
       // Clear form
       setSignupNome("");
       setSignupSobrenome("");
@@ -528,21 +520,20 @@ const Index = () => {
         </div>
       </div>
 
-      {/* Email Verification Modal */}
-      <EmailVerificationModal
-        isOpen={showEmailVerification}
-        onClose={() => setShowEmailVerification(false)}
+      {/* 2FA Setup Modal - After Registration */}
+      <TwoFactorSetupModal
+        isOpen={show2FASetupModal}
+        onClose={() => setShow2FASetupModal(false)}
         onSuccess={() => {
-          setShowEmailVerification(false);
+          setShow2FASetupModal(false);
           setIsLoginMode(true);
           toast({
-            title: "E-mail verificado!",
-            description: "Agora você pode fazer login.",
+            title: "2FA Configurado!",
+            description: "Agora faça login para acessar sua conta.",
           });
         }}
         userId={pendingUser?.id || 0}
-        email={pendingUser?.email || ""}
-        nome={pendingUser?.nome || ""}
+        userName={pendingUser?.nome || ""}
       />
 
       {/* 2FA Modal */}

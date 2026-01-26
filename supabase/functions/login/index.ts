@@ -95,24 +95,7 @@ serve(async (req) => {
       );
     }
 
-    // Check if email is verified
-    if (!userData.email_verificado) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          requiresEmailVerification: true,
-          user: {
-            id: userData.user_id,
-            nome: userData.nome,
-            email: email,
-          },
-          message: "E-mail não verificado. Verifique sua caixa de entrada.",
-        }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Check if 2FA is enabled
+    // Check if 2FA is enabled (mandatory)
     if (userData.totp_enabled) {
       // Check if device is trusted (remembered)
       if (deviceToken) {
