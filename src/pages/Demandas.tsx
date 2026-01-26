@@ -365,17 +365,30 @@ const DemandasTable = ({
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Badge variant="secondary" className={getPrioridadeColor(demanda.prioridade_nivel || 2)}>
-                    {demanda.prioridade_nome}
-                  </Badge>
+                  {(() => {
+                    const { excedido } = calcularTempoRestante(demanda.prazo_fim);
+                    // Se excedido, força prioridade "Urgente" visualmente
+                    if (excedido) {
+                      return (
+                        <Badge variant="secondary" className="bg-red-100 text-red-700 border-red-200">
+                          Urgente
+                        </Badge>
+                      );
+                    }
+                    return (
+                      <Badge variant="secondary" className={getPrioridadeColor(demanda.prioridade_nivel || 2)}>
+                        {demanda.prioridade_nome}
+                      </Badge>
+                    );
+                  })()}
                 </TableCell>
                 <TableCell>
                   {(() => {
                     const { texto, excedido } = calcularTempoRestante(demanda.prazo_fim);
                     return excedido ? (
-                      <div className="flex items-center gap-1 text-red-600 font-medium">
+                      <div className="flex items-center gap-1 text-red-600 font-semibold">
                         <AlertTriangle className="h-4 w-4" />
-                        <span>Prazo excedido</span>
+                        <span>Excedido</span>
                       </div>
                     ) : (
                       <div className="flex items-center gap-1 text-muted-foreground">
