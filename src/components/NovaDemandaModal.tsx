@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -27,90 +27,193 @@ import {
   Mail, 
   MessageSquare,
   Calendar,
-  AlertCircle,
+  Phone,
   Tag,
   Loader2
 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface NovaDemandaModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onSuccess?: () => void;
 }
 
-// Mock de empresas para seleção
-const mockEmpresas = [
-  { id: 1, nome: "Tech Solutions LTDA", cnpj: "12.345.678/0001-90" },
-  { id: 2, nome: "Comércio ABC", cnpj: "98.765.432/0001-10" },
-  { id: 3, nome: "Indústria XYZ", cnpj: "11.222.333/0001-44" },
-  { id: 4, nome: "Serviços Gerais ME", cnpj: "55.666.777/0001-88" },
-];
+interface Prioridade {
+  prioridade_id: number;
+  prioridade_nome: string;
+  prioridade_nivel: number;
+}
 
-// Mock de tipos de demanda
-const tiposDemanda = [
-  { id: 1, nome: "Declaração de IR", categoria: "Fiscal" },
-  { id: 2, nome: "Balanço Patrimonial", categoria: "Contábil" },
-  { id: 3, nome: "Certidão Negativa", categoria: "Fiscal" },
-  { id: 4, nome: "Folha de Pagamento", categoria: "Pessoal" },
-  { id: 5, nome: "Regularização Fiscal", categoria: "Fiscal" },
-  { id: 6, nome: "Atualização Cadastral", categoria: "Administrativo" },
-  { id: 7, nome: "Outro", categoria: "Geral" },
-];
+interface Via {
+  via_id: number;
+  tem_email: boolean | null;
+  tem_whatsapp: boolean | null;
+}
 
-// Mock de usuários para atribuição
-const mockUsuarios = [
-  { id: 1, nome: "João Silva" },
-  { id: 2, nome: "Maria Santos" },
-  { id: 3, nome: "Pedro Oliveira" },
-  { id: 4, nome: "Ana Costa" },
-];
+interface Usuario {
+  user_id: number;
+  nome: string;
+}
 
-// Prioridades
-const prioridades = [
-  { id: "baixa", nome: "Baixa", cor: "bg-green-100 text-green-700" },
-  { id: "media", nome: "Média", cor: "bg-yellow-100 text-yellow-700" },
-  { id: "alta", nome: "Alta", cor: "bg-orange-100 text-orange-700" },
-  { id: "urgente", nome: "Urgente", cor: "bg-red-100 text-red-700" },
-];
+interface Empresa {
+  cnpj_id: number;
+  razao_social: string;
+  cnpj_numero: string;
+}
 
-export function NovaDemandaModal({ open, onOpenChange }: NovaDemandaModalProps) {
+interface CpfCnpj {
+  id: number;
+  cnpj_id: number | null;
+  cpf_id: number;
+}
+
+// Cores das prioridades por nível
+const getPrioridadeCor = (nivel: number): string => {
+  switch (nivel) {
+    case 1:
+      return "bg-green-100 text-green-700";
+    case 2:
+      return "bg-yellow-100 text-yellow-700";
+    case 3:
+      return "bg-orange-100 text-orange-700";
+    case 4:
+      return "bg-red-100 text-red-700";
+    default:
+      return "bg-gray-100 text-gray-700";
+  }
+};
+
+// Função para obter label e ícone da via
+const getViaLabel = (via: Via): { label: string; icon: React.ReactNode } => {
+  if (via.tem_email && via.tem_whatsapp) {
+    return { label: "Email + WhatsApp", icon: <Mail className="h-4 w-4 text-purple-600" /> };
+  } else if (via.tem_email) {
+    return { label: "Email", icon: <Mail className="h-4 w-4 text-purple-600" /> };
+  } else if (via.tem_whatsapp) {
+    return { label: "WhatsApp", icon: <MessageSquare className="h-4 w-4 text-green-600" /> };
+  } else {
+    return { label: "Telefone", icon: <Phone className="h-4 w-4 text-blue-600" /> };
+  }
+};
+
+export function NovaDemandaModal({ open, onOpenChange, onSuccess }: NovaDemandaModalProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  
+  // Dados do banco
+  const [prioridades, setPrioridades] = useState<Prioridade[]>([]);
+  const [vias, setVias] = useState<Via[]>([]);
+  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+  const [empresas, setEmpresas] = useState<Empresa[]>([]);
+  const [cpfCnpjList, setCpfCnpjList] = useState<CpfCnpj[]>([]);
+  
   const [formData, setFormData] = useState({
     empresaId: "",
-    tipoDemanda: "",
     titulo: "",
     descricao: "",
-    via: "",
-    prioridade: "media",
+    viaId: "",
+    prioridadeId: "",
     responsavelId: "",
-    prazo: "",
+    prazoInicio: "",
+    prazoFim: "",
   });
+
+  // Buscar dados do banco ao abrir o modal
+  useEffect(() => {
+    if (open) {
+      fetchData();
+    }
+  }, [open]);
+
+  const fetchData = async () => {
+    setIsLoadingData(true);
+    try {
+      const [prioridadesRes, viasRes, usuariosRes, empresasRes, cpfCnpjRes] = await Promise.all([
+        supabase.from("tb_prioridade").select("*").order("prioridade_nivel", { ascending: true }),
+        supabase.from("tb_via").select("*"),
+        supabase.from("tb_usuario").select("user_id, nome").eq("ativo", true),
+        supabase.from("tb_cnpj").select("cnpj_id, razao_social, cnpj_numero"),
+        supabase.from("tb_cpf_cnpj").select("id, cnpj_id, cpf_id"),
+      ]);
+
+      if (prioridadesRes.error) throw prioridadesRes.error;
+      if (viasRes.error) throw viasRes.error;
+      if (usuariosRes.error) throw usuariosRes.error;
+      if (empresasRes.error) throw empresasRes.error;
+      if (cpfCnpjRes.error) throw cpfCnpjRes.error;
+
+      setPrioridades(prioridadesRes.data || []);
+      setVias(viasRes.data || []);
+      setUsuarios(usuariosRes.data || []);
+      setEmpresas(empresasRes.data || []);
+      setCpfCnpjList(cpfCnpjRes.data || []);
+    } catch (error) {
+      console.error("Erro ao carregar dados:", error);
+      toast.error("Erro ao carregar dados do formulário");
+    } finally {
+      setIsLoadingData(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     
-    // Simular envio
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    console.log("Nova demanda:", formData);
-    setIsLoading(false);
-    onOpenChange(false);
-    
-    // Reset form
-    setFormData({
-      empresaId: "",
-      tipoDemanda: "",
-      titulo: "",
-      descricao: "",
-      via: "",
-      prioridade: "media",
-      responsavelId: "",
-      prazo: "",
-    });
+    try {
+      // Encontrar o cpf_cnpj_id baseado na empresa selecionada
+      const empresaId = parseInt(formData.empresaId);
+      const cpfCnpjEntry = cpfCnpjList.find(item => item.cnpj_id === empresaId);
+      
+      if (!cpfCnpjEntry) {
+        toast.error("Empresa não encontrada na relação CPF/CNPJ");
+        setIsLoading(false);
+        return;
+      }
+
+      const demandaData = {
+        titulo_demanda: formData.titulo,
+        descricao_tarefa: formData.descricao || "Sem descrição",
+        via_id: parseInt(formData.viaId),
+        prioridade_id: parseInt(formData.prioridadeId),
+        cnpj_cpf_id: cpfCnpjEntry.id,
+        user_id: formData.responsavelId && formData.responsavelId !== "sem-atribuicao" 
+          ? parseInt(formData.responsavelId) 
+          : null,
+        prazo_inicio: formData.prazoInicio || new Date().toISOString(),
+        prazo_fim: formData.prazoFim || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        status_id: 1, // Status inicial (pode ajustar conforme sua tabela tb_status)
+      };
+
+      const { error } = await supabase.from("tb_demanda").insert(demandaData);
+
+      if (error) throw error;
+
+      toast.success("Demanda criada com sucesso!");
+      onOpenChange(false);
+      onSuccess?.();
+      
+      // Reset form
+      setFormData({
+        empresaId: "",
+        titulo: "",
+        descricao: "",
+        viaId: "",
+        prioridadeId: "",
+        responsavelId: "",
+        prazoInicio: "",
+        prazoFim: "",
+      });
+    } catch (error: any) {
+      console.error("Erro ao criar demanda:", error);
+      toast.error(error.message || "Erro ao criar demanda");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const empresaSelecionada = mockEmpresas.find(e => e.id.toString() === formData.empresaId);
-  const tipoDemandaSelecionado = tiposDemanda.find(t => t.id.toString() === formData.tipoDemanda);
+  const empresaSelecionada = empresas.find(e => e.cnpj_id.toString() === formData.empresaId);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -129,15 +232,20 @@ export function NovaDemandaModal({ open, onOpenChange }: NovaDemandaModalProps) 
           </div>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Seção: Identificação */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-              <Building2 className="h-4 w-4" />
-              <span>Identificação</span>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {isLoadingData ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <span className="ml-2 text-muted-foreground">Carregando dados...</span>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Seção: Identificação */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <Building2 className="h-4 w-4" />
+                <span>Identificação</span>
+              </div>
+              
               <div className="space-y-2">
                 <Label htmlFor="empresa">Empresa *</Label>
                 <Select
@@ -148,11 +256,11 @@ export function NovaDemandaModal({ open, onOpenChange }: NovaDemandaModalProps) 
                     <SelectValue placeholder="Selecione a empresa" />
                   </SelectTrigger>
                   <SelectContent>
-                    {mockEmpresas.map((empresa) => (
-                      <SelectItem key={empresa.id} value={empresa.id.toString()}>
+                    {empresas.map((empresa) => (
+                      <SelectItem key={empresa.cnpj_id} value={empresa.cnpj_id.toString()}>
                         <div className="flex flex-col">
-                          <span>{empresa.nome}</span>
-                          <span className="text-xs text-muted-foreground">{empresa.cnpj}</span>
+                          <span>{empresa.razao_social}</span>
+                          <span className="text-xs text-muted-foreground">{empresa.cnpj_numero}</span>
                         </div>
                       </SelectItem>
                     ))}
@@ -160,220 +268,183 @@ export function NovaDemandaModal({ open, onOpenChange }: NovaDemandaModalProps) 
                 </Select>
                 {empresaSelecionada && (
                   <p className="text-xs text-muted-foreground">
-                    CNPJ: {empresaSelecionada.cnpj}
+                    CNPJ: {empresaSelecionada.cnpj_numero}
                   </p>
                 )}
               </div>
+            </div>
+
+            <Separator />
+
+            {/* Seção: Detalhes */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <Tag className="h-4 w-4" />
+                <span>Detalhes</span>
+              </div>
 
               <div className="space-y-2">
-                <Label htmlFor="tipo">Tipo de Demanda *</Label>
-                <Select
-                  value={formData.tipoDemanda}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, tipoDemanda: value }))}
-                >
-                  <SelectTrigger id="tipo">
-                    <SelectValue placeholder="Selecione o tipo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {tiposDemanda.map((tipo) => (
-                      <SelectItem key={tipo.id} value={tipo.id.toString()}>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-xs">
-                            {tipo.categoria}
+                <Label htmlFor="titulo">Título *</Label>
+                <Input
+                  id="titulo"
+                  placeholder="Ex: Revisão de balanço patrimonial Q4 2024"
+                  value={formData.titulo}
+                  onChange={(e) => setFormData(prev => ({ ...prev, titulo: e.target.value }))}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="descricao">Descrição</Label>
+                <Textarea
+                  id="descricao"
+                  placeholder="Descreva os detalhes da demanda, informações adicionais, anexos necessários..."
+                  rows={4}
+                  value={formData.descricao}
+                  onChange={(e) => setFormData(prev => ({ ...prev, descricao: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Seção: Canal e Prioridade */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <MessageSquare className="h-4 w-4" />
+                <span>Canal e Prioridade</span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="via">Canal de Origem *</Label>
+                  <Select
+                    value={formData.viaId}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, viaId: value }))}
+                  >
+                    <SelectTrigger id="via">
+                      <SelectValue placeholder="Selecione o canal" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {vias.map((via) => {
+                        const { label, icon } = getViaLabel(via);
+                        return (
+                          <SelectItem key={via.via_id} value={via.via_id.toString()}>
+                            <div className="flex items-center gap-2">
+                              {icon}
+                              <span>{label}</span>
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="prioridade">Prioridade *</Label>
+                  <Select
+                    value={formData.prioridadeId}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, prioridadeId: value }))}
+                  >
+                    <SelectTrigger id="prioridade">
+                      <SelectValue placeholder="Selecione a prioridade" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {prioridades.map((p) => (
+                        <SelectItem key={p.prioridade_id} value={p.prioridade_id.toString()}>
+                          <Badge variant="secondary" className={getPrioridadeCor(p.prioridade_nivel)}>
+                            {p.prioridade_nome}
                           </Badge>
-                          <span>{tipo.nome}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-
-          <Separator />
-
-          {/* Seção: Detalhes */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-              <Tag className="h-4 w-4" />
-              <span>Detalhes</span>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="titulo">Título *</Label>
-              <Input
-                id="titulo"
-                placeholder="Ex: Revisão de balanço patrimonial Q4 2024"
-                value={formData.titulo}
-                onChange={(e) => setFormData(prev => ({ ...prev, titulo: e.target.value }))}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="descricao">Descrição</Label>
-              <Textarea
-                id="descricao"
-                placeholder="Descreva os detalhes da demanda, informações adicionais, anexos necessários..."
-                rows={4}
-                value={formData.descricao}
-                onChange={(e) => setFormData(prev => ({ ...prev, descricao: e.target.value }))}
-              />
-            </div>
-          </div>
-
-          <Separator />
-
-          {/* Seção: Canal e Prioridade */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-              <MessageSquare className="h-4 w-4" />
-              <span>Canal e Prioridade</span>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="via">Canal de Origem *</Label>
-                <Select
-                  value={formData.via}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, via: value }))}
-                >
-                  <SelectTrigger id="via">
-                    <SelectValue placeholder="Selecione o canal" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="email">
-                      <div className="flex items-center gap-2">
-                        <Mail className="h-4 w-4 text-purple-600" />
-                        <span>Email</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="whatsapp">
-                      <div className="flex items-center gap-2">
-                        <MessageSquare className="h-4 w-4 text-green-600" />
-                        <span>WhatsApp</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="telefone">
-                      <div className="flex items-center gap-2">
-                        <AlertCircle className="h-4 w-4 text-blue-600" />
-                        <span>Telefone</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="presencial">
-                      <div className="flex items-center gap-2">
-                        <User className="h-4 w-4 text-orange-600" />
-                        <span>Presencial</span>
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="prioridade">Prioridade *</Label>
-                <Select
-                  value={formData.prioridade}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, prioridade: value }))}
-                >
-                  <SelectTrigger id="prioridade">
-                    <SelectValue placeholder="Selecione a prioridade" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {prioridades.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        <Badge variant="secondary" className={p.cor}>
-                          {p.nome}
-                        </Badge>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-
-          <Separator />
-
-          {/* Seção: Atribuição e Prazo */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-              <Clock className="h-4 w-4" />
-              <span>Atribuição e Prazo</span>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="responsavel">Responsável</Label>
-                <Select
-                  value={formData.responsavelId}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, responsavelId: value }))}
-                >
-                  <SelectTrigger id="responsavel">
-                    <SelectValue placeholder="Atribuir a alguém (opcional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="sem-atribuicao">
-                      <span className="text-muted-foreground">Sem atribuição</span>
-                    </SelectItem>
-                    {mockUsuarios.map((usuario) => (
-                      <SelectItem key={usuario.id} value={usuario.id.toString()}>
-                        <div className="flex items-center gap-2">
-                          <User className="h-4 w-4" />
-                          <span>{usuario.nome}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="prazo">Prazo</Label>
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="prazo"
-                    type="datetime-local"
-                    className="pl-10"
-                    value={formData.prazo}
-                    onChange={(e) => setFormData(prev => ({ ...prev, prazo: e.target.value }))}
-                  />
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </div>
-          </div>
 
-          <Separator />
+            <Separator />
 
-          {/* Botões de ação */}
-          <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={isLoading}
-            >
-              Cancelar
-            </Button>
-            <Button 
-              type="submit" 
-              disabled={isLoading || !formData.empresaId || !formData.tipoDemanda || !formData.titulo || !formData.via}
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Criando...
-                </>
-              ) : (
-                <>
-                  <FileText className="h-4 w-4 mr-2" />
-                  Criar Demanda
-                </>
-              )}
-            </Button>
-          </div>
-        </form>
+            {/* Seção: Atribuição e Prazo */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <Clock className="h-4 w-4" />
+                <span>Atribuição e Prazo</span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="responsavel">Responsável</Label>
+                  <Select
+                    value={formData.responsavelId}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, responsavelId: value }))}
+                  >
+                    <SelectTrigger id="responsavel">
+                      <SelectValue placeholder="Atribuir a alguém (opcional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="sem-atribuicao">
+                        <span className="text-muted-foreground">Sem atribuição</span>
+                      </SelectItem>
+                      {usuarios.map((usuario) => (
+                        <SelectItem key={usuario.user_id} value={usuario.user_id.toString()}>
+                          <div className="flex items-center gap-2">
+                            <User className="h-4 w-4" />
+                            <span>{usuario.nome}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="prazoFim">Prazo Final</Label>
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="prazoFim"
+                      type="datetime-local"
+                      className="pl-10"
+                      value={formData.prazoFim}
+                      onChange={(e) => setFormData(prev => ({ ...prev, prazoFim: e.target.value }))}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Botões de ação */}
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                disabled={isLoading}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                type="submit" 
+                disabled={isLoading || !formData.empresaId || !formData.titulo || !formData.viaId || !formData.prioridadeId}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Criando...
+                  </>
+                ) : (
+                  <>
+                    <FileText className="h-4 w-4 mr-2" />
+                    Criar Demanda
+                  </>
+                )}
+              </Button>
+            </div>
+          </form>
+        )}
       </DialogContent>
     </Dialog>
   );
