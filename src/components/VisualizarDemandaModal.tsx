@@ -411,12 +411,14 @@ export function VisualizarDemandaModal({
                 <Card className="border-0 shadow-sm bg-gradient-to-br from-background to-muted/30">
                   <CardContent className="p-4">
                     <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${getPrioridadeCor(demanda.prioridade_nivel || 3)}`}>
+                      <div className={`p-2 rounded-lg ${tempoRestante.excedido ? 'bg-red-500/10 text-red-600' : getPrioridadeCor(demanda.prioridade_nivel || 3)}`}>
                         <Target className="h-4 w-4" />
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground font-medium">Prioridade</p>
-                        <p className="font-semibold text-sm">{demanda.prioridade_nome}</p>
+                        <p className={`font-semibold text-sm ${tempoRestante.excedido ? 'text-red-600' : ''}`}>
+                          {tempoRestante.excedido ? "Urgente" : demanda.prioridade_nome}
+                        </p>
                       </div>
                     </div>
                   </CardContent>
