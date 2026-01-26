@@ -165,12 +165,35 @@ export function NovaDemandaModal({ open, onOpenChange, onSuccess }: NovaDemandaM
     try {
       // Encontrar o cpf_cnpj_id baseado na empresa selecionada
       const empresaId = parseInt(formData.empresaId);
-      const cpfCnpjEntry = cpfCnpjList.find(item => item.cnpj_id === empresaId);
+      let cpfCnpjEntry = cpfCnpjList.find(item => item.cnpj_id === empresaId);
       
+      // Se não existe a relação, criar uma automaticamente
       if (!cpfCnpjEntry) {
-        toast.error("Empresa não encontrada na relação CPF/CNPJ");
-        setIsLoading(false);
-        return;
+        // Primeiro, criar um CPF placeholder para a empresa
+        const { data: cpfData, error: cpfError } = await supabase
+          .from("tb_cpf")
+          .insert({
+            nome: empresas.find(e => e.cnpj_id === empresaId)?.razao_social || "Empresa",
+            cpf_numero: "000.000.000-00",
+          })
+          .select("cpf_id")
+          .single();
+
+        if (cpfError) throw cpfError;
+
+        // Criar a relação CPF/CNPJ
+        const { data: cpfCnpjData, error: cpfCnpjError } = await supabase
+          .from("tb_cpf_cnpj")
+          .insert({
+            cpf_id: cpfData.cpf_id,
+            cnpj_id: empresaId,
+          })
+          .select("id")
+          .single();
+
+        if (cpfCnpjError) throw cpfCnpjError;
+
+        cpfCnpjEntry = { id: cpfCnpjData.id, cnpj_id: empresaId, cpf_id: cpfData.cpf_id };
       }
 
       const demandaData = {
@@ -184,7 +207,7 @@ export function NovaDemandaModal({ open, onOpenChange, onSuccess }: NovaDemandaM
           : null,
         prazo_inicio: formData.prazoInicio || new Date().toISOString(),
         prazo_fim: formData.prazoFim || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-        status_id: 1, // Status inicial (pode ajustar conforme sua tabela tb_status)
+        status_id: 1, // Status inicial
       };
 
       const { error } = await supabase.from("tb_demanda").insert(demandaData);
