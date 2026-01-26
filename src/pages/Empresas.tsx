@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,90 +11,101 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Search, Building2, Mail, Phone, MapPin } from "lucide-react";
+import { Plus, Search, Building2, Mail, Phone, MapPin, Loader2 } from "lucide-react";
+import { NovaEmpresaModal } from "@/components/NovaEmpresaModal";
+import { supabase } from "@/integrations/supabase/client";
 
-const mockEmpresas = [
-  {
-    id: 1,
-    razao_social: "Tech Solutions LTDA",
-    cnpj: "12.345.678/0001-90",
-    categoria: "Tecnologia",
-    agencia: "Centro",
-    email: "contato@techsolutions.com",
-    telefone: "(11) 99999-0001",
-    endereco: "Rua das Flores, 123 - São Paulo/SP",
-    demandas_ativas: 2,
-  },
-  {
-    id: 2,
-    razao_social: "Comércio ABC",
-    cnpj: "98.765.432/0001-10",
-    categoria: "Comércio",
-    agencia: "Zona Sul",
-    email: "financeiro@comercioabc.com.br",
-    telefone: "(11) 99999-0002",
-    endereco: "Av. Paulista, 1000 - São Paulo/SP",
-    demandas_ativas: 1,
-  },
-  {
-    id: 3,
-    razao_social: "Indústria XYZ",
-    cnpj: "11.222.333/0001-44",
-    categoria: "Indústria",
-    agencia: "Zona Norte",
-    email: "contabil@industriaxyz.com",
-    telefone: "(11) 99999-0003",
-    endereco: "Rua Industrial, 500 - Guarulhos/SP",
-    demandas_ativas: 1,
-  },
-  {
-    id: 4,
-    razao_social: "Serviços Gerais ME",
-    cnpj: "55.666.777/0001-88",
-    categoria: "Serviços",
-    agencia: "Centro",
-    email: "admin@servicosgerais.com",
-    telefone: "(11) 99999-0004",
-    endereco: "Rua do Comércio, 50 - São Paulo/SP",
-    demandas_ativas: 1,
-  },
-  {
-    id: 5,
-    razao_social: "Consultoria Premium",
-    cnpj: "44.555.666/0001-77",
-    categoria: "Serviços",
-    agencia: "Zona Oeste",
-    email: "contato@consultoriapremium.com",
-    telefone: "(11) 99999-0005",
-    endereco: "Av. Brasil, 2000 - São Paulo/SP",
-    demandas_ativas: 0,
-  },
-];
-
-const getCategoriaColor = (categoria: string) => {
-  switch (categoria) {
-    case "Tecnologia":
-      return "bg-blue-100 text-blue-700";
-    case "Comércio":
-      return "bg-green-100 text-green-700";
-    case "Indústria":
-      return "bg-orange-100 text-orange-700";
-    case "Serviços":
-      return "bg-purple-100 text-purple-700";
-    default:
-      return "bg-gray-100 text-gray-700";
-  }
-};
+interface Empresa {
+  cnpj_id: number;
+  razao_social: string;
+  cnpj_numero: string;
+  responsavel_nome: string | null;
+  email_principal: string | null;
+  telefone_principal: string | null;
+  endereco_completo: string | null;
+  demandas_ativas: number;
+}
 
 const Empresas = () => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedEmpresa, setSelectedEmpresa] = useState<typeof mockEmpresas[0] | null>(null);
+  const [selectedEmpresa, setSelectedEmpresa] = useState<Empresa | null>(null);
+  const [empresas, setEmpresas] = useState<Empresa[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const filteredEmpresas = mockEmpresas.filter(
+  const fetchEmpresas = async () => {
+    setIsLoading(true);
+    try {
+      // Buscar empresas com dados relacionados
+      const { data, error } = await supabase
+        .from("tb_cnpj")
+        .select(`
+          cnpj_id,
+          razao_social,
+          cnpj_numero,
+          responsavel_nome,
+          tb_email:email_id(email_principal),
+          tb_numero:tel_id(telefone_principal),
+          tb_endereco:end_id(logradouro, numero, bairro, uf)
+        `)
+        .order("razao_social", { ascending: true });
+
+      if (error) throw error;
+
+      // Buscar contagem de demandas por empresa
+      const { data: demandasData, error: demandasError } = await supabase
+        .from("tb_demanda")
+        .select(`
+          cnpj_cpf_id,
+          tb_cpf_cnpj:cnpj_cpf_id(cnpj_id)
+        `);
+
+      if (demandasError) throw demandasError;
+
+      // Contar demandas por cnpj_id
+      const demandasCount: Record<number, number> = {};
+      (demandasData || []).forEach((d: any) => {
+        const cnpjId = d.tb_cpf_cnpj?.cnpj_id;
+        if (cnpjId) {
+          demandasCount[cnpjId] = (demandasCount[cnpjId] || 0) + 1;
+        }
+      });
+
+      // Formatar dados
+      const empresasFormatadas = (data || []).map((e: any) => ({
+        cnpj_id: e.cnpj_id,
+        razao_social: e.razao_social,
+        cnpj_numero: e.cnpj_numero,
+        responsavel_nome: e.responsavel_nome,
+        email_principal: e.tb_email?.email_principal || null,
+        telefone_principal: e.tb_numero?.telefone_principal || null,
+        endereco_completo: e.tb_endereco
+          ? `${e.tb_endereco.logradouro}${e.tb_endereco.numero ? `, ${e.tb_endereco.numero}` : ""} - ${e.tb_endereco.bairro}/${e.tb_endereco.uf}`
+          : null,
+        demandas_ativas: demandasCount[e.cnpj_id] || 0,
+      }));
+
+      setEmpresas(empresasFormatadas);
+    } catch (error) {
+      console.error("Erro ao buscar empresas:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchEmpresas();
+  }, []);
+
+  const filteredEmpresas = empresas.filter(
     (empresa) =>
       empresa.razao_social.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      empresa.cnpj.includes(searchTerm)
+      empresa.cnpj_numero.includes(searchTerm)
   );
+
+  const handleEmpresaCadastrada = () => {
+    fetchEmpresas();
+  };
 
   return (
     <div className="space-y-6">
@@ -105,11 +116,17 @@ const Empresas = () => {
             Cadastro e consulta de empresas/clientes
           </p>
         </div>
-        <Button>
+        <Button onClick={() => setIsModalOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Nova Empresa
         </Button>
       </div>
+
+      <NovaEmpresaModal
+        open={isModalOpen}
+        onOpenChange={setIsModalOpen}
+        onSuccess={handleEmpresaCadastrada}
+      />
 
       <div className="relative">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -131,50 +148,58 @@ const Empresas = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Empresa</TableHead>
-                    <TableHead>Categoria</TableHead>
-                    <TableHead>Agência</TableHead>
-                    <TableHead>Demandas</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredEmpresas.map((empresa) => (
-                    <TableRow
-                      key={empresa.id}
-                      className={`cursor-pointer hover:bg-muted/50 ${
-                        selectedEmpresa?.id === empresa.id ? "bg-muted" : ""
-                      }`}
-                      onClick={() => setSelectedEmpresa(empresa)}
-                    >
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{empresa.razao_social}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {empresa.cnpj}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant="secondary"
-                          className={getCategoriaColor(empresa.categoria)}
-                        >
-                          {empresa.categoria}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{empresa.agencia}</TableCell>
-                      <TableCell>
-                        <Badge variant={empresa.demandas_ativas > 0 ? "default" : "secondary"}>
-                          {empresa.demandas_ativas} ativa(s)
-                        </Badge>
-                      </TableCell>
+              {isLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <span className="ml-2 text-muted-foreground">Carregando empresas...</span>
+                </div>
+              ) : filteredEmpresas.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                  <Building2 className="h-12 w-12 mb-4 opacity-50" />
+                  <p>Nenhuma empresa cadastrada</p>
+                  <p className="text-sm">Clique em "Nova Empresa" para cadastrar</p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Empresa</TableHead>
+                      <TableHead>Responsável</TableHead>
+                      <TableHead>Demandas</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredEmpresas.map((empresa) => (
+                      <TableRow
+                        key={empresa.cnpj_id}
+                        className={`cursor-pointer hover:bg-muted/50 ${
+                          selectedEmpresa?.cnpj_id === empresa.cnpj_id ? "bg-muted" : ""
+                        }`}
+                        onClick={() => setSelectedEmpresa(empresa)}
+                      >
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{empresa.razao_social}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {empresa.cnpj_numero}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {empresa.responsavel_nome || (
+                            <span className="text-muted-foreground italic">Não informado</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={empresa.demandas_ativas > 0 ? "default" : "secondary"}>
+                            {empresa.demandas_ativas} ativa(s)
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -194,44 +219,43 @@ const Empresas = () => {
                     {selectedEmpresa.razao_social}
                   </h3>
                   <p className="text-sm text-muted-foreground">
-                    {selectedEmpresa.cnpj}
+                    {selectedEmpresa.cnpj_numero}
                   </p>
                 </div>
 
                 <div className="space-y-3">
-                  <div className="flex items-center gap-2 text-sm">
-                    <Mail className="h-4 w-4 text-muted-foreground" />
-                    <span>{selectedEmpresa.email}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <Phone className="h-4 w-4 text-muted-foreground" />
-                    <span>{selectedEmpresa.telefone}</span>
-                  </div>
-                  <div className="flex items-start gap-2 text-sm">
-                    <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
-                    <span>{selectedEmpresa.endereco}</span>
-                  </div>
+                  {selectedEmpresa.email_principal && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Mail className="h-4 w-4 text-muted-foreground" />
+                      <span>{selectedEmpresa.email_principal}</span>
+                    </div>
+                  )}
+                  {selectedEmpresa.telefone_principal && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Phone className="h-4 w-4 text-muted-foreground" />
+                      <span>{selectedEmpresa.telefone_principal}</span>
+                    </div>
+                  )}
+                  {selectedEmpresa.endereco_completo && (
+                    <div className="flex items-start gap-2 text-sm">
+                      <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
+                      <span>{selectedEmpresa.endereco_completo}</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="pt-4 border-t">
                   <h4 className="font-medium mb-2">Informações</h4>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Categoria:</span>
-                      <Badge
-                        variant="secondary"
-                        className={getCategoriaColor(selectedEmpresa.categoria)}
-                      >
-                        {selectedEmpresa.categoria}
-                      </Badge>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Agência:</span>
-                      <span>{selectedEmpresa.agencia}</span>
+                      <span className="text-muted-foreground">Responsável:</span>
+                      <span>{selectedEmpresa.responsavel_nome || "Não informado"}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Demandas ativas:</span>
-                      <span>{selectedEmpresa.demandas_ativas}</span>
+                      <Badge variant={selectedEmpresa.demandas_ativas > 0 ? "default" : "secondary"}>
+                        {selectedEmpresa.demandas_ativas}
+                      </Badge>
                     </div>
                   </div>
                 </div>
