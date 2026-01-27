@@ -3,7 +3,7 @@ import { ClipboardList, Users, AlertCircle, Mail, MessageSquare, Clock } from "l
 
 const stats = [
   { title: "Total de Demandas", value: "50", icon: ClipboardList, color: "text-blue-500" },
-  { title: "Sem Responsável", value: "8", icon: Users, color: "text-red-500" },
+  { title: "Demandas Vencidas", value: "8", icon: Users, color: "text-red-500" },
   { title: "A Vencer (7 dias)", value: "12", icon: Clock, color: "text-yellow-500" },
   { title: "Via Email", value: "28", icon: Mail, color: "text-purple-500" },
   { title: "Via WhatsApp", value: "22", icon: MessageSquare, color: "text-green-500" },
