@@ -73,7 +73,9 @@ export type Database = {
       tb_cnpj: {
         Row: {
           agencia: string | null
+          casn: string | null
           cat_id: number | null
+          ccm: string | null
           cnpj_id: number
           cnpj_numero: string
           email_id: number | null
@@ -85,7 +87,9 @@ export type Database = {
         }
         Insert: {
           agencia?: string | null
+          casn?: string | null
           cat_id?: number | null
+          ccm?: string | null
           cnpj_id?: number
           cnpj_numero: string
           email_id?: number | null
@@ -97,7 +101,9 @@ export type Database = {
         }
         Update: {
           agencia?: string | null
+          casn?: string | null
           cat_id?: number | null
+          ccm?: string | null
           cnpj_id?: number
           cnpj_numero?: string
           email_id?: number | null
