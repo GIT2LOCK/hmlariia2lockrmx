@@ -483,12 +483,14 @@ export type Database = {
           email_verificado: boolean
           email_verification_expires: string | null
           email_verification_token: string | null
+          last_verification_attempt: string | null
           nome: string
           permissao_id: number
           senha: string
           totp_enabled: boolean
           totp_secret: string | null
           user_id: number
+          verification_attempts: number | null
         }
         Insert: {
           ativo?: boolean | null
@@ -498,12 +500,14 @@ export type Database = {
           email_verificado?: boolean
           email_verification_expires?: string | null
           email_verification_token?: string | null
+          last_verification_attempt?: string | null
           nome: string
           permissao_id: number
           senha: string
           totp_enabled?: boolean
           totp_secret?: string | null
           user_id?: number
+          verification_attempts?: number | null
         }
         Update: {
           ativo?: boolean | null
@@ -513,12 +517,14 @@ export type Database = {
           email_verificado?: boolean
           email_verification_expires?: string | null
           email_verification_token?: string | null
+          last_verification_attempt?: string | null
           nome?: string
           permissao_id?: number
           senha?: string
           totp_enabled?: boolean
           totp_secret?: string | null
           user_id?: number
+          verification_attempts?: number | null
         }
         Relationships: [
           {
