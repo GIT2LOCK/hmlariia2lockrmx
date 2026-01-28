@@ -11,8 +11,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Search, Building2, Mail, Phone, MapPin, Loader2 } from "lucide-react";
+import { Plus, Search, Building2, Mail, Phone, MapPin, Loader2, Eye } from "lucide-react";
 import { NovaEmpresaModal } from "@/components/NovaEmpresaModal";
+import { VisualizarEmpresaModal } from "@/components/VisualizarEmpresaModal";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Empresa {
@@ -33,6 +34,7 @@ const Empresas = () => {
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDetalhesModalOpen, setIsDetalhesModalOpen] = useState(false);
 
   const fetchEmpresas = async () => {
     setIsLoading(true);
@@ -247,65 +249,81 @@ const Empresas = () => {
 
         <div>
           {selectedEmpresa ? (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Building2 className="h-5 w-5" />
-                  Detalhes
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <h3 className="font-semibold text-lg">
-                    {selectedEmpresa.razao_social}
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    {selectedEmpresa.cnpj_numero}
-                  </p>
-                </div>
+            <>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Building2 className="h-5 w-5" />
+                    Detalhes
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <h3 className="font-semibold text-lg">
+                      {selectedEmpresa.razao_social}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedEmpresa.cnpj_numero}
+                    </p>
+                  </div>
 
-                <div className="space-y-3">
-                  {selectedEmpresa.email_principal && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <Mail className="h-4 w-4 text-muted-foreground" />
-                      <span>{selectedEmpresa.email_principal}</span>
-                    </div>
-                  )}
-                  {selectedEmpresa.telefone_principal && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <Phone className="h-4 w-4 text-muted-foreground" />
-                      <span>{selectedEmpresa.telefone_principal}</span>
-                    </div>
-                  )}
-                  {selectedEmpresa.endereco_completo && (
-                    <div className="flex items-start gap-2 text-sm">
-                      <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
-                      <span>{selectedEmpresa.endereco_completo}</span>
-                    </div>
-                  )}
-                </div>
+                  <div className="space-y-3">
+                    {selectedEmpresa.email_principal && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Mail className="h-4 w-4 text-muted-foreground" />
+                        <span>{selectedEmpresa.email_principal}</span>
+                      </div>
+                    )}
+                    {selectedEmpresa.telefone_principal && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Phone className="h-4 w-4 text-muted-foreground" />
+                        <span>{selectedEmpresa.telefone_principal}</span>
+                      </div>
+                    )}
+                    {selectedEmpresa.endereco_completo && (
+                      <div className="flex items-start gap-2 text-sm">
+                        <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
+                        <span>{selectedEmpresa.endereco_completo}</span>
+                      </div>
+                    )}
+                  </div>
 
-                <div className="pt-4 border-t">
-                  <h4 className="font-medium mb-2">Informações</h4>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Responsável:</span>
-                      <span>{selectedEmpresa.responsavel_nome || "Não informado"}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Demandas ativas:</span>
-                      <Badge variant={selectedEmpresa.demandas_ativas > 0 ? "default" : "secondary"}>
-                        {selectedEmpresa.demandas_ativas}
-                      </Badge>
+                  <div className="pt-4 border-t">
+                    <h4 className="font-medium mb-2">Informações</h4>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Responsável:</span>
+                        <span>{selectedEmpresa.responsavel_nome || "Não informado"}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Demandas ativas:</span>
+                        <Badge variant={selectedEmpresa.demandas_ativas > 0 ? "default" : "secondary"}>
+                          {selectedEmpresa.demandas_ativas}
+                        </Badge>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <Button className="w-full" variant="outline">
-                  Ver demandas desta empresa
-                </Button>
-              </CardContent>
-            </Card>
+                  <Button className="w-full" variant="outline">
+                    Ver demandas desta empresa
+                  </Button>
+                  <Button 
+                    className="w-full" 
+                    variant="secondary"
+                    onClick={() => setIsDetalhesModalOpen(true)}
+                  >
+                    <Eye className="h-4 w-4 mr-2" />
+                    Ver Detalhes
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <VisualizarEmpresaModal
+                open={isDetalhesModalOpen}
+                onOpenChange={setIsDetalhesModalOpen}
+                cnpjId={selectedEmpresa.cnpj_id}
+              />
+            </>
           ) : (
             <Card>
               <CardContent className="flex items-center justify-center h-64 text-muted-foreground">
