@@ -282,32 +282,37 @@ export function VisualizarEmpresaModal({ open, onOpenChange, cnpjId, onUpdate }:
     setSelectedSuperiorId("");
   };
 
-  // Determinar qual categoria buscar para o dropdown de Superior Imediato
-  const getCategoriaSuperiores = (categoria: string | null) => {
-    if (categoria === "MFB/LU") return "MFA/LA";
-    if (categoria === "LP/Consultor") return "MFB/LU";
-    return null;
+  // Determinar quais categorias buscar para o dropdown de Superior Imediato
+  // MFB/LU pode se vincular a MFA/LA
+  // LP/Consultor pode se vincular a MFA/LA ou MFB/LU
+  const getCategoriasSuperiores = (categoria: string | null) => {
+    if (categoria === "MFB/LU") return ["MFA/LA"];
+    if (categoria === "LP/Consultor") return ["MFA/LA", "MFB/LU"];
+    return [];
   };
 
   // Buscar empresas superiores quando a categoria mudar
   useEffect(() => {
     const fetchEmpresasSuperiores = async () => {
       const categoria = editData?.categoria || empresa?.categoria;
-      const categoriaFiltro = getCategoriaSuperiores(categoria);
+      const categoriasFiltro = getCategoriasSuperiores(categoria);
       
-      if (!categoriaFiltro || categorias.length === 0) {
+      if (categoriasFiltro.length === 0 || categorias.length === 0) {
         setEmpresasSuperiores([]);
         return;
       }
 
-      // Buscar o cat_id da categoria superior
-      const catSuperior = categorias.find(c => c.categoria === categoriaFiltro);
-      if (!catSuperior) return;
+      // Buscar os cat_ids das categorias superiores
+      const catIds = categorias
+        .filter(c => categoriasFiltro.includes(c.categoria))
+        .map(c => c.cat_id);
+      
+      if (catIds.length === 0) return;
 
       const { data, error } = await supabase
         .from("tb_cnpj")
         .select("cnpj_id, razao_social, cnpj_numero")
-        .eq("cat_id", catSuperior.cat_id)
+        .in("cat_id", catIds)
         .order("razao_social");
 
       if (!error && data) {
@@ -600,7 +605,10 @@ export function VisualizarEmpresaModal({ open, onOpenChange, cnpjId, onUpdate }:
                           <SelectContent>
                             {empresasSuperiores.map((emp) => (
                               <SelectItem key={emp.cnpj_id} value={emp.cnpj_id.toString()}>
-                                {emp.razao_social}
+                                <div className="flex flex-col">
+                                  <span className="font-medium">{emp.razao_social}</span>
+                                  <span className="text-xs text-muted-foreground">{formatCNPJ(emp.cnpj_numero)}</span>
+                                </div>
                               </SelectItem>
                             ))}
                           </SelectContent>
