@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { validateSession } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -84,18 +85,30 @@ serve(async (req) => {
   }
 
   try {
-    const { userId, action, code } = await req.json();
-
-    if (!userId || !action) {
-      return new Response(
-        JSON.stringify({ error: "userId e action são obrigatórios" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Validate session - user can only manage their own 2FA
+    let userId: number;
+    try {
+      userId = await validateSession(req, supabase);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Não autorizado";
+      return new Response(
+        JSON.stringify({ error: errorMessage }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const { action, code } = await req.json();
+
+    if (!action) {
+      return new Response(
+        JSON.stringify({ error: "action é obrigatório" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // Get user with email
     const { data: userData, error: fetchError } = await supabase

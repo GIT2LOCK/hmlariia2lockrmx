@@ -1,14 +1,17 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { validateSession } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Generate a 6-digit verification code
+// Generate a cryptographically secure 6-digit verification code
 function generateVerificationCode(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  const array = new Uint32Array(1);
+  crypto.getRandomValues(array);
+  return (100000 + (array[0] % 900000)).toString();
 }
 
 serve(async (req) => {
@@ -17,19 +20,39 @@ serve(async (req) => {
   }
 
   try {
-    const { email, userId, nome } = await req.json();
-
-    if (!email || !userId) {
-      return new Response(
-        JSON.stringify({ error: "E-mail e userId são obrigatórios" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const web3formsKey = Deno.env.get("WEB3FORMS_ACCESS_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Validate session - user can only send verification to their own email
+    let userId: number;
+    try {
+      userId = await validateSession(req, supabase);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Não autorizado";
+      return new Response(
+        JSON.stringify({ error: errorMessage }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Get user's email from database (don't trust client-provided email)
+    const { data: userData, error: userError } = await supabase
+      .from("tb_usuario")
+      .select("nome, tb_email!inner(email_principal)")
+      .eq("user_id", userId)
+      .single();
+
+    if (userError || !userData) {
+      return new Response(
+        JSON.stringify({ error: "Usuário não encontrado" }),
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const email = (userData.tb_email as unknown as { email_principal: string }).email_principal;
+    const nome = userData.nome;
 
     // Generate verification code and expiration (15 minutes)
     const verificationCode = generateVerificationCode();

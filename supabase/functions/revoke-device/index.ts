@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { validateSession } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,18 +13,23 @@ serve(async (req) => {
   }
 
   try {
-    const { userId, deviceId, revokeAll } = await req.json();
-
-    if (!userId) {
-      return new Response(
-        JSON.stringify({ error: "userId é obrigatório" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Validate session - user can only revoke their own devices
+    let userId: number;
+    try {
+      userId = await validateSession(req, supabase);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Não autorizado";
+      return new Response(
+        JSON.stringify({ error: errorMessage }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const { deviceId, revokeAll } = await req.json();
 
     if (revokeAll) {
       // Revoke all devices for user
