@@ -322,6 +322,7 @@ const Empresas = () => {
                 open={isDetalhesModalOpen}
                 onOpenChange={setIsDetalhesModalOpen}
                 cnpjId={selectedEmpresa.cnpj_id}
+                onUpdate={fetchEmpresas}
               />
             </>
           ) : (
