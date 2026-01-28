@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -10,6 +10,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { 
   Building2, 
   FileText, 
@@ -17,7 +24,8 @@ import {
   Phone,
   MapPin,
   User,
-  Loader2
+  Loader2,
+  Tag
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -26,6 +34,11 @@ interface NovaEmpresaModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
+}
+
+interface Categoria {
+  cat_id: number;
+  categoria: string;
 }
 
 // Função para aplicar máscara de CNPJ
@@ -65,10 +78,14 @@ const removeMask = (value: string) => value.replace(/\D/g, "");
 
 export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaModalProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [formData, setFormData] = useState({
     razaoSocial: "",
     cnpj: "",
     responsavelNome: "",
+    categoriaId: "",
+    agencia: "",
+    superiorCnpj: "",
     emailPrincipal: "",
     emailSecundario: "",
     telefonePrincipal: "",
@@ -81,10 +98,33 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
     uf: "",
   });
 
+  // Buscar categorias do banco
+  useEffect(() => {
+    const fetchCategorias = async () => {
+      const { data, error } = await supabase
+        .from("tb_categoria")
+        .select("cat_id, categoria")
+        .order("cat_id");
+
+      if (!error && data) {
+        setCategorias(data);
+      }
+    };
+
+    if (open) {
+      fetchCategorias();
+    }
+  }, [open]);
+
+  // Determinar qual campo mostrar baseado na categoria selecionada
+  const categoriaSelecionada = categorias.find(c => c.cat_id.toString() === formData.categoriaId);
+  const mostrarAgencia = categoriaSelecionada?.categoria === "MFA/LA";
+  const mostrarSuperiorCnpj = categoriaSelecionada?.categoria === "MFB/LU" || categoriaSelecionada?.categoria === "LP/Consultor";
+
   const handleInputChange = (field: string, value: string) => {
     let formattedValue = value;
     
-    if (field === "cnpj") {
+    if (field === "cnpj" || field === "superiorCnpj") {
       formattedValue = formatCNPJ(value);
     } else if (field === "telefonePrincipal" || field === "telefoneSecundario") {
       formattedValue = formatPhone(value);
@@ -153,6 +193,9 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
           razao_social: formData.razaoSocial,
           cnpj_numero: removeMask(formData.cnpj),
           responsavel_nome: formData.responsavelNome || null,
+          cat_id: formData.categoriaId ? parseInt(formData.categoriaId) : null,
+          agencia: mostrarAgencia ? formData.agencia || null : null,
+          superior_cnpj: mostrarSuperiorCnpj ? removeMask(formData.superiorCnpj) || null : null,
           email_id: emailData.email_id,
           tel_id: telefoneData.tel_id,
           end_id: enderecoId,
@@ -195,6 +238,9 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
         razaoSocial: "",
         cnpj: "",
         responsavelNome: "",
+        categoriaId: "",
+        agencia: "",
+        superiorCnpj: "",
         emailPrincipal: "",
         emailSecundario: "",
         telefonePrincipal: "",
@@ -261,20 +307,88 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="responsavelNome">
-                <div className="flex items-center gap-2">
-                  <User className="h-4 w-4" />
-                  Nome do Responsável
-                </div>
-              </Label>
-              <Input
-                id="responsavelNome"
-                placeholder="Nome do responsável pela empresa"
-                value={formData.responsavelNome}
-                onChange={(e) => handleInputChange("responsavelNome", e.target.value)}
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="responsavelNome">
+                  <div className="flex items-center gap-2">
+                    <User className="h-4 w-4" />
+                    Nome do Responsável
+                  </div>
+                </Label>
+                <Input
+                  id="responsavelNome"
+                  placeholder="Nome do responsável pela empresa"
+                  value={formData.responsavelNome}
+                  onChange={(e) => handleInputChange("responsavelNome", e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="categoria">
+                  <div className="flex items-center gap-2">
+                    <Tag className="h-4 w-4" />
+                    Categoria *
+                  </div>
+                </Label>
+                <Select
+                  value={formData.categoriaId}
+                  onValueChange={(value) => setFormData(prev => ({ 
+                    ...prev, 
+                    categoriaId: value,
+                    // Limpar campos quando mudar categoria
+                    agencia: "",
+                    superiorCnpj: ""
+                  }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione a categoria" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categorias.map((cat) => (
+                      <SelectItem key={cat.cat_id} value={cat.cat_id.toString()}>
+                        {cat.categoria}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+
+            {/* Campo Agência - só aparece para MFA/LA */}
+            {mostrarAgencia && (
+              <div className="space-y-2">
+                <Label htmlFor="agencia">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-4 w-4" />
+                    Agência
+                  </div>
+                </Label>
+                <Input
+                  id="agencia"
+                  placeholder="Nome da agência"
+                  value={formData.agencia}
+                  onChange={(e) => handleInputChange("agencia", e.target.value)}
+                />
+              </div>
+            )}
+
+            {/* Campo CNPJ Superior - só aparece para MFB/LU e LP/Consultor */}
+            {mostrarSuperiorCnpj && (
+              <div className="space-y-2">
+                <Label htmlFor="superiorCnpj">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    CNPJ Superior (Matriz)
+                  </div>
+                </Label>
+                <Input
+                  id="superiorCnpj"
+                  placeholder="00.000.000/0000-00"
+                  value={formData.superiorCnpj}
+                  onChange={(e) => handleInputChange("superiorCnpj", e.target.value)}
+                />
+              </div>
+            )}
           </div>
 
           <Separator />
@@ -427,7 +541,7 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
             </Button>
             <Button 
               type="submit" 
-              disabled={isLoading || !formData.razaoSocial || !formData.cnpj}
+              disabled={isLoading || !formData.razaoSocial || !formData.cnpj || !formData.categoriaId}
             >
               {isLoading ? (
                 <>
