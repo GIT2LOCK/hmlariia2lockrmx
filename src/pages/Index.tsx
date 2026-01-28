@@ -302,15 +302,15 @@ const Index = () => {
                 <div className="text-center">
                   <img src={logo} alt="Web Contador" className="h-20 md:h-32 mx-auto mb-4 md:mb-6" />
                   <h1 className="text-2xl md:text-3xl font-bold text-foreground">Entrar na Conta</h1>
-                  <p className="text-sm md:text-base text-muted-foreground mt-2">Use seu e-mail para login</p>
+                  <p className="text-sm md:text-base text-muted-foreground mt-2">Use seu e-mail ou usuário para login</p>
                 </div>
 
                 <form onSubmit={handleLogin} className="space-y-3 md:space-y-4">
                   <div className="relative">
                     <Mail className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
                     <Input
-                      type="email"
-                      placeholder="E-mail"
+                      type="text"
+                      placeholder="E-mail ou usuário"
                       value={loginEmail}
                       onChange={(e) => setLoginEmail(e.target.value)}
                       className="pl-10 md:pl-12 h-10 md:h-12 bg-muted border-0 rounded-lg text-sm md:text-base"
