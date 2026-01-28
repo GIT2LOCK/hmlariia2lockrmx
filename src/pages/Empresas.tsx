@@ -46,6 +46,8 @@ const Empresas = () => {
           cnpj_numero,
           responsavel_nome,
           superior_cnpj,
+          agencia,
+          tb_categoria:cat_id(categoria),
           tb_email:email_id(email_principal),
           tb_numero:tel_id(telefone_principal),
           tb_endereco:end_id(logradouro, numero, bairro, uf)
@@ -73,7 +75,6 @@ const Empresas = () => {
         }
       });
 
-      // Formatar dados
       // Função para formatar CNPJ
       const formatCnpj = (cnpj: string | null) => {
         if (!cnpj) return null;
@@ -82,19 +83,40 @@ const Empresas = () => {
         return cleaned.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
       };
 
-      const empresasFormatadas = (data || []).map((e: any) => ({
-        cnpj_id: e.cnpj_id,
-        razao_social: e.razao_social,
-        cnpj_numero: e.cnpj_numero,
-        responsavel_nome: e.responsavel_nome,
-        email_principal: e.tb_email?.email_principal || null,
-        telefone_principal: e.tb_numero?.telefone_principal || null,
-        endereco_completo: e.tb_endereco
-          ? `${e.tb_endereco.logradouro}${e.tb_endereco.numero ? `, ${e.tb_endereco.numero}` : ""} - ${e.tb_endereco.bairro}/${e.tb_endereco.uf}`
-          : null,
-        demandas_ativas: demandasCount[e.cnpj_id] || 0,
-        superior_cnpj: formatCnpj(e.superior_cnpj),
-      }));
+      // Função para calcular o valor de "Superior" baseado na categoria
+      const calcularSuperior = (categoria: string | null, agencia: string | null, superiorCnpj: string | null): string | null => {
+        if (!categoria) return null;
+        
+        // MFA ou LA → usar agencia
+        if (categoria === "MFA" || categoria === "LA") {
+          return agencia;
+        }
+        
+        // MFB, LU, LP ou Consultor → usar superior_cnpj (formatado)
+        if (["MFB", "LU", "LP", "Consultor"].includes(categoria)) {
+          return formatCnpj(superiorCnpj);
+        }
+        
+        return null;
+      };
+
+      const empresasFormatadas = (data || []).map((e: any) => {
+        const categoria = e.tb_categoria?.categoria || null;
+        
+        return {
+          cnpj_id: e.cnpj_id,
+          razao_social: e.razao_social,
+          cnpj_numero: e.cnpj_numero,
+          responsavel_nome: e.responsavel_nome,
+          email_principal: e.tb_email?.email_principal || null,
+          telefone_principal: e.tb_numero?.telefone_principal || null,
+          endereco_completo: e.tb_endereco
+            ? `${e.tb_endereco.logradouro}${e.tb_endereco.numero ? `, ${e.tb_endereco.numero}` : ""} - ${e.tb_endereco.bairro}/${e.tb_endereco.uf}`
+            : null,
+          demandas_ativas: demandasCount[e.cnpj_id] || 0,
+          superior_cnpj: calcularSuperior(categoria, e.agencia, e.superior_cnpj),
+        };
+      });
 
       setEmpresas(empresasFormatadas);
     } catch (error) {
