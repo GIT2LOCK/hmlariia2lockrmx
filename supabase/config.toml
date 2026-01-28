@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.verify-email]
 verify_jwt = false
+
+[functions.create-internal-admin]
+verify_jwt = false
