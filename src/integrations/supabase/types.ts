@@ -59,17 +59,14 @@ export type Database = {
         Row: {
           cat_id: number
           categoria: string
-          empresa: string
         }
         Insert: {
           cat_id?: number
           categoria: string
-          empresa: string
         }
         Update: {
           cat_id?: number
           categoria?: string
-          empresa?: string
         }
         Relationships: []
       }

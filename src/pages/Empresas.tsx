@@ -87,13 +87,13 @@ const Empresas = () => {
       const calcularSuperior = (categoria: string | null, agencia: string | null, superiorCnpj: string | null): string | null => {
         if (!categoria) return null;
         
-        // MFA ou LA → usar agencia
-        if (categoria === "MFA" || categoria === "LA") {
+        // MFA/LA → usar agencia
+        if (categoria === "MFA/LA") {
           return agencia;
         }
         
-        // MFB, LU, LP ou Consultor → usar superior_cnpj (formatado)
-        if (["MFB", "LU", "LP", "Consultor"].includes(categoria)) {
+        // MFB/LU ou LP/Consultor → usar superior_cnpj (formatado)
+        if (categoria === "MFB/LU" || categoria === "LP/Consultor") {
           return formatCnpj(superiorCnpj);
         }
         
