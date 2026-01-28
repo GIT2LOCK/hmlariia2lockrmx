@@ -82,6 +82,8 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
   const [formData, setFormData] = useState({
     razaoSocial: "",
     cnpj: "",
+    ccm: "",
+    casn: "",
     responsavelNome: "",
     categoriaId: "",
     agencia: "",
@@ -132,6 +134,12 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
       formattedValue = formatCEP(value);
     } else if (field === "uf") {
       formattedValue = value.toUpperCase().slice(0, 2);
+    } else if (field === "casn") {
+      // CASN aceita somente números (máx 12 dígitos)
+      formattedValue = value.replace(/\D/g, "").slice(0, 12);
+    } else if (field === "ccm") {
+      // CCM máximo 25 caracteres
+      formattedValue = value.slice(0, 25);
     }
     
     setFormData(prev => ({ ...prev, [field]: formattedValue }));
@@ -192,6 +200,8 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
         .insert({
           razao_social: formData.razaoSocial,
           cnpj_numero: removeMask(formData.cnpj),
+          ccm: formData.ccm,
+          casn: formData.casn || null,
           responsavel_nome: formData.responsavelNome || null,
           cat_id: formData.categoriaId ? parseInt(formData.categoriaId) : null,
           agencia: mostrarAgencia ? formData.agencia || null : null,
@@ -237,6 +247,8 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
       setFormData({
         razaoSocial: "",
         cnpj: "",
+        ccm: "",
+        casn: "",
         responsavelNome: "",
         categoriaId: "",
         agencia: "",
@@ -303,6 +315,30 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
                   placeholder="00.000.000/0000-00"
                   value={formData.cnpj}
                   onChange={(e) => handleInputChange("cnpj", e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="ccm">CCM (Cadastro Municipal) *</Label>
+                <Input
+                  id="ccm"
+                  placeholder="Cadastro Municipal"
+                  value={formData.ccm}
+                  onChange={(e) => handleInputChange("ccm", e.target.value)}
+                  maxLength={25}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="casn">CASN</Label>
+                <Input
+                  id="casn"
+                  placeholder="Somente números (12 dígitos)"
+                  value={formData.casn}
+                  onChange={(e) => handleInputChange("casn", e.target.value)}
+                  maxLength={12}
                 />
               </div>
             </div>
