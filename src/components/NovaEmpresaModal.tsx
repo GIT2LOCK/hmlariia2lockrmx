@@ -266,7 +266,15 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
       });
     } catch (error: any) {
       console.error("Erro ao cadastrar empresa:", error);
-      toast.error(error.message || "Erro ao cadastrar empresa");
+      
+      // Tratar erros específicos
+      if (error.code === "23505" && error.message?.includes("tb_cnpj_cnpj_numero_key")) {
+        toast.error("Este CNPJ já está cadastrado no sistema.");
+      } else if (error.code === "23505") {
+        toast.error("Registro duplicado. Verifique os dados informados.");
+      } else {
+        toast.error(error.message || "Erro ao cadastrar empresa");
+      }
     } finally {
       setIsLoading(false);
     }
