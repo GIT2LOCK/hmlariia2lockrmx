@@ -393,67 +393,6 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
 
           <Separator />
 
-          {/* Seção: Contato */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-              <Mail className="h-4 w-4" />
-              <span>Contato</span>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="emailPrincipal">Email Principal</Label>
-                <Input
-                  id="emailPrincipal"
-                  type="email"
-                  placeholder="email@empresa.com"
-                  value={formData.emailPrincipal}
-                  onChange={(e) => handleInputChange("emailPrincipal", e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="emailSecundario">Email Secundário</Label>
-                <Input
-                  id="emailSecundario"
-                  type="email"
-                  placeholder="outro@empresa.com"
-                  value={formData.emailSecundario}
-                  onChange={(e) => handleInputChange("emailSecundario", e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="telefonePrincipal">
-                  <div className="flex items-center gap-2">
-                    <Phone className="h-4 w-4" />
-                    Telefone Principal
-                  </div>
-                </Label>
-                <Input
-                  id="telefonePrincipal"
-                  placeholder="(00) 0-0000-0000"
-                  value={formData.telefonePrincipal}
-                  onChange={(e) => handleInputChange("telefonePrincipal", e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="telefoneSecundario">Telefone Secundário</Label>
-                <Input
-                  id="telefoneSecundario"
-                  placeholder="(00) 0-0000-0000"
-                  value={formData.telefoneSecundario}
-                  onChange={(e) => handleInputChange("telefoneSecundario", e.target.value)}
-                />
-              </div>
-            </div>
-          </div>
-
-          <Separator />
-
           {/* Seção: Endereço */}
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
@@ -522,6 +461,67 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
                   value={formData.uf}
                   onChange={(e) => handleInputChange("uf", e.target.value)}
                   maxLength={2}
+                />
+              </div>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Seção: Contato */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <Mail className="h-4 w-4" />
+              <span>Contato</span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="emailPrincipal">Email Principal</Label>
+                <Input
+                  id="emailPrincipal"
+                  type="email"
+                  placeholder="email@empresa.com"
+                  value={formData.emailPrincipal}
+                  onChange={(e) => handleInputChange("emailPrincipal", e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="emailSecundario">Email Secundário</Label>
+                <Input
+                  id="emailSecundario"
+                  type="email"
+                  placeholder="outro@empresa.com"
+                  value={formData.emailSecundario}
+                  onChange={(e) => handleInputChange("emailSecundario", e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="telefonePrincipal">
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-4 w-4" />
+                    Telefone Principal
+                  </div>
+                </Label>
+                <Input
+                  id="telefonePrincipal"
+                  placeholder="(00) 0-0000-0000"
+                  value={formData.telefonePrincipal}
+                  onChange={(e) => handleInputChange("telefonePrincipal", e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="telefoneSecundario">Telefone Secundário</Label>
+                <Input
+                  id="telefoneSecundario"
+                  placeholder="(00) 0-0000-0000"
+                  value={formData.telefoneSecundario}
+                  onChange={(e) => handleInputChange("telefoneSecundario", e.target.value)}
                 />
               </div>
             </div>
