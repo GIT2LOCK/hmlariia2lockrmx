@@ -169,31 +169,61 @@ export function NovaDemandaModal({ open, onOpenChange, onSuccess }: NovaDemandaM
       
       // Se não existe a relação, criar uma automaticamente
       if (!cpfCnpjEntry) {
-        // Primeiro, criar um CPF placeholder para a empresa
-        const { data: cpfData, error: cpfError } = await supabase
+        // Gerar um CPF único baseado no cnpj_id para evitar duplicatas
+        const cpfPlaceholder = String(empresaId).padStart(11, "0");
+        
+        // Verificar se esse CPF já existe
+        const { data: existingCpf } = await supabase
           .from("tb_cpf")
-          .insert({
-            nome: empresas.find(e => e.cnpj_id === empresaId)?.razao_social || "Empresa",
-            cpf_numero: "00000000000", // 11 dígitos sem máscara
-          })
           .select("cpf_id")
-          .single();
+          .eq("cpf_numero", cpfPlaceholder)
+          .maybeSingle();
+        
+        let cpfId: number;
+        
+        if (existingCpf) {
+          // CPF já existe, reutilizar
+          cpfId = existingCpf.cpf_id;
+        } else {
+          // Criar novo CPF placeholder para a empresa
+          const { data: cpfData, error: cpfError } = await supabase
+            .from("tb_cpf")
+            .insert({
+              nome: empresas.find(e => e.cnpj_id === empresaId)?.razao_social || "Empresa",
+              cpf_numero: cpfPlaceholder,
+            })
+            .select("cpf_id")
+            .single();
 
-        if (cpfError) throw cpfError;
+          if (cpfError) throw cpfError;
+          cpfId = cpfData.cpf_id;
+        }
 
-        // Criar a relação CPF/CNPJ
-        const { data: cpfCnpjData, error: cpfCnpjError } = await supabase
+        // Verificar se já existe relação CPF/CNPJ
+        const { data: existingRelation } = await supabase
           .from("tb_cpf_cnpj")
-          .insert({
-            cpf_id: cpfData.cpf_id,
-            cnpj_id: empresaId,
-          })
           .select("id")
-          .single();
+          .eq("cpf_id", cpfId)
+          .eq("cnpj_id", empresaId)
+          .maybeSingle();
+        
+        if (existingRelation) {
+          cpfCnpjEntry = { id: existingRelation.id, cnpj_id: empresaId, cpf_id: cpfId };
+        } else {
+          // Criar a relação CPF/CNPJ
+          const { data: cpfCnpjData, error: cpfCnpjError } = await supabase
+            .from("tb_cpf_cnpj")
+            .insert({
+              cpf_id: cpfId,
+              cnpj_id: empresaId,
+            })
+            .select("id")
+            .single();
 
-        if (cpfCnpjError) throw cpfCnpjError;
+          if (cpfCnpjError) throw cpfCnpjError;
 
-        cpfCnpjEntry = { id: cpfCnpjData.id, cnpj_id: empresaId, cpf_id: cpfData.cpf_id };
+          cpfCnpjEntry = { id: cpfCnpjData.id, cnpj_id: empresaId, cpf_id: cpfId };
+        }
       }
 
       const demandaData = {
