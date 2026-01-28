@@ -41,6 +41,12 @@ interface Categoria {
   categoria: string;
 }
 
+interface EmpresaSuperior {
+  cnpj_id: number;
+  razao_social: string;
+  cnpj_numero: string;
+}
+
 // Função para aplicar máscara de CNPJ
 const formatCNPJ = (value: string) => {
   const digits = value.replace(/\D/g, "");
@@ -79,6 +85,7 @@ const removeMask = (value: string) => value.replace(/\D/g, "");
 export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaModalProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const [empresasSuperiores, setEmpresasSuperiores] = useState<EmpresaSuperior[]>([]);
   const [formData, setFormData] = useState({
     razaoSocial: "",
     cnpj: "",
@@ -87,7 +94,7 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
     responsavelNome: "",
     categoriaId: "",
     agencia: "",
-    superiorCnpj: "",
+    superiorCnpjId: "",
     emailPrincipal: "",
     emailSecundario: "",
     telefonePrincipal: "",
@@ -121,12 +128,46 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
   // Determinar qual campo mostrar baseado na categoria selecionada
   const categoriaSelecionada = categorias.find(c => c.cat_id.toString() === formData.categoriaId);
   const mostrarAgencia = categoriaSelecionada?.categoria === "MFA/LA";
-  const mostrarSuperiorCnpj = categoriaSelecionada?.categoria === "MFB/LU" || categoriaSelecionada?.categoria === "LP/Consultor";
+  const mostrarSuperiorImediato = categoriaSelecionada?.categoria === "MFB/LU" || categoriaSelecionada?.categoria === "LP/Consultor";
+
+  // Determinar qual categoria buscar para o dropdown de Superior Imediato
+  const getCategoriaSuperiores = () => {
+    if (categoriaSelecionada?.categoria === "MFB/LU") return "MFA/LA";
+    if (categoriaSelecionada?.categoria === "LP/Consultor") return "MFB/LU";
+    return null;
+  };
+
+  // Buscar empresas superiores quando a categoria mudar
+  useEffect(() => {
+    const fetchEmpresasSuperiores = async () => {
+      const categoriaFiltro = getCategoriaSuperiores();
+      if (!categoriaFiltro) {
+        setEmpresasSuperiores([]);
+        return;
+      }
+
+      // Buscar o cat_id da categoria superior
+      const catSuperior = categorias.find(c => c.categoria === categoriaFiltro);
+      if (!catSuperior) return;
+
+      const { data, error } = await supabase
+        .from("tb_cnpj")
+        .select("cnpj_id, razao_social, cnpj_numero")
+        .eq("cat_id", catSuperior.cat_id)
+        .order("razao_social");
+
+      if (!error && data) {
+        setEmpresasSuperiores(data);
+      }
+    };
+
+    fetchEmpresasSuperiores();
+  }, [formData.categoriaId, categorias]);
 
   const handleInputChange = (field: string, value: string) => {
     let formattedValue = value;
     
-    if (field === "cnpj" || field === "superiorCnpj") {
+    if (field === "cnpj") {
       formattedValue = formatCNPJ(value);
     } else if (field === "telefonePrincipal" || field === "telefoneSecundario") {
       formattedValue = formatPhone(value);
@@ -194,6 +235,9 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
         enderecoId = enderecoData.end_id;
       }
 
+      // Obter o CNPJ da empresa superior selecionada
+      const empresaSuperior = empresasSuperiores.find(e => e.cnpj_id.toString() === formData.superiorCnpjId);
+
       // 4. Criar registro da empresa (CNPJ)
       const { data: cnpjData, error: cnpjError } = await supabase
         .from("tb_cnpj")
@@ -205,7 +249,7 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
           responsavel_nome: formData.responsavelNome || null,
           cat_id: formData.categoriaId ? parseInt(formData.categoriaId) : null,
           agencia: mostrarAgencia ? formData.agencia || null : null,
-          superior_cnpj: mostrarSuperiorCnpj ? removeMask(formData.superiorCnpj) || null : null,
+          superior_cnpj: mostrarSuperiorImediato && empresaSuperior ? empresaSuperior.cnpj_numero : null,
           email_id: emailData.email_id,
           tel_id: telefoneData.tel_id,
           end_id: enderecoId,
@@ -252,7 +296,7 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
         responsavelNome: "",
         categoriaId: "",
         agencia: "",
-        superiorCnpj: "",
+        superiorCnpjId: "",
         emailPrincipal: "",
         emailSecundario: "",
         telefonePrincipal: "",
@@ -381,7 +425,7 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
                     categoriaId: value,
                     // Limpar campos quando mudar categoria
                     agencia: "",
-                    superiorCnpj: ""
+                    superiorCnpjId: ""
                   }))}
                 >
                   <SelectTrigger>
@@ -416,21 +460,30 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
               </div>
             )}
 
-            {/* Campo CNPJ Superior - só aparece para MFB/LU e LP/Consultor */}
-            {mostrarSuperiorCnpj && (
+            {/* Campo Superior Imediato - só aparece para MFB/LU e LP/Consultor */}
+            {mostrarSuperiorImediato && (
               <div className="space-y-2">
-                <Label htmlFor="superiorCnpj">
+                <Label htmlFor="superiorCnpjId">
                   <div className="flex items-center gap-2">
-                    <FileText className="h-4 w-4" />
-                    CNPJ Superior (Matriz)
+                    <Building2 className="h-4 w-4" />
+                    Superior Imediato
                   </div>
                 </Label>
-                <Input
-                  id="superiorCnpj"
-                  placeholder="00.000.000/0000-00"
-                  value={formData.superiorCnpj}
-                  onChange={(e) => handleInputChange("superiorCnpj", e.target.value)}
-                />
+                <Select
+                  value={formData.superiorCnpjId}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, superiorCnpjId: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o superior imediato" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {empresasSuperiores.map((emp) => (
+                      <SelectItem key={emp.cnpj_id} value={emp.cnpj_id.toString()}>
+                        {emp.razao_social}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             )}
           </div>
