@@ -1,26 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { verifyPasswordHybrid, createSession } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
-
-// Same hash function as signup
-async function hashPassword(password: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(password + Deno.env.get("PASSWORD_SALT") || "webcontador_salt_2024");
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-// Generate a simple session token
-function generateSessionToken(): string {
-  const array = new Uint8Array(32);
-  crypto.getRandomValues(array);
-  return Array.from(array, (b) => b.toString(16).padStart(2, "0")).join("");
-}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -86,9 +71,15 @@ serve(async (req) => {
       );
     }
 
-    // Verify password
-    const senhaHash = await hashPassword(senha);
-    if (senhaHash !== userData.senha) {
+    // Verify password using hybrid method (supports both old and new formats)
+    const isValidPassword = await verifyPasswordHybrid(
+      senha,
+      userData.senha,
+      userData.user_id,
+      supabase
+    );
+
+    if (!isValidPassword) {
       return new Response(
         JSON.stringify({ error: "E-mail ou senha incorretos" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -117,9 +108,14 @@ serve(async (req) => {
               .update({ last_activity: new Date().toISOString() })
               .eq("dispositivo_id", trustedDevice.dispositivo_id);
 
-            // Generate session token
-            const sessionToken = generateSessionToken();
-            const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+            // Create server-side session
+            const session = await createSession(supabase, userData.user_id, req);
+            if (!session) {
+              return new Response(
+                JSON.stringify({ error: "Erro ao criar sessão" }),
+                { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+              );
+            }
 
             const permissao = userData.tb_permissao as unknown as { nome: string; descricao: string } | null;
 
@@ -134,10 +130,7 @@ serve(async (req) => {
                   permissao: permissao?.nome || "VIEWER",
                   permissao_descricao: permissao?.descricao,
                 },
-                session: {
-                  token: sessionToken,
-                  expires_at: expiresAt,
-                },
+                session,
               }),
               { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
@@ -160,9 +153,14 @@ serve(async (req) => {
       );
     }
 
-    // Generate session token
-    const sessionToken = generateSessionToken();
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24 hours
+    // Create server-side session
+    const session = await createSession(supabase, userData.user_id, req);
+    if (!session) {
+      return new Response(
+        JSON.stringify({ error: "Erro ao criar sessão" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // Extract permission data (it's an object due to !inner join)
     const permissao = userData.tb_permissao as unknown as { nome: string; descricao: string } | null;
@@ -178,10 +176,7 @@ serve(async (req) => {
           permissao: permissao?.nome || "VIEWER",
           permissao_descricao: permissao?.descricao,
         },
-        session: {
-          token: sessionToken,
-          expires_at: expiresAt,
-        },
+        session,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

@@ -14,6 +14,47 @@ export type Database = {
   }
   public: {
     Tables: {
+      sessions: {
+        Row: {
+          created_at: string | null
+          expires_at: string
+          ip_address: string | null
+          last_activity: string | null
+          session_id: number
+          token: string
+          user_agent: string | null
+          user_id: number
+        }
+        Insert: {
+          created_at?: string | null
+          expires_at: string
+          ip_address?: string | null
+          last_activity?: string | null
+          session_id?: number
+          token: string
+          user_agent?: string | null
+          user_id: number
+        }
+        Update: {
+          created_at?: string | null
+          expires_at?: string
+          ip_address?: string | null
+          last_activity?: string | null
+          session_id?: number
+          token?: string
+          user_agent?: string | null
+          user_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sessions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "tb_usuario"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       tb_agencia: {
         Row: {
           agen_id: number
@@ -530,7 +571,9 @@ export type Database = {
         Args: never
         Returns: undefined
       }
+      cleanup_expired_sessions: { Args: never; Returns: undefined }
       get_user_permission: { Args: { user_id_param: number }; Returns: number }
+      validate_session: { Args: { session_token: string }; Returns: number }
     }
     Enums: {
       [_ in never]: never

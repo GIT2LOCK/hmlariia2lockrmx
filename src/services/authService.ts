@@ -67,6 +67,26 @@ export function getDeviceToken(): string {
   return token;
 }
 
+// Get auth token for API calls
+export function getAuthToken(): string | null {
+  return localStorage.getItem("auth_token");
+}
+
+// Get headers with authentication
+export function getAuthHeaders(): Record<string, string> {
+  const token = getAuthToken();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    "apikey": ANON_KEY,
+  };
+  
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  
+  return headers;
+}
+
 export async function signup(data: SignupData): Promise<AuthResponse> {
   try {
     const response = await fetch(`${SUPABASE_URL}/functions/v1/signup`, {
@@ -160,7 +180,23 @@ export async function login(data: LoginData): Promise<AuthResponse> {
   }
 }
 
-export function logout(): void {
+export async function logout(logoutAll: boolean = false): Promise<void> {
+  const token = getAuthToken();
+  
+  // Call server-side logout to invalidate session
+  if (token) {
+    try {
+      await fetch(`${SUPABASE_URL}/functions/v1/logout`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ logoutAll }),
+      });
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+  }
+  
+  // Always clear local storage
   localStorage.removeItem("auth_token");
   localStorage.removeItem("auth_expires");
   localStorage.removeItem("auth_user");
@@ -246,10 +282,7 @@ export async function sendVerificationEmail(userId: number, email: string, nome:
   try {
     const response = await fetch(`${SUPABASE_URL}/functions/v1/send-verification-email`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "apikey": ANON_KEY,
-      },
+      headers: getAuthHeaders(),
       body: JSON.stringify({ userId, email, nome }),
     });
 
@@ -272,10 +305,7 @@ export async function verifyEmail(userId: number, code: string): Promise<{ succe
   try {
     const response = await fetch(`${SUPABASE_URL}/functions/v1/verify-email`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "apikey": ANON_KEY,
-      },
+      headers: getAuthHeaders(),
       body: JSON.stringify({ userId, code }),
     });
 
@@ -351,10 +381,7 @@ export async function getUserDevices(userId: number): Promise<{ success: boolean
   try {
     const response = await fetch(`${SUPABASE_URL}/functions/v1/get-devices`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "apikey": ANON_KEY,
-      },
+      headers: getAuthHeaders(),
       body: JSON.stringify({ userId }),
     });
 
@@ -387,10 +414,7 @@ export async function revokeDevice(userId: number, deviceId?: number, revokeAll:
   try {
     const response = await fetch(`${SUPABASE_URL}/functions/v1/revoke-device`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "apikey": ANON_KEY,
-      },
+      headers: getAuthHeaders(),
       body: JSON.stringify({ userId, deviceId, revokeAll }),
     });
 

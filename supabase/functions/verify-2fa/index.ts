@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createSession } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -47,13 +48,6 @@ async function generateTotpCode(secret: string, offset: number = 0): Promise<str
     (signatureArray[offsetIdx + 3] & 0xff);
 
   return (code % 1000000).toString().padStart(6, "0");
-}
-
-// Generate session token
-function generateSessionToken(): string {
-  const array = new Uint8Array(32);
-  crypto.getRandomValues(array);
-  return Array.from(array, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 // Parse User-Agent to detect device type, browser, and OS
@@ -247,9 +241,14 @@ serve(async (req) => {
       }
     }
 
-    // Generate session token
-    const sessionToken = generateSessionToken();
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    // Create server-side session
+    const session = await createSession(supabase, userData.user_id, req);
+    if (!session) {
+      return new Response(
+        JSON.stringify({ error: "Erro ao criar sessão" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // Extract permission data
     const permissao = userData.tb_permissao as unknown as { nome: string; descricao: string } | null;
@@ -266,10 +265,7 @@ serve(async (req) => {
           permissao: permissao?.nome || "VIEWER",
           permissao_descricao: permissao?.descricao,
         },
-        session: {
-          token: sessionToken,
-          expires_at: expiresAt,
-        },
+        session,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

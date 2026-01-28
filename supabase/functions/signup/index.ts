@@ -1,19 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { hashPassword } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
-
-// Simple hash function using Web Crypto API (bcrypt not available in Deno Deploy)
-async function hashPassword(password: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(password + Deno.env.get("PASSWORD_SALT") || "webcontador_salt_2024");
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
-}
 
 serve(async (req) => {
   // Handle CORS preflight
@@ -99,7 +91,7 @@ serve(async (req) => {
       );
     }
 
-    // Hash password
+    // Hash password with PBKDF2 (600k iterations, per-user salt)
     const senhaHash = await hashPassword(senha);
 
     // 1. Create email record
