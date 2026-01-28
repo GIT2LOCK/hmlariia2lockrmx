@@ -300,9 +300,7 @@ const Index = () => {
             {!isForgotPassword ? (
               <>
                 <div className="text-center">
-                  <div className="bg-card rounded-xl p-4 inline-block mx-auto mb-4 md:mb-6">
-                    <img src={logo} alt="Web Contador" className="h-20 md:h-32" />
-                  </div>
+                  <img src={logo} alt="Web Contador" className="h-20 md:h-32 mx-auto mb-4 md:mb-6" />
                   <h1 className="text-2xl md:text-3xl font-bold text-foreground">Entrar na Conta</h1>
                   <p className="text-sm md:text-base text-muted-foreground mt-2">Use seu e-mail para login</p>
                 </div>
@@ -361,9 +359,7 @@ const Index = () => {
             ) : (
               <>
                 <div className="text-center">
-                  <div className="bg-card rounded-xl p-4 inline-block mx-auto mb-4 md:mb-6">
-                    <img src={logo} alt="Web Contador" className="h-20 md:h-32" />
-                  </div>
+                  <img src={logo} alt="Web Contador" className="h-20 md:h-32 mx-auto mb-4 md:mb-6" />
                   <h1 className="text-2xl md:text-3xl font-bold text-foreground">Recuperar Senha</h1>
                   <p className="text-sm md:text-base text-muted-foreground mt-2">Digite seu e-mail para receber o link</p>
                 </div>
@@ -413,9 +409,7 @@ const Index = () => {
         >
           <div className={`w-full max-w-md space-y-6 md:space-y-8 transition-transform duration-700 delay-100 ${!isLoginMode ? 'translate-y-0' : 'translate-y-4'}`}>
             <div className="text-center">
-              <div className="bg-card rounded-xl p-4 inline-block mx-auto mb-4 md:mb-6">
-                <img src={logo} alt="Web Contador" className="h-20 md:h-32" />
-              </div>
+              <img src={logo} alt="Web Contador" className="h-20 md:h-32 mx-auto mb-4 md:mb-6" />
               <h1 className="text-2xl md:text-3xl font-bold text-foreground">Criar Conta</h1>
               <p className="text-sm md:text-base text-muted-foreground mt-2">Use seu e-mail para cadastro</p>
             </div>
