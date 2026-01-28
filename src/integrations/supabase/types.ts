@@ -55,24 +55,6 @@ export type Database = {
           },
         ]
       }
-      tb_agencia: {
-        Row: {
-          agen_id: number
-          agencia: string
-          cnpj_responsavel: string
-        }
-        Insert: {
-          agen_id?: number
-          agencia: string
-          cnpj_responsavel: string
-        }
-        Update: {
-          agen_id?: number
-          agencia?: string
-          cnpj_responsavel?: string
-        }
-        Relationships: []
-      }
       tb_categoria: {
         Row: {
           cat_id: number
@@ -93,7 +75,7 @@ export type Database = {
       }
       tb_cnpj: {
         Row: {
-          agen_id: number | null
+          agencia: string | null
           cat_id: number | null
           cnpj_id: number
           cnpj_numero: string
@@ -101,10 +83,11 @@ export type Database = {
           end_id: number | null
           razao_social: string
           responsavel_nome: string | null
+          superior_cnpj: string | null
           tel_id: number | null
         }
         Insert: {
-          agen_id?: number | null
+          agencia?: string | null
           cat_id?: number | null
           cnpj_id?: number
           cnpj_numero: string
@@ -112,10 +95,11 @@ export type Database = {
           end_id?: number | null
           razao_social: string
           responsavel_nome?: string | null
+          superior_cnpj?: string | null
           tel_id?: number | null
         }
         Update: {
-          agen_id?: number | null
+          agencia?: string | null
           cat_id?: number | null
           cnpj_id?: number
           cnpj_numero?: string
@@ -123,6 +107,7 @@ export type Database = {
           end_id?: number | null
           razao_social?: string
           responsavel_nome?: string | null
+          superior_cnpj?: string | null
           tel_id?: number | null
         }
         Relationships: [
@@ -132,13 +117,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "tb_endereco"
             referencedColumns: ["end_id"]
-          },
-          {
-            foreignKeyName: "tb_cnpj_agen_id_fkey"
-            columns: ["agen_id"]
-            isOneToOne: false
-            referencedRelation: "tb_agencia"
-            referencedColumns: ["agen_id"]
           },
           {
             foreignKeyName: "tb_cnpj_cat_id_fkey"
