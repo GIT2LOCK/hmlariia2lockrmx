@@ -86,6 +86,7 @@ const Empresas = () => {
       };
 
       // Função para calcular o valor de "Superior" baseado na categoria
+      // Agora buscamos o nome da empresa superior pelo CNPJ
       const calcularSuperior = (categoria: string | null, agencia: string | null, superiorCnpj: string | null): string | null => {
         if (!categoria) return null;
         
@@ -94,9 +95,12 @@ const Empresas = () => {
           return agencia;
         }
         
-        // MFB/LU ou LP/Consultor → usar superior_cnpj (formatado)
+        // MFB/LU ou LP/Consultor → buscar nome da empresa pelo superior_cnpj
         if (categoria === "MFB/LU" || categoria === "LP/Consultor") {
-          return formatCnpj(superiorCnpj);
+          if (!superiorCnpj) return null;
+          // Buscar o nome da empresa superior na lista de dados
+          const empresaSuperior = (data || []).find((emp: any) => emp.cnpj_numero === superiorCnpj);
+          return empresaSuperior?.razao_social || formatCnpj(superiorCnpj);
         }
         
         return null;

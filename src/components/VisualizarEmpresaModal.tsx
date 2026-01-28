@@ -72,6 +72,12 @@ interface Categoria {
   categoria: string;
 }
 
+interface EmpresaSuperior {
+  cnpj_id: number;
+  razao_social: string;
+  cnpj_numero: string;
+}
+
 // Função para formatar CNPJ
 const formatCNPJ = (value: string | null) => {
   if (!value) return null;
@@ -146,6 +152,8 @@ export function VisualizarEmpresaModal({ open, onOpenChange, cnpjId, onUpdate }:
   const [empresa, setEmpresa] = useState<EmpresaDetalhes | null>(null);
   const [editData, setEditData] = useState<EmpresaDetalhes | null>(null);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const [empresasSuperiores, setEmpresasSuperiores] = useState<EmpresaSuperior[]>([]);
+  const [selectedSuperiorId, setSelectedSuperiorId] = useState<string>("");
 
   useEffect(() => {
     const fetchData = async () => {
@@ -244,7 +252,7 @@ export function VisualizarEmpresaModal({ open, onOpenChange, cnpjId, onUpdate }:
 
     let formattedValue = value;
 
-    if (field === "cnpj_numero" || field === "superior_cnpj") {
+    if (field === "cnpj_numero") {
       formattedValue = maskCNPJ(value);
     } else if (field === "telefone_principal" || field === "telefone_secundario") {
       formattedValue = maskPhone(value);
@@ -269,8 +277,71 @@ export function VisualizarEmpresaModal({ open, onOpenChange, cnpjId, onUpdate }:
       cat_id: parseInt(catId),
       categoria: cat?.categoria || null,
       agencia: "",
-      superior_cnpj: ""
+      superior_cnpj: null
     } : null);
+    setSelectedSuperiorId("");
+  };
+
+  // Determinar qual categoria buscar para o dropdown de Superior Imediato
+  const getCategoriaSuperiores = (categoria: string | null) => {
+    if (categoria === "MFB/LU") return "MFA/LA";
+    if (categoria === "LP/Consultor") return "MFB/LU";
+    return null;
+  };
+
+  // Buscar empresas superiores quando a categoria mudar
+  useEffect(() => {
+    const fetchEmpresasSuperiores = async () => {
+      const categoria = editData?.categoria || empresa?.categoria;
+      const categoriaFiltro = getCategoriaSuperiores(categoria);
+      
+      if (!categoriaFiltro || categorias.length === 0) {
+        setEmpresasSuperiores([]);
+        return;
+      }
+
+      // Buscar o cat_id da categoria superior
+      const catSuperior = categorias.find(c => c.categoria === categoriaFiltro);
+      if (!catSuperior) return;
+
+      const { data, error } = await supabase
+        .from("tb_cnpj")
+        .select("cnpj_id, razao_social, cnpj_numero")
+        .eq("cat_id", catSuperior.cat_id)
+        .order("razao_social");
+
+      if (!error && data) {
+        setEmpresasSuperiores(data);
+        
+        // Se já existe um superior_cnpj, encontrar o ID correspondente
+        const superiorCnpj = editData?.superior_cnpj || empresa?.superior_cnpj;
+        if (superiorCnpj) {
+          const empresaSuperior = data.find(e => e.cnpj_numero === superiorCnpj);
+          if (empresaSuperior) {
+            setSelectedSuperiorId(empresaSuperior.cnpj_id.toString());
+          }
+        }
+      }
+    };
+
+    if (isEditing || open) {
+      fetchEmpresasSuperiores();
+    }
+  }, [editData?.cat_id, categorias, isEditing, open]);
+
+  const handleSuperiorChange = (superiorId: string) => {
+    setSelectedSuperiorId(superiorId);
+    const empresaSuperior = empresasSuperiores.find(e => e.cnpj_id.toString() === superiorId);
+    if (editData && empresaSuperior) {
+      setEditData(prev => prev ? { ...prev, superior_cnpj: empresaSuperior.cnpj_numero } : null);
+    }
+  };
+
+  // Obter nome da empresa superior para visualização
+  const getNomeSuperiorImediato = () => {
+    if (!empresa?.superior_cnpj) return null;
+    const superior = empresasSuperiores.find(e => e.cnpj_numero === empresa.superior_cnpj);
+    return superior?.razao_social || formatCNPJ(empresa.superior_cnpj);
   };
 
   const handleSave = async () => {
@@ -324,7 +395,10 @@ export function VisualizarEmpresaModal({ open, onOpenChange, cnpjId, onUpdate }:
       // Determinar valores de agência e CNPJ superior
       const categoriaSelecionada = categorias.find(c => c.cat_id === editData.cat_id);
       const mostrarAgencia = categoriaSelecionada?.categoria === "MFA/LA";
-      const mostrarSuperiorCnpj = categoriaSelecionada?.categoria === "MFB/LU" || categoriaSelecionada?.categoria === "LP/Consultor";
+      const mostrarSuperiorImediato = categoriaSelecionada?.categoria === "MFB/LU" || categoriaSelecionada?.categoria === "LP/Consultor";
+
+      // Obter o CNPJ da empresa superior selecionada
+      const empresaSuperior = empresasSuperiores.find(e => e.cnpj_id.toString() === selectedSuperiorId);
 
       // Atualizar empresa
       const { error: cnpjError } = await supabase
@@ -337,7 +411,7 @@ export function VisualizarEmpresaModal({ open, onOpenChange, cnpjId, onUpdate }:
           responsavel_nome: editData.responsavel_nome || null,
           cat_id: editData.cat_id,
           agencia: mostrarAgencia ? editData.agencia || null : null,
-          superior_cnpj: mostrarSuperiorCnpj ? removeMask(editData.superior_cnpj || "") || null : null,
+          superior_cnpj: mostrarSuperiorImediato && empresaSuperior ? empresaSuperior.cnpj_numero : null,
         })
         .eq("cnpj_id", cnpjId);
 
@@ -401,7 +475,7 @@ export function VisualizarEmpresaModal({ open, onOpenChange, cnpjId, onUpdate }:
 
   const categoriaSelecionada = editData ? categorias.find(c => c.cat_id === editData.cat_id) : null;
   const mostrarAgencia = categoriaSelecionada?.categoria === "MFA/LA";
-  const mostrarSuperiorCnpj = categoriaSelecionada?.categoria === "MFB/LU" || categoriaSelecionada?.categoria === "LP/Consultor";
+  const mostrarSuperiorImediato = categoriaSelecionada?.categoria === "MFB/LU" || categoriaSelecionada?.categoria === "LP/Consultor";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -510,8 +584,28 @@ export function VisualizarEmpresaModal({ open, onOpenChange, cnpjId, onUpdate }:
                     {mostrarAgencia && (
                       <EditField label="Agência" value={editData.agencia} field="agencia" icon={Building2} placeholder="Nome da agência" />
                     )}
-                    {mostrarSuperiorCnpj && (
-                      <EditField label="CNPJ Superior (Matriz)" value={editData.superior_cnpj ? maskCNPJ(editData.superior_cnpj) : ""} field="superior_cnpj" icon={FileText} placeholder="00.000.000/0000-00" />
+                    {mostrarSuperiorImediato && (
+                      <div className="space-y-1">
+                        <Label className="text-xs flex items-center gap-1">
+                          <Building2 className="h-3 w-3" />
+                          Superior Imediato
+                        </Label>
+                        <Select
+                          value={selectedSuperiorId}
+                          onValueChange={handleSuperiorChange}
+                        >
+                          <SelectTrigger className="h-8 text-sm">
+                            <SelectValue placeholder="Selecione o superior imediato" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {empresasSuperiores.map((emp) => (
+                              <SelectItem key={emp.cnpj_id} value={emp.cnpj_id.toString()}>
+                                {emp.razao_social}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     )}
                   </>
                 ) : (
@@ -536,7 +630,7 @@ export function VisualizarEmpresaModal({ open, onOpenChange, cnpjId, onUpdate }:
                       <InfoItem label="Agência" value={empresa.agencia} icon={Building2} />
                     )}
                     {(empresa.categoria === "MFB/LU" || empresa.categoria === "LP/Consultor") && (
-                      <InfoItem label="CNPJ Superior (Matriz)" value={formatCNPJ(empresa.superior_cnpj)} icon={FileText} />
+                      <InfoItem label="Superior Imediato" value={getNomeSuperiorImediato()} icon={Building2} />
                     )}
                   </>
                 )}
