@@ -24,6 +24,7 @@ interface Empresa {
   telefone_principal: string | null;
   endereco_completo: string | null;
   demandas_ativas: number;
+  superior_cnpj: string | null;
 }
 
 const Empresas = () => {
@@ -44,6 +45,7 @@ const Empresas = () => {
           razao_social,
           cnpj_numero,
           responsavel_nome,
+          superior_cnpj,
           tb_email:email_id(email_principal),
           tb_numero:tel_id(telefone_principal),
           tb_endereco:end_id(logradouro, numero, bairro, uf)
@@ -72,6 +74,14 @@ const Empresas = () => {
       });
 
       // Formatar dados
+      // Função para formatar CNPJ
+      const formatCnpj = (cnpj: string | null) => {
+        if (!cnpj) return null;
+        const cleaned = cnpj.replace(/\D/g, '');
+        if (cleaned.length !== 14) return cnpj;
+        return cleaned.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
+      };
+
       const empresasFormatadas = (data || []).map((e: any) => ({
         cnpj_id: e.cnpj_id,
         razao_social: e.razao_social,
@@ -83,6 +93,7 @@ const Empresas = () => {
           ? `${e.tb_endereco.logradouro}${e.tb_endereco.numero ? `, ${e.tb_endereco.numero}` : ""} - ${e.tb_endereco.bairro}/${e.tb_endereco.uf}`
           : null,
         demandas_ativas: demandasCount[e.cnpj_id] || 0,
+        superior_cnpj: formatCnpj(e.superior_cnpj),
       }));
 
       setEmpresas(empresasFormatadas);
@@ -165,6 +176,7 @@ const Empresas = () => {
                     <TableRow>
                       <TableHead>Empresa</TableHead>
                       <TableHead>Responsável</TableHead>
+                      <TableHead>Superior</TableHead>
                       <TableHead>Demandas</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -188,6 +200,13 @@ const Empresas = () => {
                         <TableCell>
                           {empresa.responsavel_nome || (
                             <span className="text-muted-foreground italic">Não informado</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {empresa.superior_cnpj ? (
+                            <span className="text-sm font-mono">{empresa.superior_cnpj}</span>
+                          ) : (
+                            <span className="text-muted-foreground italic">—</span>
                           )}
                         </TableCell>
                         <TableCell>
