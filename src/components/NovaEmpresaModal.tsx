@@ -164,17 +164,27 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
     return false;
   };
 
-  // Buscar pessoas do banco
+  // Buscar pessoas do banco (excluindo usuários do sistema)
   useEffect(() => {
     const fetchPessoas = async () => {
+      // Buscar cpf_ids que pertencem a usuários do sistema
+      const { data: usuariosData } = await supabase
+        .from("tb_usuario")
+        .select("cpf_id");
+      
+      const cpfIdsUsuarios = new Set((usuariosData || []).map((u: any) => u.cpf_id));
+
       const { data, error } = await supabase
         .from("tb_cpf")
         .select("cpf_id, nome, cpf_numero")
         .order("nome");
 
       if (!error && data) {
-        // Filtrar apenas pessoas físicas reais
-        const pessoasFisicas = data.filter((p: any) => !isPlaceholderCpf(p.cpf_numero));
+        // Filtrar: excluir usuários do sistema e placeholders
+        const pessoasFisicas = data.filter((p: any) => 
+          !cpfIdsUsuarios.has(p.cpf_id) && 
+          !isPlaceholderCpf(p.cpf_numero)
+        );
         setPessoas(pessoasFisicas);
       }
     };
