@@ -749,17 +749,28 @@ export function NovaDemandaModal({ open, onOpenChange, onSuccess }: NovaDemandaM
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="prazoFim">Prazo Final</Label>
+                  <Label>Prazo Final (calculado automaticamente)</Label>
                   <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="prazoFim"
-                      type="datetime-local"
-                      className="pl-10"
-                      value={formData.prazoFim}
-                      onChange={(e) => setFormData(prev => ({ ...prev, prazoFim: e.target.value }))}
-                    />
+                    <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <div className="flex h-10 w-full items-center rounded-md border border-input bg-muted/50 px-3 py-2 pl-10 text-sm">
+                      {formData.prazoFim ? (
+                        new Date(formData.prazoFim).toLocaleString('pt-BR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })
+                      ) : (
+                        <span className="text-muted-foreground">Selecione um tipo de demanda</span>
+                      )}
+                    </div>
                   </div>
+                  {tipoDemandaSelecionado && (
+                    <p className="text-xs text-muted-foreground">
+                      Baseado no SLA de {formatPrazoTexto(tipoDemandaSelecionado.prazo_minutos || 60)}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
