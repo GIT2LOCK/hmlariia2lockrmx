@@ -206,9 +206,9 @@ const Demandas = () => {
   });
 
   const minhasDemandas = filteredDemandas.filter(
-    (d) => d.responsavel_nome === user?.nome
+    (d) => d.user_id === user?.id
   );
-  const semAtribuicao = filteredDemandas.filter((d) => d.responsavel_nome === null);
+  const semAtribuicao = filteredDemandas.filter((d) => d.user_id === null);
 
   const handleDemandaCriada = () => {
     fetchDemandas();

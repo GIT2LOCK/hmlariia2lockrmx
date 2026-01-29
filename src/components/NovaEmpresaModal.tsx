@@ -104,6 +104,7 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
     numero: "",
     complemento: "",
     bairro: "",
+    cidade: "",
     uf: "",
   });
   const [emailErrors, setEmailErrors] = useState({
@@ -327,6 +328,7 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
             numero: formData.numero || null,
             complemento: formData.complemento || null,
             bairro: formData.bairro,
+            cidade: formData.cidade || null,
             cep: removeMask(formData.cep),
             uf: formData.uf,
           })
@@ -396,6 +398,7 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
         numero: "",
         complemento: "",
         bairro: "",
+        cidade: "",
         uf: "",
       });
     } catch (error: any) {
@@ -720,6 +723,18 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
               </div>
 
               <div className="space-y-2">
+                <Label htmlFor="cidade">Cidade</Label>
+                <Input
+                  id="cidade"
+                  placeholder="São Paulo"
+                  value={formData.cidade}
+                  onChange={(e) => handleInputChange("cidade", e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4">
+              <div className="space-y-2 w-20">
                 <Label htmlFor="uf">UF</Label>
                 <Input
                   id="uf"

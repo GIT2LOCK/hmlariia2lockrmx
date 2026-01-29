@@ -65,6 +65,7 @@ interface EmpresaDetalhes {
   numero: string | null;
   complemento: string | null;
   bairro: string | null;
+  cidade: string | null;
   uf: string | null;
 }
 
@@ -146,6 +147,43 @@ const maskCEP = (value: string) => {
 // Função para remover máscara
 const removeMask = (value: string) => value.replace(/\D/g, "");
 
+// Componente InfoItem para exibição de dados
+const InfoItem = ({ label, value, icon: Icon }: { label: string; value: string | null; icon?: any }) => (
+  <div className="flex flex-col gap-1">
+    <span className="text-xs text-muted-foreground flex items-center gap-1">
+      {Icon && <Icon className="h-3 w-3" />}
+      {label}
+    </span>
+    <span className="text-sm font-medium">
+      {value || <span className="text-muted-foreground italic">Não informado</span>}
+    </span>
+  </div>
+);
+
+// Componente EditField para edição de dados
+interface EditFieldProps {
+  label: string;
+  value: string | null;
+  onChange: (value: string) => void;
+  icon?: any;
+  placeholder?: string;
+}
+
+const EditField = ({ label, value, onChange, icon: Icon, placeholder }: EditFieldProps) => (
+  <div className="space-y-1">
+    <Label className="text-xs flex items-center gap-1">
+      {Icon && <Icon className="h-3 w-3" />}
+      {label}
+    </Label>
+    <Input
+      value={value || ""}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      className="h-8 text-sm"
+    />
+  </div>
+);
+
 export function VisualizarEmpresaModal({ open, onOpenChange, cnpjId, onUpdate }: VisualizarEmpresaModalProps) {
   const { canEdit } = useUser();
   const [isLoading, setIsLoading] = useState(false);
@@ -182,7 +220,7 @@ export function VisualizarEmpresaModal({ open, onOpenChange, cnpjId, onUpdate }:
             tb_categoria:cat_id(categoria),
             tb_email:email_id(email_principal, email_secundario),
             tb_numero:tel_id(telefone_principal, telefone_secundario),
-            tb_endereco:end_id(cep, logradouro, numero, complemento, bairro, uf)
+            tb_endereco:end_id(cep, logradouro, numero, complemento, bairro, cidade, uf)
           `)
           .eq("cnpj_id", cnpjId)
           .maybeSingle();
@@ -222,6 +260,7 @@ export function VisualizarEmpresaModal({ open, onOpenChange, cnpjId, onUpdate }:
             numero: (data.tb_endereco as any)?.numero || null,
             complemento: (data.tb_endereco as any)?.complemento || null,
             bairro: (data.tb_endereco as any)?.bairro || null,
+            cidade: (data.tb_endereco as any)?.cidade || null,
             uf: (data.tb_endereco as any)?.uf || null,
           };
           setEmpresa(empresaData);
@@ -274,14 +313,17 @@ export function VisualizarEmpresaModal({ open, onOpenChange, cnpjId, onUpdate }:
   const handleCategoriaChange = (catId: string) => {
     if (!editData) return;
     const cat = categorias.find(c => c.cat_id.toString() === catId);
-    setEditData(prev => prev ? {
-      ...prev,
-      cat_id: parseInt(catId),
-      categoria: cat?.categoria || null,
-      agencia: "",
-      superior_cnpj: null
-    } : null);
-    setSelectedSuperiorId("");
+    // Só limpar agência/superior se a categoria realmente mudou
+    if (editData.cat_id?.toString() !== catId) {
+      setEditData(prev => prev ? {
+        ...prev,
+        cat_id: parseInt(catId),
+        categoria: cat?.categoria || null,
+        agencia: "",
+        superior_cnpj: null
+      } : null);
+      setSelectedSuperiorId("");
+    }
   };
 
   // Determinar quais categorias buscar para o dropdown de Superior Imediato
@@ -392,6 +434,7 @@ export function VisualizarEmpresaModal({ open, onOpenChange, cnpjId, onUpdate }:
             numero: editData.numero || null,
             complemento: editData.complemento || null,
             bairro: editData.bairro || null,
+            cidade: editData.cidade || null,
             uf: editData.uf || null,
           })
           .eq("end_id", editData.end_id);
@@ -440,45 +483,6 @@ export function VisualizarEmpresaModal({ open, onOpenChange, cnpjId, onUpdate }:
       setIsSaving(false);
     }
   };
-
-  const InfoItem = ({ label, value, icon: Icon }: { label: string; value: string | null; icon?: any }) => (
-    <div className="flex flex-col gap-1">
-      <span className="text-xs text-muted-foreground flex items-center gap-1">
-        {Icon && <Icon className="h-3 w-3" />}
-        {label}
-      </span>
-      <span className="text-sm font-medium">
-        {value || <span className="text-muted-foreground italic">Não informado</span>}
-      </span>
-    </div>
-  );
-
-  const EditField = ({ 
-    label, 
-    value, 
-    field, 
-    icon: Icon,
-    placeholder 
-  }: { 
-    label: string; 
-    value: string | null; 
-    field: keyof EmpresaDetalhes;
-    icon?: any;
-    placeholder?: string;
-  }) => (
-    <div className="space-y-1">
-      <Label className="text-xs flex items-center gap-1">
-        {Icon && <Icon className="h-3 w-3" />}
-        {label}
-      </Label>
-      <Input
-        value={value || ""}
-        onChange={(e) => handleInputChange(field, e.target.value)}
-        placeholder={placeholder}
-        className="h-8 text-sm"
-      />
-    </div>
-  );
 
   const categoriaSelecionada = editData ? categorias.find(c => c.cat_id === editData.cat_id) : null;
   const mostrarAgencia = categoriaSelecionada?.categoria === "MFA/LA";
@@ -562,11 +566,11 @@ export function VisualizarEmpresaModal({ open, onOpenChange, cnpjId, onUpdate }:
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-muted/30 p-4 rounded-lg">
                 {isEditing ? (
                   <>
-                    <EditField label="Razão Social" value={editData.razao_social} field="razao_social" icon={Building2} placeholder="Nome da empresa" />
-                    <EditField label="CNPJ" value={maskCNPJ(editData.cnpj_numero)} field="cnpj_numero" icon={FileText} placeholder="00.000.000/0000-00" />
-                    <EditField label="CCM (Cadastro Municipal)" value={editData.ccm} field="ccm" icon={Hash} placeholder="Cadastro Municipal" />
-                    <EditField label="CASN" value={editData.casn} field="casn" icon={Hash} placeholder="Somente números" />
-                    <EditField label="Responsável" value={editData.responsavel_nome} field="responsavel_nome" icon={User} placeholder="Nome do responsável" />
+                    <EditField label="Razão Social" value={editData.razao_social} onChange={(v) => handleInputChange("razao_social", v)} icon={Building2} placeholder="Nome da empresa" />
+                    <EditField label="CNPJ" value={maskCNPJ(editData.cnpj_numero)} onChange={(v) => handleInputChange("cnpj_numero", v)} icon={FileText} placeholder="00.000.000/0000-00" />
+                    <EditField label="CCM (Cadastro Municipal)" value={editData.ccm} onChange={(v) => handleInputChange("ccm", v)} icon={Hash} placeholder="Cadastro Municipal" />
+                    <EditField label="CASN" value={editData.casn} onChange={(v) => handleInputChange("casn", v)} icon={Hash} placeholder="Somente números" />
+                    <EditField label="Responsável" value={editData.responsavel_nome} onChange={(v) => handleInputChange("responsavel_nome", v)} icon={User} placeholder="Nome do responsável" />
                     <div className="space-y-1">
                       <Label className="text-xs flex items-center gap-1">
                         <Tag className="h-3 w-3" />
@@ -589,7 +593,7 @@ export function VisualizarEmpresaModal({ open, onOpenChange, cnpjId, onUpdate }:
                       </Select>
                     </div>
                     {mostrarAgencia && (
-                      <EditField label="Agência" value={editData.agencia} field="agencia" icon={Building2} placeholder="Nome da agência" />
+                      <EditField label="Agência" value={editData.agencia} onChange={(v) => handleInputChange("agencia", v)} icon={Building2} placeholder="Nome da agência" />
                     )}
                     {mostrarSuperiorImediato && (
                       <div className="space-y-1">
@@ -659,14 +663,15 @@ export function VisualizarEmpresaModal({ open, onOpenChange, cnpjId, onUpdate }:
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-muted/30 p-4 rounded-lg">
                 {isEditing ? (
                   <>
-                    <EditField label="CEP" value={editData.cep ? maskCEP(editData.cep) : ""} field="cep" placeholder="00000-000" />
+                    <EditField label="CEP" value={editData.cep ? maskCEP(editData.cep) : ""} onChange={(v) => handleInputChange("cep", v)} placeholder="00000-000" />
                     <div className="md:col-span-2">
-                      <EditField label="Logradouro" value={editData.logradouro} field="logradouro" placeholder="Rua, Avenida, etc." />
+                      <EditField label="Logradouro" value={editData.logradouro} onChange={(v) => handleInputChange("logradouro", v)} placeholder="Rua, Avenida, etc." />
                     </div>
-                    <EditField label="Número" value={editData.numero} field="numero" placeholder="123" />
-                    <EditField label="Complemento" value={editData.complemento} field="complemento" placeholder="Sala, Andar..." />
-                    <EditField label="Bairro" value={editData.bairro} field="bairro" placeholder="Bairro" />
-                    <EditField label="UF" value={editData.uf} field="uf" placeholder="SP" />
+                    <EditField label="Número" value={editData.numero} onChange={(v) => handleInputChange("numero", v)} placeholder="123" />
+                    <EditField label="Complemento" value={editData.complemento} onChange={(v) => handleInputChange("complemento", v)} placeholder="Sala, Andar..." />
+                    <EditField label="Bairro" value={editData.bairro} onChange={(v) => handleInputChange("bairro", v)} placeholder="Bairro" />
+                    <EditField label="Cidade" value={editData.cidade} onChange={(v) => handleInputChange("cidade", v)} placeholder="São Paulo" />
+                    <EditField label="UF" value={editData.uf} onChange={(v) => handleInputChange("uf", v)} placeholder="SP" />
                   </>
                 ) : (
                   <>
@@ -677,6 +682,7 @@ export function VisualizarEmpresaModal({ open, onOpenChange, cnpjId, onUpdate }:
                     <InfoItem label="Número" value={empresa.numero} />
                     <InfoItem label="Complemento" value={empresa.complemento} />
                     <InfoItem label="Bairro" value={empresa.bairro} />
+                    <InfoItem label="Cidade" value={empresa.cidade} />
                     <InfoItem label="UF" value={empresa.uf} />
                   </>
                 )}
@@ -695,10 +701,10 @@ export function VisualizarEmpresaModal({ open, onOpenChange, cnpjId, onUpdate }:
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-muted/30 p-4 rounded-lg">
                 {isEditing ? (
                   <>
-                    <EditField label="Email Principal" value={editData.email_principal} field="email_principal" icon={Mail} placeholder="email@empresa.com" />
-                    <EditField label="Email Secundário" value={editData.email_secundario} field="email_secundario" icon={Mail} placeholder="outro@empresa.com" />
-                    <EditField label="Telefone Principal" value={editData.telefone_principal ? maskPhone(editData.telefone_principal) : ""} field="telefone_principal" icon={Phone} placeholder="(00) 0-0000-0000" />
-                    <EditField label="Telefone Secundário" value={editData.telefone_secundario ? maskPhone(editData.telefone_secundario) : ""} field="telefone_secundario" icon={Phone} placeholder="(00) 0-0000-0000" />
+                    <EditField label="Email Principal" value={editData.email_principal} onChange={(v) => handleInputChange("email_principal", v)} icon={Mail} placeholder="email@empresa.com" />
+                    <EditField label="Email Secundário" value={editData.email_secundario} onChange={(v) => handleInputChange("email_secundario", v)} icon={Mail} placeholder="outro@empresa.com" />
+                    <EditField label="Telefone Principal" value={editData.telefone_principal ? maskPhone(editData.telefone_principal) : ""} onChange={(v) => handleInputChange("telefone_principal", v)} icon={Phone} placeholder="(00) 0-0000-0000" />
+                    <EditField label="Telefone Secundário" value={editData.telefone_secundario ? maskPhone(editData.telefone_secundario) : ""} onChange={(v) => handleInputChange("telefone_secundario", v)} icon={Phone} placeholder="(00) 0-0000-0000" />
                   </>
                 ) : (
                   <>

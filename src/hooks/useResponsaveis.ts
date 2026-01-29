@@ -16,6 +16,7 @@ export interface Responsavel {
     numero: string | null;
     complemento: string | null;
     bairro: string;
+    cidade: string | null;
     cep: string;
     uf: string;
   } | null;
@@ -55,6 +56,7 @@ export function useResponsaveis() {
             numero,
             complemento,
             bairro,
+            cidade,
             cep,
             uf
           ),
@@ -117,6 +119,7 @@ export function useResponsaveis() {
       numero?: string;
       complemento?: string;
       bairro: string;
+      cidade?: string;
       cep: string;
       uf: string;
     };
@@ -144,6 +147,7 @@ export function useResponsaveis() {
             numero: data.endereco.numero || null,
             complemento: data.endereco.complemento || null,
             bairro: data.endereco.bairro,
+            cidade: data.endereco.cidade || null,
             cep: data.endereco.cep.replace(/\D/g, ""),
             uf: data.endereco.uf,
           })
