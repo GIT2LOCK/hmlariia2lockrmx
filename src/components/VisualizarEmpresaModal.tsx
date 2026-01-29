@@ -29,12 +29,14 @@ import {
   Hash,
   Pencil,
   X,
-  Save
+  Save,
+  Search
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useUser } from "@/contexts/UserContext";
+import { useCepLookup } from "@/hooks/useCepLookup";
 
 interface VisualizarEmpresaModalProps {
   open: boolean;
@@ -194,6 +196,23 @@ export function VisualizarEmpresaModal({ open, onOpenChange, cnpjId, onUpdate }:
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [empresasSuperiores, setEmpresasSuperiores] = useState<EmpresaSuperior[]>([]);
   const [selectedSuperiorId, setSelectedSuperiorId] = useState<string>("");
+  const { isLoading: isLoadingCep, fetchCep } = useCepLookup();
+
+  // Função para buscar CEP
+  const handleCepSearch = async () => {
+    if (!editData?.cep) return;
+    const cepData = await fetchCep(editData.cep);
+    if (cepData) {
+      setEditData(prev => prev ? {
+        ...prev,
+        logradouro: cepData.street || prev.logradouro,
+        bairro: cepData.neighborhood || prev.bairro,
+        cidade: cepData.city || prev.cidade,
+        uf: cepData.state || prev.uf,
+      } : null);
+      toast.success("Endereço encontrado!");
+    }
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -663,7 +682,32 @@ export function VisualizarEmpresaModal({ open, onOpenChange, cnpjId, onUpdate }:
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-muted/30 p-4 rounded-lg">
                 {isEditing ? (
                   <>
-                    <EditField label="CEP" value={editData.cep ? maskCEP(editData.cep) : ""} onChange={(v) => handleInputChange("cep", v)} placeholder="00000-000" />
+                    <div className="space-y-1">
+                      <Label className="text-xs">CEP</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          value={editData.cep ? maskCEP(editData.cep) : ""}
+                          onChange={(e) => handleInputChange("cep", e.target.value)}
+                          placeholder="00000-000"
+                          className="h-8 text-sm"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={handleCepSearch}
+                          disabled={isLoadingCep || (editData.cep?.replace(/\D/g, "").length || 0) !== 8}
+                          title="Buscar CEP"
+                        >
+                          {isLoadingCep ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Search className="h-3 w-3" />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
                     <div className="md:col-span-2">
                       <EditField label="Logradouro" value={editData.logradouro} onChange={(v) => handleInputChange("logradouro", v)} placeholder="Rua, Avenida, etc." />
                     </div>

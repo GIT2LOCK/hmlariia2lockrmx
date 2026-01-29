@@ -41,13 +41,15 @@ import {
   Tag,
   Check,
   ChevronsUpDown,
-  Plus
+  Plus,
+  Search
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { NovaPessoaModal } from "./NovaPessoaModal";
 import { formatCpf } from "@/hooks/useResponsaveis";
+import { useCepLookup } from "@/hooks/useCepLookup";
 import { 
   validateCnpj, 
   formatCnpjMask, 
@@ -86,6 +88,7 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
   const [responsaveis, setResponsaveis] = useState<Responsavel[]>([]);
   const [responsavelOpen, setResponsavelOpen] = useState(false);
   const [novaPessoaModalOpen, setNovaPessoaModalOpen] = useState(false);
+  const { isLoading: isLoadingCep, fetchCep } = useCepLookup();
   const [formData, setFormData] = useState({
     razaoSocial: "",
     cnpj: "",
@@ -117,6 +120,21 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
     telefoneSecundario: "",
     cep: "",
   });
+
+  // Função para buscar CEP
+  const handleCepSearch = async () => {
+    const cepData = await fetchCep(formData.cep);
+    if (cepData) {
+      setFormData(prev => ({
+        ...prev,
+        logradouro: cepData.street || prev.logradouro,
+        bairro: cepData.neighborhood || prev.bairro,
+        cidade: cepData.city || prev.cidade,
+        uf: cepData.state || prev.uf,
+      }));
+      toast.success("Endereço encontrado!");
+    }
+  };
 
   // Buscar categorias do banco
   useEffect(() => {
@@ -667,14 +685,30 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="cep">CEP</Label>
-                <Input
-                  id="cep"
-                  placeholder="00000-000"
-                  value={formData.cep}
-                  onChange={(e) => handleInputChange("cep", e.target.value)}
-                  onBlur={() => handleFieldBlur("cep")}
-                  className={fieldErrors.cep ? "border-destructive" : ""}
-                />
+                <div className="flex gap-2">
+                  <Input
+                    id="cep"
+                    placeholder="00000-000"
+                    value={formData.cep}
+                    onChange={(e) => handleInputChange("cep", e.target.value)}
+                    onBlur={() => handleFieldBlur("cep")}
+                    className={fieldErrors.cep ? "border-destructive" : ""}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={handleCepSearch}
+                    disabled={isLoadingCep || formData.cep.replace(/\D/g, "").length !== 8}
+                    title="Buscar CEP"
+                  >
+                    {isLoadingCep ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Search className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
                 {fieldErrors.cep && (
                   <p className="text-sm text-destructive">{fieldErrors.cep}</p>
                 )}
