@@ -271,12 +271,23 @@ export function VisualizarDemandaModal({
     }
   };
 
+  // Verificar se a demanda já está concluída
+  const isDemandaConcluida = demanda?.status_nome?.toLowerCase() === "concluída" || 
+                              demanda?.status_nome?.toLowerCase() === "concluido";
+  
+  // Verificar se o prazo está excedido no momento atual (usando prazo original da demanda)
+  const isPrazoExcedido = demanda ? new Date(demanda.prazo_fim) < new Date() : false;
+
   const handleSave = async () => {
     if (!demanda) return;
     
     setIsLoading(true);
     try {
-      const updateData = {
+      // Se a demanda já está concluída, não permitir alterar o prazo
+      const prazoFinal = isDemandaConcluida ? demanda.prazo_fim : formData.prazoFim;
+      
+      // Preparar dados de atualização
+      const updateData: Record<string, any> = {
         titulo_demanda: formData.titulo,
         descricao_tarefa: formData.descricao,
         via_id: parseInt(formData.viaId),
@@ -285,7 +296,7 @@ export function VisualizarDemandaModal({
         user_id: formData.responsavelId && formData.responsavelId !== "sem-atribuicao" 
           ? parseInt(formData.responsavelId) 
           : null,
-        prazo_fim: formData.prazoFim,
+        prazo_fim: prazoFinal,
       };
 
       const { error } = await supabase
@@ -657,18 +668,40 @@ export function VisualizarDemandaModal({
                     <Label className="text-sm font-medium flex items-center gap-2">
                       <Calendar className="h-4 w-4 text-muted-foreground" />
                       Prazo Final
+                      {isDemandaConcluida && (
+                        <Badge variant="outline" className="ml-2 text-xs bg-muted">
+                          Bloqueado
+                        </Badge>
+                      )}
                     </Label>
                     {isEditing ? (
-                      <div className="relative">
-                        <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          id="prazoFim"
-                          type="datetime-local"
-                          className="pl-10"
-                          value={formData.prazoFim}
-                          onChange={(e) => setFormData(prev => ({ ...prev, prazoFim: e.target.value }))}
-                        />
-                      </div>
+                      isDemandaConcluida ? (
+                        <div className="p-4 rounded-lg bg-muted/50 border border-dashed">
+                          <p className="font-semibold text-muted-foreground">
+                            {formatDateTime(demanda.prazo_fim)}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+                            <AlertTriangle className="h-3 w-3" />
+                            Não é possível alterar o prazo de demandas concluídas
+                          </p>
+                          {isPrazoExcedido && (
+                            <Badge variant="destructive" className="mt-2">
+                              Concluída com prazo excedido
+                            </Badge>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="relative">
+                          <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            id="prazoFim"
+                            type="datetime-local"
+                            className="pl-10"
+                            value={formData.prazoFim}
+                            onChange={(e) => setFormData(prev => ({ ...prev, prazoFim: e.target.value }))}
+                          />
+                        </div>
+                      )
                     ) : (
                       <div className={`p-4 rounded-lg ${tempoRestante.excedido ? 'bg-red-500/10 border border-red-500/20' : 'bg-muted/50'}`}>
                         <p className={`font-semibold ${tempoRestante.excedido ? 'text-red-600' : 'text-foreground'}`}>
@@ -684,6 +717,11 @@ export function VisualizarDemandaModal({
                             {tempoRestante.texto}
                           </span>
                         </div>
+                        {isDemandaConcluida && isPrazoExcedido && (
+                          <Badge variant="destructive" className="mt-2">
+                            Concluída com prazo excedido
+                          </Badge>
+                        )}
                       </div>
                     )}
                   </CardContent>
