@@ -106,6 +106,10 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
     bairro: "",
     uf: "",
   });
+  const [emailErrors, setEmailErrors] = useState({
+    emailPrincipal: "",
+    emailSecundario: "",
+  });
 
   // Buscar categorias do banco
   useEffect(() => {
@@ -190,6 +194,21 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
     fetchEmpresasSuperiores();
   }, [formData.categoriaId, categorias]);
 
+  const validateEmail = (email: string): boolean => {
+    if (!email) return true; // Empty is valid (not required)
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const handleEmailBlur = (field: "emailPrincipal" | "emailSecundario") => {
+    const value = formData[field];
+    if (value && !validateEmail(value)) {
+      setEmailErrors(prev => ({ ...prev, [field]: "E-mail inválido" }));
+    } else {
+      setEmailErrors(prev => ({ ...prev, [field]: "" }));
+    }
+  };
+
   const handleInputChange = (field: string, value: string) => {
     let formattedValue = value;
     
@@ -207,6 +226,11 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
     } else if (field === "ccm") {
       // CCM máximo 25 caracteres
       formattedValue = value.slice(0, 25);
+    }
+    
+    // Limpar erro de email ao digitar
+    if (field === "emailPrincipal" || field === "emailSecundario") {
+      setEmailErrors(prev => ({ ...prev, [field]: "" }));
     }
     
     setFormData(prev => ({ ...prev, [field]: formattedValue }));
@@ -671,7 +695,12 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
                   placeholder="email@empresa.com"
                   value={formData.emailPrincipal}
                   onChange={(e) => handleInputChange("emailPrincipal", e.target.value)}
+                  onBlur={() => handleEmailBlur("emailPrincipal")}
+                  className={emailErrors.emailPrincipal ? "border-destructive" : ""}
                 />
+                {emailErrors.emailPrincipal && (
+                  <p className="text-sm text-destructive">{emailErrors.emailPrincipal}</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -682,7 +711,12 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
                   placeholder="outro@empresa.com"
                   value={formData.emailSecundario}
                   onChange={(e) => handleInputChange("emailSecundario", e.target.value)}
+                  onBlur={() => handleEmailBlur("emailSecundario")}
+                  className={emailErrors.emailSecundario ? "border-destructive" : ""}
                 />
+                {emailErrors.emailSecundario && (
+                  <p className="text-sm text-destructive">{emailErrors.emailSecundario}</p>
+                )}
               </div>
             </div>
 
