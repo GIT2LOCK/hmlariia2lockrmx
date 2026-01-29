@@ -173,6 +173,21 @@ const Empresas = () => {
         .eq("cnpj_id", selectedEmpresa.cnpj_id)
         .single();
 
+      // Buscar vínculos cpf_cnpj para esta empresa
+      const { data: cpfCnpjData } = await supabase
+        .from("tb_cpf_cnpj")
+        .select("id")
+        .eq("cnpj_id", selectedEmpresa.cnpj_id);
+
+      // Deletar demandas vinculadas a cada cpf_cnpj
+      if (cpfCnpjData && cpfCnpjData.length > 0) {
+        const cpfCnpjIds = cpfCnpjData.map(item => item.id);
+        await supabase
+          .from("tb_demanda")
+          .delete()
+          .in("cnpj_cpf_id", cpfCnpjIds);
+      }
+
       // Deletar vínculos de responsáveis
       await supabase
         .from("tb_responsavel_cnpj")
