@@ -488,17 +488,33 @@ const Index = () => {
       <TwoFactorSetupModal
         isOpen={show2FASetupModal}
         onClose={() => setShow2FASetupModal(false)}
-        onSuccess={() => {
+        onSuccess={(session, user) => {
           setShow2FASetupModal(false);
           setSetupToken(undefined); // Clear the token
-          setIsLoginMode(true);
-          toast({
-            title: "2FA Configurado!",
-            description: "Agora faça login para acessar sua conta.",
-          });
+          
+          // Auto-login: store session and navigate to dashboard
+          if (session && user) {
+            localStorage.setItem("auth_token", session.token);
+            localStorage.setItem("auth_expires", session.expires_at);
+            localStorage.setItem("auth_user", JSON.stringify(user));
+            refreshUser();
+            toast({
+              title: "Bem-vindo!",
+              description: `2FA configurado com sucesso. Bem-vindo, ${user.nome}!`,
+            });
+            navigate("/dashboard");
+          } else {
+            // Fallback to login if session not available
+            setIsLoginMode(true);
+            toast({
+              title: "2FA Configurado!",
+              description: "Agora faça login para acessar sua conta.",
+            });
+          }
         }}
         userId={pendingUser?.id || 0}
         userName={pendingUser?.nome || ""}
+        userEmail={pendingUser?.email}
         setupToken={setupToken}
       />
 
