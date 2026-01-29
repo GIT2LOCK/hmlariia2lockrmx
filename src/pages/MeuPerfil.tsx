@@ -34,42 +34,18 @@ const formatPhoneMask = (value: string): string => {
 };
 
 const MeuPerfil = () => {
-  const { user } = useUser();
+  const { user, updateAvatar } = useUser();
   const storedUser = getStoredUser();
   const [isEditing, setIsEditing] = useState(false);
   const [is2FAEnabled, setIs2FAEnabled] = useState(false);
   const [isLoading2FA, setIsLoading2FA] = useState(true);
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
-  const [avatarUrl, setAvatarUrl] = useState<string | undefined>(undefined);
   const [formData, setFormData] = useState({
     nome: user.nome,
     sobrenome: user.sobrenome,
     email: user.email,
     telefone: "(11) 9-9999-0000",
   });
-
-  // Load avatar from database
-  useEffect(() => {
-    const loadAvatar = async () => {
-      if (!storedUser?.id) return;
-      
-      try {
-        const { data, error } = await supabase
-          .from("tb_usuario")
-          .select("avatar_url")
-          .eq("user_id", storedUser.id)
-          .maybeSingle();
-        
-        if (data?.avatar_url) {
-          setAvatarUrl(data.avatar_url);
-        }
-      } catch (err) {
-        console.error("Erro ao carregar avatar:", err);
-      }
-    };
-    
-    loadAvatar();
-  }, [storedUser?.id]);
 
   // Carregar status do 2FA do banco de dados
   useEffect(() => {
@@ -123,7 +99,7 @@ const MeuPerfil = () => {
           <CardHeader className="text-center p-4 md:p-6">
             <div className="flex justify-center mb-3 md:mb-4 relative">
               <Avatar className="h-16 w-16 md:h-24 md:w-24">
-                <AvatarImage src={avatarUrl} alt={`${user.nome} ${user.sobrenome}`} />
+                <AvatarImage src={user.avatar} alt={`${user.nome} ${user.sobrenome}`} />
                 <AvatarFallback className="text-lg md:text-2xl">
                   {user.nome[0]}{user.sobrenome[0]}
                 </AvatarFallback>
@@ -168,9 +144,9 @@ const MeuPerfil = () => {
           isOpen={isAvatarModalOpen}
           onClose={() => setIsAvatarModalOpen(false)}
           userId={storedUser?.id || 0}
-          currentAvatar={avatarUrl}
+          currentAvatar={user.avatar}
           userName={`${user.nome} ${user.sobrenome}`}
-          onSuccess={(newUrl) => setAvatarUrl(newUrl)}
+          onSuccess={updateAvatar}
         />
 
         <div className="lg:col-span-3">

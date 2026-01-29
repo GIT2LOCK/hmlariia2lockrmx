@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { getStoredUser, syncUserFromDatabase, AuthUser } from "@/services/authService";
+import { supabase } from "@/integrations/supabase/client";
 
 export type UserRole = "SUPERADMIN" | "ADMIN" | "USER" | "VIEWER";
 
@@ -19,6 +20,7 @@ interface UserContextType {
   isAuthenticated: boolean;
   refreshUser: () => void;
   syncFromDatabase: () => Promise<void>;
+  updateAvatar: (newAvatarUrl: string) => void;
   canEdit: boolean;
   canManageUsers: boolean;
   canManageAdmins: boolean;
@@ -56,12 +58,33 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  const loadUser = () => {
+  // Function to update avatar in state
+  const updateAvatar = (newAvatarUrl: string) => {
+    setUser(prev => ({ ...prev, avatar: newAvatarUrl }));
+  };
+
+  const loadUser = async () => {
     const storedUser = getStoredUser();
     
     if (storedUser) {
       const { nome, sobrenome } = splitName(storedUser.nome);
       const role = (storedUser.permissao as UserRole) || "VIEWER";
+      
+      // Load avatar from database
+      let avatarUrl = "";
+      try {
+        const { data } = await supabase
+          .from("tb_usuario")
+          .select("avatar_url")
+          .eq("user_id", storedUser.id)
+          .maybeSingle();
+        
+        if (data?.avatar_url) {
+          avatarUrl = data.avatar_url;
+        }
+      } catch (err) {
+        console.error("Erro ao carregar avatar:", err);
+      }
       
       setUser({
         id: storedUser.id,
@@ -70,7 +93,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         email: storedUser.email || "",
         cargo: role,
         role,
-        avatar: "",
+        avatar: avatarUrl,
       });
       setIsAuthenticated(true);
     } else {
@@ -87,6 +110,22 @@ export function UserProvider({ children }: { children: ReactNode }) {
       const { nome, sobrenome } = splitName(updatedUser.nome);
       const role = (updatedUser.permissao as UserRole) || "VIEWER";
       
+      // Load avatar from database
+      let avatarUrl = user.avatar; // Keep current avatar
+      try {
+        const { data } = await supabase
+          .from("tb_usuario")
+          .select("avatar_url")
+          .eq("user_id", updatedUser.id)
+          .maybeSingle();
+        
+        if (data?.avatar_url) {
+          avatarUrl = data.avatar_url;
+        }
+      } catch (err) {
+        console.error("Erro ao carregar avatar:", err);
+      }
+      
       setUser({
         id: updatedUser.id,
         nome,
@@ -94,7 +133,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         email: updatedUser.email || "",
         cargo: role,
         role,
-        avatar: "",
+        avatar: avatarUrl,
       });
     }
   };
@@ -138,6 +177,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       isAuthenticated,
       refreshUser,
       syncFromDatabase,
+      updateAvatar,
       canEdit, 
       canManageUsers, 
       canManageAdmins, 
@@ -160,6 +200,7 @@ export function useUser(): UserContextType {
       isAuthenticated: false,
       refreshUser: () => {},
       syncFromDatabase: async () => {},
+      updateAvatar: () => {},
       canEdit: false,
       canManageUsers: false,
       canManageAdmins: false,
