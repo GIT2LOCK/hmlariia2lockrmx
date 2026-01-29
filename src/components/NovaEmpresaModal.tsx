@@ -48,6 +48,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { NovaPessoaModal } from "./NovaPessoaModal";
 import { formatCpf } from "@/hooks/useResponsaveis";
+import { 
+  validateCnpj, 
+  formatCnpjMask, 
+  formatPhoneMask, 
+  formatCepMask, 
+  removeMask 
+} from "@/lib/validators";
 
 interface NovaEmpresaModalProps {
   open: boolean;
@@ -65,41 +72,6 @@ interface EmpresaSuperior {
   razao_social: string;
   cnpj_numero: string;
 }
-
-// Função para aplicar máscara de CNPJ
-const formatCNPJ = (value: string) => {
-  const digits = value.replace(/\D/g, "");
-  return digits
-    .replace(/^(\d{2})(\d)/, "$1.$2")
-    .replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3")
-    .replace(/\.(\d{3})(\d)/, ".$1/$2")
-    .replace(/(\d{4})(\d)/, "$1-$2")
-    .slice(0, 18);
-};
-
-// Função para aplicar máscara de telefone
-const formatPhone = (value: string) => {
-  const digits = value.replace(/\D/g, "");
-  if (digits.length <= 10) {
-    return digits
-      .replace(/^(\d{2})(\d)/, "($1) $2")
-      .replace(/(\d{4})(\d)/, "$1-$2")
-      .slice(0, 14);
-  }
-  return digits
-    .replace(/^(\d{2})(\d)/, "($1) $2")
-    .replace(/(\d{1})(\d{4})(\d)/, "$1-$2-$3")
-    .slice(0, 16);
-};
-
-// Função para aplicar máscara de CEP
-const formatCEP = (value: string) => {
-  const digits = value.replace(/\D/g, "");
-  return digits.replace(/^(\d{5})(\d)/, "$1-$2").slice(0, 9);
-};
-
-// Função para remover máscara e retornar apenas dígitos
-const removeMask = (value: string) => value.replace(/\D/g, "");
 
 interface Responsavel {
   responsavel_id: number;
@@ -222,11 +194,11 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
     let formattedValue = value;
     
     if (field === "cnpj") {
-      formattedValue = formatCNPJ(value);
+      formattedValue = formatCnpjMask(value);
     } else if (field === "telefonePrincipal" || field === "telefoneSecundario") {
-      formattedValue = formatPhone(value);
+      formattedValue = formatPhoneMask(value);
     } else if (field === "cep") {
-      formattedValue = formatCEP(value);
+      formattedValue = formatCepMask(value);
     } else if (field === "uf") {
       formattedValue = value.toUpperCase().slice(0, 2);
     } else if (field === "casn") {
@@ -242,6 +214,13 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validar CNPJ
+    if (!validateCnpj(formData.cnpj)) {
+      toast.error("CNPJ inválido. Verifique os dígitos informados.");
+      return;
+    }
+    
     setIsLoading(true);
     
     try {
@@ -589,7 +568,7 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
                       <SelectItem key={emp.cnpj_id} value={emp.cnpj_id.toString()}>
                         <div className="flex flex-col">
                           <span className="font-medium">{emp.razao_social}</span>
-                          <span className="text-xs text-muted-foreground">{formatCNPJ(emp.cnpj_numero)}</span>
+                          <span className="text-xs text-muted-foreground">{formatCnpjMask(emp.cnpj_numero)}</span>
                         </div>
                       </SelectItem>
                     ))}

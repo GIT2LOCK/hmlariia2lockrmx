@@ -10,45 +10,7 @@ import { signup, login } from "@/services/authService";
 import { TwoFactorModal } from "@/components/TwoFactorModal";
 import { TwoFactorSetupModal } from "@/components/TwoFactorSetupModal";
 import { useUser } from "@/contexts/UserContext";
-
-// Função para aplicar máscara de CPF
-const formatCpf = (value: string): string => {
-  const digits = value.replace(/\D/g, "").slice(0, 11);
-  if (digits.length <= 3) return digits;
-  if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
-  if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
-  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
-};
-
-// Validação de CPF com algoritmo dos dígitos verificadores
-const validateCpf = (cpf: string): boolean => {
-  const digits = cpf.replace(/\D/g, "");
-  
-  if (digits.length !== 11) return false;
-  
-  // Verifica se todos os dígitos são iguais
-  if (/^(\d)\1+$/.test(digits)) return false;
-  
-  // Calcula primeiro dígito verificador
-  let sum = 0;
-  for (let i = 0; i < 9; i++) {
-    sum += parseInt(digits[i]) * (10 - i);
-  }
-  let remainder = (sum * 10) % 11;
-  if (remainder === 10 || remainder === 11) remainder = 0;
-  if (remainder !== parseInt(digits[9])) return false;
-  
-  // Calcula segundo dígito verificador
-  sum = 0;
-  for (let i = 0; i < 10; i++) {
-    sum += parseInt(digits[i]) * (11 - i);
-  }
-  remainder = (sum * 10) % 11;
-  if (remainder === 10 || remainder === 11) remainder = 0;
-  if (remainder !== parseInt(digits[10])) return false;
-  
-  return true;
-};
+import { validateCpf, formatCpfMask } from "@/lib/validators";
 
 // Validação de senha forte
 const validatePassword = (password: string): { valid: boolean; message: string } => {
@@ -457,7 +419,7 @@ const Index = () => {
                   type="text"
                   placeholder="CPF"
                   value={signupCpf}
-                  onChange={(e) => setSignupCpf(formatCpf(e.target.value))}
+                  onChange={(e) => setSignupCpf(formatCpfMask(e.target.value))}
                   className="pl-10 md:pl-12 h-10 md:h-12 bg-muted border-0 rounded-lg text-sm md:text-base"
                   required
                   maxLength={14}

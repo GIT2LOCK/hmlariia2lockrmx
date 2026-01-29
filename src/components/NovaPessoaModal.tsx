@@ -21,6 +21,13 @@ import { User, Loader2, MapPin, Phone, Mail, Building2, FileText } from "lucide-
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCnpj } from "@/hooks/useResponsaveis";
+import { 
+  validateCpf, 
+  formatCpfMask, 
+  formatPhoneMask, 
+  formatCepMask, 
+  removeMask 
+} from "@/lib/validators";
 
 interface NovaPessoaModalProps {
   open: boolean;
@@ -33,37 +40,6 @@ interface Empresa {
   razao_social: string;
   cnpj_numero: string;
 }
-
-// Funções de máscara
-const formatCPF = (value: string) => {
-  const digits = value.replace(/\D/g, "");
-  return digits
-    .replace(/(\d{3})(\d)/, "$1.$2")
-    .replace(/(\d{3})(\d)/, "$1.$2")
-    .replace(/(\d{3})(\d{1,2})/, "$1-$2")
-    .slice(0, 14);
-};
-
-const formatPhoneMask = (value: string) => {
-  const digits = value.replace(/\D/g, "");
-  if (digits.length <= 10) {
-    return digits
-      .replace(/^(\d{2})(\d)/, "($1) $2")
-      .replace(/(\d{4})(\d)/, "$1-$2")
-      .slice(0, 14);
-  }
-  return digits
-    .replace(/^(\d{2})(\d)/, "($1) $2")
-    .replace(/(\d{1})(\d{4})(\d)/, "$1-$2-$3")
-    .slice(0, 16);
-};
-
-const formatCEP = (value: string) => {
-  const digits = value.replace(/\D/g, "");
-  return digits.replace(/^(\d{5})(\d)/, "$1-$2").slice(0, 9);
-};
-
-const removeMask = (value: string) => value.replace(/\D/g, "");
 
 export function NovaPessoaModal({ open, onOpenChange, onSuccess }: NovaPessoaModalProps) {
   const [isLoading, setIsLoading] = useState(false);
@@ -105,11 +81,11 @@ export function NovaPessoaModal({ open, onOpenChange, onSuccess }: NovaPessoaMod
     let formattedValue = value;
 
     if (field === "cpf") {
-      formattedValue = formatCPF(value);
+      formattedValue = formatCpfMask(value);
     } else if (field === "telefonePrincipal" || field === "telefoneAlternativo") {
       formattedValue = formatPhoneMask(value);
     } else if (field === "cep") {
-      formattedValue = formatCEP(value);
+      formattedValue = formatCepMask(value);
     } else if (field === "uf") {
       formattedValue = value.toUpperCase().slice(0, 2);
     }
@@ -144,8 +120,9 @@ export function NovaPessoaModal({ open, onOpenChange, onSuccess }: NovaPessoaMod
       return;
     }
 
-    if (removeMask(formData.cpf).length !== 11) {
-      toast.error("CPF deve ter 11 dígitos");
+    // Validar CPF com algoritmo Mod 11
+    if (!validateCpf(formData.cpf)) {
+      toast.error("CPF inválido. Verifique os dígitos informados.");
       return;
     }
 
