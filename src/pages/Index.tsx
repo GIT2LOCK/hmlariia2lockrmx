@@ -64,6 +64,7 @@ const Index = () => {
   const [show2FAModal, setShow2FAModal] = useState(false);
   const [show2FASetupModal, setShow2FASetupModal] = useState(false);
   const [pendingUser, setPendingUser] = useState<{ id: number; nome: string; email?: string } | null>(null);
+  const [setupToken, setSetupToken] = useState<string | undefined>(undefined);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
