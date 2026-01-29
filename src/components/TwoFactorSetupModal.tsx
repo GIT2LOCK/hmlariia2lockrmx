@@ -23,6 +23,7 @@ export function TwoFactorSetupModal({
   onSuccess,
   userId,
   userName,
+  setupToken,
 }: TwoFactorSetupModalProps) {
   const [step, setStep] = useState<"generate" | "verify">("generate");
   const [isLoading, setIsLoading] = useState(false);
