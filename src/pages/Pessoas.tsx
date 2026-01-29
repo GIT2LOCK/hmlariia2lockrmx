@@ -66,11 +66,28 @@ const Pessoas = () => {
     fetchEmpresas();
   }, []);
 
-  const filteredPessoas = responsaveis.filter(
-    (pessoa) =>
-      pessoa.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      pessoa.cpf_numero.includes(searchTerm.replace(/\D/g, ""))
-  );
+  // Função para normalizar texto (remover acentos)
+  const normalizeText = (text: string) => {
+    return text
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+  };
+
+  const filteredPessoas = responsaveis.filter((pessoa) => {
+    const searchNormalized = normalizeText(searchTerm);
+    const nomeNormalized = normalizeText(pessoa.nome);
+    const cpfDigits = pessoa.cpf_numero.replace(/\D/g, "");
+    const searchDigits = searchTerm.replace(/\D/g, "");
+
+    // Busca por nome (correspondência parcial, ignora acentos)
+    const matchesNome = nomeNormalized.includes(searchNormalized);
+    
+    // Busca por CPF (correspondência parcial nos dígitos)
+    const matchesCpf = searchDigits.length > 0 && cpfDigits.includes(searchDigits);
+
+    return matchesNome || matchesCpf;
+  });
 
   const handleAddVinculo = async () => {
     if (!selectedPessoa || !selectedEmpresa) return;
