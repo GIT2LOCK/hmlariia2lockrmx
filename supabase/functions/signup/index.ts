@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { hashPassword } from "../_shared/auth.ts";
+import { hashPassword, createSession } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -153,6 +153,28 @@ serve(async (req) => {
       );
     }
 
+    // 4. Create a session for the new user to allow 2FA setup
+    const session = await createSession(supabase, userData.user_id, req);
+    
+    if (!session) {
+      console.error("Error creating session for 2FA setup");
+      // User was created, but session failed - still return success but without token
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: "Usuário criado com sucesso. Configure a autenticação de dois fatores.",
+          user: {
+            id: userData.user_id,
+            nome: userData.nome,
+            email: email,
+            permissao: "VIEWER",
+          },
+          requires2FASetup: true,
+        }),
+        { status: 201, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -164,6 +186,7 @@ serve(async (req) => {
           permissao: "VIEWER",
         },
         requires2FASetup: true,
+        setupToken: session.token, // Token for 2FA setup
       }),
       { status: 201, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

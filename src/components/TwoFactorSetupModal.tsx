@@ -14,6 +14,7 @@ interface TwoFactorSetupModalProps {
   onSuccess: () => void;
   userId: number;
   userName: string;
+  setupToken?: string; // Token from signup for 2FA setup
 }
 
 export function TwoFactorSetupModal({
@@ -22,6 +23,7 @@ export function TwoFactorSetupModal({
   onSuccess,
   userId,
   userName,
+  setupToken,
 }: TwoFactorSetupModalProps) {
   const [step, setStep] = useState<"generate" | "verify">("generate");
   const [isLoading, setIsLoading] = useState(false);
@@ -34,13 +36,20 @@ export function TwoFactorSetupModal({
   const handleGenerateQR = async () => {
     setIsLoading(true);
     try {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "apikey": SUPABASE_ANON_KEY,
+      };
+      
+      // Use setup token if available (from signup flow)
+      if (setupToken) {
+        headers["Authorization"] = `Bearer ${setupToken}`;
+      }
+      
       const response = await fetch(`${SUPABASE_URL}/functions/v1/setup-2fa`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "apikey": SUPABASE_ANON_KEY,
-        },
-        body: JSON.stringify({ userId, action: "generate" }),
+        headers,
+        body: JSON.stringify({ action: "generate" }),
       });
 
       const result = await response.json();
@@ -80,13 +89,20 @@ export function TwoFactorSetupModal({
 
     setIsLoading(true);
     try {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "apikey": SUPABASE_ANON_KEY,
+      };
+      
+      // Use setup token if available (from signup flow)
+      if (setupToken) {
+        headers["Authorization"] = `Bearer ${setupToken}`;
+      }
+      
       const response = await fetch(`${SUPABASE_URL}/functions/v1/setup-2fa`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "apikey": SUPABASE_ANON_KEY,
-        },
-        body: JSON.stringify({ userId, action: "verify", code: verificationCode }),
+        headers,
+        body: JSON.stringify({ action: "verify", code: verificationCode }),
       });
 
       const result = await response.json();

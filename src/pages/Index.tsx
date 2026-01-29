@@ -64,6 +64,7 @@ const Index = () => {
   const [show2FAModal, setShow2FAModal] = useState(false);
   const [show2FASetupModal, setShow2FASetupModal] = useState(false);
   const [pendingUser, setPendingUser] = useState<{ id: number; nome: string; email?: string } | null>(null);
+  const [setupToken, setSetupToken] = useState<string | undefined>(undefined);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -154,6 +155,7 @@ const Index = () => {
         nome: result.user.nome,
         email: signupEmail,
       });
+      setSetupToken(result.setupToken); // Store the setup token
       setShow2FASetupModal(true);
       // Clear form
       setSignupNome("");
@@ -488,6 +490,7 @@ const Index = () => {
         onClose={() => setShow2FASetupModal(false)}
         onSuccess={() => {
           setShow2FASetupModal(false);
+          setSetupToken(undefined); // Clear the token
           setIsLoginMode(true);
           toast({
             title: "2FA Configurado!",
@@ -496,6 +499,7 @@ const Index = () => {
         }}
         userId={pendingUser?.id || 0}
         userName={pendingUser?.nome || ""}
+        setupToken={setupToken}
       />
 
       {/* 2FA Modal */}
