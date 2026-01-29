@@ -165,10 +165,21 @@ export function AppSidebar() {
 
   const menuSections = getMenusByRole(user.role);
 
-  const handleLogout = () => {
-    logout();
-    refreshUser();
+  const handleLogout = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Clear local state first for immediate feedback
+    localStorage.removeItem("auth_token");
+    localStorage.removeItem("auth_expires");
+    localStorage.removeItem("auth_user");
+    
+    // Navigate immediately
     navigate("/", { replace: true });
+    refreshUser();
+    
+    // Then call server-side logout (fire and forget)
+    logout().catch(console.error);
   };
 
   return (
