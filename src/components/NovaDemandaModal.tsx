@@ -86,6 +86,11 @@ interface CpfCnpj {
   cpf_id: number;
 }
 
+interface Status {
+  status_id: number;
+  status_nome: string;
+}
+
 // Cores das prioridades por nível (1=Crítica/vermelho, 5=Muito baixa/verde)
 const getPrioridadeCor = (nivel: number): string => {
   switch (nivel) {
@@ -98,6 +103,29 @@ const getPrioridadeCor = (nivel: number): string => {
     case 4: // Baixa
     case 5: // Muito baixa
       return "bg-green-100 text-green-700";
+    default:
+      return "bg-gray-100 text-gray-700";
+  }
+};
+
+// Cores do status
+const getStatusCor = (statusNome: string): string => {
+  switch (statusNome?.toLowerCase()) {
+    case "novo":
+      return "bg-blue-100 text-blue-700";
+    case "em andamento":
+      return "bg-yellow-100 text-yellow-700";
+    case "pendente":
+      return "bg-orange-100 text-orange-700";
+    case "excedido":
+      return "bg-red-100 text-red-700";
+    case "concluída":
+    case "concluído":
+    case "concluida":
+    case "concluido":
+      return "bg-green-100 text-green-700";
+    case "concluída fora do prazo":
+      return "bg-purple-100 text-purple-700";
     default:
       return "bg-gray-100 text-gray-700";
   }
@@ -127,6 +155,7 @@ export function NovaDemandaModal({ open, onOpenChange, onSuccess }: NovaDemandaM
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [cpfCnpjList, setCpfCnpjList] = useState<CpfCnpj[]>([]);
+  const [statusList, setStatusList] = useState<Status[]>([]);
   
   const [formData, setFormData] = useState({
     empresaId: "",
@@ -134,6 +163,7 @@ export function NovaDemandaModal({ open, onOpenChange, onSuccess }: NovaDemandaM
     descricao: "",
     viaId: "",
     prioridadeId: "",
+    statusId: "1", // Status "Novo" como padrão
     responsavelId: "",
     prazoInicio: "",
     prazoFim: "",
@@ -149,12 +179,13 @@ export function NovaDemandaModal({ open, onOpenChange, onSuccess }: NovaDemandaM
   const fetchData = async () => {
     setIsLoadingData(true);
     try {
-      const [prioridadesRes, viasRes, usuariosRes, empresasRes, cpfCnpjRes] = await Promise.all([
+      const [prioridadesRes, viasRes, usuariosRes, empresasRes, cpfCnpjRes, statusRes] = await Promise.all([
         supabase.from("tb_prioridade").select("*").order("prioridade_nivel", { ascending: true }),
         supabase.from("tb_via").select("*"),
         supabase.from("tb_usuario").select("user_id, nome").eq("ativo", true),
         supabase.from("tb_cnpj").select("cnpj_id, razao_social, cnpj_numero"),
         supabase.from("tb_cpf_cnpj").select("id, cnpj_id, cpf_id"),
+        supabase.from("tb_status").select("*").order("status_id", { ascending: true }),
       ]);
 
       if (prioridadesRes.error) throw prioridadesRes.error;
@@ -162,12 +193,14 @@ export function NovaDemandaModal({ open, onOpenChange, onSuccess }: NovaDemandaM
       if (usuariosRes.error) throw usuariosRes.error;
       if (empresasRes.error) throw empresasRes.error;
       if (cpfCnpjRes.error) throw cpfCnpjRes.error;
+      if (statusRes.error) throw statusRes.error;
 
       setPrioridades(prioridadesRes.data || []);
       setVias(viasRes.data || []);
       setUsuarios(usuariosRes.data || []);
       setEmpresas(empresasRes.data || []);
       setCpfCnpjList(cpfCnpjRes.data || []);
+      setStatusList(statusRes.data || []);
     } catch (error) {
       console.error("Erro ao carregar dados:", error);
       toast.error("Erro ao carregar dados do formulário");
@@ -255,7 +288,7 @@ export function NovaDemandaModal({ open, onOpenChange, onSuccess }: NovaDemandaM
           : null,
         prazo_inicio: formData.prazoInicio || new Date().toISOString(),
         prazo_fim: formData.prazoFim || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-        status_id: 1, // Status inicial
+        status_id: parseInt(formData.statusId) || 1, // Status selecionado ou "Novo" como padrão
       };
 
       const { error } = await supabase.from("tb_demanda").insert(demandaData);
@@ -273,6 +306,7 @@ export function NovaDemandaModal({ open, onOpenChange, onSuccess }: NovaDemandaM
         descricao: "",
         viaId: "",
         prioridadeId: "",
+        statusId: "1", // Reset para "Novo"
         responsavelId: "",
         prazoInicio: "",
         prazoFim: "",
@@ -421,14 +455,35 @@ export function NovaDemandaModal({ open, onOpenChange, onSuccess }: NovaDemandaM
 
             <Separator />
 
-            {/* Seção: Canal e Prioridade */}
+            {/* Seção: Status, Canal e Prioridade */}
             <div className="space-y-4">
               <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                 <MessageSquare className="h-4 w-4" />
-                <span>Canal e Prioridade</span>
+                <span>Status, Canal e Prioridade</span>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="status">Status *</Label>
+                  <Select
+                    value={formData.statusId}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, statusId: value }))}
+                  >
+                    <SelectTrigger id="status">
+                      <SelectValue placeholder="Selecione o status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {statusList.map((s) => (
+                        <SelectItem key={s.status_id} value={s.status_id.toString()}>
+                          <Badge variant="secondary" className={getStatusCor(s.status_nome)}>
+                            {s.status_nome}
+                          </Badge>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="via">Canal de Origem *</Label>
                   <Select
