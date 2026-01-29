@@ -36,8 +36,20 @@ import {
   Hash,
   CheckCircle2,
   Timer,
-  Target
+  Target,
+  Trash2
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useUser } from "@/contexts/UserContext";
@@ -208,9 +220,10 @@ export function VisualizarDemandaModal({
   demanda, 
   onSuccess 
 }: VisualizarDemandaModalProps) {
-  const { canEdit } = useUser();
+  const { canEdit, canManageUsers } = useUser();
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
   
   const [prioridades, setPrioridades] = useState<Prioridade[]>([]);
@@ -333,6 +346,29 @@ export function VisualizarDemandaModal({
     setIsEditing(false);
   };
 
+  const handleDelete = async () => {
+    if (!demanda) return;
+    
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase
+        .from("tb_demanda")
+        .delete()
+        .eq("dem_id", demanda.dem_id);
+
+      if (error) throw error;
+
+      toast.success("Demanda excluída com sucesso!");
+      onSuccess?.();
+      onOpenChange(false);
+    } catch (error: any) {
+      console.error("Erro ao excluir demanda:", error);
+      toast.error(error.message || "Erro ao excluir demanda");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   if (!demanda) return null;
 
   const tempoRestante = calcularTempoRestante(demanda.prazo_fim);
@@ -383,15 +419,52 @@ export function VisualizarDemandaModal({
               </div>
             </div>
             
-            {!isEditing && canEdit && (
-              <Button 
-                onClick={() => setIsEditing(true)}
-                className="gap-2"
-              >
-                <Pencil className="h-4 w-4" />
-                Editar
-              </Button>
-            )}
+            <div className="flex items-center gap-2">
+              {!isEditing && canManageUsers && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button 
+                      variant="destructive"
+                      size="icon"
+                      disabled={isDeleting}
+                    >
+                      {isDeleting ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Excluir demanda?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Esta ação não pode ser desfeita. A demanda "{demanda.titulo_demanda}" será permanentemente excluída.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handleDelete}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        Excluir
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+              
+              {!isEditing && canEdit && (
+                <Button 
+                  onClick={() => setIsEditing(true)}
+                  className="gap-2"
+                >
+                  <Pencil className="h-4 w-4" />
+                  Editar
+                </Button>
+              )}
+            </div>
           </div>
         </div>
 
