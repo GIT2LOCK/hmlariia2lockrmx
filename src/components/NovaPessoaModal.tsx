@@ -64,6 +64,12 @@ export function NovaPessoaModal({ open, onOpenChange, onSuccess }: NovaPessoaMod
     emailPrincipal: "",
     emailAlternativo: "",
   });
+  const [fieldErrors, setFieldErrors] = useState({
+    cpf: "",
+    telefonePrincipal: "",
+    telefoneAlternativo: "",
+    cep: "",
+  });
 
   // Buscar empresas
   useEffect(() => {
@@ -87,6 +93,18 @@ export function NovaPessoaModal({ open, onOpenChange, onSuccess }: NovaPessoaMod
     return emailRegex.test(email);
   };
 
+  const validatePhone = (phone: string): boolean => {
+    if (!phone) return true;
+    const digits = phone.replace(/\D/g, "");
+    return digits.length === 10 || digits.length === 11;
+  };
+
+  const validateCep = (cep: string): boolean => {
+    if (!cep) return true;
+    const digits = cep.replace(/\D/g, "");
+    return digits.length === 8;
+  };
+
   const handleEmailBlur = (field: "emailPrincipal" | "emailAlternativo") => {
     const value = formData[field];
     if (value && !validateEmail(value)) {
@@ -96,22 +114,49 @@ export function NovaPessoaModal({ open, onOpenChange, onSuccess }: NovaPessoaMod
     }
   };
 
+  const handleFieldBlur = (field: "cpf" | "telefonePrincipal" | "telefoneAlternativo" | "cep") => {
+    const value = formData[field];
+    let errorMessage = "";
+
+    if (value) {
+      if (field === "cpf" && !validateCpf(value)) {
+        errorMessage = "CPF inválido";
+      } else if ((field === "telefonePrincipal" || field === "telefoneAlternativo") && !validatePhone(value)) {
+        errorMessage = "Telefone inválido";
+      } else if (field === "cep" && !validateCep(value)) {
+        errorMessage = "CEP inválido";
+      }
+    }
+
+    setFieldErrors(prev => ({ ...prev, [field]: errorMessage }));
+  };
+
   const handleInputChange = (field: string, value: string) => {
     let formattedValue = value;
 
+    // Campos numéricos: remover letras antes de aplicar máscara
+    if (field === "cpf" || field === "telefonePrincipal" || field === "telefoneAlternativo" || field === "cep") {
+      formattedValue = value.replace(/[^\d]/g, ""); // Remove tudo que não é dígito primeiro
+    }
+
     if (field === "cpf") {
-      formattedValue = formatCpfMask(value);
+      formattedValue = formatCpfMask(formattedValue);
     } else if (field === "telefonePrincipal" || field === "telefoneAlternativo") {
-      formattedValue = formatPhoneMask(value);
+      formattedValue = formatPhoneMask(formattedValue);
     } else if (field === "cep") {
-      formattedValue = formatCepMask(value);
+      formattedValue = formatCepMask(formattedValue);
     } else if (field === "uf") {
-      formattedValue = value.toUpperCase().slice(0, 2);
+      formattedValue = value.replace(/[^a-zA-Z]/g, "").toUpperCase().slice(0, 2);
     }
 
     // Limpar erro de email ao digitar
     if (field === "emailPrincipal" || field === "emailAlternativo") {
       setEmailErrors(prev => ({ ...prev, [field]: "" }));
+    }
+
+    // Limpar erro de campos numéricos ao digitar
+    if (field === "cpf" || field === "telefonePrincipal" || field === "telefoneAlternativo" || field === "cep") {
+      setFieldErrors(prev => ({ ...prev, [field]: "" }));
     }
 
     setFormData((prev) => ({ ...prev, [field]: formattedValue }));
@@ -272,8 +317,13 @@ export function NovaPessoaModal({ open, onOpenChange, onSuccess }: NovaPessoaMod
                   placeholder="000.000.000-00"
                   value={formData.cpf}
                   onChange={(e) => handleInputChange("cpf", e.target.value)}
+                  onBlur={() => handleFieldBlur("cpf")}
+                  className={fieldErrors.cpf ? "border-destructive" : ""}
                   required
                 />
+                {fieldErrors.cpf && (
+                  <p className="text-sm text-destructive">{fieldErrors.cpf}</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -305,7 +355,12 @@ export function NovaPessoaModal({ open, onOpenChange, onSuccess }: NovaPessoaMod
                   placeholder="(00) 0-0000-0000"
                   value={formData.telefonePrincipal}
                   onChange={(e) => handleInputChange("telefonePrincipal", e.target.value)}
+                  onBlur={() => handleFieldBlur("telefonePrincipal")}
+                  className={fieldErrors.telefonePrincipal ? "border-destructive" : ""}
                 />
+                {fieldErrors.telefonePrincipal && (
+                  <p className="text-sm text-destructive">{fieldErrors.telefonePrincipal}</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -315,7 +370,12 @@ export function NovaPessoaModal({ open, onOpenChange, onSuccess }: NovaPessoaMod
                   placeholder="(00) 0-0000-0000"
                   value={formData.telefoneAlternativo}
                   onChange={(e) => handleInputChange("telefoneAlternativo", e.target.value)}
+                  onBlur={() => handleFieldBlur("telefoneAlternativo")}
+                  className={fieldErrors.telefoneAlternativo ? "border-destructive" : ""}
                 />
+                {fieldErrors.telefoneAlternativo && (
+                  <p className="text-sm text-destructive">{fieldErrors.telefoneAlternativo}</p>
+                )}
               </div>
             </div>
 
@@ -377,7 +437,12 @@ export function NovaPessoaModal({ open, onOpenChange, onSuccess }: NovaPessoaMod
                   placeholder="00000-000"
                   value={formData.cep}
                   onChange={(e) => handleInputChange("cep", e.target.value)}
+                  onBlur={() => handleFieldBlur("cep")}
+                  className={fieldErrors.cep ? "border-destructive" : ""}
                 />
+                {fieldErrors.cep && (
+                  <p className="text-sm text-destructive">{fieldErrors.cep}</p>
+                )}
               </div>
 
               <div className="space-y-2 md:col-span-2">

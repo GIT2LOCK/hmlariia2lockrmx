@@ -110,6 +110,12 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
     emailPrincipal: "",
     emailSecundario: "",
   });
+  const [fieldErrors, setFieldErrors] = useState({
+    cnpj: "",
+    telefonePrincipal: "",
+    telefoneSecundario: "",
+    cep: "",
+  });
 
   // Buscar categorias do banco
   useEffect(() => {
@@ -200,6 +206,18 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
     return emailRegex.test(email);
   };
 
+  const validatePhone = (phone: string): boolean => {
+    if (!phone) return true;
+    const digits = phone.replace(/\D/g, "");
+    return digits.length === 10 || digits.length === 11;
+  };
+
+  const validateCep = (cep: string): boolean => {
+    if (!cep) return true;
+    const digits = cep.replace(/\D/g, "");
+    return digits.length === 8;
+  };
+
   const handleEmailBlur = (field: "emailPrincipal" | "emailSecundario") => {
     const value = formData[field];
     if (value && !validateEmail(value)) {
@@ -209,20 +227,42 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
     }
   };
 
+  const handleFieldBlur = (field: "cnpj" | "telefonePrincipal" | "telefoneSecundario" | "cep") => {
+    const value = formData[field];
+    let errorMessage = "";
+
+    if (value) {
+      if (field === "cnpj" && !validateCnpj(value)) {
+        errorMessage = "CNPJ inválido";
+      } else if ((field === "telefonePrincipal" || field === "telefoneSecundario") && !validatePhone(value)) {
+        errorMessage = "Telefone inválido";
+      } else if (field === "cep" && !validateCep(value)) {
+        errorMessage = "CEP inválido";
+      }
+    }
+
+    setFieldErrors(prev => ({ ...prev, [field]: errorMessage }));
+  };
+
   const handleInputChange = (field: string, value: string) => {
     let formattedValue = value;
     
+    // Campos numéricos: remover letras antes de aplicar máscara
+    if (field === "cnpj" || field === "telefonePrincipal" || field === "telefoneSecundario" || field === "cep" || field === "casn") {
+      formattedValue = value.replace(/[^\d]/g, ""); // Remove tudo que não é dígito primeiro
+    }
+    
     if (field === "cnpj") {
-      formattedValue = formatCnpjMask(value);
+      formattedValue = formatCnpjMask(formattedValue);
     } else if (field === "telefonePrincipal" || field === "telefoneSecundario") {
-      formattedValue = formatPhoneMask(value);
+      formattedValue = formatPhoneMask(formattedValue);
     } else if (field === "cep") {
-      formattedValue = formatCepMask(value);
+      formattedValue = formatCepMask(formattedValue);
     } else if (field === "uf") {
-      formattedValue = value.toUpperCase().slice(0, 2);
+      formattedValue = value.replace(/[^a-zA-Z]/g, "").toUpperCase().slice(0, 2);
     } else if (field === "casn") {
       // CASN aceita somente números (máx 12 dígitos)
-      formattedValue = value.replace(/\D/g, "").slice(0, 12);
+      formattedValue = formattedValue.slice(0, 12);
     } else if (field === "ccm") {
       // CCM máximo 25 caracteres
       formattedValue = value.slice(0, 25);
@@ -231,6 +271,11 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
     // Limpar erro de email ao digitar
     if (field === "emailPrincipal" || field === "emailSecundario") {
       setEmailErrors(prev => ({ ...prev, [field]: "" }));
+    }
+
+    // Limpar erro de campos numéricos ao digitar
+    if (field === "cnpj" || field === "telefonePrincipal" || field === "telefoneSecundario" || field === "cep") {
+      setFieldErrors(prev => ({ ...prev, [field]: "" }));
     }
     
     setFormData(prev => ({ ...prev, [field]: formattedValue }));
@@ -413,7 +458,12 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
                   placeholder="00.000.000/0000-00"
                   value={formData.cnpj}
                   onChange={(e) => handleInputChange("cnpj", e.target.value)}
+                  onBlur={() => handleFieldBlur("cnpj")}
+                  className={fieldErrors.cnpj ? "border-destructive" : ""}
                 />
+                {fieldErrors.cnpj && (
+                  <p className="text-sm text-destructive">{fieldErrors.cnpj}</p>
+                )}
               </div>
             </div>
 
@@ -619,7 +669,12 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
                   placeholder="00000-000"
                   value={formData.cep}
                   onChange={(e) => handleInputChange("cep", e.target.value)}
+                  onBlur={() => handleFieldBlur("cep")}
+                  className={fieldErrors.cep ? "border-destructive" : ""}
                 />
+                {fieldErrors.cep && (
+                  <p className="text-sm text-destructive">{fieldErrors.cep}</p>
+                )}
               </div>
 
               <div className="space-y-2 md:col-span-2">
@@ -733,7 +788,12 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
                   placeholder="(00) 0-0000-0000"
                   value={formData.telefonePrincipal}
                   onChange={(e) => handleInputChange("telefonePrincipal", e.target.value)}
+                  onBlur={() => handleFieldBlur("telefonePrincipal")}
+                  className={fieldErrors.telefonePrincipal ? "border-destructive" : ""}
                 />
+                {fieldErrors.telefonePrincipal && (
+                  <p className="text-sm text-destructive">{fieldErrors.telefonePrincipal}</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -743,7 +803,12 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
                   placeholder="(00) 0-0000-0000"
                   value={formData.telefoneSecundario}
                   onChange={(e) => handleInputChange("telefoneSecundario", e.target.value)}
+                  onBlur={() => handleFieldBlur("telefoneSecundario")}
+                  className={fieldErrors.telefoneSecundario ? "border-destructive" : ""}
                 />
+                {fieldErrors.telefoneSecundario && (
+                  <p className="text-sm text-destructive">{fieldErrors.telefoneSecundario}</p>
+                )}
               </div>
             </div>
           </div>
