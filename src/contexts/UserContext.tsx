@@ -23,6 +23,7 @@ interface UserContextType {
   canManageUsers: boolean;
   canManageAdmins: boolean;
   hasFullAccess: boolean;
+  isViewer: boolean;
 }
 
 // Helper to split full name into nome/sobrenome
@@ -123,10 +124,12 @@ export function UserProvider({ children }: { children: ReactNode }) {
   };
 
   // Permissões baseadas no perfil real
+  // VIEWER não tem NENHUMA permissão de edição/adição
   const canEdit = user.role === "SUPERADMIN" || user.role === "ADMIN" || user.role === "USER";
   const canManageUsers = user.role === "SUPERADMIN" || user.role === "ADMIN";
   const canManageAdmins = user.role === "SUPERADMIN";
   const hasFullAccess = user.role === "SUPERADMIN";
+  const isViewer = user.role === "VIEWER";
 
   return (
     <UserContext.Provider value={{ 
@@ -138,7 +141,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
       canEdit, 
       canManageUsers, 
       canManageAdmins, 
-      hasFullAccess 
+      hasFullAccess,
+      isViewer
     }}>
       {children}
     </UserContext.Provider>
@@ -160,6 +164,7 @@ export function useUser(): UserContextType {
       canManageUsers: false,
       canManageAdmins: false,
       hasFullAccess: false,
+      isViewer: true,
     };
   }
   return context;

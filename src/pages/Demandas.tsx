@@ -145,7 +145,7 @@ const Demandas = () => {
   const [selectedDemanda, setSelectedDemanda] = useState<Demanda | null>(null);
   const [demandas, setDemandas] = useState<Demanda[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { user } = useUser();
+  const { user, canEdit } = useUser();
 
   const fetchDemandas = async () => {
     setIsLoading(true);
@@ -228,10 +228,12 @@ const Demandas = () => {
             Gerencie todas as demandas do escritório
           </p>
         </div>
-        <Button onClick={() => setIsModalOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Nova Demanda
-        </Button>
+        {canEdit && (
+          <Button onClick={() => setIsModalOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Nova Demanda
+          </Button>
+        )}
       </div>
 
       <NovaDemandaModal 

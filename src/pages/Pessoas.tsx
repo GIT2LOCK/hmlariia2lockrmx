@@ -43,7 +43,7 @@ interface Empresa {
 }
 
 const Pessoas = () => {
-  const { canManageUsers } = useUser();
+  const { canManageUsers, canEdit } = useUser();
   const { responsaveis, isLoading, error, refetch, addVinculo, removeVinculo } = useResponsaveis();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPessoa, setSelectedPessoa] = useState<Responsavel | null>(null);
@@ -172,10 +172,12 @@ const Pessoas = () => {
             Gerenciar responsáveis e seus vínculos com empresas
           </p>
         </div>
-        <Button onClick={() => setNovaModalOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Nova Pessoa
-        </Button>
+        {canEdit && (
+          <Button onClick={() => setNovaModalOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Nova Pessoa
+          </Button>
+        )}
       </div>
 
       <div className="relative">
@@ -343,64 +345,68 @@ const Pessoas = () => {
                               {formatCnpj(empresa.cnpj_numero)}
                             </div>
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive hover:text-destructive"
-                            onClick={() => handleRemoveVinculo(empresa.cnpj_id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {canEdit && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive hover:text-destructive"
+                              onClick={() => handleRemoveVinculo(empresa.cnpj_id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       ))}
                     </div>
                   )}
                 </div>
 
-                {/* Adicionar vínculo */}
-                <div className="pt-4 border-t space-y-3">
-                  <h4 className="font-medium flex items-center gap-2">
-                    <LinkIcon className="h-4 w-4" />
-                    Adicionar Vínculo
-                  </h4>
-                  <Select value={selectedEmpresa} onValueChange={setSelectedEmpresa}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione uma empresa" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {empresasDisponiveis.length === 0 ? (
-                        <SelectItem value="none" disabled>
-                          Nenhuma empresa disponível
-                        </SelectItem>
-                      ) : (
-                        empresasDisponiveis.map((emp) => (
-                          <SelectItem key={emp.cnpj_id} value={emp.cnpj_id.toString()}>
-                            <div className="flex flex-col">
-                              <span className="font-medium">{emp.razao_social}</span>
-                              <span className="text-xs text-muted-foreground">
-                                {formatCnpj(emp.cnpj_numero)}
-                              </span>
-                            </div>
+                {/* Adicionar vínculo - apenas para quem pode editar */}
+                {canEdit && (
+                  <div className="pt-4 border-t space-y-3">
+                    <h4 className="font-medium flex items-center gap-2">
+                      <LinkIcon className="h-4 w-4" />
+                      Adicionar Vínculo
+                    </h4>
+                    <Select value={selectedEmpresa} onValueChange={setSelectedEmpresa}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione uma empresa" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {empresasDisponiveis.length === 0 ? (
+                          <SelectItem value="none" disabled>
+                            Nenhuma empresa disponível
                           </SelectItem>
-                        ))
+                        ) : (
+                          empresasDisponiveis.map((emp) => (
+                            <SelectItem key={emp.cnpj_id} value={emp.cnpj_id.toString()}>
+                              <div className="flex flex-col">
+                                <span className="font-medium">{emp.razao_social}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  {formatCnpj(emp.cnpj_numero)}
+                                </span>
+                              </div>
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                    <Button 
+                      className="w-full" 
+                      onClick={handleAddVinculo}
+                      disabled={!selectedEmpresa || isAddingVinculo}
+                    >
+                      {isAddingVinculo ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Adicionando...
+                        </>
+                      ) : (
+                        "Adicionar vínculo"
                       )}
-                    </SelectContent>
-                  </Select>
-                  <Button 
-                    className="w-full" 
-                    onClick={handleAddVinculo}
-                    disabled={!selectedEmpresa || isAddingVinculo}
-                  >
-                    {isAddingVinculo ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Adicionando...
-                      </>
-                    ) : (
-                      "Adicionar vínculo"
-                    )}
-                  </Button>
-                </div>
+                    </Button>
+                  </div>
+                )}
 
                 {/* Botão Excluir Pessoa - apenas Admin/Superadmin */}
                 {canManageUsers && (

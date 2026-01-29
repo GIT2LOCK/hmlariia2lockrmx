@@ -34,6 +34,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { useUser } from "@/contexts/UserContext";
 
 interface VisualizarEmpresaModalProps {
   open: boolean;
@@ -146,6 +147,7 @@ const maskCEP = (value: string) => {
 const removeMask = (value: string) => value.replace(/\D/g, "");
 
 export function VisualizarEmpresaModal({ open, onOpenChange, cnpjId, onUpdate }: VisualizarEmpresaModalProps) {
+  const { canEdit } = useUser();
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -503,8 +505,8 @@ export function VisualizarEmpresaModal({ open, onOpenChange, cnpjId, onUpdate }:
           </div>
         </DialogHeader>
 
-        {/* Botões de ação */}
-        {empresa && !isLoading && (
+        {/* Botões de ação - apenas para quem pode editar */}
+        {empresa && !isLoading && canEdit && (
           <div className="absolute right-12 top-4">
             {isEditing ? (
               <div className="flex gap-2">

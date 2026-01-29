@@ -42,7 +42,7 @@ interface Empresa {
 }
 
 const Empresas = () => {
-  const { canManageUsers } = useUser();
+  const { canManageUsers, canEdit } = useUser();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedEmpresa, setSelectedEmpresa] = useState<Empresa | null>(null);
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
@@ -239,10 +239,12 @@ const Empresas = () => {
             Cadastro e consulta de empresas/clientes
           </p>
         </div>
-        <Button onClick={() => setIsModalOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Nova Empresa
-        </Button>
+        {canEdit && (
+          <Button onClick={() => setIsModalOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Nova Empresa
+          </Button>
+        )}
       </div>
 
       <NovaEmpresaModal
