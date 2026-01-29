@@ -93,7 +93,6 @@ const getMenusByRole = (role: UserRole): MenuSection[] => {
           label: "Menu Principal",
           items: [
             { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-            { title: "Triagem / Fila", url: "/dashboard/triagem", icon: Inbox },
             { title: "Demandas", url: "/dashboard/demandas", icon: ClipboardList },
             { title: "Empresas", url: "/dashboard/empresas", icon: Building2 },
             { title: "Pessoas", url: "/dashboard/pessoas", icon: Users },
