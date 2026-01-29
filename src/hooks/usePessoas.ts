@@ -25,6 +25,7 @@ export function usePessoas() {
 
     try {
       // Buscar todas as pessoas (CPFs) com seus vínculos
+      // Filtrar CPFs placeholder (números sequenciais ou todos zeros)
       const { data: cpfData, error: cpfError } = await supabase
         .from("tb_cpf")
         .select(`
@@ -44,19 +45,37 @@ export function usePessoas() {
 
       if (cpfError) throw cpfError;
 
-      // Formatar os dados
-      const formattedPessoas: Pessoa[] = (cpfData || []).map((cpf: any) => ({
-        cpf_id: cpf.cpf_id,
-        nome: cpf.nome,
-        cpf_numero: cpf.cpf_numero,
-        vinculos: (cpf.tb_cpf_cnpj || [])
-          .filter((rel: any) => rel.tb_cnpj)
-          .map((rel: any) => ({
-            cnpj_id: rel.tb_cnpj.cnpj_id,
-            razao_social: rel.tb_cnpj.razao_social,
-            cnpj_numero: rel.tb_cnpj.cnpj_numero,
-          })),
-      }));
+      // Filtrar apenas pessoas físicas reais (CPFs válidos, não placeholders)
+      // Placeholders são: "00000000000", números sequenciais curtos, etc.
+      const isPlaceholderCpf = (cpf: string) => {
+        const digits = cpf.replace(/\D/g, "");
+        // CPF deve ter 11 dígitos
+        if (digits.length !== 11) return true;
+        // Verificar se é placeholder (todos zeros ou número sequencial pequeno)
+        if (/^0+$/.test(digits)) return true;
+        // Números menores que 100 são placeholders de empresa
+        const numValue = parseInt(digits, 10);
+        if (numValue < 100) return true;
+        // CPFs inválidos com todos dígitos iguais
+        if (/^(\d)\1+$/.test(digits)) return true;
+        return false;
+      };
+
+      // Formatar os dados, excluindo placeholders
+      const formattedPessoas: Pessoa[] = (cpfData || [])
+        .filter((cpf: any) => !isPlaceholderCpf(cpf.cpf_numero))
+        .map((cpf: any) => ({
+          cpf_id: cpf.cpf_id,
+          nome: cpf.nome,
+          cpf_numero: cpf.cpf_numero,
+          vinculos: (cpf.tb_cpf_cnpj || [])
+            .filter((rel: any) => rel.tb_cnpj)
+            .map((rel: any) => ({
+              cnpj_id: rel.tb_cnpj.cnpj_id,
+              razao_social: rel.tb_cnpj.razao_social,
+              cnpj_numero: rel.tb_cnpj.cnpj_numero,
+            })),
+        }));
 
       setPessoas(formattedPessoas);
     } catch (err: any) {

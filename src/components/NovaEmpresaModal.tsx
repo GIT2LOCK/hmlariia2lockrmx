@@ -153,6 +153,17 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
     }
   }, [open]);
 
+  // Função auxiliar para verificar CPFs placeholder
+  const isPlaceholderCpf = (cpf: string) => {
+    const digits = cpf.replace(/\D/g, "");
+    if (digits.length !== 11) return true;
+    if (/^0+$/.test(digits)) return true;
+    const numValue = parseInt(digits, 10);
+    if (numValue < 100) return true;
+    if (/^(\d)\1+$/.test(digits)) return true;
+    return false;
+  };
+
   // Buscar pessoas do banco
   useEffect(() => {
     const fetchPessoas = async () => {
@@ -162,7 +173,9 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
         .order("nome");
 
       if (!error && data) {
-        setPessoas(data);
+        // Filtrar apenas pessoas físicas reais
+        const pessoasFisicas = data.filter((p: any) => !isPlaceholderCpf(p.cpf_numero));
+        setPessoas(pessoasFisicas);
       }
     };
 
@@ -202,7 +215,8 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
         .order("nome");
       
       if (updatedPessoas) {
-        setPessoas(updatedPessoas);
+        const pessoasFisicas = updatedPessoas.filter((p: any) => !isPlaceholderCpf(p.cpf_numero));
+        setPessoas(pessoasFisicas);
       }
 
       return { success: true, cpf_id: data.cpf_id };
