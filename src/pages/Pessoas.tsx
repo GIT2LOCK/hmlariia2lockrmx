@@ -18,8 +18,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Search, User, Building2, Loader2, Link as LinkIcon } from "lucide-react";
-import { usePessoas, formatCpf, formatCnpj, Pessoa } from "@/hooks/usePessoas";
+import { Plus, Search, User, Building2, Loader2, Link as LinkIcon, Phone, Mail, MapPin, Trash2 } from "lucide-react";
+import { useResponsaveis, formatCpf, formatCnpj, formatPhone, Responsavel } from "@/hooks/useResponsaveis";
 import { NovaPessoaModal } from "@/components/NovaPessoaModal";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -31,9 +31,9 @@ interface Empresa {
 }
 
 const Pessoas = () => {
-  const { pessoas, isLoading, error, refetch, addPessoa, addVinculo } = usePessoas();
+  const { responsaveis, isLoading, error, refetch, addVinculo, removeVinculo } = useResponsaveis();
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedPessoa, setSelectedPessoa] = useState<Pessoa | null>(null);
+  const [selectedPessoa, setSelectedPessoa] = useState<Responsavel | null>(null);
   const [novaModalOpen, setNovaModalOpen] = useState(false);
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [selectedEmpresa, setSelectedEmpresa] = useState("");
@@ -52,7 +52,7 @@ const Pessoas = () => {
     fetchEmpresas();
   }, []);
 
-  const filteredPessoas = pessoas.filter(
+  const filteredPessoas = responsaveis.filter(
     (pessoa) =>
       pessoa.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
       pessoa.cpf_numero.includes(searchTerm.replace(/\D/g, ""))
@@ -62,14 +62,11 @@ const Pessoas = () => {
     if (!selectedPessoa || !selectedEmpresa) return;
     
     setIsAddingVinculo(true);
-    const result = await addVinculo(selectedPessoa.cpf_id, parseInt(selectedEmpresa));
+    const result = await addVinculo(selectedPessoa.responsavel_id, parseInt(selectedEmpresa));
     
     if (result.success) {
       toast.success("Vínculo adicionado com sucesso!");
       setSelectedEmpresa("");
-      // Atualizar a pessoa selecionada
-      const updated = pessoas.find(p => p.cpf_id === selectedPessoa.cpf_id);
-      if (updated) setSelectedPessoa(updated);
     } else {
       toast.error(result.error || "Erro ao adicionar vínculo");
     }
@@ -77,18 +74,30 @@ const Pessoas = () => {
     setIsAddingVinculo(false);
   };
 
+  const handleRemoveVinculo = async (cnpjId: number) => {
+    if (!selectedPessoa) return;
+    
+    const result = await removeVinculo(selectedPessoa.responsavel_id, cnpjId);
+    
+    if (result.success) {
+      toast.success("Vínculo removido com sucesso!");
+    } else {
+      toast.error(result.error || "Erro ao remover vínculo");
+    }
+  };
+
   // Empresas disponíveis para vincular (excluindo as já vinculadas)
   const empresasDisponiveis = empresas.filter(
-    emp => !selectedPessoa?.vinculos.some(v => v.cnpj_id === emp.cnpj_id)
+    emp => !selectedPessoa?.empresas.some(e => e.cnpj_id === emp.cnpj_id)
   );
 
-  // Atualizar selectedPessoa quando pessoas mudar
+  // Atualizar selectedPessoa quando responsaveis mudar
   useEffect(() => {
     if (selectedPessoa) {
-      const updated = pessoas.find(p => p.cpf_id === selectedPessoa.cpf_id);
+      const updated = responsaveis.find(p => p.responsavel_id === selectedPessoa.responsavel_id);
       if (updated) setSelectedPessoa(updated);
     }
-  }, [pessoas]);
+  }, [responsaveis]);
 
   if (error) {
     return (
@@ -104,7 +113,7 @@ const Pessoas = () => {
         <div>
           <h2 className="text-2xl font-bold text-foreground">Pessoas</h2>
           <p className="text-muted-foreground">
-            Gerenciar pessoas e seus vínculos com empresas
+            Gerenciar responsáveis e seus vínculos com empresas
           </p>
         </div>
         <Button onClick={() => setNovaModalOpen(true)}>
@@ -143,22 +152,23 @@ const Pessoas = () => {
                     <TableRow>
                       <TableHead>Nome</TableHead>
                       <TableHead>CPF</TableHead>
-                      <TableHead>Vínculos</TableHead>
+                      <TableHead>Contato</TableHead>
+                      <TableHead>Empresas</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredPessoas.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
+                        <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
                           Nenhuma pessoa encontrada
                         </TableCell>
                       </TableRow>
                     ) : (
                       filteredPessoas.map((pessoa) => (
                         <TableRow
-                          key={pessoa.cpf_id}
+                          key={pessoa.responsavel_id}
                           className={`cursor-pointer hover:bg-muted/50 ${
-                            selectedPessoa?.cpf_id === pessoa.cpf_id ? "bg-muted" : ""
+                            selectedPessoa?.responsavel_id === pessoa.responsavel_id ? "bg-muted" : ""
                           }`}
                           onClick={() => setSelectedPessoa(pessoa)}
                         >
@@ -166,9 +176,12 @@ const Pessoas = () => {
                           <TableCell className="text-muted-foreground">
                             {formatCpf(pessoa.cpf_numero)}
                           </TableCell>
+                          <TableCell className="text-muted-foreground text-sm">
+                            {pessoa.telefone_principal ? formatPhone(pessoa.telefone_principal) : "-"}
+                          </TableCell>
                           <TableCell>
                             <Badge variant="secondary">
-                              {pessoa.vinculos.length} empresa(s)
+                              {pessoa.empresas.length} empresa(s)
                             </Badge>
                           </TableCell>
                         </TableRow>
@@ -196,34 +209,99 @@ const Pessoas = () => {
                   <p className="text-sm text-muted-foreground">
                     CPF: {formatCpf(selectedPessoa.cpf_numero)}
                   </p>
+                  {selectedPessoa.rg && (
+                    <p className="text-sm text-muted-foreground">
+                      RG: {selectedPessoa.rg}
+                    </p>
+                  )}
                 </div>
 
+                {/* Contato */}
+                {(selectedPessoa.telefone_principal || selectedPessoa.email_principal) && (
+                  <div className="pt-4 border-t">
+                    <h4 className="font-medium mb-2 flex items-center gap-2 text-sm">
+                      <Phone className="h-4 w-4" />
+                      Contato
+                    </h4>
+                    <div className="space-y-1 text-sm">
+                      {selectedPessoa.telefone_principal && (
+                        <p className="text-muted-foreground">
+                          Tel: {formatPhone(selectedPessoa.telefone_principal)}
+                        </p>
+                      )}
+                      {selectedPessoa.telefone_alternativo && (
+                        <p className="text-muted-foreground">
+                          Alt: {formatPhone(selectedPessoa.telefone_alternativo)}
+                        </p>
+                      )}
+                      {selectedPessoa.email_principal && (
+                        <p className="text-muted-foreground flex items-center gap-1">
+                          <Mail className="h-3 w-3" /> {selectedPessoa.email_principal}
+                        </p>
+                      )}
+                      {selectedPessoa.email_alternativo && (
+                        <p className="text-muted-foreground flex items-center gap-1">
+                          <Mail className="h-3 w-3" /> {selectedPessoa.email_alternativo}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Endereço */}
+                {selectedPessoa.endereco && (
+                  <div className="pt-4 border-t">
+                    <h4 className="font-medium mb-2 flex items-center gap-2 text-sm">
+                      <MapPin className="h-4 w-4" />
+                      Endereço
+                    </h4>
+                    <div className="text-sm text-muted-foreground">
+                      <p>{selectedPessoa.endereco.logradouro}, {selectedPessoa.endereco.numero}</p>
+                      {selectedPessoa.endereco.complemento && <p>{selectedPessoa.endereco.complemento}</p>}
+                      <p>{selectedPessoa.endereco.bairro} - {selectedPessoa.endereco.uf}</p>
+                      <p>CEP: {selectedPessoa.endereco.cep}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Empresas vinculadas */}
                 <div className="pt-4 border-t">
                   <h4 className="font-medium mb-3 flex items-center gap-2">
                     <Building2 className="h-4 w-4" />
-                    Vínculos com Empresas
+                    Empresas Vinculadas
                   </h4>
-                  {selectedPessoa.vinculos.length === 0 ? (
+                  {selectedPessoa.empresas.length === 0 ? (
                     <p className="text-sm text-muted-foreground">
                       Nenhum vínculo cadastrado
                     </p>
                   ) : (
-                    <div className="space-y-3">
-                      {selectedPessoa.vinculos.map((vinculo) => (
+                    <div className="space-y-2">
+                      {selectedPessoa.empresas.map((empresa) => (
                         <div
-                          key={vinculo.cnpj_id}
-                          className="p-3 rounded-lg bg-muted/50 text-sm"
+                          key={empresa.cnpj_id}
+                          className="p-3 rounded-lg bg-muted/50 text-sm flex items-center justify-between"
                         >
-                          <div className="font-medium">{vinculo.razao_social}</div>
-                          <div className="text-muted-foreground">
-                            {formatCnpj(vinculo.cnpj_numero)}
+                          <div>
+                            <div className="font-medium">{empresa.razao_social}</div>
+                            <div className="text-muted-foreground">
+                              {formatCnpj(empresa.cnpj_numero)}
+                            </div>
                           </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            onClick={() => handleRemoveVinculo(empresa.cnpj_id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                       ))}
                     </div>
                   )}
                 </div>
 
+                {/* Adicionar vínculo */}
                 <div className="pt-4 border-t space-y-3">
                   <h4 className="font-medium flex items-center gap-2">
                     <LinkIcon className="h-4 w-4" />
@@ -283,7 +361,6 @@ const Pessoas = () => {
         open={novaModalOpen}
         onOpenChange={setNovaModalOpen}
         onSuccess={() => refetch()}
-        addPessoa={addPessoa}
       />
     </div>
   );

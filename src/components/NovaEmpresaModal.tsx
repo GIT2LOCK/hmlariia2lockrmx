@@ -47,7 +47,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { NovaPessoaModal } from "./NovaPessoaModal";
-import { formatCpf } from "@/hooks/usePessoas";
+import { formatCpf } from "@/hooks/useResponsaveis";
 
 interface NovaEmpresaModalProps {
   open: boolean;
@@ -101,8 +101,8 @@ const formatCEP = (value: string) => {
 // Função para remover máscara e retornar apenas dígitos
 const removeMask = (value: string) => value.replace(/\D/g, "");
 
-interface Pessoa {
-  cpf_id: number;
+interface Responsavel {
+  responsavel_id: number;
   nome: string;
   cpf_numero: string;
 }
@@ -111,7 +111,7 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
   const [isLoading, setIsLoading] = useState(false);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [empresasSuperiores, setEmpresasSuperiores] = useState<EmpresaSuperior[]>([]);
-  const [pessoas, setPessoas] = useState<Pessoa[]>([]);
+  const [responsaveis, setResponsaveis] = useState<Responsavel[]>([]);
   const [responsavelOpen, setResponsavelOpen] = useState(false);
   const [novaPessoaModalOpen, setNovaPessoaModalOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -119,7 +119,7 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
     cnpj: "",
     ccm: "",
     casn: "",
-    responsavelCpfId: "",
+    responsavelId: "",
     categoriaId: "",
     agencia: "",
     superiorCnpjId: "",
@@ -153,90 +153,26 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
     }
   }, [open]);
 
-  // Função auxiliar para verificar CPFs placeholder
-  const isPlaceholderCpf = (cpf: string) => {
-    const digits = cpf.replace(/\D/g, "");
-    if (digits.length !== 11) return true;
-    if (/^0+$/.test(digits)) return true;
-    const numValue = parseInt(digits, 10);
-    if (numValue < 100) return true;
-    if (/^(\d)\1+$/.test(digits)) return true;
-    return false;
+  // Buscar responsáveis do banco
+  const fetchResponsaveis = async () => {
+    const { data, error } = await supabase
+      .from("tb_responsavel")
+      .select("responsavel_id, nome, cpf_numero")
+      .order("nome");
+
+    if (!error && data) {
+      setResponsaveis(data);
+    }
   };
 
-  // Buscar pessoas do banco (excluindo usuários do sistema)
   useEffect(() => {
-    const fetchPessoas = async () => {
-      // Buscar cpf_ids que pertencem a usuários do sistema
-      const { data: usuariosData } = await supabase
-        .from("tb_usuario")
-        .select("cpf_id");
-      
-      const cpfIdsUsuarios = new Set((usuariosData || []).map((u: any) => u.cpf_id));
-
-      const { data, error } = await supabase
-        .from("tb_cpf")
-        .select("cpf_id, nome, cpf_numero")
-        .order("nome");
-
-      if (!error && data) {
-        // Filtrar: excluir usuários do sistema e placeholders
-        const pessoasFisicas = data.filter((p: any) => 
-          !cpfIdsUsuarios.has(p.cpf_id) && 
-          !isPlaceholderCpf(p.cpf_numero)
-        );
-        setPessoas(pessoasFisicas);
-      }
-    };
-
     if (open) {
-      fetchPessoas();
+      fetchResponsaveis();
     }
   }, [open]);
 
-  // Função para adicionar pessoa
-  const addPessoa = async (nome: string, cpfNumero: string) => {
-    try {
-      const { data: existing } = await supabase
-        .from("tb_cpf")
-        .select("cpf_id")
-        .eq("cpf_numero", cpfNumero.replace(/\D/g, ""))
-        .maybeSingle();
-
-      if (existing) {
-        return { success: false, error: "CPF já cadastrado" };
-      }
-
-      const { data, error } = await supabase
-        .from("tb_cpf")
-        .insert({
-          nome,
-          cpf_numero: cpfNumero.replace(/\D/g, ""),
-        })
-        .select("cpf_id")
-        .single();
-
-      if (error) throw error;
-
-      // Recarregar pessoas
-      const { data: updatedPessoas } = await supabase
-        .from("tb_cpf")
-        .select("cpf_id, nome, cpf_numero")
-        .order("nome");
-      
-      if (updatedPessoas) {
-        const pessoasFisicas = updatedPessoas.filter((p: any) => !isPlaceholderCpf(p.cpf_numero));
-        setPessoas(pessoasFisicas);
-      }
-
-      return { success: true, cpf_id: data.cpf_id };
-    } catch (err: any) {
-      return { success: false, error: err.message };
-    }
-  };
-
   // Obter responsável selecionado
-  const responsavelSelecionado = pessoas.find(p => p.cpf_id.toString() === formData.responsavelCpfId);
+  const responsavelSelecionado = responsaveis.find(r => r.responsavel_id.toString() === formData.responsavelId);
 
   // Determinar qual campo mostrar baseado na categoria selecionada
   const categoriaSelecionada = categorias.find(c => c.cat_id.toString() === formData.categoriaId);
@@ -377,56 +313,16 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
 
       if (cnpjError) throw cnpjError;
 
-      // 5. Criar entrada na tabela de relação tb_cpf_cnpj
-      // Se o responsável foi selecionado, vincular essa pessoa; caso contrário, criar um placeholder
-      let cpfIdParaVincular: number;
-      
-      if (formData.responsavelCpfId) {
-        cpfIdParaVincular = parseInt(formData.responsavelCpfId);
-      } else {
-        // Criar um CPF placeholder para a empresa
-        const cpfPlaceholder = String(cnpjData.cnpj_id).padStart(11, "0");
-        
-        const { data: existingCpf } = await supabase
-          .from("tb_cpf")
-          .select("cpf_id")
-          .eq("cpf_numero", cpfPlaceholder)
-          .maybeSingle();
-        
-        if (existingCpf) {
-          cpfIdParaVincular = existingCpf.cpf_id;
-        } else {
-          const { data: cpfData, error: cpfError } = await supabase
-            .from("tb_cpf")
-            .insert({
-              nome: formData.razaoSocial,
-              cpf_numero: cpfPlaceholder,
-            })
-            .select("cpf_id")
-            .single();
-
-          if (cpfError) throw cpfError;
-          cpfIdParaVincular = cpfData.cpf_id;
-        }
-      }
-
-      // 6. Verificar se a relação CPF/CNPJ já existe
-      const { data: existingRelation } = await supabase
-        .from("tb_cpf_cnpj")
-        .select("id")
-        .eq("cpf_id", cpfIdParaVincular)
-        .eq("cnpj_id", cnpjData.cnpj_id)
-        .maybeSingle();
-
-      if (!existingRelation) {
-        const { error: relacaoError } = await supabase
-          .from("tb_cpf_cnpj")
+      // 5. Criar vínculo com responsável se selecionado
+      if (formData.responsavelId) {
+        const { error: vinculoError } = await supabase
+          .from("tb_responsavel_cnpj")
           .insert({
-            cpf_id: cpfIdParaVincular,
+            responsavel_id: parseInt(formData.responsavelId),
             cnpj_id: cnpjData.cnpj_id,
           });
 
-        if (relacaoError) throw relacaoError;
+        if (vinculoError) throw vinculoError;
       }
 
       toast.success("Empresa cadastrada com sucesso!");
@@ -439,7 +335,7 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
         cnpj: "",
         ccm: "",
         casn: "",
-        responsavelCpfId: "",
+        responsavelId: "",
         categoriaId: "",
         agencia: "",
         superiorCnpjId: "",
@@ -578,14 +474,14 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
                         <CommandList>
                           <CommandEmpty>Nenhuma pessoa encontrada</CommandEmpty>
                           <CommandGroup>
-                            {pessoas.map((pessoa) => (
+                            {responsaveis.map((resp) => (
                               <CommandItem
-                                key={pessoa.cpf_id}
-                                value={`${pessoa.nome} ${pessoa.cpf_numero}`}
+                                key={resp.responsavel_id}
+                                value={`${resp.nome} ${resp.cpf_numero}`}
                                 onSelect={() => {
                                   setFormData(prev => ({ 
                                     ...prev, 
-                                    responsavelCpfId: pessoa.cpf_id.toString() 
+                                    responsavelId: resp.responsavel_id.toString() 
                                   }));
                                   setResponsavelOpen(false);
                                 }}
@@ -593,15 +489,15 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
                                 <Check
                                   className={cn(
                                     "mr-2 h-4 w-4",
-                                    formData.responsavelCpfId === pessoa.cpf_id.toString() 
+                                    formData.responsavelId === resp.responsavel_id.toString() 
                                       ? "opacity-100" 
                                       : "opacity-0"
                                   )}
                                 />
                                 <div className="flex flex-col">
-                                  <span>{pessoa.nome}</span>
+                                  <span>{resp.nome}</span>
                                   <span className="text-xs text-muted-foreground">
-                                    {formatCpf(pessoa.cpf_numero)}
+                                    {formatCpf(resp.cpf_numero)}
                                   </span>
                                 </div>
                               </CommandItem>
@@ -875,10 +771,10 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
     <NovaPessoaModal
       open={novaPessoaModalOpen}
       onOpenChange={setNovaPessoaModalOpen}
-      onSuccess={(cpfId, nome) => {
-        setFormData(prev => ({ ...prev, responsavelCpfId: cpfId.toString() }));
+      onSuccess={(responsavelId, nome) => {
+        setFormData(prev => ({ ...prev, responsavelId: responsavelId.toString() }));
+        fetchResponsaveis();
       }}
-      addPessoa={addPessoa}
     />
     </>
   );
