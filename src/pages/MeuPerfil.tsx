@@ -6,13 +6,15 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
 import { useUser } from "@/contexts/UserContext";
-import { User, Mail, Lock, Save, Monitor, Shield, Camera } from "lucide-react";
+import { User, Mail, Lock, Save, Monitor, Shield, Camera, Sun, Moon, Palette } from "lucide-react";
 import { TwoFactorSettings } from "@/components/TwoFactorSettings";
 import { DevicesTab } from "@/components/DevicesTab";
 import { getStoredUser } from "@/services/authService";
 import { supabase } from "@/integrations/supabase/client";
 import { AvatarUploadModal } from "@/components/AvatarUploadModal";
+import { useTheme } from "next-themes";
 
 const formatPhoneMask = (value: string): string => {
   // Remove tudo que não é número
@@ -35,17 +37,24 @@ const formatPhoneMask = (value: string): string => {
 
 const MeuPerfil = () => {
   const { user, updateAvatar } = useUser();
+  const { theme, setTheme } = useTheme();
   const storedUser = getStoredUser();
   const [isEditing, setIsEditing] = useState(false);
   const [is2FAEnabled, setIs2FAEnabled] = useState(false);
   const [isLoading2FA, setIsLoading2FA] = useState(true);
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const [formData, setFormData] = useState({
     nome: user.nome,
     sobrenome: user.sobrenome,
     email: user.email,
     telefone: "(11) 9-9999-0000",
   });
+
+  // Evitar hydration mismatch
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Carregar status do 2FA do banco de dados
   useEffect(() => {
@@ -151,7 +160,7 @@ const MeuPerfil = () => {
 
         <div className="lg:col-span-3">
           <Tabs defaultValue="dados" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 h-auto">
+            <TabsList className="grid w-full grid-cols-4 h-auto">
               <TabsTrigger value="dados" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm py-2 px-1 md:px-3">
                 <User className="h-3 w-3 md:h-4 md:w-4" />
                 <span className="hidden sm:inline">Dados Pessoais</span>
@@ -165,6 +174,11 @@ const MeuPerfil = () => {
                 <Monitor className="h-3 w-3 md:h-4 md:w-4" />
                 <span className="hidden sm:inline">Dispositivos</span>
                 <span className="sm:hidden">Devices</span>
+              </TabsTrigger>
+              <TabsTrigger value="aparencia" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm py-2 px-1 md:px-3">
+                <Palette className="h-3 w-3 md:h-4 md:w-4" />
+                <span className="hidden sm:inline">Aparência</span>
+                <span className="sm:hidden">Tema</span>
               </TabsTrigger>
             </TabsList>
 
@@ -295,6 +309,76 @@ const MeuPerfil = () => {
 
             <TabsContent value="dispositivos" className="mt-6">
               <DevicesTab />
+            </TabsContent>
+
+            <TabsContent value="aparencia" className="space-y-4 md:space-y-6 mt-4 md:mt-6">
+              <Card>
+                <CardHeader className="p-4 md:p-6">
+                  <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                    <Palette className="h-4 w-4 md:h-5 md:w-5" />
+                    Tema do Sistema
+                  </CardTitle>
+                  <CardDescription className="text-xs md:text-sm">
+                    Personalize a aparência do sistema
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="p-4 md:p-6 pt-0 md:pt-0 space-y-4">
+                  <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
+                    <div className="flex items-center gap-3">
+                      {mounted && theme === "dark" ? (
+                        <Moon className="h-5 w-5 text-primary" />
+                      ) : (
+                        <Sun className="h-5 w-5 text-amber-500" />
+                      )}
+                      <div>
+                        <p className="font-medium text-sm md:text-base">Modo Escuro</p>
+                        <p className="text-xs md:text-sm text-muted-foreground">
+                          {mounted && theme === "dark" 
+                            ? "O tema escuro está ativado" 
+                            : "Alterne para o tema escuro"}
+                        </p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={mounted && theme === "dark"}
+                      onCheckedChange={(checked) => setTheme(checked ? "dark" : "light")}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => setTheme("light")}
+                      className={`p-4 rounded-lg border-2 transition-all ${
+                        mounted && theme === "light" 
+                          ? "border-primary bg-primary/5" 
+                          : "border-border hover:border-muted-foreground/50"
+                      }`}
+                    >
+                      <div className="flex flex-col items-center gap-2">
+                        <div className="w-full h-16 rounded-md bg-white border shadow-sm flex items-center justify-center">
+                          <Sun className="h-6 w-6 text-amber-500" />
+                        </div>
+                        <span className="text-sm font-medium">Claro</span>
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => setTheme("dark")}
+                      className={`p-4 rounded-lg border-2 transition-all ${
+                        mounted && theme === "dark" 
+                          ? "border-primary bg-primary/5" 
+                          : "border-border hover:border-muted-foreground/50"
+                      }`}
+                    >
+                      <div className="flex flex-col items-center gap-2">
+                        <div className="w-full h-16 rounded-md bg-slate-900 border border-slate-700 flex items-center justify-center">
+                          <Moon className="h-6 w-6 text-slate-300" />
+                        </div>
+                        <span className="text-sm font-medium">Escuro</span>
+                      </div>
+                    </button>
+                  </div>
+                </CardContent>
+              </Card>
             </TabsContent>
           </Tabs>
         </div>
