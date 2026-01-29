@@ -60,6 +60,10 @@ export function NovaPessoaModal({ open, onOpenChange, onSuccess }: NovaPessoaMod
     bairro: "",
     uf: "",
   });
+  const [emailErrors, setEmailErrors] = useState({
+    emailPrincipal: "",
+    emailAlternativo: "",
+  });
 
   // Buscar empresas
   useEffect(() => {
@@ -77,6 +81,21 @@ export function NovaPessoaModal({ open, onOpenChange, onSuccess }: NovaPessoaMod
     }
   }, [open]);
 
+  const validateEmail = (email: string): boolean => {
+    if (!email) return true; // Empty is valid (not required)
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const handleEmailBlur = (field: "emailPrincipal" | "emailAlternativo") => {
+    const value = formData[field];
+    if (value && !validateEmail(value)) {
+      setEmailErrors(prev => ({ ...prev, [field]: "E-mail inválido" }));
+    } else {
+      setEmailErrors(prev => ({ ...prev, [field]: "" }));
+    }
+  };
+
   const handleInputChange = (field: string, value: string) => {
     let formattedValue = value;
 
@@ -88,6 +107,11 @@ export function NovaPessoaModal({ open, onOpenChange, onSuccess }: NovaPessoaMod
       formattedValue = formatCepMask(value);
     } else if (field === "uf") {
       formattedValue = value.toUpperCase().slice(0, 2);
+    }
+
+    // Limpar erro de email ao digitar
+    if (field === "emailPrincipal" || field === "emailAlternativo") {
+      setEmailErrors(prev => ({ ...prev, [field]: "" }));
     }
 
     setFormData((prev) => ({ ...prev, [field]: formattedValue }));
@@ -304,11 +328,15 @@ export function NovaPessoaModal({ open, onOpenChange, onSuccess }: NovaPessoaMod
                     id="emailPrincipal"
                     type="email"
                     placeholder="email@exemplo.com"
-                    className="pl-10"
+                    className={`pl-10 ${emailErrors.emailPrincipal ? "border-destructive" : ""}`}
                     value={formData.emailPrincipal}
                     onChange={(e) => handleInputChange("emailPrincipal", e.target.value)}
+                    onBlur={() => handleEmailBlur("emailPrincipal")}
                   />
                 </div>
+                {emailErrors.emailPrincipal && (
+                  <p className="text-sm text-destructive">{emailErrors.emailPrincipal}</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -319,11 +347,15 @@ export function NovaPessoaModal({ open, onOpenChange, onSuccess }: NovaPessoaMod
                     id="emailAlternativo"
                     type="email"
                     placeholder="email@exemplo.com"
-                    className="pl-10"
+                    className={`pl-10 ${emailErrors.emailAlternativo ? "border-destructive" : ""}`}
                     value={formData.emailAlternativo}
                     onChange={(e) => handleInputChange("emailAlternativo", e.target.value)}
+                    onBlur={() => handleEmailBlur("emailAlternativo")}
                   />
                 </div>
+                {emailErrors.emailAlternativo && (
+                  <p className="text-sm text-destructive">{emailErrors.emailAlternativo}</p>
+                )}
               </div>
             </div>
           </div>

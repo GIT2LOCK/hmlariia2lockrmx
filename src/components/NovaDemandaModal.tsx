@@ -17,6 +17,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { 
@@ -29,10 +42,14 @@ import {
   Calendar,
   Phone,
   Tag,
-  Loader2
+  Loader2,
+  Check,
+  ChevronsUpDown
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { formatCnpjMask } from "@/lib/validators";
 
 interface NovaDemandaModalProps {
   open: boolean;
@@ -102,6 +119,7 @@ const getViaLabel = (via: Via): { label: string; icon: React.ReactNode } => {
 export function NovaDemandaModal({ open, onOpenChange, onSuccess }: NovaDemandaModalProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
+  const [empresaOpen, setEmpresaOpen] = useState(false);
   
   // Dados do banco
   const [prioridades, setPrioridades] = useState<Prioridade[]>([]);
@@ -302,27 +320,69 @@ export function NovaDemandaModal({ open, onOpenChange, onSuccess }: NovaDemandaM
               
               <div className="space-y-2">
                 <Label htmlFor="empresa">Empresa *</Label>
-                <Select
-                  value={formData.empresaId}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, empresaId: value }))}
-                >
-                  <SelectTrigger id="empresa">
-                    <SelectValue placeholder="Selecione a empresa" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {empresas.map((empresa) => (
-                      <SelectItem key={empresa.cnpj_id} value={empresa.cnpj_id.toString()}>
-                        <div className="flex flex-col">
-                          <span>{empresa.razao_social}</span>
-                          <span className="text-xs text-muted-foreground">{empresa.cnpj_numero}</span>
+                <Popover open={empresaOpen} onOpenChange={setEmpresaOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={empresaOpen}
+                      className="w-full justify-between font-normal"
+                    >
+                      {empresaSelecionada ? (
+                        <div className="flex flex-col items-start text-left">
+                          <span>{empresaSelecionada.razao_social}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {formatCnpjMask(empresaSelecionada.cnpj_numero)}
+                          </span>
                         </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                      ) : (
+                        <span className="text-muted-foreground">Selecione a empresa</span>
+                      )}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[400px] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Buscar por razão social ou CNPJ..." />
+                      <CommandList>
+                        <CommandEmpty>Nenhuma empresa encontrada</CommandEmpty>
+                        <CommandGroup>
+                          {empresas.map((empresa) => (
+                            <CommandItem
+                              key={empresa.cnpj_id}
+                              value={`${empresa.razao_social} ${empresa.cnpj_numero}`}
+                              onSelect={() => {
+                                setFormData(prev => ({ 
+                                  ...prev, 
+                                  empresaId: empresa.cnpj_id.toString() 
+                                }));
+                                setEmpresaOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  formData.empresaId === empresa.cnpj_id.toString() 
+                                    ? "opacity-100" 
+                                    : "opacity-0"
+                                )}
+                              />
+                              <div className="flex flex-col">
+                                <span>{empresa.razao_social}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  {formatCnpjMask(empresa.cnpj_numero)}
+                                </span>
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
                 {empresaSelecionada && (
                   <p className="text-xs text-muted-foreground">
-                    CNPJ: {empresaSelecionada.cnpj_numero}
+                    CNPJ: {formatCnpjMask(empresaSelecionada.cnpj_numero)}
                   </p>
                 )}
               </div>
