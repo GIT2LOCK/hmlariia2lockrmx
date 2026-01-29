@@ -34,6 +34,7 @@ export interface AuthResponse {
   requiresEmailVerification?: boolean;
   requires2FA?: boolean;
   requires2FASetup?: boolean;
+  setupToken?: string; // Token for 2FA setup after signup
 }
 
 export interface Device {
@@ -113,6 +114,7 @@ export async function signup(data: SignupData): Promise<AuthResponse> {
       message: result.message,
       user: result.user,
       requires2FASetup: result.requires2FASetup,
+      setupToken: result.setupToken,
     };
   } catch (error) {
     console.error("Signup error:", error);
