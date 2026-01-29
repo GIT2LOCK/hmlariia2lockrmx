@@ -14,6 +14,7 @@ interface TwoFactorSetupModalProps {
   onSuccess: () => void;
   userId: number;
   userName: string;
+  setupToken?: string; // Token from signup for 2FA setup
 }
 
 export function TwoFactorSetupModal({
