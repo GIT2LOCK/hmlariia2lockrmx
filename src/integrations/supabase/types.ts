@@ -357,6 +357,7 @@ export type Database = {
         Row: {
           bairro: string
           cep: string
+          cidade: string | null
           complemento: string | null
           end_id: number
           logradouro: string
@@ -366,6 +367,7 @@ export type Database = {
         Insert: {
           bairro: string
           cep: string
+          cidade?: string | null
           complemento?: string | null
           end_id?: number
           logradouro: string
@@ -375,6 +377,7 @@ export type Database = {
         Update: {
           bairro?: string
           cep?: string
+          cidade?: string | null
           complemento?: string | null
           end_id?: number
           logradouro?: string
