@@ -204,6 +204,7 @@ export type Database = {
           prazo_inicio: string
           prioridade_id: number
           status_id: number
+          tipodemanda_id: number | null
           titulo_demanda: string
           user_id: number | null
           via_id: number
@@ -216,6 +217,7 @@ export type Database = {
           prazo_inicio: string
           prioridade_id: number
           status_id: number
+          tipodemanda_id?: number | null
           titulo_demanda: string
           user_id?: number | null
           via_id: number
@@ -228,6 +230,7 @@ export type Database = {
           prazo_inicio?: string
           prioridade_id?: number
           status_id?: number
+          tipodemanda_id?: number | null
           titulo_demanda?: string
           user_id?: number | null
           via_id?: number
@@ -253,6 +256,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "tb_status"
             referencedColumns: ["status_id"]
+          },
+          {
+            foreignKeyName: "tb_demanda_tipodemanda_id_fkey"
+            columns: ["tipodemanda_id"]
+            isOneToOne: false
+            referencedRelation: "tb_tipodemanda"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "tb_demanda_user_id_fkey"
@@ -425,6 +435,27 @@ export type Database = {
         }
         Relationships: []
       }
+      tb_prazo: {
+        Row: {
+          descricao: string
+          id: number
+          prazo_minutos: number
+          tipo: number
+        }
+        Insert: {
+          descricao: string
+          id?: number
+          prazo_minutos: number
+          tipo: number
+        }
+        Update: {
+          descricao?: string
+          id?: number
+          prazo_minutos?: number
+          tipo?: number
+        }
+        Relationships: []
+      }
       tb_prioridade: {
         Row: {
           prioridade_id: number
@@ -534,6 +565,35 @@ export type Database = {
           status_nome?: string
         }
         Relationships: []
+      }
+      tb_tipodemanda: {
+        Row: {
+          id: number
+          nome: string
+          prazo_id: number
+          tipo: number
+        }
+        Insert: {
+          id?: number
+          nome: string
+          prazo_id: number
+          tipo: number
+        }
+        Update: {
+          id?: number
+          nome?: string
+          prazo_id?: number
+          tipo?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tb_tipodemanda_prazo_id_fkey"
+            columns: ["prazo_id"]
+            isOneToOne: false
+            referencedRelation: "tb_prazo"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tb_usuario: {
         Row: {
