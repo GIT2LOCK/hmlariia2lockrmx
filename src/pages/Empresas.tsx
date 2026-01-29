@@ -11,10 +11,23 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Search, Building2, Mail, Phone, MapPin, Loader2, Eye } from "lucide-react";
+import { Plus, Search, Building2, Mail, Phone, MapPin, Loader2, Eye, Trash2 } from "lucide-react";
 import { NovaEmpresaModal } from "@/components/NovaEmpresaModal";
 import { VisualizarEmpresaModal } from "@/components/VisualizarEmpresaModal";
 import { supabase } from "@/integrations/supabase/client";
+import { useUser } from "@/contexts/UserContext";
+import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface Empresa {
   cnpj_id: number;
@@ -29,12 +42,14 @@ interface Empresa {
 }
 
 const Empresas = () => {
+  const { canManageUsers } = useUser();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedEmpresa, setSelectedEmpresa] = useState<Empresa | null>(null);
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDetalhesModalOpen, setIsDetalhesModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchEmpresas = async () => {
     setIsLoading(true);
@@ -144,6 +159,60 @@ const Empresas = () => {
 
   const handleEmpresaCadastrada = () => {
     fetchEmpresas();
+  };
+
+  const handleDeleteEmpresa = async () => {
+    if (!selectedEmpresa) return;
+
+    setIsDeleting(true);
+    try {
+      // Buscar dados relacionados da empresa
+      const { data: empresaData } = await supabase
+        .from("tb_cnpj")
+        .select("email_id, tel_id, end_id")
+        .eq("cnpj_id", selectedEmpresa.cnpj_id)
+        .single();
+
+      // Deletar vínculos de responsáveis
+      await supabase
+        .from("tb_responsavel_cnpj")
+        .delete()
+        .eq("cnpj_id", selectedEmpresa.cnpj_id);
+
+      // Deletar vínculos de cpf_cnpj
+      await supabase
+        .from("tb_cpf_cnpj")
+        .delete()
+        .eq("cnpj_id", selectedEmpresa.cnpj_id);
+
+      // Deletar a empresa
+      const { error: deleteError } = await supabase
+        .from("tb_cnpj")
+        .delete()
+        .eq("cnpj_id", selectedEmpresa.cnpj_id);
+
+      if (deleteError) throw deleteError;
+
+      // Deletar registros relacionados (email, telefone, endereço)
+      if (empresaData?.email_id) {
+        await supabase.from("tb_email").delete().eq("email_id", empresaData.email_id);
+      }
+      if (empresaData?.tel_id) {
+        await supabase.from("tb_numero").delete().eq("tel_id", empresaData.tel_id);
+      }
+      if (empresaData?.end_id) {
+        await supabase.from("tb_endereco").delete().eq("end_id", empresaData.end_id);
+      }
+
+      toast.success("Empresa excluída com sucesso!");
+      setSelectedEmpresa(null);
+      fetchEmpresas();
+    } catch (error: any) {
+      console.error("Erro ao excluir empresa:", error);
+      toast.error(error.message || "Erro ao excluir empresa");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -319,6 +388,39 @@ const Empresas = () => {
                     <Eye className="h-4 w-4 mr-2" />
                     Ver Detalhes
                   </Button>
+                  
+                  {canManageUsers && (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button 
+                          className="w-full" 
+                          variant="destructive"
+                          disabled={isDeleting}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Excluir Empresa
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Tem certeza que deseja excluir a empresa "{selectedEmpresa.razao_social}"? 
+                            Esta ação não pode ser desfeita e todos os vínculos serão removidos.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction 
+                            onClick={handleDeleteEmpresa}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            {isDeleting ? "Excluindo..." : "Excluir"}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )}
                 </CardContent>
               </Card>
 

@@ -18,10 +18,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Plus, Search, User, Building2, Loader2, Link as LinkIcon, Phone, Mail, MapPin, Trash2 } from "lucide-react";
 import { useResponsaveis, formatCpf, formatCnpj, formatPhone, Responsavel } from "@/hooks/useResponsaveis";
 import { NovaPessoaModal } from "@/components/NovaPessoaModal";
 import { supabase } from "@/integrations/supabase/client";
+import { useUser } from "@/contexts/UserContext";
 import { toast } from "sonner";
 
 interface Empresa {
@@ -31,6 +43,7 @@ interface Empresa {
 }
 
 const Pessoas = () => {
+  const { canManageUsers } = useUser();
   const { responsaveis, isLoading, error, refetch, addVinculo, removeVinculo } = useResponsaveis();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPessoa, setSelectedPessoa] = useState<Responsavel | null>(null);
@@ -38,6 +51,7 @@ const Pessoas = () => {
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [selectedEmpresa, setSelectedEmpresa] = useState("");
   const [isAddingVinculo, setIsAddingVinculo] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Buscar empresas para vincular
   useEffect(() => {
@@ -83,6 +97,48 @@ const Pessoas = () => {
       toast.success("Vínculo removido com sucesso!");
     } else {
       toast.error(result.error || "Erro ao remover vínculo");
+    }
+  };
+
+  const handleDeletePessoa = async () => {
+    if (!selectedPessoa) return;
+
+    setIsDeleting(true);
+    try {
+      // Deletar vínculos primeiro
+      await supabase
+        .from("tb_responsavel_cnpj")
+        .delete()
+        .eq("responsavel_id", selectedPessoa.responsavel_id);
+
+      // Buscar end_id do responsável
+      const { data: respData } = await supabase
+        .from("tb_responsavel")
+        .select("end_id")
+        .eq("responsavel_id", selectedPessoa.responsavel_id)
+        .single();
+
+      // Deletar o responsável
+      const { error: deleteError } = await supabase
+        .from("tb_responsavel")
+        .delete()
+        .eq("responsavel_id", selectedPessoa.responsavel_id);
+
+      if (deleteError) throw deleteError;
+
+      // Deletar endereço se existir
+      if (respData?.end_id) {
+        await supabase.from("tb_endereco").delete().eq("end_id", respData.end_id);
+      }
+
+      toast.success("Pessoa excluída com sucesso!");
+      setSelectedPessoa(null);
+      refetch();
+    } catch (error: any) {
+      console.error("Erro ao excluir pessoa:", error);
+      toast.error(error.message || "Erro ao excluir pessoa");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -345,6 +401,42 @@ const Pessoas = () => {
                     )}
                   </Button>
                 </div>
+
+                {/* Botão Excluir Pessoa - apenas Admin/Superadmin */}
+                {canManageUsers && (
+                  <div className="pt-4 border-t">
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button 
+                          className="w-full" 
+                          variant="destructive"
+                          disabled={isDeleting}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Excluir Pessoa
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Tem certeza que deseja excluir "{selectedPessoa.nome}"? 
+                            Esta ação não pode ser desfeita e todos os vínculos com empresas serão removidos.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction 
+                            onClick={handleDeletePessoa}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            {isDeleting ? "Excluindo..." : "Excluir"}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                )}
               </CardContent>
             </Card>
           ) : (
