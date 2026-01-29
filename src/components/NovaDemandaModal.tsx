@@ -92,6 +92,14 @@ interface Status {
   status_nome: string;
 }
 
+interface TipoDemanda {
+  id: number;
+  nome: string;
+  tipo: number;
+  prazo_id: number;
+  prazo_minutos?: number;
+}
+
 // Cores das prioridades por nível (1=Crítica/vermelho, 5=Muito baixa/verde)
 const getPrioridadeCor = (nivel: number): string => {
   switch (nivel) {
@@ -149,6 +157,7 @@ export function NovaDemandaModal({ open, onOpenChange, onSuccess }: NovaDemandaM
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [empresaOpen, setEmpresaOpen] = useState(false);
+  const [tipoDemandaOpen, setTipoDemandaOpen] = useState(false);
   
   // Dados do banco
   const [prioridades, setPrioridades] = useState<Prioridade[]>([]);
@@ -157,9 +166,11 @@ export function NovaDemandaModal({ open, onOpenChange, onSuccess }: NovaDemandaM
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [cpfCnpjList, setCpfCnpjList] = useState<CpfCnpj[]>([]);
   const [statusList, setStatusList] = useState<Status[]>([]);
+  const [tiposDemanda, setTiposDemanda] = useState<TipoDemanda[]>([]);
   
   const [formData, setFormData] = useState({
     empresaId: "",
+    tipoDemandaId: "",
     titulo: "",
     descricao: "",
     viaId: "",
@@ -180,13 +191,15 @@ export function NovaDemandaModal({ open, onOpenChange, onSuccess }: NovaDemandaM
   const fetchData = async () => {
     setIsLoadingData(true);
     try {
-      const [prioridadesRes, viasRes, usuariosRes, empresasRes, cpfCnpjRes, statusRes] = await Promise.all([
+      const [prioridadesRes, viasRes, usuariosRes, empresasRes, cpfCnpjRes, statusRes, tiposDemandaRes, prazosRes] = await Promise.all([
         supabase.from("tb_prioridade").select("*").order("prioridade_nivel", { ascending: true }),
         supabase.from("tb_via").select("*"),
         supabase.from("tb_usuario").select("user_id, nome, atendente").eq("ativo", true).eq("atendente", true),
         supabase.from("tb_cnpj").select("cnpj_id, razao_social, cnpj_numero"),
         supabase.from("tb_cpf_cnpj").select("id, cnpj_id, cpf_id"),
         supabase.from("tb_status").select("*").order("status_id", { ascending: true }),
+        supabase.from("tb_tipodemanda").select("*").order("nome", { ascending: true }),
+        supabase.from("tb_prazo").select("*"),
       ]);
 
       if (prioridadesRes.error) throw prioridadesRes.error;
@@ -195,6 +208,15 @@ export function NovaDemandaModal({ open, onOpenChange, onSuccess }: NovaDemandaM
       if (empresasRes.error) throw empresasRes.error;
       if (cpfCnpjRes.error) throw cpfCnpjRes.error;
       if (statusRes.error) throw statusRes.error;
+      if (tiposDemandaRes.error) throw tiposDemandaRes.error;
+      if (prazosRes.error) throw prazosRes.error;
+
+      // Mapear tipos de demanda com prazo em minutos
+      const prazosMap = new Map((prazosRes.data || []).map(p => [p.id, p.prazo_minutos]));
+      const tiposComPrazo = (tiposDemandaRes.data || []).map(td => ({
+        ...td,
+        prazo_minutos: prazosMap.get(td.prazo_id) || 60,
+      }));
 
       setPrioridades(prioridadesRes.data || []);
       setVias(viasRes.data || []);
@@ -202,11 +224,39 @@ export function NovaDemandaModal({ open, onOpenChange, onSuccess }: NovaDemandaM
       setEmpresas(empresasRes.data || []);
       setCpfCnpjList(cpfCnpjRes.data || []);
       setStatusList(statusRes.data || []);
+      setTiposDemanda(tiposComPrazo);
     } catch (error) {
       console.error("Erro ao carregar dados:", error);
       toast.error("Erro ao carregar dados do formulário");
     } finally {
       setIsLoadingData(false);
+    }
+  };
+
+  // Calcular prazo automaticamente ao selecionar tipo de demanda
+  const handleTipoDemandaChange = (tipoDemandaId: string) => {
+    const tipoSelecionado = tiposDemanda.find(t => t.id.toString() === tipoDemandaId);
+    
+    if (tipoSelecionado) {
+      const agora = new Date();
+      const prazoFim = new Date(agora.getTime() + (tipoSelecionado.prazo_minutos || 60) * 60 * 1000);
+      
+      // Formatar para datetime-local
+      const formatDateTimeLocal = (date: Date) => {
+        const pad = (n: number) => n.toString().padStart(2, '0');
+        return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+      };
+
+      // Auto-preencher título com o nome do tipo de demanda
+      setFormData(prev => ({
+        ...prev,
+        tipoDemandaId,
+        titulo: prev.titulo || tipoSelecionado.nome,
+        prazoInicio: formatDateTimeLocal(agora),
+        prazoFim: formatDateTimeLocal(prazoFim),
+      }));
+    } else {
+      setFormData(prev => ({ ...prev, tipoDemandaId }));
     }
   };
 
@@ -289,7 +339,8 @@ export function NovaDemandaModal({ open, onOpenChange, onSuccess }: NovaDemandaM
           : null,
         prazo_inicio: formData.prazoInicio || new Date().toISOString(),
         prazo_fim: formData.prazoFim || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-        status_id: parseInt(formData.statusId) || 1, // Status selecionado ou "Novo" como padrão
+        status_id: parseInt(formData.statusId) || 1,
+        tipodemanda_id: formData.tipoDemandaId ? parseInt(formData.tipoDemandaId) : null,
       };
 
       const { error } = await supabase.from("tb_demanda").insert(demandaData);
@@ -303,11 +354,12 @@ export function NovaDemandaModal({ open, onOpenChange, onSuccess }: NovaDemandaM
       // Reset form
       setFormData({
         empresaId: "",
+        tipoDemandaId: "",
         titulo: "",
         descricao: "",
         viaId: "",
         prioridadeId: "",
-        statusId: "1", // Reset para "Novo"
+        statusId: "1",
         responsavelId: "",
         prazoInicio: "",
         prazoFim: "",
@@ -321,6 +373,24 @@ export function NovaDemandaModal({ open, onOpenChange, onSuccess }: NovaDemandaM
   };
 
   const empresaSelecionada = empresas.find(e => e.cnpj_id.toString() === formData.empresaId);
+  const tipoDemandaSelecionado = tiposDemanda.find(t => t.id.toString() === formData.tipoDemandaId);
+
+  // Obter label do tipo (1, 2 ou 3)
+  const getTipoLabel = (tipo: number) => {
+    switch (tipo) {
+      case 1: return { label: "Urgente", color: "bg-red-100 text-red-700" };
+      case 2: return { label: "Prioridade Média", color: "bg-yellow-100 text-yellow-700" };
+      case 3: return { label: "Baixa Prioridade", color: "bg-green-100 text-green-700" };
+      default: return { label: "Padrão", color: "bg-gray-100 text-gray-700" };
+    }
+  };
+
+  // Formatar prazo em texto legível
+  const formatPrazoTexto = (minutos: number) => {
+    if (minutos < 60) return `${minutos} minutos`;
+    if (minutos < 1440) return `${Math.floor(minutos / 60)} hora${minutos >= 120 ? 's' : ''}`;
+    return `${Math.floor(minutos / 1440)} dia${minutos >= 2880 ? 's' : ''}`;
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -425,10 +495,120 @@ export function NovaDemandaModal({ open, onOpenChange, onSuccess }: NovaDemandaM
 
             <Separator />
 
-            {/* Seção: Detalhes */}
+            {/* Seção: Tipo de Demanda */}
             <div className="space-y-4">
               <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                 <Tag className="h-4 w-4" />
+                <span>Tipo de Demanda</span>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="tipoDemanda">Tipo de Demanda *</Label>
+                <Popover open={tipoDemandaOpen} onOpenChange={setTipoDemandaOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={tipoDemandaOpen}
+                      className="w-full justify-between font-normal"
+                    >
+                      {tipoDemandaSelecionado ? (
+                        <div className="flex items-center gap-2">
+                          <span>{tipoDemandaSelecionado.nome}</span>
+                          <Badge variant="secondary" className={getTipoLabel(tipoDemandaSelecionado.tipo).color}>
+                            {getTipoLabel(tipoDemandaSelecionado.tipo).label}
+                          </Badge>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">Selecione o tipo de demanda</span>
+                      )}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[500px] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Buscar tipo de demanda..." />
+                      <CommandList>
+                        <CommandEmpty>Nenhum tipo encontrado</CommandEmpty>
+                        <CommandGroup heading="Tipo 1 - Urgente (20 min)">
+                          {tiposDemanda.filter(t => t.tipo === 1).map((tipo) => (
+                            <CommandItem
+                              key={tipo.id}
+                              value={tipo.nome}
+                              onSelect={() => {
+                                handleTipoDemandaChange(tipo.id.toString());
+                                setTipoDemandaOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  formData.tipoDemandaId === tipo.id.toString() ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              <span>{tipo.nome}</span>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                        <CommandGroup heading="Tipo 2 - Prioridade Média (1 hora)">
+                          {tiposDemanda.filter(t => t.tipo === 2).map((tipo) => (
+                            <CommandItem
+                              key={tipo.id}
+                              value={tipo.nome}
+                              onSelect={() => {
+                                handleTipoDemandaChange(tipo.id.toString());
+                                setTipoDemandaOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  formData.tipoDemandaId === tipo.id.toString() ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              <span>{tipo.nome}</span>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                        <CommandGroup heading="Tipo 3 - Baixa Prioridade (2 dias)">
+                          {tiposDemanda.filter(t => t.tipo === 3).map((tipo) => (
+                            <CommandItem
+                              key={tipo.id}
+                              value={tipo.nome}
+                              onSelect={() => {
+                                handleTipoDemandaChange(tipo.id.toString());
+                                setTipoDemandaOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  formData.tipoDemandaId === tipo.id.toString() ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              <span>{tipo.nome}</span>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                {tipoDemandaSelecionado && (
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    SLA: {formatPrazoTexto(tipoDemandaSelecionado.prazo_minutos || 60)} para resolução
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Seção: Detalhes */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <FileText className="h-4 w-4" />
                 <span>Detalhes</span>
               </div>
 
@@ -598,7 +778,7 @@ export function NovaDemandaModal({ open, onOpenChange, onSuccess }: NovaDemandaM
               </Button>
               <Button 
                 type="submit" 
-                disabled={isLoading || !formData.empresaId || !formData.titulo || !formData.viaId || !formData.prioridadeId}
+                disabled={isLoading || !formData.empresaId || !formData.tipoDemandaId || !formData.titulo || !formData.viaId || !formData.prioridadeId}
               >
                 {isLoading ? (
                   <>
