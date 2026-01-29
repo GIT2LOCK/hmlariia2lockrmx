@@ -440,6 +440,83 @@ export type Database = {
         }
         Relationships: []
       }
+      tb_responsavel: {
+        Row: {
+          cpf_numero: string
+          email_alternativo: string | null
+          email_principal: string | null
+          end_id: number | null
+          nome: string
+          responsavel_id: number
+          rg: string | null
+          telefone_alternativo: string | null
+          telefone_principal: string | null
+        }
+        Insert: {
+          cpf_numero: string
+          email_alternativo?: string | null
+          email_principal?: string | null
+          end_id?: number | null
+          nome: string
+          responsavel_id?: number
+          rg?: string | null
+          telefone_alternativo?: string | null
+          telefone_principal?: string | null
+        }
+        Update: {
+          cpf_numero?: string
+          email_alternativo?: string | null
+          email_principal?: string | null
+          end_id?: number | null
+          nome?: string
+          responsavel_id?: number
+          rg?: string | null
+          telefone_alternativo?: string | null
+          telefone_principal?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tb_responsavel_end_id_fkey"
+            columns: ["end_id"]
+            isOneToOne: false
+            referencedRelation: "tb_endereco"
+            referencedColumns: ["end_id"]
+          },
+        ]
+      }
+      tb_responsavel_cnpj: {
+        Row: {
+          cnpj_id: number
+          id: number
+          responsavel_id: number
+        }
+        Insert: {
+          cnpj_id: number
+          id?: number
+          responsavel_id: number
+        }
+        Update: {
+          cnpj_id?: number
+          id?: number
+          responsavel_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tb_responsavel_cnpj_cnpj_id_fkey"
+            columns: ["cnpj_id"]
+            isOneToOne: false
+            referencedRelation: "tb_cnpj"
+            referencedColumns: ["cnpj_id"]
+          },
+          {
+            foreignKeyName: "tb_responsavel_cnpj_responsavel_id_fkey"
+            columns: ["responsavel_id"]
+            isOneToOne: false
+            referencedRelation: "tb_responsavel"
+            referencedColumns: ["responsavel_id"]
+          },
+        ]
+      }
       tb_status: {
         Row: {
           status_id: number
