@@ -537,6 +537,7 @@ export type Database = {
       }
       tb_usuario: {
         Row: {
+          atendente: boolean
           ativo: boolean | null
           avatar_url: string | null
           cpf_id: number
@@ -555,6 +556,7 @@ export type Database = {
           verification_attempts: number | null
         }
         Insert: {
+          atendente?: boolean
           ativo?: boolean | null
           avatar_url?: string | null
           cpf_id: number
@@ -573,6 +575,7 @@ export type Database = {
           verification_attempts?: number | null
         }
         Update: {
+          atendente?: boolean
           ativo?: boolean | null
           avatar_url?: string | null
           cpf_id?: number

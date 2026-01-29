@@ -82,7 +82,7 @@ const getGrupoIcon = (role: string) => {
 const Usuarios = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [updatingUserId, setUpdatingUserId] = useState<number | null>(null);
-  const { usuarios, isLoading, error, toggleUsuarioAtivo, updateUsuarioPermissao, deleteUsuario, refetch } = useUsuarios();
+  const { usuarios, isLoading, error, toggleUsuarioAtivo, toggleUsuarioAtendente, updateUsuarioPermissao, deleteUsuario, refetch } = useUsuarios();
   const { permissoes } = usePermissoes();
   const { toast } = useToast();
   const { user: currentUser } = useUser();
@@ -143,6 +143,25 @@ const Usuarios = () => {
       toast({
         title: "Erro",
         description: result.error || "Erro ao atualizar status",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleToggleAtendente = async (userId: number, currentStatus: boolean) => {
+    setUpdatingUserId(userId);
+    const result = await toggleUsuarioAtendente(userId, !currentStatus);
+    setUpdatingUserId(null);
+    
+    if (result.success) {
+      toast({
+        title: currentStatus ? "Atendente desativado" : "Atendente ativado",
+        description: `O usuário ${currentStatus ? "não" : "agora"} pode receber demandas.`,
+      });
+    } else {
+      toast({
+        title: "Erro",
+        description: result.error || "Erro ao atualizar status de atendente",
         variant: "destructive",
       });
     }
@@ -315,6 +334,7 @@ const Usuarios = () => {
                 <TableHead>Verificações</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Ativo</TableHead>
+                <TableHead>Atendente</TableHead>
                 <TableHead className="w-16">Ações</TableHead>
               </TableRow>
             </TableHeader>
@@ -329,12 +349,13 @@ const Usuarios = () => {
                     <TableCell><Skeleton className="h-5 w-20" /></TableCell>
                     <TableCell><Skeleton className="h-6 w-16" /></TableCell>
                     <TableCell><Skeleton className="h-5 w-10" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-10" /></TableCell>
                     <TableCell><Skeleton className="h-8 w-8" /></TableCell>
                   </TableRow>
                 ))
               ) : filteredUsuarios.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-10 text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center py-10 text-muted-foreground">
                     Nenhum usuário encontrado
                   </TableCell>
                 </TableRow>
@@ -441,6 +462,29 @@ const Usuarios = () => {
                               <div className="inline-flex">
                                 <Switch
                                   checked={usuario.ativo}
+                                  disabled={true}
+                                />
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Você não pode alterar este status</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {canToggleAtivo(usuario.user_id, usuario.permissao_nome) ? (
+                          <Switch
+                            checked={usuario.atendente}
+                            onCheckedChange={() => handleToggleAtendente(usuario.user_id, usuario.atendente)}
+                            disabled={isUpdating}
+                          />
+                        ) : (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="inline-flex">
+                                <Switch
+                                  checked={usuario.atendente}
                                   disabled={true}
                                 />
                               </div>
