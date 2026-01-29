@@ -535,6 +535,7 @@ export type Database = {
       tb_usuario: {
         Row: {
           ativo: boolean | null
+          avatar_url: string | null
           cpf_id: number
           data_criacao: string | null
           email_id: number
@@ -552,6 +553,7 @@ export type Database = {
         }
         Insert: {
           ativo?: boolean | null
+          avatar_url?: string | null
           cpf_id: number
           data_criacao?: string | null
           email_id: number
@@ -569,6 +571,7 @@ export type Database = {
         }
         Update: {
           ativo?: boolean | null
+          avatar_url?: string | null
           cpf_id?: number
           data_criacao?: string | null
           email_id?: number
