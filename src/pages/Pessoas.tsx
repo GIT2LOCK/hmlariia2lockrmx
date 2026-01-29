@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,71 +11,92 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Search, User, Building2 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Plus, Search, User, Building2, Loader2, Link as LinkIcon } from "lucide-react";
+import { usePessoas, formatCpf, formatCnpj, Pessoa } from "@/hooks/usePessoas";
+import { NovaPessoaModal } from "@/components/NovaPessoaModal";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
-const mockPessoas = [
-  {
-    id: 1,
-    nome: "Carlos Eduardo Silva",
-    cpf: "123.456.789-00",
-    email: "carlos@email.com",
-    telefone: "(11) 99999-1111",
-    vinculos: [
-      { cnpj: "12.345.678/0001-90", razao_social: "Tech Solutions LTDA", cargo: "Sócio" },
-      { cnpj: "44.555.666/0001-77", razao_social: "Consultoria Premium", cargo: "Diretor" },
-    ],
-  },
-  {
-    id: 2,
-    nome: "Ana Paula Oliveira",
-    cpf: "987.654.321-00",
-    email: "ana@email.com",
-    telefone: "(11) 99999-2222",
-    vinculos: [
-      { cnpj: "98.765.432/0001-10", razao_social: "Comércio ABC", cargo: "Proprietária" },
-    ],
-  },
-  {
-    id: 3,
-    nome: "Roberto Almeida",
-    cpf: "456.789.123-00",
-    email: "roberto@email.com",
-    telefone: "(11) 99999-3333",
-    vinculos: [
-      { cnpj: "11.222.333/0001-44", razao_social: "Indústria XYZ", cargo: "Sócio" },
-    ],
-  },
-  {
-    id: 4,
-    nome: "Fernanda Costa",
-    cpf: "789.123.456-00",
-    email: "fernanda@email.com",
-    telefone: "(11) 99999-4444",
-    vinculos: [
-      { cnpj: "55.666.777/0001-88", razao_social: "Serviços Gerais ME", cargo: "Proprietária" },
-    ],
-  },
-  {
-    id: 5,
-    nome: "Paulo Henrique Santos",
-    cpf: "321.654.987-00",
-    email: "paulo@email.com",
-    telefone: "(11) 99999-5555",
-    vinculos: [
-      { cnpj: "12.345.678/0001-90", razao_social: "Tech Solutions LTDA", cargo: "Diretor" },
-    ],
-  },
-];
+interface Empresa {
+  cnpj_id: number;
+  razao_social: string;
+  cnpj_numero: string;
+}
 
 const Pessoas = () => {
+  const { pessoas, isLoading, error, refetch, addPessoa, addVinculo } = usePessoas();
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedPessoa, setSelectedPessoa] = useState<typeof mockPessoas[0] | null>(null);
+  const [selectedPessoa, setSelectedPessoa] = useState<Pessoa | null>(null);
+  const [novaModalOpen, setNovaModalOpen] = useState(false);
+  const [empresas, setEmpresas] = useState<Empresa[]>([]);
+  const [selectedEmpresa, setSelectedEmpresa] = useState("");
+  const [isAddingVinculo, setIsAddingVinculo] = useState(false);
 
-  const filteredPessoas = mockPessoas.filter(
+  // Buscar empresas para vincular
+  useEffect(() => {
+    const fetchEmpresas = async () => {
+      const { data } = await supabase
+        .from("tb_cnpj")
+        .select("cnpj_id, razao_social, cnpj_numero")
+        .order("razao_social");
+      
+      if (data) setEmpresas(data);
+    };
+    fetchEmpresas();
+  }, []);
+
+  const filteredPessoas = pessoas.filter(
     (pessoa) =>
       pessoa.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      pessoa.cpf.includes(searchTerm)
+      pessoa.cpf_numero.includes(searchTerm.replace(/\D/g, ""))
   );
+
+  const handleAddVinculo = async () => {
+    if (!selectedPessoa || !selectedEmpresa) return;
+    
+    setIsAddingVinculo(true);
+    const result = await addVinculo(selectedPessoa.cpf_id, parseInt(selectedEmpresa));
+    
+    if (result.success) {
+      toast.success("Vínculo adicionado com sucesso!");
+      setSelectedEmpresa("");
+      // Atualizar a pessoa selecionada
+      const updated = pessoas.find(p => p.cpf_id === selectedPessoa.cpf_id);
+      if (updated) setSelectedPessoa(updated);
+    } else {
+      toast.error(result.error || "Erro ao adicionar vínculo");
+    }
+    
+    setIsAddingVinculo(false);
+  };
+
+  // Empresas disponíveis para vincular (excluindo as já vinculadas)
+  const empresasDisponiveis = empresas.filter(
+    emp => !selectedPessoa?.vinculos.some(v => v.cnpj_id === emp.cnpj_id)
+  );
+
+  // Atualizar selectedPessoa quando pessoas mudar
+  useEffect(() => {
+    if (selectedPessoa) {
+      const updated = pessoas.find(p => p.cpf_id === selectedPessoa.cpf_id);
+      if (updated) setSelectedPessoa(updated);
+    }
+  }, [pessoas]);
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64 text-destructive">
+        Erro ao carregar pessoas: {error}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -86,7 +107,7 @@ const Pessoas = () => {
             Gerenciar pessoas e seus vínculos com empresas
           </p>
         </div>
-        <Button>
+        <Button onClick={() => setNovaModalOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Nova Pessoa
         </Button>
@@ -108,47 +129,54 @@ const Pessoas = () => {
             <CardHeader>
               <CardTitle>Lista de Pessoas</CardTitle>
               <CardDescription>
-                {filteredPessoas.length} pessoa(s) encontrada(s)
+                {isLoading ? "Carregando..." : `${filteredPessoas.length} pessoa(s) encontrada(s)`}
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>CPF</TableHead>
-                    <TableHead>Contato</TableHead>
-                    <TableHead>Vínculos</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredPessoas.map((pessoa) => (
-                    <TableRow
-                      key={pessoa.id}
-                      className={`cursor-pointer hover:bg-muted/50 ${
-                        selectedPessoa?.id === pessoa.id ? "bg-muted" : ""
-                      }`}
-                      onClick={() => setSelectedPessoa(pessoa)}
-                    >
-                      <TableCell className="font-medium">{pessoa.nome}</TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {pessoa.cpf}
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          <div>{pessoa.email}</div>
-                          <div className="text-muted-foreground">{pessoa.telefone}</div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">
-                          {pessoa.vinculos.length} empresa(s)
-                        </Badge>
-                      </TableCell>
+              {isLoading ? (
+                <div className="flex items-center justify-center h-32">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nome</TableHead>
+                      <TableHead>CPF</TableHead>
+                      <TableHead>Vínculos</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredPessoas.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
+                          Nenhuma pessoa encontrada
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredPessoas.map((pessoa) => (
+                        <TableRow
+                          key={pessoa.cpf_id}
+                          className={`cursor-pointer hover:bg-muted/50 ${
+                            selectedPessoa?.cpf_id === pessoa.cpf_id ? "bg-muted" : ""
+                          }`}
+                          onClick={() => setSelectedPessoa(pessoa)}
+                        >
+                          <TableCell className="font-medium">{pessoa.nome}</TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {formatCpf(pessoa.cpf_numero)}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="secondary">
+                              {pessoa.vinculos.length} empresa(s)
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -166,19 +194,8 @@ const Pessoas = () => {
                 <div>
                   <h3 className="font-semibold text-lg">{selectedPessoa.nome}</h3>
                   <p className="text-sm text-muted-foreground">
-                    CPF: {selectedPessoa.cpf}
+                    CPF: {formatCpf(selectedPessoa.cpf_numero)}
                   </p>
-                </div>
-
-                <div className="space-y-2 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">Email:</span>
-                    <p>{selectedPessoa.email}</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Telefone:</span>
-                    <p>{selectedPessoa.telefone}</p>
-                  </div>
                 </div>
 
                 <div className="pt-4 border-t">
@@ -186,27 +203,70 @@ const Pessoas = () => {
                     <Building2 className="h-4 w-4" />
                     Vínculos com Empresas
                   </h4>
-                  <div className="space-y-3">
-                    {selectedPessoa.vinculos.map((vinculo, index) => (
-                      <div
-                        key={index}
-                        className="p-3 rounded-lg bg-muted/50 text-sm"
-                      >
-                        <div className="font-medium">{vinculo.razao_social}</div>
-                        <div className="text-muted-foreground">
-                          {vinculo.cnpj}
+                  {selectedPessoa.vinculos.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      Nenhum vínculo cadastrado
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      {selectedPessoa.vinculos.map((vinculo) => (
+                        <div
+                          key={vinculo.cnpj_id}
+                          className="p-3 rounded-lg bg-muted/50 text-sm"
+                        >
+                          <div className="font-medium">{vinculo.razao_social}</div>
+                          <div className="text-muted-foreground">
+                            {formatCnpj(vinculo.cnpj_numero)}
+                          </div>
                         </div>
-                        <Badge variant="outline" className="mt-1">
-                          {vinculo.cargo}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
-                <Button className="w-full" variant="outline">
-                  Adicionar vínculo
-                </Button>
+                <div className="pt-4 border-t space-y-3">
+                  <h4 className="font-medium flex items-center gap-2">
+                    <LinkIcon className="h-4 w-4" />
+                    Adicionar Vínculo
+                  </h4>
+                  <Select value={selectedEmpresa} onValueChange={setSelectedEmpresa}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione uma empresa" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {empresasDisponiveis.length === 0 ? (
+                        <SelectItem value="none" disabled>
+                          Nenhuma empresa disponível
+                        </SelectItem>
+                      ) : (
+                        empresasDisponiveis.map((emp) => (
+                          <SelectItem key={emp.cnpj_id} value={emp.cnpj_id.toString()}>
+                            <div className="flex flex-col">
+                              <span className="font-medium">{emp.razao_social}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {formatCnpj(emp.cnpj_numero)}
+                              </span>
+                            </div>
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <Button 
+                    className="w-full" 
+                    onClick={handleAddVinculo}
+                    disabled={!selectedEmpresa || isAddingVinculo}
+                  >
+                    {isAddingVinculo ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Adicionando...
+                      </>
+                    ) : (
+                      "Adicionar vínculo"
+                    )}
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ) : (
@@ -218,6 +278,13 @@ const Pessoas = () => {
           )}
         </div>
       </div>
+
+      <NovaPessoaModal
+        open={novaModalOpen}
+        onOpenChange={setNovaModalOpen}
+        onSuccess={() => refetch()}
+        addPessoa={addPessoa}
+      />
     </div>
   );
 };

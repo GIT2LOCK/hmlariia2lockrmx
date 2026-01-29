@@ -17,6 +17,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { 
   Building2, 
   FileText, 
@@ -25,10 +38,16 @@ import {
   MapPin,
   User,
   Loader2,
-  Tag
+  Tag,
+  Check,
+  ChevronsUpDown,
+  Plus
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { NovaPessoaModal } from "./NovaPessoaModal";
+import { formatCpf } from "@/hooks/usePessoas";
 
 interface NovaEmpresaModalProps {
   open: boolean;
@@ -82,16 +101,25 @@ const formatCEP = (value: string) => {
 // Função para remover máscara e retornar apenas dígitos
 const removeMask = (value: string) => value.replace(/\D/g, "");
 
+interface Pessoa {
+  cpf_id: number;
+  nome: string;
+  cpf_numero: string;
+}
+
 export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaModalProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [empresasSuperiores, setEmpresasSuperiores] = useState<EmpresaSuperior[]>([]);
+  const [pessoas, setPessoas] = useState<Pessoa[]>([]);
+  const [responsavelOpen, setResponsavelOpen] = useState(false);
+  const [novaPessoaModalOpen, setNovaPessoaModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     razaoSocial: "",
     cnpj: "",
     ccm: "",
     casn: "",
-    responsavelNome: "",
+    responsavelCpfId: "",
     categoriaId: "",
     agencia: "",
     superiorCnpjId: "",
@@ -124,6 +152,67 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
       fetchCategorias();
     }
   }, [open]);
+
+  // Buscar pessoas do banco
+  useEffect(() => {
+    const fetchPessoas = async () => {
+      const { data, error } = await supabase
+        .from("tb_cpf")
+        .select("cpf_id, nome, cpf_numero")
+        .order("nome");
+
+      if (!error && data) {
+        setPessoas(data);
+      }
+    };
+
+    if (open) {
+      fetchPessoas();
+    }
+  }, [open]);
+
+  // Função para adicionar pessoa
+  const addPessoa = async (nome: string, cpfNumero: string) => {
+    try {
+      const { data: existing } = await supabase
+        .from("tb_cpf")
+        .select("cpf_id")
+        .eq("cpf_numero", cpfNumero.replace(/\D/g, ""))
+        .maybeSingle();
+
+      if (existing) {
+        return { success: false, error: "CPF já cadastrado" };
+      }
+
+      const { data, error } = await supabase
+        .from("tb_cpf")
+        .insert({
+          nome,
+          cpf_numero: cpfNumero.replace(/\D/g, ""),
+        })
+        .select("cpf_id")
+        .single();
+
+      if (error) throw error;
+
+      // Recarregar pessoas
+      const { data: updatedPessoas } = await supabase
+        .from("tb_cpf")
+        .select("cpf_id, nome, cpf_numero")
+        .order("nome");
+      
+      if (updatedPessoas) {
+        setPessoas(updatedPessoas);
+      }
+
+      return { success: true, cpf_id: data.cpf_id };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  };
+
+  // Obter responsável selecionado
+  const responsavelSelecionado = pessoas.find(p => p.cpf_id.toString() === formData.responsavelCpfId);
 
   // Determinar qual campo mostrar baseado na categoria selecionada
   const categoriaSelecionada = categorias.find(c => c.cat_id.toString() === formData.categoriaId);
@@ -251,7 +340,7 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
           cnpj_numero: removeMask(formData.cnpj),
           ccm: formData.ccm,
           casn: formData.casn || null,
-          responsavel_nome: formData.responsavelNome || null,
+          responsavel_nome: responsavelSelecionado?.nome || null,
           cat_id: formData.categoriaId ? parseInt(formData.categoriaId) : null,
           agencia: mostrarAgencia ? formData.agencia || null : null,
           superior_cnpj: mostrarSuperiorImediato && empresaSuperior ? empresaSuperior.cnpj_numero : null,
@@ -265,28 +354,56 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
       if (cnpjError) throw cnpjError;
 
       // 5. Criar entrada na tabela de relação tb_cpf_cnpj
-      // Para isso, precisamos de um cpf_id. Vamos criar um registro temporário ou usar um existente
-      // Por enquanto, vamos criar um CPF genérico para a empresa
-      const { data: cpfData, error: cpfError } = await supabase
-        .from("tb_cpf")
-        .insert({
-          nome: formData.responsavelNome || formData.razaoSocial,
-          cpf_numero: "000.000.000-00", // CPF placeholder para empresas
-        })
-        .select("cpf_id")
-        .single();
+      // Se o responsável foi selecionado, vincular essa pessoa; caso contrário, criar um placeholder
+      let cpfIdParaVincular: number;
+      
+      if (formData.responsavelCpfId) {
+        cpfIdParaVincular = parseInt(formData.responsavelCpfId);
+      } else {
+        // Criar um CPF placeholder para a empresa
+        const cpfPlaceholder = String(cnpjData.cnpj_id).padStart(11, "0");
+        
+        const { data: existingCpf } = await supabase
+          .from("tb_cpf")
+          .select("cpf_id")
+          .eq("cpf_numero", cpfPlaceholder)
+          .maybeSingle();
+        
+        if (existingCpf) {
+          cpfIdParaVincular = existingCpf.cpf_id;
+        } else {
+          const { data: cpfData, error: cpfError } = await supabase
+            .from("tb_cpf")
+            .insert({
+              nome: formData.razaoSocial,
+              cpf_numero: cpfPlaceholder,
+            })
+            .select("cpf_id")
+            .single();
 
-      if (cpfError) throw cpfError;
+          if (cpfError) throw cpfError;
+          cpfIdParaVincular = cpfData.cpf_id;
+        }
+      }
 
-      // 6. Criar a relação CPF/CNPJ
-      const { error: relacaoError } = await supabase
+      // 6. Verificar se a relação CPF/CNPJ já existe
+      const { data: existingRelation } = await supabase
         .from("tb_cpf_cnpj")
-        .insert({
-          cpf_id: cpfData.cpf_id,
-          cnpj_id: cnpjData.cnpj_id,
-        });
+        .select("id")
+        .eq("cpf_id", cpfIdParaVincular)
+        .eq("cnpj_id", cnpjData.cnpj_id)
+        .maybeSingle();
 
-      if (relacaoError) throw relacaoError;
+      if (!existingRelation) {
+        const { error: relacaoError } = await supabase
+          .from("tb_cpf_cnpj")
+          .insert({
+            cpf_id: cpfIdParaVincular,
+            cnpj_id: cnpjData.cnpj_id,
+          });
+
+        if (relacaoError) throw relacaoError;
+      }
 
       toast.success("Empresa cadastrada com sucesso!");
       onOpenChange(false);
@@ -298,7 +415,7 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
         cnpj: "",
         ccm: "",
         casn: "",
-        responsavelNome: "",
+        responsavelCpfId: "",
         categoriaId: "",
         agencia: "",
         superiorCnpjId: "",
@@ -330,6 +447,7 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader className="pb-4">
@@ -402,18 +520,83 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="responsavelNome">
+                <Label>
                   <div className="flex items-center gap-2">
                     <User className="h-4 w-4" />
-                    Nome do Responsável
+                    Responsável
                   </div>
                 </Label>
-                <Input
-                  id="responsavelNome"
-                  placeholder="Nome do responsável pela empresa"
-                  value={formData.responsavelNome}
-                  onChange={(e) => handleInputChange("responsavelNome", e.target.value)}
-                />
+                <div className="flex gap-2">
+                  <Popover open={responsavelOpen} onOpenChange={setResponsavelOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={responsavelOpen}
+                        className="flex-1 justify-between font-normal"
+                      >
+                        {responsavelSelecionado ? (
+                          <div className="flex flex-col items-start text-left">
+                            <span>{responsavelSelecionado.nome}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {formatCpf(responsavelSelecionado.cpf_numero)}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">Selecione o responsável</span>
+                        )}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[300px] p-0" align="start">
+                      <Command>
+                        <CommandInput placeholder="Buscar pessoa..." />
+                        <CommandList>
+                          <CommandEmpty>Nenhuma pessoa encontrada</CommandEmpty>
+                          <CommandGroup>
+                            {pessoas.map((pessoa) => (
+                              <CommandItem
+                                key={pessoa.cpf_id}
+                                value={`${pessoa.nome} ${pessoa.cpf_numero}`}
+                                onSelect={() => {
+                                  setFormData(prev => ({ 
+                                    ...prev, 
+                                    responsavelCpfId: pessoa.cpf_id.toString() 
+                                  }));
+                                  setResponsavelOpen(false);
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    formData.responsavelCpfId === pessoa.cpf_id.toString() 
+                                      ? "opacity-100" 
+                                      : "opacity-0"
+                                  )}
+                                />
+                                <div className="flex flex-col">
+                                  <span>{pessoa.nome}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {formatCpf(pessoa.cpf_numero)}
+                                  </span>
+                                </div>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setNovaPessoaModalOpen(true)}
+                    title="Cadastrar nova pessoa"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -664,5 +847,15 @@ export function NovaEmpresaModal({ open, onOpenChange, onSuccess }: NovaEmpresaM
         </form>
       </DialogContent>
     </Dialog>
+
+    <NovaPessoaModal
+      open={novaPessoaModalOpen}
+      onOpenChange={setNovaPessoaModalOpen}
+      onSuccess={(cpfId, nome) => {
+        setFormData(prev => ({ ...prev, responsavelCpfId: cpfId.toString() }));
+      }}
+      addPessoa={addPessoa}
+    />
+    </>
   );
 }
