@@ -59,6 +59,7 @@ const getMenusByRole = (role: UserRole): MenuSection[] => {
             { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
             { title: "Demandas", url: "/dashboard/demandas", icon: ClipboardList },
             { title: "Empresas", url: "/dashboard/empresas", icon: Building2 },
+            { title: "Pessoas", url: "/dashboard/pessoas", icon: Users },
           ],
         },
         {
@@ -77,6 +78,7 @@ const getMenusByRole = (role: UserRole): MenuSection[] => {
             { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
             { title: "Minhas Demandas", url: "/dashboard/demandas", icon: ClipboardList },
             { title: "Empresas", url: "/dashboard/empresas", icon: Building2 },
+            { title: "Pessoas", url: "/dashboard/pessoas", icon: Users },
           ],
         },
         {
