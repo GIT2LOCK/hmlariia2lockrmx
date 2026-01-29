@@ -2,8 +2,10 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Shield, Loader2, QrCode, Copy, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { getDeviceToken } from "@/services/authService";
 
 const SUPABASE_URL = "https://vaszvkujzyzpoqmqpphz.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZhc3p2a3Vqenl6cG9xbXFwcGh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI5NTIzNDgsImV4cCI6MjA3ODUyODM0OH0.vZ4JbfmzfFFs-GX-P3HnV04X1ylkxNraex5jqVpTvIM";
@@ -11,9 +13,10 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 interface TwoFactorSetupModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (session?: { token: string; expires_at: string }, user?: { id: number; nome: string; email?: string; permissao: string }) => void;
   userId: number;
   userName: string;
+  userEmail?: string;
   setupToken?: string; // Token from signup for 2FA setup
 }
 
@@ -23,6 +26,7 @@ export function TwoFactorSetupModal({
   onSuccess,
   userId,
   userName,
+  userEmail,
   setupToken,
 }: TwoFactorSetupModalProps) {
   const [step, setStep] = useState<"generate" | "verify">("generate");
@@ -31,6 +35,7 @@ export function TwoFactorSetupModal({
   const [secret, setSecret] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
   const [copied, setCopied] = useState(false);
+  const [rememberDevice, setRememberDevice] = useState(true); // Default to checked
   const { toast } = useToast();
 
   const handleGenerateQR = async () => {
@@ -99,10 +104,18 @@ export function TwoFactorSetupModal({
         headers["Authorization"] = `Bearer ${setupToken}`;
       }
       
+      const deviceToken = getDeviceToken();
+      
       const response = await fetch(`${SUPABASE_URL}/functions/v1/setup-2fa`, {
         method: "POST",
         headers,
-        body: JSON.stringify({ action: "verify", code: verificationCode }),
+        body: JSON.stringify({ 
+          action: "verify", 
+          code: verificationCode,
+          rememberDevice,
+          deviceToken,
+          userAgent: navigator.userAgent,
+        }),
       });
 
       const result = await response.json();
@@ -110,9 +123,10 @@ export function TwoFactorSetupModal({
       if (result.success) {
         toast({
           title: "2FA Ativado!",
-          description: "Sua conta está protegida. Faça login para continuar.",
+          description: "Sua conta está protegida. Bem-vindo!",
         });
-        onSuccess();
+        // Pass session and user data to parent for auto-login
+        onSuccess(result.session, result.user);
       } else {
         toast({
           title: "Erro",
@@ -259,6 +273,21 @@ export function TwoFactorSetupModal({
                   </InputOTPGroup>
                 </InputOTP>
               </div>
+            </div>
+
+            {/* Remember device checkbox */}
+            <div className="flex items-center space-x-2 w-full">
+              <Checkbox
+                id="remember-device-setup"
+                checked={rememberDevice}
+                onCheckedChange={(checked) => setRememberDevice(checked === true)}
+              />
+              <label
+                htmlFor="remember-device-setup"
+                className="text-sm text-muted-foreground cursor-pointer"
+              >
+                Lembrar este dispositivo por 30 dias
+              </label>
             </div>
 
             <Button

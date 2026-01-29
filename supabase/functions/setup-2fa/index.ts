@@ -101,7 +101,7 @@ serve(async (req) => {
       );
     }
 
-    const { action, code } = await req.json();
+    const { action, code, rememberDevice, deviceToken, userAgent } = await req.json();
 
     if (!action) {
       return new Response(
@@ -110,7 +110,7 @@ serve(async (req) => {
       );
     }
 
-    // Get user with email
+    // Get user with email and permission
     const { data: userData, error: fetchError } = await supabase
       .from("tb_usuario")
       .select(`
@@ -118,7 +118,9 @@ serve(async (req) => {
         nome,
         totp_secret,
         totp_enabled,
-        tb_email!inner (email_principal)
+        permissao_id,
+        tb_email!inner (email_principal),
+        tb_permissao!inner (nome, descricao)
       `)
       .eq("user_id", userId)
       .single();
@@ -214,8 +216,60 @@ serve(async (req) => {
         );
       }
 
+      // Register device if rememberDevice is true
+      if (rememberDevice && deviceToken) {
+        const rememberUntil = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+        const ipAddress = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+          req.headers.get("x-real-ip") ||
+          req.headers.get("cf-connecting-ip") ||
+          "unknown";
+
+        // Upsert device record
+        await supabase
+          .from("tb_dispositivo")
+          .upsert({
+            user_id: userId,
+            device_token: deviceToken,
+            ip_address: ipAddress,
+            user_agent: userAgent || "unknown",
+            device_type: "desktop",
+            is_active: true,
+            login_at: new Date().toISOString(),
+            last_activity: new Date().toISOString(),
+            remember_until: rememberUntil.toISOString(),
+          }, {
+            onConflict: "device_token",
+          });
+      }
+
+      // Get current session token from request
+      const authHeader = req.headers.get("Authorization");
+      const sessionToken = authHeader?.replace("Bearer ", "");
+
+      // Get session info
+      const { data: sessionData } = await supabase
+        .from("sessions")
+        .select("expires_at")
+        .eq("token", sessionToken)
+        .maybeSingle();
+
+      const permissaoNome = (userData.tb_permissao as unknown as { nome: string }).nome;
+
       return new Response(
-        JSON.stringify({ success: true, message: "2FA ativado com sucesso!" }),
+        JSON.stringify({ 
+          success: true, 
+          message: "2FA ativado com sucesso!",
+          session: sessionData ? {
+            token: sessionToken,
+            expires_at: sessionData.expires_at,
+          } : null,
+          user: {
+            id: userData.user_id,
+            nome: userData.nome,
+            email: email,
+            permissao: permissaoNome,
+          },
+        }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
