@@ -10,6 +10,7 @@ export interface Usuario {
   permissao_nome: string;
   permissao_descricao: string;
   ativo: boolean;
+  atendente: boolean;
   email_verificado: boolean;
   totp_enabled: boolean;
   data_criacao: string;
@@ -38,6 +39,7 @@ export function useUsuarios() {
           user_id,
           nome,
           ativo,
+          atendente,
           email_verificado,
           totp_enabled,
           data_criacao,
@@ -61,6 +63,7 @@ export function useUsuarios() {
         permissao_nome: user.tb_permissao?.nome || "VIEWER",
         permissao_descricao: user.tb_permissao?.descricao || "",
         ativo: user.ativo,
+        atendente: user.atendente ?? false,
         email_verificado: user.email_verificado,
         totp_enabled: user.totp_enabled,
         data_criacao: user.data_criacao,
@@ -94,6 +97,25 @@ export function useUsuarios() {
       return { success: true };
     } catch (err: any) {
       console.error("Error toggling user status:", err);
+      return { success: false, error: err.message };
+    }
+  };
+
+  const toggleUsuarioAtendente = async (userId: number, atendente: boolean) => {
+    try {
+      const { error: updateError } = await supabase
+        .from("tb_usuario")
+        .update({ atendente })
+        .eq("user_id", userId);
+
+      if (updateError) throw updateError;
+
+      setUsuarios((prev) =>
+        prev.map((u) => (u.user_id === userId ? { ...u, atendente } : u))
+      );
+      return { success: true };
+    } catch (err: any) {
+      console.error("Error toggling atendente status:", err);
       return { success: false, error: err.message };
     }
   };
@@ -157,6 +179,7 @@ export function useUsuarios() {
     error,
     refetch: fetchUsuarios,
     toggleUsuarioAtivo,
+    toggleUsuarioAtendente,
     updateUsuarioPermissao,
     deleteUsuario,
   };

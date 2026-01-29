@@ -72,6 +72,7 @@ interface Via {
 interface Usuario {
   user_id: number;
   nome: string;
+  atendente: boolean;
 }
 
 interface Empresa {
@@ -182,7 +183,7 @@ export function NovaDemandaModal({ open, onOpenChange, onSuccess }: NovaDemandaM
       const [prioridadesRes, viasRes, usuariosRes, empresasRes, cpfCnpjRes, statusRes] = await Promise.all([
         supabase.from("tb_prioridade").select("*").order("prioridade_nivel", { ascending: true }),
         supabase.from("tb_via").select("*"),
-        supabase.from("tb_usuario").select("user_id, nome").eq("ativo", true),
+        supabase.from("tb_usuario").select("user_id, nome, atendente").eq("ativo", true).eq("atendente", true),
         supabase.from("tb_cnpj").select("cnpj_id, razao_social, cnpj_numero"),
         supabase.from("tb_cpf_cnpj").select("id, cnpj_id, cpf_id"),
         supabase.from("tb_status").select("*").order("status_id", { ascending: true }),
