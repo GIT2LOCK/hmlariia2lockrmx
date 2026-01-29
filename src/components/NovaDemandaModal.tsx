@@ -513,12 +513,7 @@ export function NovaDemandaModal({ open, onOpenChange, onSuccess }: NovaDemandaM
                       className="w-full justify-between font-normal"
                     >
                       {tipoDemandaSelecionado ? (
-                        <div className="flex items-center gap-2">
-                          <span>{tipoDemandaSelecionado.nome}</span>
-                          <Badge variant="secondary" className={getTipoLabel(tipoDemandaSelecionado.tipo).color}>
-                            {getTipoLabel(tipoDemandaSelecionado.tipo).label}
-                          </Badge>
-                        </div>
+                        <span>{tipoDemandaSelecionado.nome}</span>
                       ) : (
                         <span className="text-muted-foreground">Selecione o tipo de demanda</span>
                       )}
@@ -530,7 +525,7 @@ export function NovaDemandaModal({ open, onOpenChange, onSuccess }: NovaDemandaM
                       <CommandInput placeholder="Buscar tipo de demanda..." />
                       <CommandList>
                         <CommandEmpty>Nenhum tipo encontrado</CommandEmpty>
-                        <CommandGroup heading="Tipo 1 - Urgente (20 min)">
+                        <CommandGroup heading="SLA: 20 minutos">
                           {tiposDemanda.filter(t => t.tipo === 1).map((tipo) => (
                             <CommandItem
                               key={tipo.id}
@@ -550,7 +545,7 @@ export function NovaDemandaModal({ open, onOpenChange, onSuccess }: NovaDemandaM
                             </CommandItem>
                           ))}
                         </CommandGroup>
-                        <CommandGroup heading="Tipo 2 - Prioridade Média (1 hora)">
+                        <CommandGroup heading="SLA: 1 hora">
                           {tiposDemanda.filter(t => t.tipo === 2).map((tipo) => (
                             <CommandItem
                               key={tipo.id}
@@ -570,7 +565,7 @@ export function NovaDemandaModal({ open, onOpenChange, onSuccess }: NovaDemandaM
                             </CommandItem>
                           ))}
                         </CommandGroup>
-                        <CommandGroup heading="Tipo 3 - Baixa Prioridade (2 dias)">
+                        <CommandGroup heading="SLA: 2 dias">
                           {tiposDemanda.filter(t => t.tipo === 3).map((tipo) => (
                             <CommandItem
                               key={tipo.id}
