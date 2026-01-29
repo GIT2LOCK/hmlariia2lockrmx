@@ -7,11 +7,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useUser } from "@/contexts/UserContext";
-import { User, Mail, Phone, Lock, Save, Monitor, Shield } from "lucide-react";
+import { User, Mail, Lock, Save, Monitor, Shield, Camera } from "lucide-react";
 import { TwoFactorSettings } from "@/components/TwoFactorSettings";
 import { DevicesTab } from "@/components/DevicesTab";
 import { getStoredUser } from "@/services/authService";
 import { supabase } from "@/integrations/supabase/client";
+import { AvatarUploadModal } from "@/components/AvatarUploadModal";
 
 const formatPhoneMask = (value: string): string => {
   // Remove tudo que não é número
@@ -38,12 +39,37 @@ const MeuPerfil = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [is2FAEnabled, setIs2FAEnabled] = useState(false);
   const [isLoading2FA, setIsLoading2FA] = useState(true);
+  const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | undefined>(undefined);
   const [formData, setFormData] = useState({
     nome: user.nome,
     sobrenome: user.sobrenome,
     email: user.email,
     telefone: "(11) 9-9999-0000",
   });
+
+  // Load avatar from database
+  useEffect(() => {
+    const loadAvatar = async () => {
+      if (!storedUser?.id) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from("tb_usuario")
+          .select("avatar_url")
+          .eq("user_id", storedUser.id)
+          .maybeSingle();
+        
+        if (data?.avatar_url) {
+          setAvatarUrl(data.avatar_url);
+        }
+      } catch (err) {
+        console.error("Erro ao carregar avatar:", err);
+      }
+    };
+    
+    loadAvatar();
+  }, [storedUser?.id]);
 
   // Carregar status do 2FA do banco de dados
   useEffect(() => {
@@ -95,13 +121,20 @@ const MeuPerfil = () => {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 md:gap-6">
         <Card className="lg:col-span-1">
           <CardHeader className="text-center p-4 md:p-6">
-            <div className="flex justify-center mb-3 md:mb-4">
+            <div className="flex justify-center mb-3 md:mb-4 relative">
               <Avatar className="h-16 w-16 md:h-24 md:w-24">
-                <AvatarImage src={user.avatar} alt={`${user.nome} ${user.sobrenome}`} />
+                <AvatarImage src={avatarUrl} alt={`${user.nome} ${user.sobrenome}`} />
                 <AvatarFallback className="text-lg md:text-2xl">
                   {user.nome[0]}{user.sobrenome[0]}
                 </AvatarFallback>
               </Avatar>
+              <button
+                onClick={() => setIsAvatarModalOpen(true)}
+                className="absolute bottom-0 right-1/2 translate-x-6 md:translate-x-8 bg-primary text-primary-foreground rounded-full p-1.5 hover:bg-primary/90 transition-colors"
+                title="Alterar foto"
+              >
+                <Camera className="h-3 w-3 md:h-4 md:w-4" />
+              </button>
             </div>
             <CardTitle className="text-base md:text-lg">{user.nome} {user.sobrenome}</CardTitle>
             <CardDescription className="text-xs md:text-sm">{user.cargo}</CardDescription>
@@ -120,11 +153,25 @@ const MeuPerfil = () => {
 
             <Separator className="my-3 md:my-4" />
 
-            <Button variant="outline" className="w-full text-xs md:text-sm">
+            <Button 
+              variant="outline" 
+              className="w-full text-xs md:text-sm"
+              onClick={() => setIsAvatarModalOpen(true)}
+            >
+              <Camera className="h-4 w-4 mr-2" />
               Alterar foto
             </Button>
           </CardContent>
         </Card>
+
+        <AvatarUploadModal
+          isOpen={isAvatarModalOpen}
+          onClose={() => setIsAvatarModalOpen(false)}
+          userId={storedUser?.id || 0}
+          currentAvatar={avatarUrl}
+          userName={`${user.nome} ${user.sobrenome}`}
+          onSuccess={(newUrl) => setAvatarUrl(newUrl)}
+        />
 
         <div className="lg:col-span-3">
           <Tabs defaultValue="dados" className="w-full">
