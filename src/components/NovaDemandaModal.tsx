@@ -174,8 +174,8 @@ export function NovaDemandaModal({ open, onOpenChange, onSuccess }: NovaDemandaM
     titulo: "",
     descricao: "",
     viaId: "",
-    prioridadeId: "",
-    statusId: "1", // Status "Novo" como padrão
+    prioridadeId: "3", // Prioridade "Média" como padrão (nivel 3)
+    statusId: "1", // Status "Novo" como padrão - NÃO EDITÁVEL
     responsavelId: "",
     prazoInicio: "",
     prazoFim: "",
@@ -358,8 +358,8 @@ export function NovaDemandaModal({ open, onOpenChange, onSuccess }: NovaDemandaM
         titulo: "",
         descricao: "",
         viaId: "",
-        prioridadeId: "",
-        statusId: "1",
+        prioridadeId: "3", // Prioridade "Média" como padrão
+        statusId: "1", // Status "Novo" como padrão
         responsavelId: "",
         prazoInicio: "",
         prazoFim: "",
@@ -640,24 +640,15 @@ export function NovaDemandaModal({ open, onOpenChange, onSuccess }: NovaDemandaM
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="status">Status *</Label>
-                  <Select
-                    value={formData.statusId}
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, statusId: value }))}
-                  >
-                    <SelectTrigger id="status">
-                      <SelectValue placeholder="Selecione o status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {statusList.map((s) => (
-                        <SelectItem key={s.status_id} value={s.status_id.toString()}>
-                          <Badge variant="secondary" className={getStatusCor(s.status_nome)}>
-                            {s.status_nome}
-                          </Badge>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="status">Status</Label>
+                  <div className="flex h-10 w-full items-center rounded-md border border-input bg-muted/50 px-3 py-2 text-sm">
+                    <Badge variant="secondary" className="bg-blue-100 text-blue-700">
+                      Novo
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Toda demanda inicia com status "Novo"
+                  </p>
                 </div>
 
                 <div className="space-y-2">

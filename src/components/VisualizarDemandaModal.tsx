@@ -65,6 +65,8 @@ interface Demanda {
   status_id: number;
   prioridade_id: number;
   via_id: number;
+  created_at?: string;
+  concluded_at?: string;
   responsavel_nome?: string;
   empresa_nome?: string;
   empresa_cnpj?: string;
@@ -122,15 +124,17 @@ const getPrioridadeCor = (nivel: number): string => {
 
 const getStatusCor = (statusNome: string): string => {
   switch (statusNome?.toLowerCase()) {
-    case "concluído":
-    case "concluido":
+    case "concluído no prazo":
       return "bg-green-500/10 text-green-600 border-green-500/20";
-    case "em andamento":
+    case "concluída fora do prazo":
+    case "concluído fora do prazo":
+      return "bg-red-500/10 text-red-600 border-red-500/20";
+    case "em atendimento":
       return "bg-blue-500/10 text-blue-600 border-blue-500/20";
     case "pendente":
       return "bg-yellow-500/10 text-yellow-600 border-yellow-500/20";
-    case "cancelado":
-      return "bg-red-500/10 text-red-600 border-red-500/20";
+    case "novo":
+      return "bg-purple-500/10 text-purple-600 border-purple-500/20";
     default:
       return "bg-muted text-muted-foreground";
   }
@@ -285,19 +289,52 @@ export function VisualizarDemandaModal({
   };
 
   // Verificar se a demanda já está concluída
-  const isDemandaConcluida = demanda?.status_nome?.toLowerCase() === "concluída" || 
-                              demanda?.status_nome?.toLowerCase() === "concluido";
+  const isDemandaConcluida = demanda?.status_nome?.toLowerCase().includes("concluído") || 
+                              demanda?.status_nome?.toLowerCase().includes("concluída");
   
   // Verificar se o prazo está excedido no momento atual (usando prazo original da demanda)
   const isPrazoExcedido = demanda ? new Date(demanda.prazo_fim) < new Date() : false;
+
+  // IDs dos status de conclusão (5 = no prazo, 6 = fora do prazo)
+  const STATUS_CONCLUIDO_NO_PRAZO = 5;
+  const STATUS_CONCLUIDO_FORA_PRAZO = 6;
+  // Status que o usuário pode selecionar manualmente (1=Novo, 2=Em atendimento, 3=Pendente)
+  const statusManuais = [1, 2, 3];
 
   const handleSave = async () => {
     if (!demanda) return;
     
     setIsLoading(true);
     try {
-      // Se a demanda já está concluída, não permitir alterar o prazo
-      const prazoFinal = isDemandaConcluida ? demanda.prazo_fim : formData.prazoFim;
+      // O prazo NUNCA pode ser editado - sempre usa o prazo original
+      const prazoFinal = demanda.prazo_fim;
+      
+      // Determinar o status correto
+      let statusFinal = parseInt(formData.statusId);
+      let concludedAt: string | null = demanda.concluded_at || null;
+      
+      // Verificar se está tentando concluir a demanda
+      const statusSelecionado = statusList.find(s => s.status_id === statusFinal);
+      const isTentandoConcluir = statusSelecionado?.status_nome?.toLowerCase().includes("concluído") ||
+                                  statusSelecionado?.status_nome?.toLowerCase().includes("concluída");
+      
+      // Se está concluindo, definir automaticamente se foi no prazo ou fora do prazo
+      if (isTentandoConcluir && !isDemandaConcluida) {
+        const agora = new Date();
+        const prazo = new Date(demanda.prazo_fim);
+        concludedAt = agora.toISOString();
+        
+        if (agora <= prazo) {
+          statusFinal = STATUS_CONCLUIDO_NO_PRAZO; // Concluído no prazo
+        } else {
+          statusFinal = STATUS_CONCLUIDO_FORA_PRAZO; // Concluído fora do prazo
+        }
+      }
+      
+      // Se já está concluída, NÃO permitir alterar o status
+      if (isDemandaConcluida) {
+        statusFinal = demanda.status_id;
+      }
       
       // Preparar dados de atualização
       const updateData: Record<string, any> = {
@@ -305,11 +342,12 @@ export function VisualizarDemandaModal({
         descricao_tarefa: formData.descricao,
         via_id: parseInt(formData.viaId),
         prioridade_id: parseInt(formData.prioridadeId),
-        status_id: parseInt(formData.statusId),
+        status_id: statusFinal,
         user_id: formData.responsavelId && formData.responsavelId !== "sem-atribuicao" 
           ? parseInt(formData.responsavelId) 
           : null,
         prazo_fim: prazoFinal,
+        concluded_at: concludedAt,
       };
 
       const { error } = await supabase
@@ -602,23 +640,44 @@ export function VisualizarDemandaModal({
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="status" className="text-xs text-muted-foreground">Status</Label>
-                          <Select
-                            value={formData.statusId}
-                            onValueChange={(value) => setFormData(prev => ({ ...prev, statusId: value }))}
-                          >
-                            <SelectTrigger id="status">
-                              <SelectValue placeholder="Selecione" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {statusList.map((s) => (
-                                <SelectItem key={s.status_id} value={s.status_id.toString()}>
-                                  <Badge variant="outline" className={`border ${getStatusCor(s.status_nome)}`}>
-                                    {s.status_nome}
+                          {isDemandaConcluida ? (
+                            <div className="flex h-10 w-full items-center rounded-md border border-input bg-muted/50 px-3 py-2 text-sm">
+                              <Badge variant="outline" className={`border ${getStatusCor(demanda.status_nome || "")}`}>
+                                {demanda.status_nome}
+                              </Badge>
+                              <span className="ml-2 text-xs text-muted-foreground">(Bloqueado)</span>
+                            </div>
+                          ) : (
+                            <Select
+                              value={formData.statusId}
+                              onValueChange={(value) => setFormData(prev => ({ ...prev, statusId: value }))}
+                            >
+                              <SelectTrigger id="status">
+                                <SelectValue placeholder="Selecione" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {/* Status manuais: Novo, Em atendimento, Pendente */}
+                                {statusList.filter(s => statusManuais.includes(s.status_id)).map((s) => (
+                                  <SelectItem key={s.status_id} value={s.status_id.toString()}>
+                                    <Badge variant="outline" className={`border ${getStatusCor(s.status_nome)}`}>
+                                      {s.status_nome}
+                                    </Badge>
+                                  </SelectItem>
+                                ))}
+                                {/* Opção de concluir - o sistema define se é no prazo ou fora */}
+                                <SelectItem value={STATUS_CONCLUIDO_NO_PRAZO.toString()}>
+                                  <Badge variant="outline" className="border bg-green-500/10 text-green-600 border-green-500/20">
+                                    Concluir demanda
                                   </Badge>
                                 </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                              </SelectContent>
+                            </Select>
+                          )}
+                          {!isDemandaConcluida && (
+                            <p className="text-xs text-muted-foreground">
+                              Ao concluir, o sistema define automaticamente se foi no prazo
+                            </p>
+                          )}
                         </div>
 
                         <div className="space-y-2">
@@ -741,40 +800,25 @@ export function VisualizarDemandaModal({
                     <Label className="text-sm font-medium flex items-center gap-2">
                       <Calendar className="h-4 w-4 text-muted-foreground" />
                       Prazo Final
-                      {isDemandaConcluida && (
-                        <Badge variant="outline" className="ml-2 text-xs bg-muted">
-                          Bloqueado
-                        </Badge>
-                      )}
+                      <Badge variant="outline" className="ml-2 text-xs bg-muted">
+                        Automático
+                      </Badge>
                     </Label>
                     {isEditing ? (
-                      isDemandaConcluida ? (
-                        <div className="p-4 rounded-lg bg-muted/50 border border-dashed">
-                          <p className="font-semibold text-muted-foreground">
-                            {formatDateTime(demanda.prazo_fim)}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
-                            <AlertTriangle className="h-3 w-3" />
-                            Não é possível alterar o prazo de demandas concluídas
-                          </p>
-                          {isPrazoExcedido && (
-                            <Badge variant="destructive" className="mt-2">
-                              Concluída com prazo excedido
-                            </Badge>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="relative">
-                          <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                          <Input
-                            id="prazoFim"
-                            type="datetime-local"
-                            className="pl-10"
-                            value={formData.prazoFim}
-                            onChange={(e) => setFormData(prev => ({ ...prev, prazoFim: e.target.value }))}
-                          />
-                        </div>
-                      )
+                      <div className="p-4 rounded-lg bg-muted/50 border border-dashed">
+                        <p className="font-semibold text-muted-foreground">
+                          {formatDateTime(demanda.prazo_fim)}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+                          <AlertTriangle className="h-3 w-3" />
+                          O prazo é definido automaticamente pelo tipo de demanda e não pode ser alterado
+                        </p>
+                        {isDemandaConcluida && isPrazoExcedido && (
+                          <Badge variant="destructive" className="mt-2">
+                            Concluída com prazo excedido
+                          </Badge>
+                        )}
+                      </div>
                     ) : (
                       <div className={`p-4 rounded-lg ${tempoRestante.excedido ? 'bg-red-500/10 border border-red-500/20' : 'bg-muted/50'}`}>
                         <p className={`font-semibold ${tempoRestante.excedido ? 'text-red-600' : 'text-foreground'}`}>
@@ -811,12 +855,20 @@ export function VisualizarDemandaModal({
                       <div className="space-y-3">
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-muted-foreground">Criada em</span>
-                          <span className="font-medium">{formatDateTime(demanda.prazo_inicio)}</span>
+                          <span className="font-medium">
+                            {formatDateTime(demanda.created_at || demanda.prazo_inicio)}
+                          </span>
                         </div>
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-muted-foreground">Prazo final</span>
                           <span className="font-medium">{formatDateTime(demanda.prazo_fim)}</span>
                         </div>
+                        {demanda.concluded_at && (
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">Concluída em</span>
+                            <span className="font-medium">{formatDateTime(demanda.concluded_at)}</span>
+                          </div>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
