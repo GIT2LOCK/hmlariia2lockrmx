@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -402,6 +404,7 @@ const DemandasTable = ({
               <TableHead>Título</TableHead>
               <TableHead>Empresa</TableHead>
               <TableHead>Responsável</TableHead>
+              <TableHead>Criado em</TableHead>
               <TableHead>Via</TableHead>
               <TableHead>Prioridade</TableHead>
               <TableHead>Prazo</TableHead>
@@ -430,6 +433,18 @@ const DemandasTable = ({
                       Não atribuído
                     </span>
                   )}
+                </TableCell>
+                <TableCell>
+                  <div className="text-sm">
+                    {demanda.created_at ? (
+                      <>
+                        <div>{format(new Date(demanda.created_at), "dd/MM/yyyy", { locale: ptBR })}</div>
+                        <div className="text-muted-foreground">{format(new Date(demanda.created_at), "HH:mm", { locale: ptBR })}</div>
+                      </>
+                    ) : (
+                      <span className="text-muted-foreground italic">-</span>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2">
