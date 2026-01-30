@@ -1,8 +1,10 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ClipboardList, Users, AlertCircle, Clock, Mail, MessageSquare } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { ClipboardList, Users, AlertCircle, Clock, Mail, MessageSquare, RefreshCw } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useRealTimeRefresh } from "@/hooks/useRealTimeRefresh";
+import { Badge } from "@/components/ui/badge";
 
 interface Demanda {
   dem_id: number;
@@ -18,7 +20,9 @@ interface Demanda {
 }
 
 const Dashboard = () => {
-  const { data: demandas, isLoading } = useQuery({
+  const queryClient = useQueryClient();
+  
+  const { data: demandas, isLoading, isFetching } = useQuery({
     queryKey: ["dashboard-demandas"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -40,6 +44,15 @@ const Dashboard = () => {
       if (error) throw error;
       return data as Demanda[];
     },
+  });
+
+  // Real-time refresh
+  useRealTimeRefresh({
+    table: "tb_demanda",
+    onRefresh: () => {
+      queryClient.invalidateQueries({ queryKey: ["dashboard-demandas"] });
+    },
+    refreshInterval: 30000, // 30 seconds fallback
   });
 
   const now = new Date();
@@ -109,9 +122,17 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-4 md:space-y-6">
-      <div>
-        <h2 className="text-xl md:text-2xl font-bold text-foreground">Dashboard</h2>
-        <p className="text-sm md:text-base text-muted-foreground">Visão geral do sistema de demandas</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl md:text-2xl font-bold text-foreground">Dashboard</h2>
+          <p className="text-sm md:text-base text-muted-foreground">Visão geral do sistema de demandas</p>
+        </div>
+        {isFetching && !isLoading && (
+          <Badge variant="outline" className="gap-1 animate-pulse">
+            <RefreshCw className="h-3 w-3 animate-spin" />
+            Atualizando...
+          </Badge>
+        )}
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">

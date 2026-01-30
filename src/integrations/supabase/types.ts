@@ -198,6 +198,8 @@ export type Database = {
       tb_demanda: {
         Row: {
           cnpj_cpf_id: number
+          concluded_at: string | null
+          created_at: string | null
           dem_id: number
           descricao_tarefa: string
           prazo_fim: string
@@ -211,6 +213,8 @@ export type Database = {
         }
         Insert: {
           cnpj_cpf_id: number
+          concluded_at?: string | null
+          created_at?: string | null
           dem_id?: number
           descricao_tarefa: string
           prazo_fim: string
@@ -224,6 +228,8 @@ export type Database = {
         }
         Update: {
           cnpj_cpf_id?: number
+          concluded_at?: string | null
+          created_at?: string | null
           dem_id?: number
           descricao_tarefa?: string
           prazo_fim?: string

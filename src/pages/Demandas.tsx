@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,11 +19,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Search, Filter, Clock, AlertTriangle, Loader2, Mail, MessageSquare, Phone } from "lucide-react";
+import { Plus, Search, Filter, Clock, AlertTriangle, Loader2, Mail, MessageSquare, Phone, RefreshCw } from "lucide-react";
 import { NovaDemandaModal } from "@/components/NovaDemandaModal";
 import { VisualizarDemandaModal } from "@/components/VisualizarDemandaModal";
+import { DemandaFilters, FilterState, initialFilters } from "@/components/DemandaFilters";
 import { supabase } from "@/integrations/supabase/client";
 import { useUser } from "@/contexts/UserContext";
+import { useRealTimeRefresh } from "@/hooks/useRealTimeRefresh";
 
 interface Demanda {
   dem_id: number;
@@ -36,6 +38,9 @@ interface Demanda {
   status_id: number;
   prioridade_id: number;
   via_id: number;
+  tipodemanda_id?: number;
+  created_at?: string;
+  concluded_at?: string;
   // Dados relacionados
   responsavel_nome?: string;
   empresa_nome?: string;
@@ -83,15 +88,17 @@ const calcularTempoRestante = (prazoFim: string): { texto: string; excedido: boo
 
 const getStatusColor = (statusNome: string) => {
   switch (statusNome?.toLowerCase()) {
-    case "concluído":
-    case "concluido":
+    case "concluído no prazo":
       return "bg-green-100 text-green-700";
-    case "em andamento":
+    case "concluída fora do prazo":
+    case "concluído fora do prazo":
+      return "bg-red-100 text-red-700";
+    case "em atendimento":
       return "bg-blue-100 text-blue-700";
     case "pendente":
       return "bg-yellow-100 text-yellow-700";
-    case "cancelado":
-      return "bg-red-100 text-red-700";
+    case "novo":
+      return "bg-purple-100 text-purple-700";
     default:
       return "bg-gray-100 text-gray-700";
   }
@@ -140,17 +147,21 @@ const getViaLabel = (temEmail: boolean, temWhatsapp: boolean) => {
 const Demandas = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterVia, setFilterVia] = useState("todas");
+  const [filters, setFilters] = useState<FilterState>(initialFilters);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [selectedDemanda, setSelectedDemanda] = useState<Demanda | null>(null);
   const [demandas, setDemandas] = useState<Demanda[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const { user, canEdit } = useUser();
 
-  const fetchDemandas = async () => {
-    setIsLoading(true);
+  const fetchDemandas = useCallback(async (showLoading = true) => {
+    if (showLoading) setIsLoading(true);
+    else setIsRefreshing(true);
+    
     try {
-      // Buscar demandas com dados relacionados
+      // Buscar demandas com dados relacionados - sem limite para mostrar todas
       const { data: demandasData, error: demandasError } = await supabase
         .from("tb_demanda")
         .select(`
@@ -186,23 +197,66 @@ const Demandas = () => {
       console.error("Erro ao buscar demandas:", error);
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
     }
-  };
+  }, []);
+
+  // Real-time refresh
+  useRealTimeRefresh({
+    table: "tb_demanda",
+    onRefresh: () => fetchDemandas(false),
+    refreshInterval: 30000,
+  });
 
   useEffect(() => {
     fetchDemandas();
-  }, []);
+  }, [fetchDemandas]);
 
+  // Aplicar todos os filtros
   const filteredDemandas = demandas.filter((demanda) => {
+    // Filtro de busca por texto
     const matchesSearch =
       demanda.titulo_demanda.toLowerCase().includes(searchTerm.toLowerCase()) ||
       demanda.empresa_nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       demanda.empresa_cnpj?.includes(searchTerm);
     
+    // Filtro por via
     const viaLabel = getViaLabel(demanda.tem_email || false, demanda.tem_whatsapp || false);
     const matchesVia = filterVia === "todas" || viaLabel === filterVia;
     
-    return matchesSearch && matchesVia;
+    // Filtros avançados
+    // Data início
+    const matchesDataInicio = !filters.dataInicio || 
+      new Date(demanda.prazo_inicio) >= filters.dataInicio;
+    
+    // Data fim
+    const matchesDataFim = !filters.dataFim || 
+      new Date(demanda.prazo_fim) <= new Date(filters.dataFim.getTime() + 24 * 60 * 60 * 1000 - 1);
+    
+    // Responsável
+    const matchesResponsavel = filters.responsavelId === "todos" ||
+      (filters.responsavelId === "sem-atribuicao" && demanda.user_id === null) ||
+      demanda.user_id?.toString() === filters.responsavelId;
+    
+    // Empresa
+    const matchesEmpresa = filters.empresaId === "todos" ||
+      demanda.cnpj_cpf_id?.toString() === filters.empresaId;
+    
+    // Prioridade
+    const matchesPrioridade = filters.prioridadeId === "todos" ||
+      demanda.prioridade_id?.toString() === filters.prioridadeId;
+    
+    // Status
+    const matchesStatus = filters.statusId === "todos" ||
+      demanda.status_id?.toString() === filters.statusId;
+    
+    // Tipo de demanda
+    const matchesTipoDemanda = filters.tipoDemandaId === "todos" ||
+      (demanda as any).tipodemanda_id?.toString() === filters.tipoDemandaId;
+    
+    return matchesSearch && matchesVia && matchesDataInicio && matchesDataFim && 
+           matchesResponsavel && matchesEmpresa && matchesPrioridade && 
+           matchesStatus && matchesTipoDemanda;
   });
 
   const minhasDemandas = filteredDemandas.filter(
@@ -219,6 +273,10 @@ const Demandas = () => {
     setIsViewModalOpen(true);
   };
 
+  const handleClearFilters = () => {
+    setFilters(initialFilters);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -228,12 +286,20 @@ const Demandas = () => {
             Gerencie todas as demandas do escritório
           </p>
         </div>
-        {canEdit && (
-          <Button onClick={() => setIsModalOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Nova Demanda
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {isRefreshing && (
+            <Badge variant="outline" className="gap-1 animate-pulse">
+              <RefreshCw className="h-3 w-3 animate-spin" />
+              Atualizando...
+            </Badge>
+          )}
+          {canEdit && (
+            <Button onClick={() => setIsModalOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Nova Demanda
+            </Button>
+          )}
+        </div>
       </div>
 
       <NovaDemandaModal 
@@ -247,6 +313,13 @@ const Demandas = () => {
         onOpenChange={setIsViewModalOpen}
         demanda={selectedDemanda}
         onSuccess={handleDemandaCriada}
+      />
+
+      {/* Filtros avançados */}
+      <DemandaFilters
+        filters={filters}
+        onFiltersChange={setFilters}
+        onClearFilters={handleClearFilters}
       />
 
       <div className="flex gap-4">
