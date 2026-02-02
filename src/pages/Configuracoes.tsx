@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -12,49 +14,155 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Pencil, Trash2, Shield, Mail, Tag, Building } from "lucide-react";
-
-const mockPermissoes = [
-  { id: 1, nome: "SUPERADMIN", descricao: "Controle total e irrestrito do sistema" },
-  { id: 2, nome: "ADMIN", descricao: "Gestão administrativa (exceto sobre Superadmins)" },
-  { id: 3, nome: "USER", descricao: "Operacional focado em demandas próprias" },
-  { id: 4, nome: "VIEWER", descricao: "Somente visualização" },
-];
-
-const mockVias = [
-  { id: 1, nome: "Email", descricao: "Demandas recebidas por email" },
-  { id: 2, nome: "WhatsApp", descricao: "Demandas recebidas por WhatsApp" },
-  { id: 3, nome: "Telefone", descricao: "Demandas recebidas por telefone" },
-  { id: 4, nome: "Presencial", descricao: "Demandas recebidas presencialmente" },
-];
-
-const mockCategorias = [
-  { id: 1, nome: "Tecnologia", cor: "blue" },
-  { id: 2, nome: "Comércio", cor: "green" },
-  { id: 3, nome: "Indústria", cor: "orange" },
-  { id: 4, nome: "Serviços", cor: "purple" },
-  { id: 5, nome: "Saúde", cor: "red" },
-];
-
-const mockAgencias = [
-  { id: 1, nome: "Centro", endereco: "Rua Principal, 100 - Centro" },
-  { id: 2, nome: "Zona Sul", endereco: "Av. Sul, 200 - Zona Sul" },
-  { id: 3, nome: "Zona Norte", endereco: "Rua Norte, 300 - Zona Norte" },
-  { id: 4, nome: "Zona Oeste", endereco: "Av. Oeste, 400 - Zona Oeste" },
-];
-
-const getCategoriaColor = (cor: string) => {
-  const colors: Record<string, string> = {
-    blue: "bg-blue-100 text-blue-700",
-    green: "bg-green-100 text-green-700",
-    orange: "bg-orange-100 text-orange-700",
-    purple: "bg-purple-100 text-purple-700",
-    red: "bg-red-100 text-red-700",
-  };
-  return colors[cor] || "bg-gray-100 text-gray-700";
-};
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Plus, Shield, Mail, FileText, Loader2 } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useUser } from "@/contexts/UserContext";
+import { toast } from "sonner";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const Configuracoes = () => {
+  const { user, canManageUsers } = useUser();
+  const queryClient = useQueryClient();
+  const [novoTipoDemandaOpen, setNovoTipoDemandaOpen] = useState(false);
+  const [novoTipoNome, setNovoTipoNome] = useState("");
+  const [novoTipoSLA, setNovoTipoSLA] = useState("");
+  const [novoTipoTipo, setNovoTipoTipo] = useState("1");
+
+  // Verificar se usuário é Admin ou superior
+  const isAdmin = user?.role === "SUPERADMIN" || user?.role === "ADMIN";
+
+  // Fetch permissões
+  const { data: permissoes, isLoading: loadingPermissoes } = useQuery({
+    queryKey: ["config-permissoes"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("tb_permissao")
+        .select("*")
+        .order("permissao_id", { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Fetch vias
+  const { data: vias, isLoading: loadingVias } = useQuery({
+    queryKey: ["config-vias"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("tb_via")
+        .select("*")
+        .order("via_id", { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Fetch tipos de demanda com prazo
+  const { data: tiposDemanda, isLoading: loadingTipos } = useQuery({
+    queryKey: ["config-tipodemanda"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("tb_tipodemanda")
+        .select(`
+          id,
+          nome,
+          tipo,
+          prazo_id,
+          tb_prazo:prazo_id(id, descricao, prazo_minutos)
+        `)
+        .order("tipo", { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Fetch prazos disponíveis
+  const { data: prazos } = useQuery({
+    queryKey: ["config-prazos"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("tb_prazo")
+        .select("*")
+        .order("prazo_minutos", { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Mutation para criar novo tipo de demanda
+  const createTipoDemanda = useMutation({
+    mutationFn: async (data: { nome: string; prazo_id: number; tipo: number }) => {
+      const { error } = await supabase
+        .from("tb_tipodemanda")
+        .insert([data]);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["config-tipodemanda"] });
+      toast.success("Tipo de demanda criado com sucesso!");
+      setNovoTipoDemandaOpen(false);
+      setNovoTipoNome("");
+      setNovoTipoSLA("");
+      setNovoTipoTipo("1");
+    },
+    onError: (error: any) => {
+      toast.error("Erro ao criar tipo de demanda: " + error.message);
+    },
+  });
+
+  const handleCreateTipoDemanda = () => {
+    if (!novoTipoNome.trim()) {
+      toast.error("Informe o nome do tipo de demanda");
+      return;
+    }
+    if (!novoTipoSLA) {
+      toast.error("Selecione o prazo de SLA");
+      return;
+    }
+    
+    createTipoDemanda.mutate({
+      nome: novoTipoNome.trim(),
+      prazo_id: parseInt(novoTipoSLA),
+      tipo: parseInt(novoTipoTipo),
+    });
+  };
+
+  const formatSLA = (minutos: number) => {
+    if (minutos < 60) return `${minutos} min`;
+    if (minutos < 1440) return `${Math.round(minutos / 60)}h`;
+    return `${Math.round(minutos / 1440)} dia(s)`;
+  };
+
+  const getViaLabel = (via: { tem_email: boolean | null; tem_whatsapp: boolean | null }) => {
+    if (via.tem_whatsapp) return "WhatsApp";
+    if (via.tem_email) return "Email";
+    return "Outro";
+  };
+
+  const getTipoLabel = (tipo: number) => {
+    const labels: Record<number, string> = {
+      1: "Tipo 1 - Rápido",
+      2: "Tipo 2 - Médio",
+      3: "Tipo 3 - Longo",
+    };
+    return labels[tipo] || `Tipo ${tipo}`;
+  };
+
+  const getTipoBadgeVariant = (tipo: number) => {
+    if (tipo === 1) return "default";
+    if (tipo === 2) return "secondary";
+    return "outline";
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -65,228 +173,251 @@ const Configuracoes = () => {
       </div>
 
       <Tabs defaultValue="permissoes" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="permissoes" className="flex items-center gap-2">
             <Shield className="h-4 w-4" />
-            Permissões
+            <span className="hidden sm:inline">Permissões</span>
           </TabsTrigger>
           <TabsTrigger value="vias" className="flex items-center gap-2">
             <Mail className="h-4 w-4" />
-            Vias
+            <span className="hidden sm:inline">Vias</span>
           </TabsTrigger>
-          <TabsTrigger value="categorias" className="flex items-center gap-2">
-            <Tag className="h-4 w-4" />
-            Categorias
-          </TabsTrigger>
-          <TabsTrigger value="agencias" className="flex items-center gap-2">
-            <Building className="h-4 w-4" />
-            Agências
+          <TabsTrigger value="tipodemanda" className="flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            <span className="hidden sm:inline">Tipo de Demanda</span>
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="permissoes">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Permissões</CardTitle>
-                <CardDescription>
-                  Níveis de acesso do sistema
-                </CardDescription>
-              </div>
-              <Button size="sm">
-                <Plus className="h-4 w-4 mr-2" />
-                Nova Permissão
-              </Button>
+            <CardHeader>
+              <CardTitle>Permissões</CardTitle>
+              <CardDescription>
+                Níveis de acesso do sistema (somente leitura)
+              </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Descrição</TableHead>
-                    <TableHead className="w-24">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {mockPermissoes.map((permissao) => (
-                    <TableRow key={permissao.id}>
-                      <TableCell className="font-medium">
-                        {permissao.nome}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {permissao.descricao}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button variant="ghost" size="icon">
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="text-red-500">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
+              {loadingPermissoes ? (
+                <div className="p-4 space-y-3">
+                  {[...Array(4)].map((_, i) => (
+                    <Skeleton key={i} className="h-12 w-full" />
                   ))}
-                </TableBody>
-              </Table>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>ID</TableHead>
+                      <TableHead>Nome</TableHead>
+                      <TableHead>Descrição</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {permissoes?.map((permissao) => (
+                      <TableRow key={permissao.permissao_id}>
+                        <TableCell>
+                          <Badge variant="outline">{permissao.permissao_id}</Badge>
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {permissao.nome}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {permissao.descricao || "-"}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="vias">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Vias de Comunicação</CardTitle>
-                <CardDescription>
-                  Canais de recebimento de demandas
-                </CardDescription>
-              </div>
-              <Button size="sm">
-                <Plus className="h-4 w-4 mr-2" />
-                Nova Via
-              </Button>
+            <CardHeader>
+              <CardTitle>Vias de Comunicação</CardTitle>
+              <CardDescription>
+                Canais de recebimento de demandas (somente leitura)
+              </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Descrição</TableHead>
-                    <TableHead className="w-24">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {mockVias.map((via) => (
-                    <TableRow key={via.id}>
-                      <TableCell className="font-medium">{via.nome}</TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {via.descricao}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button variant="ghost" size="icon">
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="text-red-500">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
+              {loadingVias ? (
+                <div className="p-4 space-y-3">
+                  {[...Array(3)].map((_, i) => (
+                    <Skeleton key={i} className="h-12 w-full" />
                   ))}
-                </TableBody>
-              </Table>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>ID</TableHead>
+                      <TableHead>Canal</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>WhatsApp</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {vias?.map((via) => (
+                      <TableRow key={via.via_id}>
+                        <TableCell>
+                          <Badge variant="outline">{via.via_id}</Badge>
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {getViaLabel(via)}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={via.tem_email ? "default" : "secondary"}>
+                            {via.tem_email ? "Sim" : "Não"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={via.tem_whatsapp ? "default" : "secondary"}>
+                            {via.tem_whatsapp ? "Sim" : "Não"}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="categorias">
+        <TabsContent value="tipodemanda">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
-                <CardTitle>Categorias</CardTitle>
+                <CardTitle>Tipos de Demanda</CardTitle>
                 <CardDescription>
-                  Categorias de empresas
+                  Tipificação de serviços com prazo de SLA
                 </CardDescription>
               </div>
-              <Button size="sm">
-                <Plus className="h-4 w-4 mr-2" />
-                Nova Categoria
-              </Button>
+              {isAdmin && (
+                <Button size="sm" onClick={() => setNovoTipoDemandaOpen(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Novo Tipo
+                </Button>
+              )}
             </CardHeader>
             <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Cor</TableHead>
-                    <TableHead className="w-24">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {mockCategorias.map((categoria) => (
-                    <TableRow key={categoria.id}>
-                      <TableCell className="font-medium">
-                        {categoria.nome}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant="secondary"
-                          className={getCategoriaColor(categoria.cor)}
-                        >
-                          {categoria.cor}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button variant="ghost" size="icon">
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="text-red-500">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
+              {loadingTipos ? (
+                <div className="p-4 space-y-3">
+                  {[...Array(5)].map((_, i) => (
+                    <Skeleton key={i} className="h-12 w-full" />
                   ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="agencias">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Agências</CardTitle>
-                <CardDescription>
-                  Unidades de atendimento
-                </CardDescription>
-              </div>
-              <Button size="sm">
-                <Plus className="h-4 w-4 mr-2" />
-                Nova Agência
-              </Button>
-            </CardHeader>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Endereço</TableHead>
-                    <TableHead className="w-24">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {mockAgencias.map((agencia) => (
-                    <TableRow key={agencia.id}>
-                      <TableCell className="font-medium">
-                        {agencia.nome}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {agencia.endereco}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button variant="ghost" size="icon">
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="text-red-500">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>ID</TableHead>
+                      <TableHead>Nome</TableHead>
+                      <TableHead>Categoria</TableHead>
+                      <TableHead>SLA</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {tiposDemanda?.map((tipo) => (
+                      <TableRow key={tipo.id}>
+                        <TableCell>
+                          <Badge variant="outline">{tipo.id}</Badge>
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {tipo.nome}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={getTipoBadgeVariant(tipo.tipo)}>
+                            {getTipoLabel(tipo.tipo)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="secondary">
+                            {tipo.tb_prazo 
+                              ? formatSLA((tipo.tb_prazo as any).prazo_minutos) 
+                              : "-"}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Modal para novo tipo de demanda */}
+      <Dialog open={novoTipoDemandaOpen} onOpenChange={setNovoTipoDemandaOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Novo Tipo de Demanda</DialogTitle>
+            <DialogDescription>
+              Cadastre um novo tipo de demanda com seu prazo de SLA
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="nome">Nome do Tipo</Label>
+              <Input
+                id="nome"
+                placeholder="Ex: Nota Fiscal, Boleto, etc."
+                value={novoTipoNome}
+                onChange={(e) => setNovoTipoNome(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="categoria">Categoria</Label>
+              <Select value={novoTipoTipo} onValueChange={setNovoTipoTipo}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione a categoria" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">Tipo 1 - Rápido (até 20min)</SelectItem>
+                  <SelectItem value="2">Tipo 2 - Médio (até 60min)</SelectItem>
+                  <SelectItem value="3">Tipo 3 - Longo (até 48h)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="sla">Prazo de SLA</Label>
+              <Select value={novoTipoSLA} onValueChange={setNovoTipoSLA}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o prazo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {prazos?.map((prazo) => (
+                    <SelectItem key={prazo.id} value={prazo.id.toString()}>
+                      {prazo.descricao} ({formatSLA(prazo.prazo_minutos)})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNovoTipoDemandaOpen(false)}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleCreateTipoDemanda}
+              disabled={createTipoDemanda.isPending}
+            >
+              {createTipoDemanda.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Salvando...
+                </>
+              ) : (
+                "Salvar"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
