@@ -29,7 +29,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Plus, Search, User, Building2, Loader2, Link as LinkIcon, Phone, Mail, MapPin, Trash2 } from "lucide-react";
+import { Plus, Search, User, Building2, Loader2, Link as LinkIcon, Phone, Mail, MapPin, Trash2, Download } from "lucide-react";
+import { useExportExcel } from "@/hooks/useExportExcel";
 import { useResponsaveis, formatCpf, formatCnpj, formatPhone, Responsavel } from "@/hooks/useResponsaveis";
 import { NovaPessoaModal } from "@/components/NovaPessoaModal";
 import { supabase } from "@/integrations/supabase/client";
@@ -52,6 +53,7 @@ const Pessoas = () => {
   const [selectedEmpresa, setSelectedEmpresa] = useState("");
   const [isAddingVinculo, setIsAddingVinculo] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const { exportToExcel } = useExportExcel();
 
   // Buscar empresas para vincular
   useEffect(() => {
@@ -164,6 +166,32 @@ const Pessoas = () => {
     emp => !selectedPessoa?.empresas.some(e => e.cnpj_id === emp.cnpj_id)
   );
 
+  const handleExportPessoas = () => {
+    // Preparar dados com empresas formatadas
+    const dadosExport = filteredPessoas.map(pessoa => ({
+      ...pessoa,
+      empresas_lista: pessoa.empresas.map(e => e.razao_social).join(", ") || "Nenhuma",
+      telefone_formatado: formatPhone(pessoa.telefone_principal || "") || "-",
+      cpf_formatado: formatCpf(pessoa.cpf_numero),
+    }));
+    
+    exportToExcel(
+      dadosExport,
+      [
+        { key: "responsavel_id", header: "ID" },
+        { key: "nome", header: "Nome" },
+        { key: "cpf_formatado", header: "CPF" },
+        { key: "rg", header: "RG", format: (v) => (v as string) || "-" },
+        { key: "telefone_formatado", header: "Telefone" },
+        { key: "telefone_alternativo", header: "Tel. Alternativo", format: (v) => v ? formatPhone(v as string) : "-" },
+        { key: "email_principal", header: "Email", format: (v) => (v as string) || "-" },
+        { key: "email_alternativo", header: "Email Alt.", format: (v) => (v as string) || "-" },
+        { key: "empresas_lista", header: "Empresas Vinculadas" },
+      ],
+      { filename: "pessoas", sheetName: "Pessoas" }
+    );
+  };
+
   // Atualizar selectedPessoa quando responsaveis mudar
   useEffect(() => {
     if (selectedPessoa) {
@@ -189,12 +217,18 @@ const Pessoas = () => {
             Gerenciar responsáveis e seus vínculos com empresas
           </p>
         </div>
-        {canEdit && (
-          <Button onClick={() => setNovaModalOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Nova Pessoa
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={handleExportPessoas} disabled={filteredPessoas.length === 0}>
+            <Download className="h-4 w-4 mr-2" />
+            Exportar
           </Button>
-        )}
+          {canEdit && (
+            <Button onClick={() => setNovaModalOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Nova Pessoa
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="relative">
