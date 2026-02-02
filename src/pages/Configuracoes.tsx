@@ -22,7 +22,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, Shield, FileText, Loader2 } from "lucide-react";
+import { Plus, Shield, FileText, Loader2, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useUser } from "@/contexts/UserContext";
@@ -36,6 +46,8 @@ const Configuracoes = () => {
   const [novoTipoNome, setNovoTipoNome] = useState("");
   const [novoTipoSLA, setNovoTipoSLA] = useState("");
   const [novoTipoTipo, setNovoTipoTipo] = useState("1");
+  const [deleteTipoId, setDeleteTipoId] = useState<number | null>(null);
+  const [deleteTipoNome, setDeleteTipoNome] = useState("");
 
   // Verificar se usuário é Admin ou superior
   const isAdmin = user?.role === "SUPERADMIN" || user?.role === "ADMIN";
@@ -105,6 +117,37 @@ const Configuracoes = () => {
       toast.error("Erro ao criar tipo de demanda: " + error.message);
     },
   });
+
+  // Mutation para deletar tipo de demanda
+  const deleteTipoDemanda = useMutation({
+    mutationFn: async (id: number) => {
+      const { error } = await supabase
+        .from("tb_tipodemanda")
+        .delete()
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["config-tipodemanda"] });
+      toast.success("Tipo de demanda excluído com sucesso!");
+      setDeleteTipoId(null);
+      setDeleteTipoNome("");
+    },
+    onError: (error: any) => {
+      toast.error("Erro ao excluir tipo de demanda: " + error.message);
+    },
+  });
+
+  const handleDeleteTipoDemanda = (id: number, nome: string) => {
+    setDeleteTipoId(id);
+    setDeleteTipoNome(nome);
+  };
+
+  const confirmDeleteTipoDemanda = () => {
+    if (deleteTipoId) {
+      deleteTipoDemanda.mutate(deleteTipoId);
+    }
+  };
 
   const handleCreateTipoDemanda = () => {
     if (!novoTipoNome.trim()) {
@@ -241,6 +284,7 @@ const Configuracoes = () => {
                       <TableHead>Nome</TableHead>
                       <TableHead>Categoria</TableHead>
                       <TableHead>SLA</TableHead>
+                      {isAdmin && <TableHead className="w-[80px]">Ações</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -264,6 +308,18 @@ const Configuracoes = () => {
                               : "-"}
                           </Badge>
                         </TableCell>
+                        {isAdmin && (
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              onClick={() => handleDeleteTipoDemanda(tipo.id, tipo.nome)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))}
                   </TableBody>
@@ -342,6 +398,35 @@ const Configuracoes = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* AlertDialog para confirmação de exclusão */}
+      <AlertDialog open={!!deleteTipoId} onOpenChange={(open) => !open && setDeleteTipoId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir o tipo de demanda "{deleteTipoNome}"? 
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteTipoDemanda}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteTipoDemanda.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Excluindo...
+                </>
+              ) : (
+                "Excluir"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
