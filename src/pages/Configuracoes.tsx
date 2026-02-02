@@ -87,26 +87,51 @@ const Configuracoes = () => {
   // Mutation para criar novo tipo de demanda
   const createTipoDemanda = useMutation({
     mutationFn: async (data: { nome: string; prazo_minutos: number }) => {
-      // Primeiro criar o prazo
-      const { data: prazoData, error: prazoError } = await supabase
+      // Primeiro verificar se já existe um prazo com esses minutos
+      const { data: existingPrazo } = await supabase
         .from("tb_prazo")
-        .insert([{ 
-          descricao: `SLA ${data.nome}`, 
-          prazo_minutos: data.prazo_minutos,
-          tipo: 1 // Default tipo
-        }])
         .select("id")
-        .single();
-      
-      if (prazoError) throw prazoError;
+        .eq("prazo_minutos", data.prazo_minutos)
+        .maybeSingle();
 
-      // Depois criar o tipo de demanda
+      let prazoId: number;
+
+      if (existingPrazo) {
+        // Reutilizar prazo existente
+        prazoId = existingPrazo.id;
+      } else {
+        // Buscar o maior tipo existente para gerar um novo único
+        const { data: maxTipo } = await supabase
+          .from("tb_prazo")
+          .select("tipo")
+          .order("tipo", { ascending: false })
+          .limit(1)
+          .single();
+
+        const novoTipo = (maxTipo?.tipo || 0) + 1;
+
+        // Criar novo prazo
+        const { data: prazoData, error: prazoError } = await supabase
+          .from("tb_prazo")
+          .insert([{ 
+            descricao: `SLA ${data.prazo_minutos} min`, 
+            prazo_minutos: data.prazo_minutos,
+            tipo: novoTipo
+          }])
+          .select("id")
+          .single();
+        
+        if (prazoError) throw prazoError;
+        prazoId = prazoData.id;
+      }
+
+      // Criar o tipo de demanda
       const { error } = await supabase
         .from("tb_tipodemanda")
         .insert([{
           nome: data.nome,
-          prazo_id: prazoData.id,
-          tipo: 1 // Default tipo
+          prazo_id: prazoId,
+          tipo: 1
         }]);
       if (error) throw error;
     },
