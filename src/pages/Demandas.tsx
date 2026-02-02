@@ -194,6 +194,7 @@ const Demandas = () => {
         tem_whatsapp: d.tb_via?.tem_whatsapp || false,
         empresa_nome: d.tb_cpf_cnpj?.tb_cnpj?.razao_social || "Não informado",
         empresa_cnpj: d.tb_cpf_cnpj?.tb_cnpj?.cnpj_numero || "",
+        empresa_cnpj_id: d.tb_cpf_cnpj?.cnpj_id || null,
       }));
 
       setDemandas(demandasFormatadas);
@@ -242,9 +243,9 @@ const Demandas = () => {
       (filters.responsavelId === "sem-atribuicao" && demanda.user_id === null) ||
       demanda.user_id?.toString() === filters.responsavelId;
     
-    // Empresa
+    // Empresa - compara com o cnpj_id da empresa
     const matchesEmpresa = filters.empresaId === "todos" ||
-      demanda.cnpj_cpf_id?.toString() === filters.empresaId;
+      (demanda as any).empresa_cnpj_id?.toString() === filters.empresaId;
     
     // Prioridade
     const matchesPrioridade = filters.prioridadeId === "todos" ||
