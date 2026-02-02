@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { HIDDEN_USER_IDS } from "@/lib/constants";
+import { HIDDEN_USER_IDS, getDisplayName } from "@/lib/constants";
 import {
   Dialog,
   DialogContent,
@@ -218,10 +218,13 @@ export function NovaDemandaModal({ open, onOpenChange, onSuccess }: NovaDemandaM
 
       setPrioridades(prioridadesRes.data || []);
       setVias(viasRes.data || []);
-      // Filtrar usuários ocultos
-      const usuariosFiltrados = (usuariosRes.data || []).filter(
-        (u: any) => !HIDDEN_USER_IDS.includes(u.user_id)
-      );
+      // Filtrar usuários ocultos e aplicar nome visual
+      const usuariosFiltrados = (usuariosRes.data || [])
+        .filter((u: any) => !HIDDEN_USER_IDS.includes(u.user_id))
+        .map((u: any) => ({
+          ...u,
+          nome: getDisplayName(u.user_id, u.nome)
+        }));
       setUsuarios(usuariosFiltrados);
       setEmpresas(empresasRes.data || []);
       setCpfCnpjList(cpfCnpjRes.data || []);

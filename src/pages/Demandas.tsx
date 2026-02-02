@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { getDisplayName } from "@/lib/constants";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Card, CardContent } from "@/components/ui/card";
@@ -186,7 +187,9 @@ const Demandas = () => {
       // Mapear dados para formato mais fácil de usar
       const demandasFormatadas = (demandasData || []).map((d: any) => ({
         ...d,
-        responsavel_nome: d.tb_usuario?.nome || null,
+        responsavel_nome: d.user_id && d.tb_usuario?.nome 
+          ? getDisplayName(d.user_id, d.tb_usuario.nome) 
+          : null,
         status_nome: d.tb_status?.status_nome || "Pendente",
         prioridade_nome: d.tb_prioridade?.prioridade_nome || "Média",
         prioridade_nivel: d.tb_prioridade?.prioridade_nivel || 2,
