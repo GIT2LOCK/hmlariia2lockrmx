@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { HIDDEN_USER_IDS } from "@/lib/constants";
 
 export interface Usuario {
   user_id: number;
@@ -33,7 +34,8 @@ export function useUsuarios() {
     setError(null);
     
     try {
-      const { data, error: fetchError } = await supabase
+      // Filtrar usuários ocultos diretamente na query
+      let query = supabase
         .from("tb_usuario")
         .select(`
           user_id,
@@ -47,8 +49,14 @@ export function useUsuarios() {
           tb_permissao (nome, descricao),
           tb_email (email_principal),
           tb_cpf (cpf_numero)
-        `)
-        .order("user_id");
+        `);
+      
+      // Excluir usuários ocultos
+      if (HIDDEN_USER_IDS.length > 0) {
+        query = query.not("user_id", "in", `(${HIDDEN_USER_IDS.join(",")})`);
+      }
+      
+      const { data, error: fetchError } = await query.order("user_id");
 
       if (fetchError) {
         throw fetchError;
@@ -203,18 +211,22 @@ export function usePermissoes() {
 
       if (permError) throw permError;
 
-      // Get member count for each permission
-      const { data: countData, error: countError } = await supabase
+      // Get member count for each permission (excluding hidden users)
+      let countQuery = supabase
         .from("tb_usuario")
-        .select("permissao_id");
+        .select("permissao_id, user_id");
+      
+      const { data: countData, error: countError } = await countQuery;
 
       if (countError) throw countError;
 
-      // Count members per permission
+      // Count members per permission (excluding hidden users)
       const memberCounts: Record<number, number> = {};
-      (countData || []).forEach((user: any) => {
-        memberCounts[user.permissao_id] = (memberCounts[user.permissao_id] || 0) + 1;
-      });
+      (countData || [])
+        .filter((user: any) => !HIDDEN_USER_IDS.includes(user.user_id))
+        .forEach((user: any) => {
+          memberCounts[user.permissao_id] = (memberCounts[user.permissao_id] || 0) + 1;
+        });
 
       const formattedPermissoes: Permissao[] = (permData || []).map((perm: any) => ({
         permissao_id: perm.permissao_id,
