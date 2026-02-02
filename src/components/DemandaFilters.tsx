@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { HIDDEN_USER_IDS } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -120,7 +121,13 @@ export function DemandaFilters({ filters, onFiltersChange, onClearFilters }: Dem
 
       if (prioridadesRes.data) setPrioridades(prioridadesRes.data);
       if (statusRes.data) setStatusList(statusRes.data);
-      if (usuariosRes.data) setUsuarios(usuariosRes.data);
+      // Filtrar usuários ocultos
+      if (usuariosRes.data) {
+        const usuariosFiltrados = usuariosRes.data.filter(
+          (u: any) => !HIDDEN_USER_IDS.includes(u.user_id)
+        );
+        setUsuarios(usuariosFiltrados);
+      }
       if (empresasRes.data) setEmpresas(empresasRes.data);
       if (tiposRes.data) setTiposDemanda(tiposRes.data);
     } catch (error) {

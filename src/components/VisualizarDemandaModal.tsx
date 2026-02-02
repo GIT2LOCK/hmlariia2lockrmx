@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { HIDDEN_USER_IDS } from "@/lib/constants";
 import {
   Dialog,
   DialogContent,
@@ -278,7 +279,11 @@ export function VisualizarDemandaModal({
 
       setPrioridades(prioridadesRes.data || []);
       setVias(viasRes.data || []);
-      setUsuarios(usuariosRes.data || []);
+      // Filtrar usuários ocultos
+      const usuariosFiltrados = (usuariosRes.data || []).filter(
+        (u: any) => !HIDDEN_USER_IDS.includes(u.user_id)
+      );
+      setUsuarios(usuariosFiltrados);
       setStatusList(statusRes.data || []);
     } catch (error) {
       console.error("Erro ao carregar dados:", error);
