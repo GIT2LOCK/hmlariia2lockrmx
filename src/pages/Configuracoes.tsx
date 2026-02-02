@@ -65,7 +65,7 @@ const Configuracoes = () => {
     },
   });
 
-  // Fetch tipos de demanda com prazo
+  // Fetch tipos de demanda com sla_minutos direto
   const { data: tiposDemanda, isLoading: loadingTipos } = useQuery({
     queryKey: ["config-tipodemanda"],
     queryFn: async () => {
@@ -76,7 +76,7 @@ const Configuracoes = () => {
           nome,
           tipo,
           prazo_id,
-          tb_prazo:prazo_id(id, descricao, prazo_minutos)
+          sla_minutos
         `)
         .order("nome", { ascending: true });
       if (error) throw error;
@@ -84,54 +84,17 @@ const Configuracoes = () => {
     },
   });
 
-  // Mutation para criar novo tipo de demanda
+  // Mutation para criar novo tipo de demanda (usando sla_minutos direto)
   const createTipoDemanda = useMutation({
     mutationFn: async (data: { nome: string; prazo_minutos: number }) => {
-      // Primeiro verificar se já existe um prazo com esses minutos
-      const { data: existingPrazo } = await supabase
-        .from("tb_prazo")
-        .select("id")
-        .eq("prazo_minutos", data.prazo_minutos)
-        .maybeSingle();
-
-      let prazoId: number;
-
-      if (existingPrazo) {
-        // Reutilizar prazo existente
-        prazoId = existingPrazo.id;
-      } else {
-        // Buscar o maior tipo existente para gerar um novo único
-        const { data: maxTipo } = await supabase
-          .from("tb_prazo")
-          .select("tipo")
-          .order("tipo", { ascending: false })
-          .limit(1)
-          .single();
-
-        const novoTipo = (maxTipo?.tipo || 0) + 1;
-
-        // Criar novo prazo
-        const { data: prazoData, error: prazoError } = await supabase
-          .from("tb_prazo")
-          .insert([{ 
-            descricao: `SLA ${data.prazo_minutos} min`, 
-            prazo_minutos: data.prazo_minutos,
-            tipo: novoTipo
-          }])
-          .select("id")
-          .single();
-        
-        if (prazoError) throw prazoError;
-        prazoId = prazoData.id;
-      }
-
-      // Criar o tipo de demanda
+      // Usar prazo_id = 1 como default (não precisamos mais criar prazos)
       const { error } = await supabase
         .from("tb_tipodemanda")
         .insert([{
           nome: data.nome,
-          prazo_id: prazoId,
-          tipo: 1
+          prazo_id: 1, // Default prazo
+          tipo: 1,
+          sla_minutos: data.prazo_minutos
         }]);
       if (error) throw error;
     },
@@ -317,8 +280,8 @@ const Configuracoes = () => {
                         </TableCell>
                         <TableCell>
                           <Badge variant="secondary">
-                            {tipo.tb_prazo 
-                              ? formatSLA((tipo.tb_prazo as any).prazo_minutos) 
+                            {tipo.sla_minutos 
+                              ? formatSLA(tipo.sla_minutos) 
                               : "-"}
                           </Badge>
                         </TableCell>
