@@ -191,15 +191,14 @@ export function NovaDemandaModal({ open, onOpenChange, onSuccess }: NovaDemandaM
   const fetchData = async () => {
     setIsLoadingData(true);
     try {
-      const [prioridadesRes, viasRes, usuariosRes, empresasRes, cpfCnpjRes, statusRes, tiposDemandaRes, prazosRes] = await Promise.all([
+      const [prioridadesRes, viasRes, usuariosRes, empresasRes, cpfCnpjRes, statusRes, tiposDemandaRes] = await Promise.all([
         supabase.from("tb_prioridade").select("*").order("prioridade_nivel", { ascending: true }),
         supabase.from("tb_via").select("*"),
         supabase.from("tb_usuario").select("user_id, nome, atendente").eq("ativo", true).eq("atendente", true),
         supabase.from("tb_cnpj").select("cnpj_id, razao_social, cnpj_numero"),
         supabase.from("tb_cpf_cnpj").select("id, cnpj_id, cpf_id"),
         supabase.from("tb_status").select("*").order("status_id", { ascending: true }),
-        supabase.from("tb_tipodemanda").select("*").order("nome", { ascending: true }),
-        supabase.from("tb_prazo").select("*"),
+        supabase.from("tb_tipodemanda").select("id, nome, tipo, prazo_id, sla_minutos").order("nome", { ascending: true }),
       ]);
 
       if (prioridadesRes.error) throw prioridadesRes.error;
@@ -209,13 +208,11 @@ export function NovaDemandaModal({ open, onOpenChange, onSuccess }: NovaDemandaM
       if (cpfCnpjRes.error) throw cpfCnpjRes.error;
       if (statusRes.error) throw statusRes.error;
       if (tiposDemandaRes.error) throw tiposDemandaRes.error;
-      if (prazosRes.error) throw prazosRes.error;
 
-      // Mapear tipos de demanda com prazo em minutos
-      const prazosMap = new Map((prazosRes.data || []).map(p => [p.id, p.prazo_minutos]));
+      // Usar sla_minutos diretamente
       const tiposComPrazo = (tiposDemandaRes.data || []).map(td => ({
         ...td,
-        prazo_minutos: prazosMap.get(td.prazo_id) || 60,
+        prazo_minutos: td.sla_minutos || 60,
       }));
 
       setPrioridades(prioridadesRes.data || []);

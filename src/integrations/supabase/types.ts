@@ -577,18 +577,21 @@ export type Database = {
           id: number
           nome: string
           prazo_id: number
+          sla_minutos: number | null
           tipo: number
         }
         Insert: {
           id?: number
           nome: string
           prazo_id: number
+          sla_minutos?: number | null
           tipo: number
         }
         Update: {
           id?: number
           nome?: string
           prazo_id?: number
+          sla_minutos?: number | null
           tipo?: number
         }
         Relationships: [
