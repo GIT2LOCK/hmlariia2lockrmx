@@ -11,7 +11,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Search, Building2, Mail, Phone, MapPin, Loader2, Eye, Trash2 } from "lucide-react";
+import { Plus, Search, Building2, Mail, Phone, MapPin, Loader2, Eye, Trash2, Download } from "lucide-react";
+import { useExportExcel } from "@/hooks/useExportExcel";
 import { NovaEmpresaModal } from "@/components/NovaEmpresaModal";
 import { VisualizarEmpresaModal } from "@/components/VisualizarEmpresaModal";
 import { supabase } from "@/integrations/supabase/client";
@@ -50,6 +51,7 @@ const Empresas = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDetalhesModalOpen, setIsDetalhesModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const { exportToExcel } = useExportExcel();
 
   const fetchEmpresas = async () => {
     setIsLoading(true);
@@ -161,6 +163,24 @@ const Empresas = () => {
     fetchEmpresas();
   };
 
+  const handleExportEmpresas = () => {
+    exportToExcel(
+      filteredEmpresas,
+      [
+        { key: "cnpj_id", header: "ID" },
+        { key: "razao_social", header: "Razão Social" },
+        { key: "cnpj_numero", header: "CNPJ" },
+        { key: "responsavel_nome", header: "Responsável", format: (v) => (v as string) || "Não informado" },
+        { key: "email_principal", header: "Email", format: (v) => (v as string) || "-" },
+        { key: "telefone_principal", header: "Telefone", format: (v) => (v as string) || "-" },
+        { key: "endereco_completo", header: "Endereço", format: (v) => (v as string) || "-" },
+        { key: "superior_cnpj", header: "Superior", format: (v) => (v as string) || "-" },
+        { key: "demandas_ativas", header: "Demandas Ativas" },
+      ],
+      { filename: "empresas", sheetName: "Empresas" }
+    );
+  };
+
   const handleDeleteEmpresa = async () => {
     if (!selectedEmpresa) return;
 
@@ -239,12 +259,18 @@ const Empresas = () => {
             Cadastro e consulta de empresas/clientes
           </p>
         </div>
-        {canEdit && (
-          <Button onClick={() => setIsModalOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Nova Empresa
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={handleExportEmpresas} disabled={filteredEmpresas.length === 0}>
+            <Download className="h-4 w-4 mr-2" />
+            Exportar
           </Button>
-        )}
+          {canEdit && (
+            <Button onClick={() => setIsModalOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Nova Empresa
+            </Button>
+          )}
+        </div>
       </div>
 
       <NovaEmpresaModal

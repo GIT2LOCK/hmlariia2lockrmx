@@ -21,7 +21,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Search, Filter, Clock, AlertTriangle, Loader2, Mail, MessageSquare, Phone, RefreshCw } from "lucide-react";
+import { Plus, Search, Filter, Clock, AlertTriangle, Loader2, Mail, MessageSquare, Phone, RefreshCw, Download } from "lucide-react";
+import { useExportExcel } from "@/hooks/useExportExcel";
 import { NovaDemandaModal } from "@/components/NovaDemandaModal";
 import { VisualizarDemandaModal } from "@/components/VisualizarDemandaModal";
 import { DemandaFilters, FilterState, initialFilters } from "@/components/DemandaFilters";
@@ -157,6 +158,7 @@ const Demandas = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const { user, canEdit } = useUser();
+  const { exportToExcel } = useExportExcel();
 
   const fetchDemandas = useCallback(async (showLoading = true) => {
     if (showLoading) setIsLoading(true);
@@ -279,6 +281,33 @@ const Demandas = () => {
     setFilters(initialFilters);
   };
 
+  const handleExportDemandas = () => {
+    exportToExcel(
+      filteredDemandas,
+      [
+        { key: "dem_id", header: "ID" },
+        { key: "titulo_demanda", header: "Título" },
+        { key: "empresa_nome", header: "Empresa" },
+        { key: "empresa_cnpj", header: "CNPJ" },
+        { key: "responsavel_nome", header: "Responsável", format: (v) => (v as string) || "Não atribuído" },
+        { key: "status_nome", header: "Status" },
+        { key: "prioridade_nome", header: "Prioridade" },
+        { 
+          key: "created_at", 
+          header: "Criado em", 
+          format: (v) => v ? format(new Date(v as string), "dd/MM/yyyy HH:mm", { locale: ptBR }) : "-" 
+        },
+        { 
+          key: "prazo_fim", 
+          header: "Prazo Final", 
+          format: (v) => v ? format(new Date(v as string), "dd/MM/yyyy HH:mm", { locale: ptBR }) : "-" 
+        },
+        { key: "descricao_tarefa", header: "Descrição" },
+      ],
+      { filename: "demandas", sheetName: "Demandas" }
+    );
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -295,6 +324,10 @@ const Demandas = () => {
               Atualizando...
             </Badge>
           )}
+          <Button variant="outline" onClick={handleExportDemandas} disabled={filteredDemandas.length === 0}>
+            <Download className="h-4 w-4 mr-2" />
+            Exportar
+          </Button>
           {canEdit && (
             <Button onClick={() => setIsModalOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
