@@ -22,7 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, Shield, Mail, FileText, Loader2 } from "lucide-react";
+import { Plus, Shield, FileText, Loader2 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useUser } from "@/contexts/UserContext";
@@ -30,7 +30,7 @@ import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const Configuracoes = () => {
-  const { user, canManageUsers } = useUser();
+  const { user } = useUser();
   const queryClient = useQueryClient();
   const [novoTipoDemandaOpen, setNovoTipoDemandaOpen] = useState(false);
   const [novoTipoNome, setNovoTipoNome] = useState("");
@@ -48,19 +48,6 @@ const Configuracoes = () => {
         .from("tb_permissao")
         .select("*")
         .order("permissao_id", { ascending: true });
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  // Fetch vias
-  const { data: vias, isLoading: loadingVias } = useQuery({
-    queryKey: ["config-vias"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("tb_via")
-        .select("*")
-        .order("via_id", { ascending: true });
       if (error) throw error;
       return data;
     },
@@ -142,12 +129,6 @@ const Configuracoes = () => {
     return `${Math.round(minutos / 1440)} dia(s)`;
   };
 
-  const getViaLabel = (via: { tem_email: boolean | null; tem_whatsapp: boolean | null }) => {
-    if (via.tem_whatsapp) return "WhatsApp";
-    if (via.tem_email) return "Email";
-    return "Outro";
-  };
-
   const getTipoLabel = (tipo: number) => {
     const labels: Record<number, string> = {
       1: "Tipo 1 - Rápido",
@@ -173,14 +154,10 @@ const Configuracoes = () => {
       </div>
 
       <Tabs defaultValue="permissoes" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="permissoes" className="flex items-center gap-2">
             <Shield className="h-4 w-4" />
             <span className="hidden sm:inline">Permissões</span>
-          </TabsTrigger>
-          <TabsTrigger value="vias" className="flex items-center gap-2">
-            <Mail className="h-4 w-4" />
-            <span className="hidden sm:inline">Vias</span>
           </TabsTrigger>
           <TabsTrigger value="tipodemanda" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
@@ -223,59 +200,6 @@ const Configuracoes = () => {
                         </TableCell>
                         <TableCell className="text-muted-foreground">
                           {permissao.descricao || "-"}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="vias">
-          <Card>
-            <CardHeader>
-              <CardTitle>Vias de Comunicação</CardTitle>
-              <CardDescription>
-                Canais de recebimento de demandas (somente leitura)
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-0">
-              {loadingVias ? (
-                <div className="p-4 space-y-3">
-                  {[...Array(3)].map((_, i) => (
-                    <Skeleton key={i} className="h-12 w-full" />
-                  ))}
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>ID</TableHead>
-                      <TableHead>Canal</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>WhatsApp</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {vias?.map((via) => (
-                      <TableRow key={via.via_id}>
-                        <TableCell>
-                          <Badge variant="outline">{via.via_id}</Badge>
-                        </TableCell>
-                        <TableCell className="font-medium">
-                          {getViaLabel(via)}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={via.tem_email ? "default" : "secondary"}>
-                            {via.tem_email ? "Sim" : "Não"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={via.tem_whatsapp ? "default" : "secondary"}>
-                            {via.tem_whatsapp ? "Sim" : "Não"}
-                          </Badge>
                         </TableCell>
                       </TableRow>
                     ))}
