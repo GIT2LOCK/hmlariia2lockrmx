@@ -178,7 +178,6 @@ const Pessoas = () => {
     exportToExcel(
       dadosExport,
       [
-        { key: "responsavel_id", header: "ID" },
         { key: "nome", header: "Nome" },
         { key: "cpf_formatado", header: "CPF" },
         { key: "rg", header: "RG", format: (v) => (v as string) || "-" },

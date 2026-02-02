@@ -167,7 +167,6 @@ const Empresas = () => {
     exportToExcel(
       filteredEmpresas,
       [
-        { key: "cnpj_id", header: "ID" },
         { key: "razao_social", header: "Razão Social" },
         { key: "cnpj_numero", header: "CNPJ" },
         { key: "responsavel_nome", header: "Responsável", format: (v) => (v as string) || "Não informado" },
