@@ -8,6 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ClearableSelect } from "@/components/ClearableSelect";
 import {
   Popover,
   PopoverContent,
@@ -403,24 +404,21 @@ export function DemandaFilters({ filters, onFiltersChange, onClearFilters }: Dem
                 <Tag className="h-3 w-3" />
                 Tipo de Demanda
               </Label>
-              <Select
+              <ClearableSelect
                 value={filters.tipoDemandaId}
                 onValueChange={(value) =>
                   onFiltersChange({ ...filters, tipoDemandaId: value })
                 }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Todos" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos</SelectItem>
-                  {tiposDemanda.map((t) => (
-                    <SelectItem key={t.id} value={t.id.toString()}>
-                      {t.nome}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                placeholder="Todos"
+                defaultValue="todos"
+                options={[
+                  { value: "todos", label: "Todos" },
+                  ...tiposDemanda.map((t) => ({
+                    value: t.id.toString(),
+                    label: t.nome,
+                  })),
+                ]}
+              />
             </div>
           </div>
         )}
