@@ -44,8 +44,8 @@ const Configuracoes = () => {
   const queryClient = useQueryClient();
   const [novoTipoDemandaOpen, setNovoTipoDemandaOpen] = useState(false);
   const [novoTipoNome, setNovoTipoNome] = useState("");
-  const [novoTipoSLA, setNovoTipoSLA] = useState("");
-  const [novoTipoTipo, setNovoTipoTipo] = useState("1");
+  const [novoSlaHoras, setNovoSlaHoras] = useState("0");
+  const [novoSlaMinutos, setNovoSlaMinutos] = useState("30");
   const [deleteTipoId, setDeleteTipoId] = useState<number | null>(null);
   const [deleteTipoNome, setDeleteTipoNome] = useState("");
 
@@ -78,20 +78,7 @@ const Configuracoes = () => {
           prazo_id,
           tb_prazo:prazo_id(id, descricao, prazo_minutos)
         `)
-        .order("tipo", { ascending: true });
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  // Fetch prazos disponíveis
-  const { data: prazos } = useQuery({
-    queryKey: ["config-prazos"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("tb_prazo")
-        .select("*")
-        .order("prazo_minutos", { ascending: true });
+        .order("nome", { ascending: true });
       if (error) throw error;
       return data;
     },
@@ -99,10 +86,28 @@ const Configuracoes = () => {
 
   // Mutation para criar novo tipo de demanda
   const createTipoDemanda = useMutation({
-    mutationFn: async (data: { nome: string; prazo_id: number; tipo: number }) => {
+    mutationFn: async (data: { nome: string; prazo_minutos: number }) => {
+      // Primeiro criar o prazo
+      const { data: prazoData, error: prazoError } = await supabase
+        .from("tb_prazo")
+        .insert([{ 
+          descricao: `SLA ${data.nome}`, 
+          prazo_minutos: data.prazo_minutos,
+          tipo: 1 // Default tipo
+        }])
+        .select("id")
+        .single();
+      
+      if (prazoError) throw prazoError;
+
+      // Depois criar o tipo de demanda
       const { error } = await supabase
         .from("tb_tipodemanda")
-        .insert([data]);
+        .insert([{
+          nome: data.nome,
+          prazo_id: prazoData.id,
+          tipo: 1 // Default tipo
+        }]);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -110,8 +115,8 @@ const Configuracoes = () => {
       toast.success("Tipo de demanda criado com sucesso!");
       setNovoTipoDemandaOpen(false);
       setNovoTipoNome("");
-      setNovoTipoSLA("");
-      setNovoTipoTipo("1");
+      setNovoSlaHoras("0");
+      setNovoSlaMinutos("30");
     },
     onError: (error: any) => {
       toast.error("Erro ao criar tipo de demanda: " + error.message);
@@ -154,15 +159,19 @@ const Configuracoes = () => {
       toast.error("Informe o nome do tipo de demanda");
       return;
     }
-    if (!novoTipoSLA) {
-      toast.error("Selecione o prazo de SLA");
+    
+    const horas = parseInt(novoSlaHoras) || 0;
+    const minutos = parseInt(novoSlaMinutos) || 0;
+    const totalMinutos = (horas * 60) + minutos;
+    
+    if (totalMinutos <= 0) {
+      toast.error("O prazo de SLA deve ser maior que zero");
       return;
     }
     
     createTipoDemanda.mutate({
       nome: novoTipoNome.trim(),
-      prazo_id: parseInt(novoTipoSLA),
-      tipo: parseInt(novoTipoTipo),
+      prazo_minutos: totalMinutos,
     });
   };
 
@@ -172,20 +181,6 @@ const Configuracoes = () => {
     return `${Math.round(minutos / 1440)} dia(s)`;
   };
 
-  const getTipoLabel = (tipo: number) => {
-    const labels: Record<number, string> = {
-      1: "Tipo 1 - Rápido",
-      2: "Tipo 2 - Médio",
-      3: "Tipo 3 - Longo",
-    };
-    return labels[tipo] || `Tipo ${tipo}`;
-  };
-
-  const getTipoBadgeVariant = (tipo: number) => {
-    if (tipo === 1) return "default";
-    if (tipo === 2) return "secondary";
-    return "outline";
-  };
 
   return (
     <div className="space-y-6">
@@ -282,8 +277,7 @@ const Configuracoes = () => {
                     <TableRow>
                       <TableHead>ID</TableHead>
                       <TableHead>Nome</TableHead>
-                      <TableHead>Categoria</TableHead>
-                      <TableHead>SLA</TableHead>
+                      <TableHead>Prazo SLA</TableHead>
                       {isAdmin && <TableHead className="w-[80px]">Ações</TableHead>}
                     </TableRow>
                   </TableHeader>
@@ -295,11 +289,6 @@ const Configuracoes = () => {
                         </TableCell>
                         <TableCell className="font-medium">
                           {tipo.nome}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={getTipoBadgeVariant(tipo.tipo)}>
-                            {getTipoLabel(tipo.tipo)}
-                          </Badge>
                         </TableCell>
                         <TableCell>
                           <Badge variant="secondary">
@@ -350,32 +339,34 @@ const Configuracoes = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="categoria">Categoria</Label>
-              <Select value={novoTipoTipo} onValueChange={setNovoTipoTipo}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione a categoria" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1">Tipo 1 - Rápido (até 20min)</SelectItem>
-                  <SelectItem value="2">Tipo 2 - Médio (até 60min)</SelectItem>
-                  <SelectItem value="3">Tipo 3 - Longo (até 48h)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="sla">Prazo de SLA</Label>
-              <Select value={novoTipoSLA} onValueChange={setNovoTipoSLA}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o prazo" />
-                </SelectTrigger>
-                <SelectContent>
-                  {prazos?.map((prazo) => (
-                    <SelectItem key={prazo.id} value={prazo.id.toString()}>
-                      {prazo.descricao} ({formatSLA(prazo.prazo_minutos)})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Prazo de SLA</Label>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
+                  <Input
+                    type="number"
+                    min="0"
+                    max="999"
+                    className="w-20"
+                    value={novoSlaHoras}
+                    onChange={(e) => setNovoSlaHoras(e.target.value)}
+                  />
+                  <span className="text-sm text-muted-foreground">h</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Input
+                    type="number"
+                    min="0"
+                    max="59"
+                    className="w-20"
+                    value={novoSlaMinutos}
+                    onChange={(e) => setNovoSlaMinutos(e.target.value)}
+                  />
+                  <span className="text-sm text-muted-foreground">min</span>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Defina o tempo máximo para resolução desta demanda
+              </p>
             </div>
           </div>
           <DialogFooter>

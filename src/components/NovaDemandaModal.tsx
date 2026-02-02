@@ -375,21 +375,19 @@ export function NovaDemandaModal({ open, onOpenChange, onSuccess }: NovaDemandaM
   const empresaSelecionada = empresas.find(e => e.cnpj_id.toString() === formData.empresaId);
   const tipoDemandaSelecionado = tiposDemanda.find(t => t.id.toString() === formData.tipoDemandaId);
 
-  // Obter label do tipo (1, 2 ou 3)
-  const getTipoLabel = (tipo: number) => {
-    switch (tipo) {
-      case 1: return { label: "Urgente", color: "bg-red-100 text-red-700" };
-      case 2: return { label: "Prioridade Média", color: "bg-yellow-100 text-yellow-700" };
-      case 3: return { label: "Baixa Prioridade", color: "bg-green-100 text-green-700" };
-      default: return { label: "Padrão", color: "bg-gray-100 text-gray-700" };
-    }
-  };
-
   // Formatar prazo em texto legível
   const formatPrazoTexto = (minutos: number) => {
     if (minutos < 60) return `${minutos} minutos`;
-    if (minutos < 1440) return `${Math.floor(minutos / 60)} hora${minutos >= 120 ? 's' : ''}`;
-    return `${Math.floor(minutos / 1440)} dia${minutos >= 2880 ? 's' : ''}`;
+    const horas = Math.floor(minutos / 60);
+    const mins = minutos % 60;
+    if (minutos < 1440) {
+      if (mins === 0) return `${horas}h`;
+      return `${horas}h ${mins}min`;
+    }
+    const dias = Math.floor(minutos / 1440);
+    const horasRestantes = Math.floor((minutos % 1440) / 60);
+    if (horasRestantes === 0) return `${dias} dia${dias > 1 ? 's' : ''}`;
+    return `${dias} dia${dias > 1 ? 's' : ''} ${horasRestantes}h`;
   };
 
   return (
@@ -513,7 +511,12 @@ export function NovaDemandaModal({ open, onOpenChange, onSuccess }: NovaDemandaM
                       className="w-full justify-between font-normal"
                     >
                       {tipoDemandaSelecionado ? (
-                        <span>{tipoDemandaSelecionado.nome}</span>
+                        <div className="flex items-center justify-between w-full">
+                          <span>{tipoDemandaSelecionado.nome}</span>
+                          <Badge variant="secondary" className="ml-2 bg-primary/10 text-primary">
+                            SLA: {formatPrazoTexto(tipoDemandaSelecionado.prazo_minutos || 60)}
+                          </Badge>
+                        </div>
                       ) : (
                         <span className="text-muted-foreground">Selecione o tipo de demanda</span>
                       )}
@@ -525,8 +528,8 @@ export function NovaDemandaModal({ open, onOpenChange, onSuccess }: NovaDemandaM
                       <CommandInput placeholder="Buscar tipo de demanda..." />
                       <CommandList>
                         <CommandEmpty>Nenhum tipo encontrado</CommandEmpty>
-                        <CommandGroup heading="SLA: 20 minutos">
-                          {tiposDemanda.filter(t => t.tipo === 1).map((tipo) => (
+                        <CommandGroup>
+                          {tiposDemanda.map((tipo) => (
                             <CommandItem
                               key={tipo.id}
                               value={tipo.nome}
@@ -541,47 +544,12 @@ export function NovaDemandaModal({ open, onOpenChange, onSuccess }: NovaDemandaM
                                   formData.tipoDemandaId === tipo.id.toString() ? "opacity-100" : "opacity-0"
                                 )}
                               />
-                              <span>{tipo.nome}</span>
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                        <CommandGroup heading="SLA: 1 hora">
-                          {tiposDemanda.filter(t => t.tipo === 2).map((tipo) => (
-                            <CommandItem
-                              key={tipo.id}
-                              value={tipo.nome}
-                              onSelect={() => {
-                                handleTipoDemandaChange(tipo.id.toString());
-                                setTipoDemandaOpen(false);
-                              }}
-                            >
-                              <Check
-                                className={cn(
-                                  "mr-2 h-4 w-4",
-                                  formData.tipoDemandaId === tipo.id.toString() ? "opacity-100" : "opacity-0"
-                                )}
-                              />
-                              <span>{tipo.nome}</span>
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                        <CommandGroup heading="SLA: 2 dias">
-                          {tiposDemanda.filter(t => t.tipo === 3).map((tipo) => (
-                            <CommandItem
-                              key={tipo.id}
-                              value={tipo.nome}
-                              onSelect={() => {
-                                handleTipoDemandaChange(tipo.id.toString());
-                                setTipoDemandaOpen(false);
-                              }}
-                            >
-                              <Check
-                                className={cn(
-                                  "mr-2 h-4 w-4",
-                                  formData.tipoDemandaId === tipo.id.toString() ? "opacity-100" : "opacity-0"
-                                )}
-                              />
-                              <span>{tipo.nome}</span>
+                              <div className="flex items-center justify-between w-full">
+                                <span>{tipo.nome}</span>
+                                <Badge variant="outline" className="ml-2 text-xs">
+                                  {formatPrazoTexto(tipo.prazo_minutos || 60)}
+                                </Badge>
+                              </div>
                             </CommandItem>
                           ))}
                         </CommandGroup>
@@ -592,7 +560,7 @@ export function NovaDemandaModal({ open, onOpenChange, onSuccess }: NovaDemandaM
                 {tipoDemandaSelecionado && (
                   <p className="text-xs text-muted-foreground flex items-center gap-1">
                     <Clock className="h-3 w-3" />
-                    SLA: {formatPrazoTexto(tipoDemandaSelecionado.prazo_minutos || 60)} para resolução
+                    Prazo de {formatPrazoTexto(tipoDemandaSelecionado.prazo_minutos || 60)} para resolução
                   </p>
                 )}
               </div>
