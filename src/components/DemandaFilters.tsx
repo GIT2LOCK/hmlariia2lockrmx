@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -27,12 +26,17 @@ import {
   AlertCircle,
   CheckCircle2,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Star,
+  Plus
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
+import { useFiltrosFavoritos, FiltroFavorito } from "@/hooks/useFiltrosFavoritos";
+import { SaveFilterModal } from "@/components/SaveFilterModal";
+import { useUser } from "@/contexts/UserContext";
 
 export interface FilterState {
   dataInicio: Date | undefined;
@@ -88,12 +92,16 @@ const initialFilters: FilterState = {
 };
 
 export function DemandaFilters({ filters, onFiltersChange, onClearFilters }: DemandaFiltersProps) {
+  const { user } = useUser();
   const [isExpanded, setIsExpanded] = useState(false);
   const [prioridades, setPrioridades] = useState<Prioridade[]>([]);
   const [statusList, setStatusList] = useState<Status[]>([]);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [tiposDemanda, setTiposDemanda] = useState<TipoDemanda[]>([]);
+  const [showSaveModal, setShowSaveModal] = useState(false);
+
+  const { favoritos, salvarFavorito, removerFavorito } = useFiltrosFavoritos(user?.id || null);
 
   useEffect(() => {
     fetchFilterData();
@@ -128,6 +136,16 @@ export function DemandaFilters({ filters, onFiltersChange, onClearFilters }: Dem
     onClearFilters();
   };
 
+  const handleSaveFavorite = async (nome: string) => {
+    return await salvarFavorito(nome, filters);
+  };
+
+  const handleApplyFavorite = (favorito: FiltroFavorito) => {
+    onFiltersChange(favorito.filtros);
+  };
+
+  const hasActiveFilters = activeFiltersCount > 0;
+
   return (
     <Card className="border shadow-sm">
       <CardContent className="p-4">
@@ -150,13 +168,53 @@ export function DemandaFilters({ filters, onFiltersChange, onClearFilters }: Dem
               <ChevronDown className="h-4 w-4 ml-2" />
             )}
           </Button>
-          {activeFiltersCount > 0 && (
-            <Button variant="ghost" size="sm" onClick={handleClear}>
-              <X className="h-4 w-4 mr-1" />
-              Limpar filtros
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {hasActiveFilters && (
+              <>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setShowSaveModal(true)}
+                  className="gap-1"
+                >
+                  <Star className="h-4 w-4" />
+                  Salvar favorito
+                </Button>
+                <Button variant="ghost" size="sm" onClick={handleClear}>
+                  <X className="h-4 w-4 mr-1" />
+                  Limpar
+                </Button>
+              </>
+            )}
+          </div>
         </div>
+
+        {/* Filtros favoritos como chips */}
+        {favoritos.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-4">
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              <Star className="h-3 w-3" /> Favoritos:
+            </span>
+            {favoritos.map((fav) => (
+              <Badge
+                key={fav.id}
+                variant="secondary"
+                className="cursor-pointer hover:bg-secondary/80 pr-1 flex items-center gap-1"
+              >
+                <span onClick={() => handleApplyFavorite(fav)}>{fav.nome}</span>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removerFavorito(fav.id);
+                  }}
+                  className="ml-1 rounded-full p-0.5 hover:bg-destructive/20"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            ))}
+          </div>
+        )}
 
         {isExpanded && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -366,6 +424,12 @@ export function DemandaFilters({ filters, onFiltersChange, onClearFilters }: Dem
             </div>
           </div>
         )}
+
+        <SaveFilterModal
+          open={showSaveModal}
+          onOpenChange={setShowSaveModal}
+          onSave={handleSaveFavorite}
+        />
       </CardContent>
     </Card>
   );

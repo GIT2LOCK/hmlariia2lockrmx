@@ -402,6 +402,38 @@ export type Database = {
         }
         Relationships: []
       }
+      tb_filtro_favorito: {
+        Row: {
+          created_at: string
+          filtros: Json
+          id: number
+          nome: string
+          user_id: number
+        }
+        Insert: {
+          created_at?: string
+          filtros: Json
+          id?: number
+          nome: string
+          user_id: number
+        }
+        Update: {
+          created_at?: string
+          filtros?: Json
+          id?: number
+          nome?: string
+          user_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tb_filtro_favorito_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "tb_usuario"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       tb_numero: {
         Row: {
           tel_id: number
