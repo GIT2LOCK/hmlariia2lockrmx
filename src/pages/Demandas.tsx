@@ -286,7 +286,6 @@ const Demandas = () => {
     exportToExcel(
       filteredDemandas,
       [
-        { key: "dem_id", header: "ID" },
         { key: "titulo_demanda", header: "Título" },
         { key: "empresa_nome", header: "Empresa" },
         { key: "empresa_cnpj", header: "CNPJ" },
