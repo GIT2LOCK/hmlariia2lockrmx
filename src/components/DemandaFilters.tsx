@@ -134,7 +134,7 @@ export function DemandaFilters({ filters, onFiltersChange, onClearFilters }: Dem
         <div className="flex items-center justify-between mb-4">
           <Button
             variant="ghost"
-            className="flex items-center gap-2 p-0 h-auto hover:bg-transparent"
+            className="flex items-center gap-2 px-2 py-1 h-auto"
             onClick={() => setIsExpanded(!isExpanded)}
           >
             <Filter className="h-4 w-4" />
