@@ -174,7 +174,6 @@ const Relatorios = () => {
 
   const exportDemandasPorPeriodo = () => {
     const data = demandas?.map(d => ({
-      ID: d.dem_id,
       Título: d.titulo_demanda,
       Empresa: d.tb_cpf_cnpj?.tb_cnpj?.razao_social || "Não informada",
       Responsável: d.tb_usuario?.nome || "Não atribuído",
@@ -189,7 +188,6 @@ const Relatorios = () => {
 
   const exportTodasDemandas = () => {
     const data = demandas?.map(d => ({
-      ID: d.dem_id,
       Título: d.titulo_demanda,
       Descrição: d.descricao_tarefa,
       Empresa: d.tb_cpf_cnpj?.tb_cnpj?.razao_social || "Não informada",
