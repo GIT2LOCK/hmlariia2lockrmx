@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { HIDDEN_USER_IDS } from "@/lib/constants";
+import { HIDDEN_USER_IDS, getDisplayName } from "@/lib/constants";
 
 export interface Usuario {
   user_id: number;
@@ -64,7 +64,7 @@ export function useUsuarios() {
 
       const formattedUsers: Usuario[] = (data || []).map((user: any) => ({
         user_id: user.user_id,
-        nome: user.nome,
+        nome: getDisplayName(user.user_id, user.nome),
         email: user.tb_email?.email_principal || "",
         cpf: formatCpf(user.tb_cpf?.cpf_numero || ""),
         permissao_id: user.permissao_id,
