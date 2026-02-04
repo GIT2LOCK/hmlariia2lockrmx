@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { HIDDEN_USER_IDS, getDisplayName } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -121,16 +120,7 @@ export function DemandaFilters({ filters, onFiltersChange, onClearFilters }: Dem
 
       if (prioridadesRes.data) setPrioridades(prioridadesRes.data);
       if (statusRes.data) setStatusList(statusRes.data);
-      // Filtrar usuários ocultos e aplicar nome visual
-      if (usuariosRes.data) {
-        const usuariosFiltrados = usuariosRes.data
-          .filter((u: any) => !HIDDEN_USER_IDS.includes(u.user_id))
-          .map((u: any) => ({
-            ...u,
-            nome: getDisplayName(u.user_id, u.nome)
-          }));
-        setUsuarios(usuariosFiltrados);
-      }
+      if (usuariosRes.data) setUsuarios(usuariosRes.data);
       if (empresasRes.data) setEmpresas(empresasRes.data);
       if (tiposRes.data) setTiposDemanda(tiposRes.data);
     } catch (error) {

@@ -1,7 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { getStoredUser, syncUserFromDatabase, AuthUser } from "@/services/authService";
 import { supabase } from "@/integrations/supabase/client";
-import { getDisplayName } from "@/lib/constants";
 
 export type UserRole = "SUPERADMIN" | "ADMIN" | "USER" | "VIEWER";
 
@@ -68,9 +67,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     const storedUser = getStoredUser();
     
     if (storedUser) {
-      // Aplicar nome visual se existir override
-      const displayName = getDisplayName(storedUser.id, storedUser.nome);
-      const { nome, sobrenome } = splitName(displayName);
+      const { nome, sobrenome } = splitName(storedUser.nome);
       const role = (storedUser.permissao as UserRole) || "VIEWER";
       
       // Load avatar from database
@@ -110,9 +107,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const syncFromDatabase = async () => {
     const updatedUser = await syncUserFromDatabase();
     if (updatedUser) {
-      // Aplicar nome visual se existir override
-      const displayName = getDisplayName(updatedUser.id, updatedUser.nome);
-      const { nome, sobrenome } = splitName(displayName);
+      const { nome, sobrenome } = splitName(updatedUser.nome);
       const role = (updatedUser.permissao as UserRole) || "VIEWER";
       
       // Load avatar from database

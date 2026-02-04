@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { HIDDEN_USER_IDS, getDisplayName } from "@/lib/constants";
 
 export interface Usuario {
   user_id: number;
@@ -34,8 +33,7 @@ export function useUsuarios() {
     setError(null);
     
     try {
-      // Filtrar usuários ocultos diretamente na query
-      let query = supabase
+      const { data, error: fetchError } = await supabase
         .from("tb_usuario")
         .select(`
           user_id,
@@ -49,14 +47,8 @@ export function useUsuarios() {
           tb_permissao (nome, descricao),
           tb_email (email_principal),
           tb_cpf (cpf_numero)
-        `);
-      
-      // Excluir usuários ocultos
-      if (HIDDEN_USER_IDS.length > 0) {
-        query = query.not("user_id", "in", `(${HIDDEN_USER_IDS.join(",")})`);
-      }
-      
-      const { data, error: fetchError } = await query.order("user_id");
+        `)
+        .order("user_id");
 
       if (fetchError) {
         throw fetchError;
@@ -64,7 +56,7 @@ export function useUsuarios() {
 
       const formattedUsers: Usuario[] = (data || []).map((user: any) => ({
         user_id: user.user_id,
-        nome: getDisplayName(user.user_id, user.nome),
+        nome: user.nome,
         email: user.tb_email?.email_principal || "",
         cpf: formatCpf(user.tb_cpf?.cpf_numero || ""),
         permissao_id: user.permissao_id,
@@ -211,22 +203,18 @@ export function usePermissoes() {
 
       if (permError) throw permError;
 
-      // Get member count for each permission (excluding hidden users)
-      let countQuery = supabase
+      // Get member count for each permission
+      const { data: countData, error: countError } = await supabase
         .from("tb_usuario")
-        .select("permissao_id, user_id");
-      
-      const { data: countData, error: countError } = await countQuery;
+        .select("permissao_id");
 
       if (countError) throw countError;
 
-      // Count members per permission (excluding hidden users)
+      // Count members per permission
       const memberCounts: Record<number, number> = {};
-      (countData || [])
-        .filter((user: any) => !HIDDEN_USER_IDS.includes(user.user_id))
-        .forEach((user: any) => {
-          memberCounts[user.permissao_id] = (memberCounts[user.permissao_id] || 0) + 1;
-        });
+      (countData || []).forEach((user: any) => {
+        memberCounts[user.permissao_id] = (memberCounts[user.permissao_id] || 0) + 1;
+      });
 
       const formattedPermissoes: Permissao[] = (permData || []).map((perm: any) => ({
         permissao_id: perm.permissao_id,
