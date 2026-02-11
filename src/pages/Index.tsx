@@ -1,538 +1,276 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Eye, EyeOff, Mail, Lock, User, CreditCard } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import logo from "@/assets/logo.png";
-import PasswordChecklist from "@/components/PasswordChecklist";
-import { signup, login } from "@/services/authService";
-import { TwoFactorModal } from "@/components/TwoFactorModal";
-import { TwoFactorSetupModal } from "@/components/TwoFactorSetupModal";
-import { useUser } from "@/contexts/UserContext";
-import { validateCpf, formatCpfMask } from "@/lib/validators";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-// Validação de senha forte
-const validatePassword = (password: string): { valid: boolean; message: string } => {
-  if (password.length < 8) {
-    return { valid: false, message: "A senha deve ter no mínimo 8 caracteres." };
-  }
-  if (!/[a-z]/.test(password)) {
-    return { valid: false, message: "A senha deve conter pelo menos uma letra minúscula." };
-  }
-  if (!/[A-Z]/.test(password)) {
-    return { valid: false, message: "A senha deve conter pelo menos uma letra maiúscula." };
-  }
-  if (!/[0-9]/.test(password)) {
-    return { valid: false, message: "A senha deve conter pelo menos um número." };
-  }
-  if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
-    return { valid: false, message: "A senha deve conter pelo menos um caractere especial." };
-  }
-  return { valid: true, message: "" };
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const Index = () => {
-  const navigate = useNavigate();
-  const { refreshUser, isAuthenticated, isLoading: isAuthLoading } = useUser();
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
 
-  // Redirect to dashboard if already authenticated
-  useEffect(() => {
-    if (!isAuthLoading && isAuthenticated) {
-      navigate("/dashboard", { replace: true });
-    }
-  }, [isAuthenticated, isAuthLoading, navigate]);
-  const [isLoginMode, setIsLoginMode] = useState(true);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isForgotPassword, setIsForgotPassword] = useState(false);
-  const { toast } = useToast();
-
-  // Form states
-  const [loginEmail, setLoginEmail] = useState("");
-  const [loginPassword, setLoginPassword] = useState("");
-  const [signupNome, setSignupNome] = useState("");
-  const [signupSobrenome, setSignupSobrenome] = useState("");
-  const [signupEmail, setSignupEmail] = useState("");
-  const [signupCpf, setSignupCpf] = useState("");
-  const [signupPassword, setSignupPassword] = useState("");
-  const [signupConfirmPassword, setSignupConfirmPassword] = useState("");
-  const [forgotEmail, setForgotEmail] = useState("");
-
-  // Verification modal states
-  const [show2FAModal, setShow2FAModal] = useState(false);
-  const [show2FASetupModal, setShow2FASetupModal] = useState(false);
-  const [pendingUser, setPendingUser] = useState<{ id: number; nome: string; email?: string } | null>(null);
-  const [setupToken, setSetupToken] = useState<string | undefined>(undefined);
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    
-    const result = await login({
-      email: loginEmail,
-      senha: loginPassword,
+  if (req.method !== "POST") {
+    return new Response(JSON.stringify({ success: false, error: "Método não permitido. Use POST." }), {
+      status: 405,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-    
-    setIsLoading(false);
-    
-    if (result.success) {
-      // Refresh user context to update authentication state
-      refreshUser();
-      toast({
-        title: "Login realizado!",
-        description: `Bem-vindo de volta, ${result.user?.nome}!`,
-      });
-      navigate("/dashboard");
-    } else if (result.requires2FA && result.user) {
-      // User has 2FA enabled
-      setPendingUser({
-        id: result.user.id,
-        nome: result.user.nome,
-      });
-      setShow2FAModal(true);
-    } else {
-      toast({
-        title: "Erro",
-        description: result.message,
-        variant: "destructive",
-      });
-    }
-  };
+  }
 
-  const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Validar CPF completo
-    if (!validateCpf(signupCpf)) {
-      toast({
-        title: "Erro",
-        description: "CPF inválido. Verifique os dígitos informados.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    // Validar senha forte
-    const passwordValidation = validatePassword(signupPassword);
-    if (!passwordValidation.valid) {
-      toast({
-        title: "Erro",
-        description: passwordValidation.message,
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    if (signupPassword !== signupConfirmPassword) {
-      toast({
-        title: "Erro",
-        description: "As senhas não coincidem.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    // Concatenar nome e sobrenome para enviar ao banco
-    const nomeCompleto = `${signupNome.trim()} ${signupSobrenome.trim()}`;
-    
-    setIsLoading(true);
-    
-    const result = await signup({
-      nome: nomeCompleto,
-      email: signupEmail,
-      cpf: signupCpf,
-      senha: signupPassword,
+  // Validate Bearer token
+  const authHeader = req.headers.get("Authorization");
+  const expectedToken = Deno.env.get("N8N_API_TOKEN");
+
+  if (!expectedToken) {
+    console.error("N8N_API_TOKEN not configured");
+    return new Response(JSON.stringify({ success: false, error: "Configuração do servidor incompleta" }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-    
-    setIsLoading(false);
-    
-    if (result.success && result.user && result.requires2FASetup) {
-      // Show 2FA setup modal - mandatory after registration
-      setPendingUser({
-        id: result.user.id,
-        nome: result.user.nome,
-        email: signupEmail,
-      });
-      setSetupToken(result.setupToken); // Store the setup token
-      setShow2FASetupModal(true);
-      // Clear form
-      setSignupNome("");
-      setSignupSobrenome("");
-      setSignupEmail("");
-      setSignupCpf("");
-      setSignupPassword("");
-      setSignupConfirmPassword("");
-    } else {
-      toast({
-        title: "Erro",
-        description: result.message,
-        variant: "destructive",
+  }
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return new Response(JSON.stringify({ success: false, error: "Token de autenticação ausente" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  const token = authHeader.replace("Bearer ", "");
+  if (token !== expectedToken) {
+    return new Response(JSON.stringify({ success: false, error: "Token inválido" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  try {
+    const body = await req.json();
+    const { empresa_id, tipodemanda_id, via_id, titulo, descricao } = body;
+
+    // Validate required fields
+    if (!empresa_id || !tipodemanda_id || !via_id || !titulo || !descricao) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Campos obrigatórios: empresa_id, tipodemanda_id, via_id, titulo, descricao",
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+    if (!supabaseUrl || !serviceRoleKey) {
+      console.error("SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not configured");
+      return new Response(JSON.stringify({ success: false, error: "Configuração do Supabase incompleta" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-  };
 
-  const handleForgotPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      toast({
-        title: "E-mail enviado!",
-        description: "Verifique sua caixa de entrada para redefinir sua senha.",
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+    // Validate empresa_id exists
+    const { data: empresa, error: empresaErr } = await supabase
+      .from("tb_cnpj")
+      .select("cnpj_id, razao_social")
+      .eq("cnpj_id", empresa_id)
+      .maybeSingle();
+
+    if (empresaErr || !empresa) {
+      return new Response(JSON.stringify({ success: false, error: `empresa_id ${empresa_id} não encontrada` }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
-      setIsForgotPassword(false);
-    }, 1500);
-  };
+    }
 
-  return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-background overflow-hidden relative">
-      {/* Mobile Header - Toggle between Login/Signup */}
-      <div className="md:hidden bg-primary p-4 text-center">
-        <h2 className="text-xl font-bold text-primary-foreground mb-2">
-          {isLoginMode ? "Bem-vindo!" : "Criar Conta"}
-        </h2>
-        <p className="text-sm text-primary-foreground/80 mb-3">
-          {isLoginMode 
-            ? "Não tem uma conta?" 
-            : "Já tem uma conta?"}
-        </p>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            setIsLoginMode(!isLoginMode);
-            setIsForgotPassword(false);
-          }}
-          className="border-primary-foreground text-primary-foreground bg-transparent hover:bg-primary-foreground hover:text-primary font-semibold px-8 rounded-full"
-        >
-          {isLoginMode ? "CADASTRAR" : "ENTRAR"}
-        </Button>
-      </div>
+    // Validate tipodemanda_id exists and get prazo_id (SLA is derived from prazo_id via tb_prazo)
+    const { data: tipoDemanda, error: tipoErr } = await supabase
+      .from("tb_tipodemanda")
+      .select("id, nome, prazo_id")
+      .eq("id", tipodemanda_id)
+      .maybeSingle();
 
-      {/* Sliding Panel - Desktop only */}
-      <div 
-        className={`hidden md:flex absolute inset-y-0 w-[37.5%] bg-primary z-20 flex-col items-center justify-center text-primary-foreground p-8 transition-all duration-700 ease-[cubic-bezier(0.65,0,0.35,1)] ${
-          isLoginMode ? 'translate-x-0' : 'translate-x-[166.67%]'
-        }`}
-      >
-        <div className={`max-w-sm text-center space-y-6 transition-opacity duration-500 ${isLoginMode ? 'opacity-100 delay-300' : 'opacity-0 pointer-events-none'}`}>
-          <h2 className="text-3xl font-bold">Olá, Amigo!</h2>
-          <p className="text-primary-foreground/80">
-            Preencha seus dados pessoais e comece sua jornada conosco
-          </p>
-          <Button
-            variant="outline"
-            size="lg"
-            onClick={() => {
-              setIsLoginMode(false);
-              setIsForgotPassword(false);
-            }}
-            className="mt-4 border-primary-foreground text-primary-foreground bg-transparent hover:bg-primary-foreground hover:text-primary font-semibold px-12 rounded-full"
-          >
-            CADASTRAR
-          </Button>
-        </div>
-        <div className={`max-w-sm text-center space-y-6 absolute transition-opacity duration-500 ${!isLoginMode ? 'opacity-100 delay-300' : 'opacity-0 pointer-events-none'}`}>
-          <h2 className="text-3xl font-bold">Bem-vindo de Volta!</h2>
-          <p className="text-primary-foreground/80">
-            Para continuar conectado, faça login com suas informações pessoais
-          </p>
-          <Button
-            variant="outline"
-            size="lg"
-            onClick={() => setIsLoginMode(true)}
-            className="mt-4 border-primary-foreground text-primary-foreground bg-transparent hover:bg-primary-foreground hover:text-primary font-semibold px-12 rounded-full"
-          >
-            ENTRAR
-          </Button>
-        </div>
-      </div>
+    if (tipoErr || !tipoDemanda) {
+      return new Response(
+        JSON.stringify({ success: false, error: `tipodemanda_id ${tipodemanda_id} não encontrado` }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
 
-      {/* Forms Container */}
-      <div className="flex-1 flex relative">
-        {/* Login Form - Right side on desktop, full width on mobile */}
-        <div 
-          className={`w-full md:w-[62.5%] min-h-[calc(100vh-100px)] md:min-h-screen flex items-center justify-center p-4 md:p-8 md:absolute md:inset-y-0 md:right-0 transition-all duration-700 ease-[cubic-bezier(0.65,0,0.35,1)] ${
-            isLoginMode 
-              ? 'opacity-100 translate-x-0 z-10 block' 
-              : 'opacity-0 md:translate-x-[20%] z-0 pointer-events-none hidden md:flex'
-          }`}
-        >
-          <div className={`w-full max-w-md space-y-6 md:space-y-8 transition-transform duration-700 delay-100 ${isLoginMode ? 'translate-y-0' : 'translate-y-4'}`}>
-            {!isForgotPassword ? (
-              <>
-                <div className="text-center">
-                  <img src={logo} alt="Web Contador" className="h-20 md:h-32 mx-auto mb-4 md:mb-6" />
-                  <h1 className="text-2xl md:text-3xl font-bold text-foreground">Entrar na Conta</h1>
-                  <p className="text-sm md:text-base text-muted-foreground mt-2">Use seu e-mail ou usuário para login</p>
-                </div>
+    if (!tipoDemanda.prazo_id) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `tipodemanda_id ${tipodemanda_id} não possui prazo_id configurado`,
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
 
-                <form onSubmit={handleLogin} className="space-y-3 md:space-y-4">
-                  <div className="relative">
-                    <Mail className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
-                    <Input
-                      type="text"
-                      placeholder="E-mail ou usuário"
-                      value={loginEmail}
-                      onChange={(e) => setLoginEmail(e.target.value)}
-                      className="pl-10 md:pl-12 h-10 md:h-12 bg-muted border-0 rounded-lg text-sm md:text-base"
-                      required
-                    />
-                  </div>
+    // Fetch SLA from tb_prazo using prazo_id
+    const { data: prazo, error: prazoErr } = await supabase
+      .from("tb_prazo")
+      .select("prazo_id, sla_minutos")
+      .eq("prazo_id", tipoDemanda.prazo_id)
+      .maybeSingle();
 
-                  <div className="relative">
-                    <Lock className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
-                    <Input
-                      type={showPassword ? "text" : "password"}
-                      placeholder="Senha"
-                      value={loginPassword}
-                      onChange={(e) => setLoginPassword(e.target.value)}
-                      className="pl-10 md:pl-12 pr-10 md:pr-12 h-10 md:h-12 bg-muted border-0 rounded-lg text-sm md:text-base"
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 md:right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    >
-                      {showPassword ? <EyeOff className="h-4 w-4 md:h-5 md:w-5" /> : <Eye className="h-4 w-4 md:h-5 md:w-5" />}
-                    </button>
-                  </div>
+    if (prazoErr || !prazo || prazo.sla_minutos == null) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `prazo_id ${tipoDemanda.prazo_id} não encontrado ou sem sla_minutos`,
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
 
-                  <div className="text-right">
-                    <button
-                      type="button"
-                      onClick={() => setIsForgotPassword(true)}
-                      className="text-xs md:text-sm text-secondary hover:text-brand-green-light font-medium"
-                    >
-                      Esqueceu sua senha?
-                    </button>
-                  </div>
+    // Validate via_id exists
+    const { data: via, error: viaErr } = await supabase
+      .from("tb_via")
+      .select("via_id")
+      .eq("via_id", via_id)
+      .maybeSingle();
 
-                  <Button
-                    type="submit"
-                    disabled={isLoading}
-                    className="w-full h-10 md:h-12 bg-secondary hover:bg-brand-green-light text-secondary-foreground font-semibold rounded-full text-sm md:text-base"
-                  >
-                    {isLoading ? "ENTRANDO..." : "ENTRAR"}
-                  </Button>
-                </form>
-              </>
-            ) : (
-              <>
-                <div className="text-center">
-                  <img src={logo} alt="Web Contador" className="h-20 md:h-32 mx-auto mb-4 md:mb-6" />
-                  <h1 className="text-2xl md:text-3xl font-bold text-foreground">Recuperar Senha</h1>
-                  <p className="text-sm md:text-base text-muted-foreground mt-2">Digite seu e-mail para receber o link</p>
-                </div>
+    if (viaErr || !via) {
+      return new Response(JSON.stringify({ success: false, error: `via_id ${via_id} não encontrada` }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-                <form onSubmit={handleForgotPassword} className="space-y-3 md:space-y-4">
-                  <div className="relative">
-                    <Mail className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
-                    <Input
-                      type="email"
-                      placeholder="E-mail"
-                      value={forgotEmail}
-                      onChange={(e) => setForgotEmail(e.target.value)}
-                      className="pl-10 md:pl-12 h-10 md:h-12 bg-muted border-0 rounded-lg text-sm md:text-base"
-                      required
-                    />
-                  </div>
+    // Find or create cpf_cnpj entry for the empresa
+    let cpfCnpjId: number;
 
-                  <Button
-                    type="submit"
-                    disabled={isLoading}
-                    className="w-full h-10 md:h-12 bg-secondary hover:bg-brand-green-light text-secondary-foreground font-semibold rounded-full text-sm md:text-base"
-                  >
-                    {isLoading ? "ENVIANDO..." : "ENVIAR LINK"}
-                  </Button>
+    const { data: existingRelation, error: existingRelErr } = await supabase
+      .from("tb_cpf_cnpj")
+      .select("id")
+      .eq("cnpj_id", empresa_id)
+      .limit(1)
+      .maybeSingle();
 
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => setIsForgotPassword(false)}
-                    className="w-full text-muted-foreground hover:text-foreground text-sm"
-                  >
-                    Voltar ao login
-                  </Button>
-                </form>
-              </>
-            )}
-          </div>
-        </div>
+    if (existingRelErr) {
+      console.error("Erro ao buscar tb_cpf_cnpj:", existingRelErr);
+      return new Response(JSON.stringify({ success: false, error: "Erro ao validar relação CPF/CNPJ" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-        {/* Signup Form - Left side on desktop, full width on mobile */}
-        <div 
-          className={`w-full md:w-[62.5%] min-h-[calc(100vh-100px)] md:min-h-screen flex items-center justify-center p-4 md:p-8 md:absolute md:inset-y-0 md:left-0 transition-all duration-700 ease-[cubic-bezier(0.65,0,0.35,1)] ${
-            !isLoginMode 
-              ? 'opacity-100 translate-x-0 z-10 block' 
-              : 'opacity-0 md:-translate-x-[20%] z-0 pointer-events-none hidden md:flex'
-          }`}
-        >
-          <div className={`w-full max-w-md space-y-6 md:space-y-8 transition-transform duration-700 delay-100 ${!isLoginMode ? 'translate-y-0' : 'translate-y-4'}`}>
-            <div className="text-center">
-              <img src={logo} alt="Web Contador" className="h-20 md:h-32 mx-auto mb-4 md:mb-6" />
-              <h1 className="text-2xl md:text-3xl font-bold text-foreground">Criar Conta</h1>
-              <p className="text-sm md:text-base text-muted-foreground mt-2">Use seu e-mail para cadastro</p>
-            </div>
+    if (existingRelation) {
+      cpfCnpjId = existingRelation.id;
+    } else {
+      // Create placeholder CPF and relation (same logic as manual form)
+      const cpfPlaceholder = String(empresa_id).padStart(11, "0");
 
-            <form onSubmit={handleSignup} className="space-y-3 md:space-y-4">
-              <div className="flex flex-col sm:flex-row gap-3">
-                <div className="relative flex-1">
-                  <User className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
-                  <Input
-                    type="text"
-                    placeholder="Nome"
-                    value={signupNome}
-                    onChange={(e) => setSignupNome(e.target.value)}
-                    className="pl-10 md:pl-12 h-10 md:h-12 bg-muted border-0 rounded-lg text-sm md:text-base"
-                    required
-                  />
-                </div>
-                <div className="relative flex-1">
-                  <Input
-                    type="text"
-                    placeholder="Sobrenome"
-                    value={signupSobrenome}
-                    onChange={(e) => setSignupSobrenome(e.target.value)}
-                    className="h-10 md:h-12 bg-muted border-0 rounded-lg text-sm md:text-base"
-                    required
-                  />
-                </div>
-              </div>
+      const { data: existingCpf, error: existingCpfErr } = await supabase
+        .from("tb_cpf")
+        .select("cpf_id")
+        .eq("cpf_numero", cpfPlaceholder)
+        .maybeSingle();
 
-              <div className="relative">
-                <Mail className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
-                <Input
-                  type="email"
-                  placeholder="E-mail"
-                  value={signupEmail}
-                  onChange={(e) => setSignupEmail(e.target.value)}
-                  className="pl-10 md:pl-12 h-10 md:h-12 bg-muted border-0 rounded-lg text-sm md:text-base"
-                  required
-                />
-              </div>
+      if (existingCpfErr) {
+        console.error("Erro ao buscar tb_cpf:", existingCpfErr);
+        return new Response(JSON.stringify({ success: false, error: "Erro ao validar CPF placeholder" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
-              <div className="relative">
-                <CreditCard className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
-                <Input
-                  type="text"
-                  placeholder="CPF"
-                  value={signupCpf}
-                  onChange={(e) => setSignupCpf(formatCpfMask(e.target.value))}
-                  className="pl-10 md:pl-12 h-10 md:h-12 bg-muted border-0 rounded-lg text-sm md:text-base"
-                  required
-                  maxLength={14}
-                />
-              </div>
+      let cpfId: number;
 
-              <div className="relative">
-                <Lock className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
-                <Input
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Senha"
-                  value={signupPassword}
-                  onChange={(e) => setSignupPassword(e.target.value)}
-                  className="pl-10 md:pl-12 pr-10 md:pr-12 h-10 md:h-12 bg-muted border-0 rounded-lg text-sm md:text-base"
-                  required
-                  minLength={8}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 md:right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4 md:h-5 md:w-5" /> : <Eye className="h-4 w-4 md:h-5 md:w-5" />}
-                </button>
-              </div>
-              
-              <div className="-mt-1 md:-mt-2">
-                <PasswordChecklist password={signupPassword} />
-              </div>
+      if (existingCpf) {
+        cpfId = existingCpf.cpf_id;
+      } else {
+        const { data: newCpf, error: cpfErr } = await supabase
+          .from("tb_cpf")
+          .insert({ nome: empresa.razao_social, cpf_numero: cpfPlaceholder })
+          .select("cpf_id")
+          .single();
 
-              <div className="relative">
-                <Lock className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
-                <Input
-                  type={showConfirmPassword ? "text" : "password"}
-                  placeholder="Confirmar senha"
-                  value={signupConfirmPassword}
-                  onChange={(e) => setSignupConfirmPassword(e.target.value)}
-                  className="pl-10 md:pl-12 pr-10 md:pr-12 h-10 md:h-12 bg-muted border-0 rounded-lg text-sm md:text-base"
-                  required
-                  minLength={8}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 md:right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  {showConfirmPassword ? <EyeOff className="h-4 w-4 md:h-5 md:w-5" /> : <Eye className="h-4 w-4 md:h-5 md:w-5" />}
-                </button>
-              </div>
+        if (cpfErr) throw cpfErr;
+        cpfId = newCpf.cpf_id;
+      }
 
-              <Button
-                type="submit"
-                disabled={isLoading}
-                className="w-full h-10 md:h-12 bg-secondary hover:bg-brand-green-light text-secondary-foreground font-semibold rounded-full text-sm md:text-base"
-              >
-                {isLoading ? "CADASTRANDO..." : "CADASTRAR"}
-              </Button>
-            </form>
-          </div>
-        </div>
-      </div>
+      const { data: newRelation, error: relErr } = await supabase
+        .from("tb_cpf_cnpj")
+        .insert({ cpf_id: cpfId, cnpj_id: empresa_id })
+        .select("id")
+        .single();
 
-      {/* 2FA Setup Modal - After Registration */}
-      <TwoFactorSetupModal
-        isOpen={show2FASetupModal}
-        onClose={() => setShow2FASetupModal(false)}
-        onSuccess={(session, user) => {
-          setShow2FASetupModal(false);
-          setSetupToken(undefined); // Clear the token
-          
-          // Auto-login: store session and navigate to dashboard
-          if (session && user) {
-            localStorage.setItem("auth_token", session.token);
-            localStorage.setItem("auth_expires", session.expires_at);
-            localStorage.setItem("auth_user", JSON.stringify(user));
-            refreshUser();
-            toast({
-              title: "Bem-vindo!",
-              description: `2FA configurado com sucesso. Bem-vindo, ${user.nome}!`,
-            });
-            navigate("/dashboard");
-          } else {
-            // Fallback to login if session not available
-            setIsLoginMode(true);
-            toast({
-              title: "2FA Configurado!",
-              description: "Agora faça login para acessar sua conta.",
-            });
-          }
-        }}
-        userId={pendingUser?.id || 0}
-        userName={pendingUser?.nome || ""}
-        userEmail={pendingUser?.email}
-        setupToken={setupToken}
-      />
+      if (relErr) throw relErr;
+      cpfCnpjId = newRelation.id;
+    }
 
-      {/* 2FA Modal */}
-      <TwoFactorModal
-        isOpen={show2FAModal}
-        onClose={() => setShow2FAModal(false)}
-        onSuccess={(user) => {
-          setShow2FAModal(false);
-          setPendingUser(null);
-          refreshUser();
-          navigate("/dashboard");
-        }}
-        userId={pendingUser?.id || 0}
-        userName={pendingUser?.nome || ""}
-      />
-    </div>
-  );
-};
+    // Calculate deadlines based on SLA from tb_prazo (same logic as manual form)
+    const now = new Date();
+    const slaMinutos = Number(prazo.sla_minutos);
 
-export default Index;
+    if (!Number.isFinite(slaMinutos) || slaMinutos <= 0) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `SLA inválido (sla_minutos=${prazo.sla_minutos}) para prazo_id ${tipoDemanda.prazo_id}`,
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    const prazoFim = new Date(now.getTime() + slaMinutos * 60 * 1000);
+
+    // Insert demanda
+    const { data: demanda, error: demandaErr } = await supabase
+      .from("tb_demanda")
+      .insert({
+        titulo_demanda: titulo,
+        descricao_tarefa: descricao,
+        via_id: via_id,
+        prioridade_id: 3, // Média
+        status_id: 1, // Novo
+        cnpj_cpf_id: cpfCnpjId,
+        user_id: null,
+        prazo_inicio: now.toISOString(),
+        prazo_fim: prazoFim.toISOString(),
+        tipodemanda_id: tipodemanda_id,
+      })
+      .select("dem_id, created_at")
+      .single();
+
+    if (demandaErr) throw demandaErr;
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        demanda_id: demanda.dem_id,
+        created_at: demanda.created_at,
+      }),
+      {
+        status: 201,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
+  } catch (error: any) {
+    console.error("Erro ao criar demanda:", error);
+    return new Response(JSON.stringify({ success: false, error: error?.message || "Erro interno do servidor" }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+});
