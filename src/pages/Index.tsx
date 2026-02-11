@@ -55,11 +55,25 @@ Deno.serve(async (req) => {
           success: false,
           error: "Campos obrigatórios: empresa_id, tipodemanda_id, via_id, titulo, descricao",
         }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
-    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+    if (!supabaseUrl || !serviceRoleKey) {
+      console.error("SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not configured");
+      return new Response(JSON.stringify({ success: false, error: "Configuração do Supabase incompleta" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
 
     // Validate empresa_id exists
     const { data: empresa, error: empresaErr } = await supabase
@@ -75,17 +89,53 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Validate tipodemanda_id exists and get SLA
+    // Validate tipodemanda_id exists and get prazo_id (SLA is derived from prazo_id via tb_prazo)
     const { data: tipoDemanda, error: tipoErr } = await supabase
       .from("tb_tipodemanda")
-      .select("id, nome, sla_minutos")
+      .select("id, nome, prazo_id")
       .eq("id", tipodemanda_id)
       .maybeSingle();
 
     if (tipoErr || !tipoDemanda) {
       return new Response(
         JSON.stringify({ success: false, error: `tipodemanda_id ${tipodemanda_id} não encontrado` }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    if (!tipoDemanda.prazo_id) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `tipodemanda_id ${tipodemanda_id} não possui prazo_id configurado`,
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    // Fetch SLA from tb_prazo using prazo_id
+    const { data: prazo, error: prazoErr } = await supabase
+      .from("tb_prazo")
+      .select("prazo_id, sla_minutos")
+      .eq("prazo_id", tipoDemanda.prazo_id)
+      .maybeSingle();
+
+    if (prazoErr || !prazo || prazo.sla_minutos == null) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `prazo_id ${tipoDemanda.prazo_id} não encontrado ou sem sla_minutos`,
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
@@ -106,12 +156,20 @@ Deno.serve(async (req) => {
     // Find or create cpf_cnpj entry for the empresa
     let cpfCnpjId: number;
 
-    const { data: existingRelation } = await supabase
+    const { data: existingRelation, error: existingRelErr } = await supabase
       .from("tb_cpf_cnpj")
       .select("id")
       .eq("cnpj_id", empresa_id)
       .limit(1)
       .maybeSingle();
+
+    if (existingRelErr) {
+      console.error("Erro ao buscar tb_cpf_cnpj:", existingRelErr);
+      return new Response(JSON.stringify({ success: false, error: "Erro ao validar relação CPF/CNPJ" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     if (existingRelation) {
       cpfCnpjId = existingRelation.id;
@@ -119,13 +177,22 @@ Deno.serve(async (req) => {
       // Create placeholder CPF and relation (same logic as manual form)
       const cpfPlaceholder = String(empresa_id).padStart(11, "0");
 
-      const { data: existingCpf } = await supabase
+      const { data: existingCpf, error: existingCpfErr } = await supabase
         .from("tb_cpf")
         .select("cpf_id")
         .eq("cpf_numero", cpfPlaceholder)
         .maybeSingle();
 
+      if (existingCpfErr) {
+        console.error("Erro ao buscar tb_cpf:", existingCpfErr);
+        return new Response(JSON.stringify({ success: false, error: "Erro ao validar CPF placeholder" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       let cpfId: number;
+
       if (existingCpf) {
         cpfId = existingCpf.cpf_id;
       } else {
@@ -134,6 +201,7 @@ Deno.serve(async (req) => {
           .insert({ nome: empresa.razao_social, cpf_numero: cpfPlaceholder })
           .select("cpf_id")
           .single();
+
         if (cpfErr) throw cpfErr;
         cpfId = newCpf.cpf_id;
       }
@@ -143,13 +211,28 @@ Deno.serve(async (req) => {
         .insert({ cpf_id: cpfId, cnpj_id: empresa_id })
         .select("id")
         .single();
+
       if (relErr) throw relErr;
       cpfCnpjId = newRelation.id;
     }
 
-    // Calculate deadlines (same logic as manual form)
+    // Calculate deadlines based on SLA from tb_prazo (same logic as manual form)
     const now = new Date();
-    const slaMinutos = tipoDemanda.sla_minutos || 60;
+    const slaMinutos = Number(prazo.sla_minutos);
+
+    if (!Number.isFinite(slaMinutos) || slaMinutos <= 0) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `SLA inválido (sla_minutos=${prazo.sla_minutos}) para prazo_id ${tipoDemanda.prazo_id}`,
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
     const prazoFim = new Date(now.getTime() + slaMinutos * 60 * 1000);
 
     // Insert demanda
@@ -178,11 +261,14 @@ Deno.serve(async (req) => {
         demanda_id: demanda.dem_id,
         created_at: demanda.created_at,
       }),
-      { status: 201, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      {
+        status: 201,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
     );
   } catch (error: any) {
     console.error("Erro ao criar demanda:", error);
-    return new Response(JSON.stringify({ success: false, error: error.message || "Erro interno do servidor" }), {
+    return new Response(JSON.stringify({ success: false, error: error?.message || "Erro interno do servidor" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
