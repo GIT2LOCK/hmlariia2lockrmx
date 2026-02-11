@@ -17,12 +17,11 @@ Deno.serve(async (req) => {
     });
   }
 
-  // Validate Bearer token
+  // Token
   const authHeader = req.headers.get("Authorization");
   const expectedToken = Deno.env.get("N8N_API_TOKEN");
 
   if (!expectedToken) {
-    console.error("N8N_API_TOKEN not configured");
     return new Response(JSON.stringify({ success: false, error: "Configuração do servidor incompleta" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -44,11 +43,21 @@ Deno.serve(async (req) => {
     });
   }
 
-  try {
-    const body = await req.json();
-    const { empresa_id, tipodemanda_id, via_id, titulo, descricao } = body;
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-    // Validate required fields
+  if (!supabaseUrl || !serviceKey) {
+    return new Response(JSON.stringify({ success: false, error: "Configuração do Supabase incompleta" }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  const supabase = createClient(supabaseUrl, serviceKey);
+
+  try {
+    const { empresa_id, tipodemanda_id, via_id, titulo, descricao } = await req.json();
+
     if (!empresa_id || !tipodemanda_id || !via_id || !titulo || !descricao) {
       return new Response(
         JSON.stringify({
@@ -59,20 +68,11 @@ Deno.serve(async (req) => {
       );
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    // debug flag: /functions/v1/criar-demanda?debug=1
+    const url = new URL(req.url);
+    const debug = url.searchParams.get("debug") === "1";
 
-    if (!supabaseUrl || !serviceKey) {
-      console.error("SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not configured");
-      return new Response(JSON.stringify({ success: false, error: "Configuração do Supabase incompleta" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const supabase = createClient(supabaseUrl, serviceKey);
-
-    // Validate empresa_id exists
+    // empresa
     const { data: empresa, error: empresaErr } = await supabase
       .from("tb_cnpj")
       .select("cnpj_id, razao_social")
@@ -86,10 +86,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Validate tipodemanda_id exists and get prazo_id (+ optionally sla_minutos override)
+    // tipo demanda: pega prazo_id
     const { data: tipoDemanda, error: tipoErr } = await supabase
       .from("tb_tipodemanda")
-      .select("id, nome, prazo_id, sla_minutos")
+      .select("id, nome, prazo_id")
       .eq("id", tipodemanda_id)
       .maybeSingle();
 
@@ -110,7 +110,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Validate via_id exists
+    // via
     const { data: via, error: viaErr } = await supabase
       .from("tb_via")
       .select("via_id")
@@ -124,75 +124,76 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Resolve SLA:
-    // 1) if tb_tipodemanda.sla_minutos is set, use it
-    // 2) else use tb_prazo.prazo_minutos where tb_prazo.id = prazo_id
-    let slaMinutos: number | null = null;
+    // SLA vem do tb_prazo.prazo_minutos onde tb_prazo.id = prazo_id
+    const { data: prazo, error: prazoErr } = await supabase
+      .from("tb_prazo")
+      .select("id, prazo_minutos")
+      .eq("id", tipoDemanda.prazo_id)
+      .maybeSingle();
 
-    if (tipoDemanda.sla_minutos != null) {
-      const v = Number(tipoDemanda.sla_minutos);
-      if (Number.isFinite(v) && v > 0) slaMinutos = v;
+    if (prazoErr || !prazo || prazo.prazo_minutos == null) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `prazo_id ${tipoDemanda.prazo_id} não encontrado ou sem prazo_minutos`,
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
-    if (slaMinutos == null) {
-      const { data: prazo, error: prazoErr } = await supabase
-        .from("tb_prazo")
-        .select("id, prazo_minutos")
-        .eq("id", tipoDemanda.prazo_id)
-        .maybeSingle();
-
-      if (prazoErr || !prazo || prazo.prazo_minutos == null) {
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: `prazo_id ${tipoDemanda.prazo_id} não encontrado ou sem prazo_minutos`,
-          }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
-      }
-
-      const v = Number(prazo.prazo_minutos);
-      if (!Number.isFinite(v) || v <= 0) {
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: `prazo_minutos inválido (${prazo.prazo_minutos}) para prazo_id ${tipoDemanda.prazo_id}`,
-          }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
-      }
-
-      slaMinutos = v;
+    const slaMinutos = Number(prazo.prazo_minutos);
+    if (!Number.isFinite(slaMinutos) || slaMinutos <= 0) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `prazo_minutos inválido (${prazo.prazo_minutos}) para prazo_id ${tipoDemanda.prazo_id}`,
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
-    // Find or create cpf_cnpj entry for the empresa
+    const now = new Date();
+    const prazoFim = new Date(now.getTime() + slaMinutos * 60 * 1000);
+
+    // Debug response (não cria demanda)
+    if (debug) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          debug: {
+            tipodemanda_id,
+            prazo_id: tipoDemanda.prazo_id,
+            slaMinutos,
+            now: now.toISOString(),
+            prazoFim: prazoFim.toISOString(),
+          },
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    // cpf_cnpj relation
     let cpfCnpjId: number;
 
-    const { data: existingRelation, error: relFindErr } = await supabase
+    const { data: existingRelation } = await supabase
       .from("tb_cpf_cnpj")
       .select("id")
       .eq("cnpj_id", empresa_id)
       .limit(1)
       .maybeSingle();
 
-    if (relFindErr) throw relFindErr;
-
     if (existingRelation) {
       cpfCnpjId = existingRelation.id;
     } else {
-      // Create placeholder CPF and relation (same logic as manual form)
       const cpfPlaceholder = String(empresa_id).padStart(11, "0");
 
-      const { data: existingCpf, error: cpfFindErr } = await supabase
+      const { data: existingCpf } = await supabase
         .from("tb_cpf")
         .select("cpf_id")
         .eq("cpf_numero", cpfPlaceholder)
         .maybeSingle();
 
-      if (cpfFindErr) throw cpfFindErr;
-
       let cpfId: number;
-
       if (existingCpf) {
         cpfId = existingCpf.cpf_id;
       } else {
@@ -201,7 +202,6 @@ Deno.serve(async (req) => {
           .insert({ nome: empresa.razao_social, cpf_numero: cpfPlaceholder })
           .select("cpf_id")
           .single();
-
         if (cpfErr) throw cpfErr;
         cpfId = newCpf.cpf_id;
       }
@@ -211,31 +211,27 @@ Deno.serve(async (req) => {
         .insert({ cpf_id: cpfId, cnpj_id: empresa_id })
         .select("id")
         .single();
-
       if (relErr) throw relErr;
       cpfCnpjId = newRelation.id;
     }
 
-    // Calculate deadlines
-    const now = new Date();
-    const prazoFim = new Date(now.getTime() + slaMinutos * 60 * 1000);
-
-    // Insert demanda
+    // INSERT — aqui tem o pulo do gato:
+    // Se você suspeita de trigger sobrescrevendo, remova prazo_inicio/prazo_fim e deixe o banco calcular.
     const { data: demanda, error: demandaErr } = await supabase
       .from("tb_demanda")
       .insert({
         titulo_demanda: titulo,
         descricao_tarefa: descricao,
-        via_id: via_id,
-        prioridade_id: 3, // Média
-        status_id: 1, // Novo
+        via_id,
+        prioridade_id: 3,
+        status_id: 1,
         cnpj_cpf_id: cpfCnpjId,
         user_id: null,
+        tipodemanda_id,
         prazo_inicio: now.toISOString(),
         prazo_fim: prazoFim.toISOString(),
-        tipodemanda_id: tipodemanda_id,
       })
-      .select("dem_id, created_at")
+      .select("dem_id, created_at, prazo_inicio, prazo_fim")
       .single();
 
     if (demandaErr) throw demandaErr;
@@ -245,6 +241,8 @@ Deno.serve(async (req) => {
         success: true,
         demanda_id: demanda.dem_id,
         created_at: demanda.created_at,
+        prazo_inicio: demanda.prazo_inicio,
+        prazo_fim: demanda.prazo_fim,
       }),
       { status: 201, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
