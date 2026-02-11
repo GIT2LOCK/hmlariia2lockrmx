@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.create-internal-admin]
 verify_jwt = false
+
+[functions.criar-demanda]
+verify_jwt = false
