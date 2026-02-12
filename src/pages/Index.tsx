@@ -1,276 +1,355 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/hooks/use-toast";
+import { login, signup } from "@/services/authService";
+import { useUser } from "@/contexts/UserContext";
+import { Eye, EyeOff, LogIn, UserPlus } from "lucide-react";
+import PasswordChecklist from "@/components/PasswordChecklist";
+import { TwoFactorModal } from "@/components/TwoFactorModal";
+import { TwoFactorSetupModal } from "@/components/TwoFactorSetupModal";
+import logo from "@/assets/logo.png";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+const Index = () => {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const { refreshUser } = useUser();
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  // Login state
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
 
-  if (req.method !== "POST") {
-    return new Response(JSON.stringify({ success: false, error: "Método não permitido. Use POST." }), {
-      status: 405,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
+  // Signup state
+  const [signupNome, setSignupNome] = useState("");
+  const [signupEmail, setSignupEmail] = useState("");
+  const [signupCpf, setSignupCpf] = useState("");
+  const [signupPassword, setSignupPassword] = useState("");
+  const [signupConfirmPassword, setSignupConfirmPassword] = useState("");
+  const [signupLoading, setSignupLoading] = useState(false);
+  const [showSignupPassword, setShowSignupPassword] = useState(false);
+  const [showSignupConfirmPassword, setShowSignupConfirmPassword] = useState(false);
 
-  // Validate Bearer token
-  const authHeader = req.headers.get("Authorization");
-  const expectedToken = Deno.env.get("N8N_API_TOKEN");
+  // 2FA state
+  const [show2FAModal, setShow2FAModal] = useState(false);
+  const [show2FASetupModal, setShow2FASetupModal] = useState(false);
+  const [pending2FAUserId, setPending2FAUserId] = useState<number | null>(null);
+  const [pending2FAUserName, setPending2FAUserName] = useState<string>("");
+  const [pending2FASetupToken, setPending2FASetupToken] = useState<string>("");
 
-  if (!expectedToken) {
-    console.error("N8N_API_TOKEN not configured");
-    return new Response(JSON.stringify({ success: false, error: "Configuração do servidor incompleta" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginLoading(true);
 
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return new Response(JSON.stringify({ success: false, error: "Token de autenticação ausente" }), {
-      status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
+    try {
+      const result = await login({ email: loginEmail, senha: loginPassword });
 
-  const token = authHeader.replace("Bearer ", "");
-  if (token !== expectedToken) {
-    return new Response(JSON.stringify({ success: false, error: "Token inválido" }), {
-      status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
+      if (result.requires2FA && result.user) {
+        setPending2FAUserId(result.user.id);
+        setPending2FAUserName(result.user.nome);
+        setShow2FAModal(true);
+        setLoginLoading(false);
+        return;
+      }
 
-  try {
-    const body = await req.json();
-    const { empresa_id, tipodemanda_id, via_id, titulo, descricao } = body;
-
-    // Validate required fields
-    if (!empresa_id || !tipodemanda_id || !via_id || !titulo || !descricao) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: "Campos obrigatórios: empresa_id, tipodemanda_id, via_id, titulo, descricao",
-        }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
-    }
-
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-
-    if (!supabaseUrl || !serviceRoleKey) {
-      console.error("SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not configured");
-      return new Response(JSON.stringify({ success: false, error: "Configuração do Supabase incompleta" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
-
-    // Validate empresa_id exists
-    const { data: empresa, error: empresaErr } = await supabase
-      .from("tb_cnpj")
-      .select("cnpj_id, razao_social")
-      .eq("cnpj_id", empresa_id)
-      .maybeSingle();
-
-    if (empresaErr || !empresa) {
-      return new Response(JSON.stringify({ success: false, error: `empresa_id ${empresa_id} não encontrada` }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Validate tipodemanda_id exists and get prazo_id (SLA is derived from prazo_id via tb_prazo)
-    const { data: tipoDemanda, error: tipoErr } = await supabase
-      .from("tb_tipodemanda")
-      .select("id, nome, prazo_id")
-      .eq("id", tipodemanda_id)
-      .maybeSingle();
-
-    if (tipoErr || !tipoDemanda) {
-      return new Response(
-        JSON.stringify({ success: false, error: `tipodemanda_id ${tipodemanda_id} não encontrado` }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
-    }
-
-    if (!tipoDemanda.prazo_id) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: `tipodemanda_id ${tipodemanda_id} não possui prazo_id configurado`,
-        }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
-    }
-
-    // Fetch SLA from tb_prazo using prazo_id
-    const { data: prazo, error: prazoErr } = await supabase
-      .from("tb_prazo")
-      .select("prazo_id, sla_minutos")
-      .eq("prazo_id", tipoDemanda.prazo_id)
-      .maybeSingle();
-
-    if (prazoErr || !prazo || prazo.sla_minutos == null) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: `prazo_id ${tipoDemanda.prazo_id} não encontrado ou sem sla_minutos`,
-        }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
-    }
-
-    // Validate via_id exists
-    const { data: via, error: viaErr } = await supabase
-      .from("tb_via")
-      .select("via_id")
-      .eq("via_id", via_id)
-      .maybeSingle();
-
-    if (viaErr || !via) {
-      return new Response(JSON.stringify({ success: false, error: `via_id ${via_id} não encontrada` }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Find or create cpf_cnpj entry for the empresa
-    let cpfCnpjId: number;
-
-    const { data: existingRelation, error: existingRelErr } = await supabase
-      .from("tb_cpf_cnpj")
-      .select("id")
-      .eq("cnpj_id", empresa_id)
-      .limit(1)
-      .maybeSingle();
-
-    if (existingRelErr) {
-      console.error("Erro ao buscar tb_cpf_cnpj:", existingRelErr);
-      return new Response(JSON.stringify({ success: false, error: "Erro ao validar relação CPF/CNPJ" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    if (existingRelation) {
-      cpfCnpjId = existingRelation.id;
-    } else {
-      // Create placeholder CPF and relation (same logic as manual form)
-      const cpfPlaceholder = String(empresa_id).padStart(11, "0");
-
-      const { data: existingCpf, error: existingCpfErr } = await supabase
-        .from("tb_cpf")
-        .select("cpf_id")
-        .eq("cpf_numero", cpfPlaceholder)
-        .maybeSingle();
-
-      if (existingCpfErr) {
-        console.error("Erro ao buscar tb_cpf:", existingCpfErr);
-        return new Response(JSON.stringify({ success: false, error: "Erro ao validar CPF placeholder" }), {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+      if (result.success) {
+        toast({
+          title: "Login realizado!",
+          description: `Bem-vindo de volta, ${result.user?.nome}!`,
+        });
+        refreshUser();
+        navigate("/dashboard");
+      } else {
+        toast({
+          title: "Erro no login",
+          description: result.message,
+          variant: "destructive",
         });
       }
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Ocorreu um erro ao fazer login.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoginLoading(false);
+    }
+  };
 
-      let cpfId: number;
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-      if (existingCpf) {
-        cpfId = existingCpf.cpf_id;
+    if (signupPassword !== signupConfirmPassword) {
+      toast({
+        title: "Erro",
+        description: "As senhas não coincidem.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSignupLoading(true);
+
+    try {
+      const result = await signup({
+        nome: signupNome,
+        email: signupEmail,
+        cpf: signupCpf,
+        senha: signupPassword,
+      });
+
+      if (result.success) {
+        if (result.requires2FASetup && result.setupToken) {
+          setPending2FASetupToken(result.setupToken);
+          setPending2FAUserId(result.user?.id || null);
+          setShow2FASetupModal(true);
+        } else {
+          toast({
+            title: "Conta criada!",
+            description: result.message,
+          });
+        }
       } else {
-        const { data: newCpf, error: cpfErr } = await supabase
-          .from("tb_cpf")
-          .insert({ nome: empresa.razao_social, cpf_numero: cpfPlaceholder })
-          .select("cpf_id")
-          .single();
-
-        if (cpfErr) throw cpfErr;
-        cpfId = newCpf.cpf_id;
+        toast({
+          title: "Erro no cadastro",
+          description: result.message,
+          variant: "destructive",
+        });
       }
-
-      const { data: newRelation, error: relErr } = await supabase
-        .from("tb_cpf_cnpj")
-        .insert({ cpf_id: cpfId, cnpj_id: empresa_id })
-        .select("id")
-        .single();
-
-      if (relErr) throw relErr;
-      cpfCnpjId = newRelation.id;
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Ocorreu um erro ao criar a conta.",
+        variant: "destructive",
+      });
+    } finally {
+      setSignupLoading(false);
     }
+  };
 
-    // Calculate deadlines based on SLA from tb_prazo (same logic as manual form)
-    const now = new Date();
-    const slaMinutos = Number(prazo.sla_minutos);
+  const handle2FASuccess = (user: { id: number; nome: string; permissao: string }) => {
+    setShow2FAModal(false);
+    setPending2FAUserId(null);
+    setPending2FAUserName("");
+    refreshUser();
+    navigate("/dashboard");
+  };
 
-    if (!Number.isFinite(slaMinutos) || slaMinutos <= 0) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: `SLA inválido (sla_minutos=${prazo.sla_minutos}) para prazo_id ${tipoDemanda.prazo_id}`,
-        }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
+  const handle2FASetupSuccess = (session?: { token: string; expires_at: string }, user?: { id: number; nome: string; email?: string; permissao: string }) => {
+    setShow2FASetupModal(false);
+    setPending2FASetupToken("");
+    setPending2FAUserId(null);
+    setPending2FAUserName("");
+    if (session && user) {
+      localStorage.setItem("auth_token", session.token);
+      localStorage.setItem("auth_expires", session.expires_at);
+      localStorage.setItem("auth_user", JSON.stringify(user));
     }
+    refreshUser();
+    navigate("/dashboard");
+  };
 
-    const prazoFim = new Date(now.getTime() + slaMinutos * 60 * 1000);
+  const formatCpf = (value: string) => {
+    const digits = value.replace(/\D/g, "").slice(0, 11);
+    if (digits.length <= 3) return digits;
+    if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+    if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
+    return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+  };
 
-    // Insert demanda
-    const { data: demanda, error: demandaErr } = await supabase
-      .from("tb_demanda")
-      .insert({
-        titulo_demanda: titulo,
-        descricao_tarefa: descricao,
-        via_id: via_id,
-        prioridade_id: 3, // Média
-        status_id: 1, // Novo
-        cnpj_cpf_id: cpfCnpjId,
-        user_id: null,
-        prazo_inicio: now.toISOString(),
-        prazo_fim: prazoFim.toISOString(),
-        tipodemanda_id: tipodemanda_id,
-      })
-      .select("dem_id, created_at")
-      .single();
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <div className="w-full max-w-md space-y-6">
+        <div className="flex flex-col items-center gap-3">
+          <img src={logo} alt="Logo" className="h-16 w-auto" />
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-foreground">WebCount</h1>
+            <p className="text-sm text-muted-foreground">Sistema de Gestão de Demandas</p>
+          </div>
+        </div>
 
-    if (demandaErr) throw demandaErr;
+        <Card>
+          <Tabs defaultValue="login" className="w-full">
+            <CardHeader className="pb-2">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="login">Entrar</TabsTrigger>
+                <TabsTrigger value="signup">Criar Conta</TabsTrigger>
+              </TabsList>
+            </CardHeader>
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        demanda_id: demanda.dem_id,
-        created_at: demanda.created_at,
-      }),
-      {
-        status: 201,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
-    );
-  } catch (error: any) {
-    console.error("Erro ao criar demanda:", error);
-    return new Response(JSON.stringify({ success: false, error: error?.message || "Erro interno do servidor" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-});
+            <TabsContent value="login">
+              <form onSubmit={handleLogin}>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="login-email">E-mail</Label>
+                    <Input
+                      id="login-email"
+                      type="email"
+                      placeholder="seu@email.com"
+                      value={loginEmail}
+                      onChange={(e) => setLoginEmail(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="login-password">Senha</Label>
+                    <div className="relative">
+                      <Input
+                        id="login-password"
+                        type={showLoginPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        value={loginPassword}
+                        onChange={(e) => setLoginPassword(e.target.value)}
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowLoginPassword(!showLoginPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        {showLoginPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
+                  <Button type="submit" className="w-full" disabled={loginLoading}>
+                    {loginLoading ? "Entrando..." : (
+                      <>
+                        <LogIn className="h-4 w-4 mr-2" />
+                        Entrar
+                      </>
+                    )}
+                  </Button>
+                </CardContent>
+              </form>
+            </TabsContent>
+
+            <TabsContent value="signup">
+              <form onSubmit={handleSignup}>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-nome">Nome completo</Label>
+                    <Input
+                      id="signup-nome"
+                      placeholder="Seu nome completo"
+                      value={signupNome}
+                      onChange={(e) => setSignupNome(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-email">E-mail</Label>
+                    <Input
+                      id="signup-email"
+                      type="email"
+                      placeholder="seu@email.com"
+                      value={signupEmail}
+                      onChange={(e) => setSignupEmail(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-cpf">CPF</Label>
+                    <Input
+                      id="signup-cpf"
+                      placeholder="000.000.000-00"
+                      value={signupCpf}
+                      onChange={(e) => setSignupCpf(formatCpf(e.target.value))}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-password">Senha</Label>
+                    <div className="relative">
+                      <Input
+                        id="signup-password"
+                        type={showSignupPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        value={signupPassword}
+                        onChange={(e) => setSignupPassword(e.target.value)}
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowSignupPassword(!showSignupPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        {showSignupPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                    <PasswordChecklist password={signupPassword} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-confirm-password">Confirmar senha</Label>
+                    <div className="relative">
+                      <Input
+                        id="signup-confirm-password"
+                        type={showSignupConfirmPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        value={signupConfirmPassword}
+                        onChange={(e) => setSignupConfirmPassword(e.target.value)}
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowSignupConfirmPassword(!showSignupConfirmPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        {showSignupConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
+                  <Button type="submit" className="w-full" disabled={signupLoading}>
+                    {signupLoading ? "Criando conta..." : (
+                      <>
+                        <UserPlus className="h-4 w-4 mr-2" />
+                        Criar Conta
+                      </>
+                    )}
+                  </Button>
+                </CardContent>
+              </form>
+            </TabsContent>
+          </Tabs>
+        </Card>
+      </div>
+
+      {show2FAModal && pending2FAUserId && (
+        <TwoFactorModal
+          isOpen={show2FAModal}
+          onClose={() => {
+            setShow2FAModal(false);
+            setPending2FAUserId(null);
+            setPending2FAUserName("");
+          }}
+          onSuccess={handle2FASuccess}
+          userId={pending2FAUserId}
+          userName={pending2FAUserName}
+        />
+      )}
+
+      {show2FASetupModal && pending2FAUserId && (
+        <TwoFactorSetupModal
+          isOpen={show2FASetupModal}
+          onClose={() => {
+            setShow2FASetupModal(false);
+            setPending2FASetupToken("");
+            setPending2FAUserId(null);
+            setPending2FAUserName("");
+          }}
+          onSuccess={handle2FASetupSuccess}
+          userId={pending2FAUserId}
+          userName={pending2FAUserName}
+          setupToken={pending2FASetupToken}
+        />
+      )}
+    </div>
+  );
+};
+
+export default Index;
