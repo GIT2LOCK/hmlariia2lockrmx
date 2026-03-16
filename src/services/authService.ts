@@ -94,6 +94,11 @@ export async function login(data: LoginData): Promise<AuthResponse> {
       return { success: false, message: result.error || "Erro ao fazer login", error: result.error };
     }
 
+    // If 2FA required, don't store session yet
+    if (result.requires2FA) {
+      return { success: true, message: result.message, requires2FA: true, userId: result.userId };
+    }
+
     if (result.session) {
       localStorage.setItem("auth_token", result.session.token);
       localStorage.setItem("auth_expires", result.session.expires_at);
