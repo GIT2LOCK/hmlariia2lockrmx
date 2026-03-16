@@ -27,8 +27,8 @@ interface Unidade {
 interface Empresa { id: number; nome_fantasia: string; razao_social: string | null; cnpj: string | null; }
 
 const emptyForm = {
-  empresa_id: "", nome_unidade: "", codigo_unidade: "", hostname: "", abreviacao: "",
-  nome_antigo: "", antiga_razao: "", contato_nome: "",
+  empresa_id: "", nome_unidade: "", codigo_unidade: "", hostname: "",
+  antiga_razao: "", contato_nome: "",
   telefone: "", email: "", email_regional: "",
   logradouro: "", numero: "", complemento: "",
   bairro: "", cidade: "", estado: "", cep: "",
@@ -71,7 +71,6 @@ const Unidades = () => {
     setForm({
       empresa_id: String(u.empresa_id), nome_unidade: u.nome_unidade,
       codigo_unidade: u.codigo_unidade || "", hostname: u.hostname || "",
-      abreviacao: u.abreviacao || "", nome_antigo: u.nome_antigo || "",
       antiga_razao: u.antiga_razao || "", contato_nome: u.contato_nome || "",
       telefone: u.telefone || "", email: u.email || "", email_regional: u.email_regional || "",
       logradouro: u.logradouro || "", numero: u.numero || "", complemento: u.complemento || "",
@@ -180,9 +179,7 @@ const Unidades = () => {
                 </div>
                 <div><Label>UDM (Código) *</Label><Input value={form.codigo_unidade} onChange={(e) => setForm({...form, codigo_unidade: e.target.value})} placeholder="Ex: GS-UDM-ACLIMACAO" /></div>
                 <div><Label>Nome da Unidade *</Label><Input value={form.nome_unidade} onChange={(e) => setForm({...form, nome_unidade: e.target.value})} placeholder="Ex: ACLIMAÇÃO" /></div>
-                <div><Label>Abreviação (3 dígitos)</Label><Input value={form.abreviacao} onChange={(e) => setForm({...form, abreviacao: e.target.value.toUpperCase().slice(0, 10)})} placeholder="Ex: ACL" maxLength={10} /></div>
-                <div><Label>Nome Antigo</Label><Input value={form.nome_antigo} onChange={(e) => setForm({...form, nome_antigo: e.target.value})} /></div>
-                <div><Label>Antiga Razão Social</Label><Input value={form.antiga_razao} onChange={(e) => setForm({...form, antiga_razao: e.target.value})} /></div>
+                <div><Label>Razão Social</Label><Input value={form.antiga_razao} onChange={(e) => setForm({...form, antiga_razao: e.target.value})} /></div>
                 <div><Label>Hostname (Zabbix)</Label><Input value={form.hostname} onChange={(e) => setForm({...form, hostname: e.target.value})} placeholder="Ex: 200ACL_CLAW1" /></div>
               </div>
             </div>
