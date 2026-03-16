@@ -66,11 +66,13 @@ export async function signup(data: SignupData): Promise<AuthResponse> {
       return { success: false, message: result.error || "Erro ao criar conta", error: result.error };
     }
 
-    // Auto-login after signup
-    if (result.session) {
-      localStorage.setItem("auth_token", result.session.token);
-      localStorage.setItem("auth_expires", result.session.expires_at);
-      localStorage.setItem("auth_user", JSON.stringify(result.user));
+    // Signup now requires 2FA setup — don't auto-login
+    if (result.requiresSetup2FA) {
+      return {
+        success: true, message: result.message,
+        requiresSetup2FA: true, setupToken: result.setupToken,
+        user: result.user,
+      };
     }
 
     return { success: true, message: result.message, user: result.user, session: result.session };
