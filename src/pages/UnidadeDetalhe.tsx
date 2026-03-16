@@ -41,7 +41,7 @@ interface Cobertura {
 interface Operadora { id: number; nome: string; }
 
 const emptyLinkForm = {
-  operadora_id: "", nome_link: "", finalidade: "", tipo_link: "",
+  operadora_id: "", nome_link: "", finalidade: "", tipo_link: "", tipo_conexao: "",
   velocidade_download: "", velocidade_upload: "", ip_tipo: "", ip_visibilidade: "",
   ddns: "", bridge: false, canal_atendimento: "", telefone_operadora: "", observacoes: "",
 };
@@ -108,6 +108,7 @@ const UnidadeDetalhe = () => {
     setLinkForm({
       operadora_id: String(l.operadora_id), nome_link: l.nome_link || "",
       finalidade: l.finalidade || "", tipo_link: l.tipo_link || "",
+      tipo_conexao: (l as any).tipo_conexao || "",
       velocidade_download: l.velocidade_download || "", velocidade_upload: l.velocidade_upload || "",
       ip_tipo: l.ip_tipo || "", ip_visibilidade: l.ip_visibilidade || "",
       ddns: l.ddns || "", bridge: l.bridge || false,
@@ -126,6 +127,7 @@ const UnidadeDetalhe = () => {
       observacoes: linkForm.observacoes, unidade_id: Number(id),
       operadora_id: Number(linkForm.operadora_id), bridge: linkForm.bridge,
       finalidade: linkForm.finalidade || null, tipo_link: linkForm.tipo_link || null,
+      tipo_conexao: linkForm.tipo_conexao || null,
       ip_tipo: linkForm.ip_tipo || null, ip_visibilidade: linkForm.ip_visibilidade || null,
     };
     if (editingLink) {
@@ -219,11 +221,17 @@ const UnidadeDetalhe = () => {
         <CardHeader><CardTitle className="flex items-center gap-2"><MapPin className="h-5 w-5" /> Dados da Unidade</CardTitle></CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
-            {unidade.codigo_unidade && <div><span className="font-medium text-muted-foreground">Código:</span> {unidade.codigo_unidade}</div>}
+            {unidade.codigo_unidade && <div><span className="font-medium text-muted-foreground">UDM:</span> {unidade.codigo_unidade}</div>}
+            {unidade.abreviacao && <div><span className="font-medium text-muted-foreground">Abreviação:</span> {unidade.abreviacao}</div>}
             {unidade.hostname && <div><span className="font-medium text-muted-foreground">Hostname (Zabbix):</span> <code className="bg-muted px-1 rounded font-mono text-xs">{unidade.hostname}</code></div>}
             {unidade.nome_antigo && <div><span className="font-medium text-muted-foreground">Nome Antigo:</span> {unidade.nome_antigo}</div>}
+            {unidade.antiga_razao && <div><span className="font-medium text-muted-foreground">Antiga Razão:</span> {unidade.antiga_razao}</div>}
+            {unidade.rede_default && <div><span className="font-medium text-muted-foreground">Rede Default:</span> <code className="bg-muted px-1 rounded font-mono text-xs">{unidade.rede_default}</code></div>}
+            {unidade.wifi_antenas && <div><span className="font-medium text-muted-foreground">Wi-Fi/Antenas:</span> Sim</div>}
+            {unidade.contato_nome && <div><span className="font-medium text-muted-foreground">Contato:</span> {unidade.contato_nome}</div>}
             {unidade.telefone && <div><span className="font-medium text-muted-foreground">Telefone:</span> {unidade.telefone}</div>}
             {unidade.email && <div><span className="font-medium text-muted-foreground">Email:</span> {unidade.email}</div>}
+            {unidade.email_regional && <div><span className="font-medium text-muted-foreground">Email Regional:</span> {unidade.email_regional}</div>}
           </div>
           {(unidade.logradouro || unidade.cidade) && (
             <div className="mt-4 p-3 bg-muted/50 rounded-md text-sm">
@@ -290,6 +298,7 @@ const UnidadeDetalhe = () => {
                 {link.velocidade_download && <div><span className="text-muted-foreground">Download:</span> {link.velocidade_download}</div>}
                 {link.velocidade_upload && <div><span className="text-muted-foreground">Upload:</span> {link.velocidade_upload}</div>}
                 {link.ip_tipo && <div><span className="text-muted-foreground">IP:</span> {link.ip_tipo} / {link.ip_visibilidade}</div>}
+                {(link as any).tipo_conexao && <div><span className="text-muted-foreground">Conexão:</span> {(link as any).tipo_conexao}</div>}
                 {link.ddns && <div><span className="text-muted-foreground">DDNS:</span> {link.ddns}</div>}
                 <div><span className="text-muted-foreground">Bridge:</span> {link.bridge ? "Sim" : "Não"}</div>
                 {link.canal_atendimento && <div><span className="text-muted-foreground">Canal:</span> {link.canal_atendimento}</div>}
@@ -368,6 +377,18 @@ const UnidadeDetalhe = () => {
               </Select>
             </div>
             <div><Label>Vel. Download</Label><Input value={linkForm.velocidade_download} onChange={(e) => setLinkForm({...linkForm, velocidade_download: e.target.value})} placeholder="ex: 100 Mbps" /></div>
+            <div>
+              <Label>Tipo de Conexão</Label>
+              <Select value={linkForm.tipo_conexao} onValueChange={(v) => setLinkForm({...linkForm, tipo_conexao: v})}>
+                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="DHCP">DHCP</SelectItem>
+                  <SelectItem value="PPPoE">PPPoE</SelectItem>
+                  <SelectItem value="Estático">Estático</SelectItem>
+                  <SelectItem value="IPoE">IPoE</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div><Label>Vel. Upload</Label><Input value={linkForm.velocidade_upload} onChange={(e) => setLinkForm({...linkForm, velocidade_upload: e.target.value})} placeholder="ex: 50 Mbps" /></div>
             <div>
               <Label>Tipo de IP</Label>
