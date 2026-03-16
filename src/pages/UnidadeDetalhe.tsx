@@ -119,9 +119,12 @@ const UnidadeDetalhe = () => {
 
   const saveLink = async () => {
     if (!linkForm.operadora_id) { toast({ title: "Selecione a operadora", variant: "destructive" }); return; }
-    const payload = {
-      ...linkForm, unidade_id: Number(id), operadora_id: Number(linkForm.operadora_id),
-      bridge: linkForm.bridge,
+    const payload: any = {
+      nome_link: linkForm.nome_link, velocidade_download: linkForm.velocidade_download,
+      velocidade_upload: linkForm.velocidade_upload, ddns: linkForm.ddns,
+      canal_atendimento: linkForm.canal_atendimento, telefone_operadora: linkForm.telefone_operadora,
+      observacoes: linkForm.observacoes, unidade_id: Number(id),
+      operadora_id: Number(linkForm.operadora_id), bridge: linkForm.bridge,
       finalidade: linkForm.finalidade || null, tipo_link: linkForm.tipo_link || null,
       ip_tipo: linkForm.ip_tipo || null, ip_visibilidade: linkForm.ip_visibilidade || null,
     };

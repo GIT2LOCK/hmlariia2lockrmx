@@ -243,40 +243,8 @@ export async function syncUserFromDatabase(): Promise<AuthUser | null> {
   const storedUser = getStoredUser();
   if (!storedUser) return null;
 
-  try {
-    const { data, error } = await supabase
-      .from("tb_usuario")
-      .select(`
-        user_id,
-        nome,
-        permissao_id,
-        tb_permissao (nome, descricao),
-        tb_email (email_principal)
-      `)
-      .eq("user_id", storedUser.id)
-      .maybeSingle();
-
-    if (error || !data) {
-      console.error("Error syncing user from database:", error);
-      return null;
-    }
-
-    const updatedUser: AuthUser = {
-      id: data.user_id,
-      nome: data.nome,
-      email: (data.tb_email as any)?.email_principal || storedUser.email,
-      permissao: (data.tb_permissao as any)?.nome || storedUser.permissao,
-      permissao_descricao: (data.tb_permissao as any)?.descricao || storedUser.permissao_descricao,
-    };
-
-    // Update localStorage with fresh data
-    localStorage.setItem("auth_user", JSON.stringify(updatedUser));
-    
-    return updatedUser;
-  } catch (error) {
-    console.error("Error syncing user:", error);
-    return null;
-  }
+  // Since the old tb_usuario table no longer exists, just return stored user
+  return storedUser;
 }
 
 // Send email verification code
