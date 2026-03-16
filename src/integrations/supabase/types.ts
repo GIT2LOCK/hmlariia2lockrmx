@@ -288,6 +288,7 @@ export type Database = {
           email: string | null
           empresa_id: number
           estado: string | null
+          hostname: string | null
           id: number
           logradouro: string | null
           nome_antigo: string | null
@@ -307,6 +308,7 @@ export type Database = {
           email?: string | null
           empresa_id: number
           estado?: string | null
+          hostname?: string | null
           id?: number
           logradouro?: string | null
           nome_antigo?: string | null
@@ -326,6 +328,7 @@ export type Database = {
           email?: string | null
           empresa_id?: number
           estado?: string | null
+          hostname?: string | null
           id?: number
           logradouro?: string | null
           nome_antigo?: string | null
