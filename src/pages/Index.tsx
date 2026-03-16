@@ -7,6 +7,8 @@ import { login, signup } from "@/services/authService";
 import { useUser } from "@/contexts/UserContext";
 import { Eye, EyeOff, Mail, Lock, User } from "lucide-react";
 import PasswordChecklist from "@/components/PasswordChecklist";
+import TwoFactorModal from "@/components/TwoFactorModal";
+import TwoFactorSetupModal from "@/components/TwoFactorSetupModal";
 import logo from "@/assets/logo.png";
 
 const Index = () => {
@@ -31,6 +33,23 @@ const Index = () => {
   const [showSignupPassword, setShowSignupPassword] = useState(false);
   const [showSignupConfirmPassword, setShowSignupConfirmPassword] = useState(false);
 
+  // 2FA state
+  const [show2FAModal, setShow2FAModal] = useState(false);
+  const [show2FASetup, setShow2FASetup] = useState(false);
+  const [pending2FAUserId, setPending2FAUserId] = useState<number>(0);
+  const [setupToken, setSetupToken] = useState("");
+
+  const completeLogin = (user: any, session: any) => {
+    localStorage.setItem("auth_token", session.token);
+    localStorage.setItem("auth_expires", session.expires_at);
+    localStorage.setItem("auth_user", JSON.stringify(user));
+    setShow2FAModal(false);
+    setShow2FASetup(false);
+    toast({ title: "Login realizado!", description: `Bem-vindo, ${user.nome}!` });
+    refreshUser();
+    navigate("/dashboard");
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginLoading(true);
@@ -39,9 +58,12 @@ const Index = () => {
       const result = await login({ email: loginEmail, senha: loginPassword });
 
       if (result.success) {
-        toast({ title: "Login realizado!", description: `Bem-vindo, ${result.user?.nome}!` });
-        refreshUser();
-        navigate("/dashboard");
+        if ((result as any).requires2FA) {
+          setPending2FAUserId((result as any).userId);
+          setShow2FAModal(true);
+        } else if (result.session) {
+          completeLogin(result.user, result.session);
+        }
       } else {
         toast({ title: "Erro no login", description: result.message, variant: "destructive" });
       }
@@ -66,9 +88,14 @@ const Index = () => {
       const result = await signup({ nome: signupNome, email: signupEmail, senha: signupPassword });
 
       if (result.success) {
-        toast({ title: "Conta criada!", description: "Bem-vindo ao sistema!" });
-        refreshUser();
-        navigate("/dashboard");
+        const data = result as any;
+        if (data.requiresSetup2FA) {
+          setPending2FAUserId(data.user.id);
+          setSetupToken(data.setupToken);
+          setShow2FASetup(true);
+        } else if (result.session) {
+          completeLogin(result.user!, result.session);
+        }
       } else {
         toast({ title: "Erro no cadastro", description: result.message, variant: "destructive" });
       }
@@ -215,6 +242,21 @@ const Index = () => {
           </div>
         </div>
       </div>
+
+      {/* 2FA Modals */}
+      <TwoFactorModal
+        open={show2FAModal}
+        userId={pending2FAUserId}
+        onComplete={completeLogin}
+        onCancel={() => setShow2FAModal(false)}
+      />
+
+      <TwoFactorSetupModal
+        open={show2FASetup}
+        userId={pending2FAUserId}
+        setupToken={setupToken}
+        onComplete={completeLogin}
+      />
     </div>
   );
 };

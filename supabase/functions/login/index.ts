@@ -27,10 +27,9 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Find user by email
     const { data: userData, error: userError } = await supabase
       .from("usuarios")
-      .select("id, nome, email, senha_hash, ativo, permissao")
+      .select("id, nome, email, senha_hash, ativo, permissao, totp_enabled")
       .ilike("email", normalizedEmail)
       .maybeSingle();
 
@@ -58,7 +57,20 @@ serve(async (req) => {
       );
     }
 
-    // Create session
+    // If 2FA is enabled, don't create session yet — require TOTP verification
+    if (userData.totp_enabled) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          requires2FA: true,
+          userId: userData.id,
+          message: "Verificação 2FA necessária",
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // No 2FA — create session directly
     const session = await createSession(supabase, userData.id, req);
     if (!session) {
       return new Response(
@@ -71,12 +83,7 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         message: "Login realizado com sucesso",
-        user: {
-          id: userData.id,
-          nome: userData.nome,
-          email: userData.email,
-          permissao: userData.permissao,
-        },
+        user: { id: userData.id, nome: userData.nome, email: userData.email, permissao: userData.permissao },
         session,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
