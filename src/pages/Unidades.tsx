@@ -14,7 +14,7 @@ import { useNavigate } from "react-router-dom";
 
 interface Unidade {
   id: number; empresa_id: number; nome_unidade: string; codigo_unidade: string | null;
-  telefone: string | null; email: string | null; cidade: string | null; estado: string | null;
+  hostname: string | null; telefone: string | null; email: string | null; cidade: string | null; estado: string | null;
   logradouro: string | null; numero: string | null; bairro: string | null; cep: string | null;
   complemento: string | null; nome_antigo: string | null; observacoes: string | null;
   empresas?: { nome_fantasia: string };
