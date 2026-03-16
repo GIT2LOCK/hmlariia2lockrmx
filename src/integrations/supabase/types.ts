@@ -354,6 +354,8 @@ export type Database = {
           nome: string
           permissao: string
           senha_hash: string
+          totp_enabled: boolean | null
+          totp_secret: string | null
         }
         Insert: {
           ativo?: boolean | null
@@ -364,6 +366,8 @@ export type Database = {
           nome: string
           permissao?: string
           senha_hash: string
+          totp_enabled?: boolean | null
+          totp_secret?: string | null
         }
         Update: {
           ativo?: boolean | null
@@ -374,6 +378,8 @@ export type Database = {
           nome?: string
           permissao?: string
           senha_hash?: string
+          totp_enabled?: boolean | null
+          totp_secret?: string | null
         }
         Relationships: []
       }

@@ -8,3 +8,9 @@ verify_jwt = false
 
 [functions.logout]
 verify_jwt = false
+
+[functions.setup-2fa]
+verify_jwt = false
+
+[functions.verify-2fa]
+verify_jwt = false
