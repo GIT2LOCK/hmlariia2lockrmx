@@ -302,7 +302,8 @@ const UnidadeDetalhe = () => {
                 {link.velocidade_download && <div><span className="text-muted-foreground">Download:</span> {link.velocidade_download}</div>}
                 {link.velocidade_upload && <div><span className="text-muted-foreground">Upload:</span> {link.velocidade_upload}</div>}
                 {link.ip_tipo && <div><span className="text-muted-foreground">IP:</span> {link.ip_tipo} / {link.ip_visibilidade}</div>}
-                {(link as any).tipo_conexao && <div><span className="text-muted-foreground">Conexão:</span> {(link as any).tipo_conexao}</div>}
+                {(link as any).tipo_autenticacao && <div><span className="text-muted-foreground">Tipo Link:</span> {(link as any).tipo_autenticacao}</div>}
+                {(link as any).tipo_autenticacao === "PPPoE" && (link as any).pppoe_usuario && <div><span className="text-muted-foreground">PPPoE User:</span> <code className="bg-muted px-1 rounded font-mono text-xs">{(link as any).pppoe_usuario}</code></div>}
                 {link.ddns && <div><span className="text-muted-foreground">DDNS:</span> {link.ddns}</div>}
                 <div><span className="text-muted-foreground">Bridge:</span> {link.bridge ? "Sim" : "Não"}</div>
                 {link.canal_atendimento && <div><span className="text-muted-foreground">Canal:</span> {link.canal_atendimento}</div>}
