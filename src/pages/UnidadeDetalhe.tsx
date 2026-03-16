@@ -41,7 +41,8 @@ interface Cobertura {
 interface Operadora { id: number; nome: string; }
 
 const emptyLinkForm = {
-  operadora_id: "", nome_link: "", finalidade: "", tipo_link: "", tipo_conexao: "",
+  operadora_id: "", nome_link: "", finalidade: "", tipo_link: "", tipo_autenticacao: "",
+  pppoe_usuario: "", pppoe_senha: "",
   velocidade_download: "", velocidade_upload: "", ip_tipo: "", ip_visibilidade: "",
   ddns: "", bridge: false, canal_atendimento: "", telefone_operadora: "", observacoes: "",
 };
@@ -108,7 +109,8 @@ const UnidadeDetalhe = () => {
     setLinkForm({
       operadora_id: String(l.operadora_id), nome_link: l.nome_link || "",
       finalidade: l.finalidade || "", tipo_link: l.tipo_link || "",
-      tipo_conexao: (l as any).tipo_conexao || "",
+      tipo_autenticacao: (l as any).tipo_autenticacao || "",
+      pppoe_usuario: (l as any).pppoe_usuario || "", pppoe_senha: (l as any).pppoe_senha || "",
       velocidade_download: l.velocidade_download || "", velocidade_upload: l.velocidade_upload || "",
       ip_tipo: l.ip_tipo || "", ip_visibilidade: l.ip_visibilidade || "",
       ddns: l.ddns || "", bridge: l.bridge || false,
@@ -127,7 +129,9 @@ const UnidadeDetalhe = () => {
       observacoes: linkForm.observacoes, unidade_id: Number(id),
       operadora_id: Number(linkForm.operadora_id), bridge: linkForm.bridge,
       finalidade: linkForm.finalidade || null, tipo_link: linkForm.tipo_link || null,
-      tipo_conexao: linkForm.tipo_conexao || null,
+      tipo_autenticacao: linkForm.tipo_autenticacao || null,
+      pppoe_usuario: linkForm.tipo_autenticacao === "PPPoE" ? (linkForm.pppoe_usuario || null) : null,
+      pppoe_senha: linkForm.tipo_autenticacao === "PPPoE" ? (linkForm.pppoe_senha || null) : null,
       ip_tipo: linkForm.ip_tipo || null, ip_visibilidade: linkForm.ip_visibilidade || null,
     };
     if (editingLink) {
@@ -298,7 +302,8 @@ const UnidadeDetalhe = () => {
                 {link.velocidade_download && <div><span className="text-muted-foreground">Download:</span> {link.velocidade_download}</div>}
                 {link.velocidade_upload && <div><span className="text-muted-foreground">Upload:</span> {link.velocidade_upload}</div>}
                 {link.ip_tipo && <div><span className="text-muted-foreground">IP:</span> {link.ip_tipo} / {link.ip_visibilidade}</div>}
-                {(link as any).tipo_conexao && <div><span className="text-muted-foreground">Conexão:</span> {(link as any).tipo_conexao}</div>}
+                {(link as any).tipo_autenticacao && <div><span className="text-muted-foreground">Tipo Link:</span> {(link as any).tipo_autenticacao}</div>}
+                {(link as any).tipo_autenticacao === "PPPoE" && (link as any).pppoe_usuario && <div><span className="text-muted-foreground">PPPoE User:</span> <code className="bg-muted px-1 rounded font-mono text-xs">{(link as any).pppoe_usuario}</code></div>}
                 {link.ddns && <div><span className="text-muted-foreground">DDNS:</span> {link.ddns}</div>}
                 <div><span className="text-muted-foreground">Bridge:</span> {link.bridge ? "Sim" : "Não"}</div>
                 {link.canal_atendimento && <div><span className="text-muted-foreground">Canal:</span> {link.canal_atendimento}</div>}
@@ -378,8 +383,8 @@ const UnidadeDetalhe = () => {
             </div>
             <div><Label>Vel. Download</Label><Input value={linkForm.velocidade_download} onChange={(e) => setLinkForm({...linkForm, velocidade_download: e.target.value})} placeholder="ex: 100 Mbps" /></div>
             <div>
-              <Label>Tipo de Conexão</Label>
-              <Select value={linkForm.tipo_conexao} onValueChange={(v) => setLinkForm({...linkForm, tipo_conexao: v})}>
+              <Label>Tipo do Link</Label>
+              <Select value={linkForm.tipo_autenticacao} onValueChange={(v) => setLinkForm({...linkForm, tipo_autenticacao: v})}>
                 <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="DHCP">DHCP</SelectItem>
@@ -389,6 +394,12 @@ const UnidadeDetalhe = () => {
                 </SelectContent>
               </Select>
             </div>
+            {linkForm.tipo_autenticacao === "PPPoE" && (
+              <>
+                <div><Label>PPPoE - Usuário</Label><Input value={linkForm.pppoe_usuario} onChange={(e) => setLinkForm({...linkForm, pppoe_usuario: e.target.value})} /></div>
+                <div><Label>PPPoE - Senha</Label><Input value={linkForm.pppoe_senha} onChange={(e) => setLinkForm({...linkForm, pppoe_senha: e.target.value})} /></div>
+              </>
+            )}
             <div><Label>Vel. Upload</Label><Input value={linkForm.velocidade_upload} onChange={(e) => setLinkForm({...linkForm, velocidade_upload: e.target.value})} placeholder="ex: 50 Mbps" /></div>
             <div>
               <Label>Tipo de IP</Label>

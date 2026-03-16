@@ -140,8 +140,10 @@ export type Database = {
           nome_link: string | null
           observacoes: string | null
           operadora_id: number
+          pppoe_senha: string | null
+          pppoe_usuario: string | null
           telefone_operadora: string | null
-          tipo_conexao: string | null
+          tipo_autenticacao: string | null
           tipo_link: Database["public"]["Enums"]["tipo_link"] | null
           unidade_id: number
           velocidade_download: string | null
@@ -162,8 +164,10 @@ export type Database = {
           nome_link?: string | null
           observacoes?: string | null
           operadora_id: number
+          pppoe_senha?: string | null
+          pppoe_usuario?: string | null
           telefone_operadora?: string | null
-          tipo_conexao?: string | null
+          tipo_autenticacao?: string | null
           tipo_link?: Database["public"]["Enums"]["tipo_link"] | null
           unidade_id: number
           velocidade_download?: string | null
@@ -184,8 +188,10 @@ export type Database = {
           nome_link?: string | null
           observacoes?: string | null
           operadora_id?: number
+          pppoe_senha?: string | null
+          pppoe_usuario?: string | null
           telefone_operadora?: string | null
-          tipo_conexao?: string | null
+          tipo_autenticacao?: string | null
           tipo_link?: Database["public"]["Enums"]["tipo_link"] | null
           unidade_id?: number
           velocidade_download?: string | null
