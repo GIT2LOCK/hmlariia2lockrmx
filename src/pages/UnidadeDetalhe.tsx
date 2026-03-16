@@ -221,11 +221,17 @@ const UnidadeDetalhe = () => {
         <CardHeader><CardTitle className="flex items-center gap-2"><MapPin className="h-5 w-5" /> Dados da Unidade</CardTitle></CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
-            {unidade.codigo_unidade && <div><span className="font-medium text-muted-foreground">Código:</span> {unidade.codigo_unidade}</div>}
+            {unidade.codigo_unidade && <div><span className="font-medium text-muted-foreground">UDM:</span> {unidade.codigo_unidade}</div>}
+            {unidade.abreviacao && <div><span className="font-medium text-muted-foreground">Abreviação:</span> {unidade.abreviacao}</div>}
             {unidade.hostname && <div><span className="font-medium text-muted-foreground">Hostname (Zabbix):</span> <code className="bg-muted px-1 rounded font-mono text-xs">{unidade.hostname}</code></div>}
             {unidade.nome_antigo && <div><span className="font-medium text-muted-foreground">Nome Antigo:</span> {unidade.nome_antigo}</div>}
+            {unidade.antiga_razao && <div><span className="font-medium text-muted-foreground">Antiga Razão:</span> {unidade.antiga_razao}</div>}
+            {unidade.rede_default && <div><span className="font-medium text-muted-foreground">Rede Default:</span> <code className="bg-muted px-1 rounded font-mono text-xs">{unidade.rede_default}</code></div>}
+            {unidade.wifi_antenas && <div><span className="font-medium text-muted-foreground">Wi-Fi/Antenas:</span> Sim</div>}
+            {unidade.contato_nome && <div><span className="font-medium text-muted-foreground">Contato:</span> {unidade.contato_nome}</div>}
             {unidade.telefone && <div><span className="font-medium text-muted-foreground">Telefone:</span> {unidade.telefone}</div>}
             {unidade.email && <div><span className="font-medium text-muted-foreground">Email:</span> {unidade.email}</div>}
+            {unidade.email_regional && <div><span className="font-medium text-muted-foreground">Email Regional:</span> {unidade.email_regional}</div>}
           </div>
           {(unidade.logradouro || unidade.cidade) && (
             <div className="mt-4 p-3 bg-muted/50 rounded-md text-sm">
