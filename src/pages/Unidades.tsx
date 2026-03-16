@@ -27,8 +27,8 @@ interface Unidade {
 interface Empresa { id: number; nome_fantasia: string; razao_social: string | null; cnpj: string | null; }
 
 const emptyForm = {
-  empresa_id: "", nome_unidade: "", codigo_unidade: "", hostname: "", abreviacao: "",
-  nome_antigo: "", antiga_razao: "", contato_nome: "",
+  empresa_id: "", nome_unidade: "", codigo_unidade: "", hostname: "",
+  antiga_razao: "", contato_nome: "",
   telefone: "", email: "", email_regional: "",
   logradouro: "", numero: "", complemento: "",
   bairro: "", cidade: "", estado: "", cep: "",
