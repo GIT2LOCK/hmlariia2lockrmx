@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2, Search } from "lucide-react";
@@ -13,12 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 interface Empresa {
   id: number;
   nome_fantasia: string;
-  razao_social: string | null;
-  cnpj: string | null;
-  observacoes: string | null;
 }
-
-const emptyForm = { nome_fantasia: "", razao_social: "", cnpj: "", observacoes: "" };
 
 const Empresas = () => {
   const { toast } = useToast();
@@ -27,11 +21,11 @@ const Empresas = () => {
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Empresa | null>(null);
-  const [form, setForm] = useState(emptyForm);
+  const [nome, setNome] = useState("");
 
   const load = async () => {
     setLoading(true);
-    const { data } = await supabase.from("empresas").select("*").order("nome_fantasia");
+    const { data } = await supabase.from("empresas").select("id, nome_fantasia").order("nome_fantasia");
     setEmpresas((data as Empresa[]) || []);
     setLoading(false);
   };
@@ -39,25 +33,19 @@ const Empresas = () => {
   useEffect(() => { load(); }, []);
 
   const filtered = empresas.filter((e) =>
-    [e.nome_fantasia, e.razao_social, e.cnpj].some((v) =>
-      v?.toLowerCase().includes(search.toLowerCase())
-    )
+    e.nome_fantasia.toLowerCase().includes(search.toLowerCase())
   );
 
-  const openNew = () => { setEditing(null); setForm(emptyForm); setModalOpen(true); };
-  const openEdit = (e: Empresa) => {
-    setEditing(e);
-    setForm({ nome_fantasia: e.nome_fantasia, razao_social: e.razao_social || "", cnpj: e.cnpj || "", observacoes: e.observacoes || "" });
-    setModalOpen(true);
-  };
+  const openNew = () => { setEditing(null); setNome(""); setModalOpen(true); };
+  const openEdit = (e: Empresa) => { setEditing(e); setNome(e.nome_fantasia); setModalOpen(true); };
 
   const save = async () => {
-    if (!form.nome_fantasia.trim()) { toast({ title: "Nome fantasia é obrigatório", variant: "destructive" }); return; }
+    if (!nome.trim()) { toast({ title: "Nome é obrigatório", variant: "destructive" }); return; }
     if (editing) {
-      await supabase.from("empresas").update(form).eq("id", editing.id);
+      await supabase.from("empresas").update({ nome_fantasia: nome.trim() }).eq("id", editing.id);
       toast({ title: "Empresa atualizada" });
     } else {
-      await supabase.from("empresas").insert(form);
+      await supabase.from("empresas").insert({ nome_fantasia: nome.trim() });
       toast({ title: "Empresa cadastrada" });
     }
     setModalOpen(false);
@@ -92,9 +80,7 @@ const Empresas = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Nome Fantasia</TableHead>
-                <TableHead>Razão Social</TableHead>
-                <TableHead>CNPJ</TableHead>
+                <TableHead>Nome</TableHead>
                 <TableHead className="w-24">Ações</TableHead>
               </TableRow>
             </TableHeader>
@@ -102,8 +88,6 @@ const Empresas = () => {
               {filtered.map((e) => (
                 <TableRow key={e.id}>
                   <TableCell className="font-medium">{e.nome_fantasia}</TableCell>
-                  <TableCell>{e.razao_social || "-"}</TableCell>
-                  <TableCell>{e.cnpj || "-"}</TableCell>
                   <TableCell>
                     <div className="flex gap-1">
                       <Button size="icon" variant="ghost" onClick={() => openEdit(e)}><Pencil className="h-4 w-4" /></Button>
@@ -113,7 +97,7 @@ const Empresas = () => {
                 </TableRow>
               ))}
               {!loading && filtered.length === 0 && (
-                <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">Nenhuma empresa encontrada</TableCell></TableRow>
+                <TableRow><TableCell colSpan={2} className="text-center text-muted-foreground py-8">Nenhuma empresa encontrada</TableCell></TableRow>
               )}
             </TableBody>
           </Table>
@@ -121,13 +105,12 @@ const Empresas = () => {
       </Card>
 
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>{editing ? "Editar Empresa" : "Nova Empresa"}</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <div><Label>Nome Fantasia *</Label><Input value={form.nome_fantasia} onChange={(e) => setForm({...form, nome_fantasia: e.target.value})} /></div>
-            <div><Label>Razão Social</Label><Input value={form.razao_social} onChange={(e) => setForm({...form, razao_social: e.target.value})} /></div>
-            <div><Label>CNPJ</Label><Input value={form.cnpj} onChange={(e) => setForm({...form, cnpj: e.target.value})} /></div>
-            <div><Label>Observações</Label><Textarea value={form.observacoes} onChange={(e) => setForm({...form, observacoes: e.target.value})} /></div>
+          <div>
+            <Label>Nome da Empresa *</Label>
+            <Input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex: Good Storage"
+              onKeyDown={(e) => { if (e.key === "Enter") save(); }} autoFocus />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setModalOpen(false)}>Cancelar</Button>
