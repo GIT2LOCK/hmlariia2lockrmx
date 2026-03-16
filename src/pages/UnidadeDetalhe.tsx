@@ -108,6 +108,7 @@ const UnidadeDetalhe = () => {
     setLinkForm({
       operadora_id: String(l.operadora_id), nome_link: l.nome_link || "",
       finalidade: l.finalidade || "", tipo_link: l.tipo_link || "",
+      tipo_conexao: (l as any).tipo_conexao || "",
       velocidade_download: l.velocidade_download || "", velocidade_upload: l.velocidade_upload || "",
       ip_tipo: l.ip_tipo || "", ip_visibilidade: l.ip_visibilidade || "",
       ddns: l.ddns || "", bridge: l.bridge || false,
