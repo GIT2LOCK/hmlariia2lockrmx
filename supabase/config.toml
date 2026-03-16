@@ -1,37 +1,10 @@
-project_id = "vaszvkujzyzpoqmqpphz"
+project_id = "jjemlhtyhnncqzpnskor"
 
 [functions.login]
-verify_jwt = false
-
-[functions.reset-password]
 verify_jwt = false
 
 [functions.signup]
 verify_jwt = false
 
-[functions.verify-2fa]
-verify_jwt = false
-
 [functions.logout]
-verify_jwt = false
-
-[functions.setup-2fa]
-verify_jwt = false
-
-[functions.get-devices]
-verify_jwt = false
-
-[functions.revoke-device]
-verify_jwt = false
-
-[functions.send-verification-email]
-verify_jwt = false
-
-[functions.verify-email]
-verify_jwt = false
-
-[functions.create-internal-admin]
-verify_jwt = false
-
-[functions.criar-demanda]
 verify_jwt = false
