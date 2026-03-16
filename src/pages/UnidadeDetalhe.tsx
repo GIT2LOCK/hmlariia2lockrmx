@@ -377,6 +377,18 @@ const UnidadeDetalhe = () => {
               </Select>
             </div>
             <div><Label>Vel. Download</Label><Input value={linkForm.velocidade_download} onChange={(e) => setLinkForm({...linkForm, velocidade_download: e.target.value})} placeholder="ex: 100 Mbps" /></div>
+            <div>
+              <Label>Tipo de Conexão</Label>
+              <Select value={linkForm.tipo_conexao} onValueChange={(v) => setLinkForm({...linkForm, tipo_conexao: v})}>
+                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="DHCP">DHCP</SelectItem>
+                  <SelectItem value="PPPoE">PPPoE</SelectItem>
+                  <SelectItem value="Estático">Estático</SelectItem>
+                  <SelectItem value="IPoE">IPoE</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div><Label>Vel. Upload</Label><Input value={linkForm.velocidade_upload} onChange={(e) => setLinkForm({...linkForm, velocidade_upload: e.target.value})} placeholder="ex: 50 Mbps" /></div>
             <div>
               <Label>Tipo de IP</Label>
