@@ -14,7 +14,7 @@ import { useNavigate } from "react-router-dom";
 
 interface Unidade {
   id: number; empresa_id: number; nome_unidade: string; codigo_unidade: string | null;
-  telefone: string | null; email: string | null; cidade: string | null; estado: string | null;
+  hostname: string | null; telefone: string | null; email: string | null; cidade: string | null; estado: string | null;
   logradouro: string | null; numero: string | null; bairro: string | null; cep: string | null;
   complemento: string | null; nome_antigo: string | null; observacoes: string | null;
   empresas?: { nome_fantasia: string };
@@ -23,7 +23,7 @@ interface Unidade {
 interface Empresa { id: number; nome_fantasia: string; }
 
 const emptyForm = {
-  empresa_id: "", nome_unidade: "", codigo_unidade: "", nome_antigo: "",
+  empresa_id: "", nome_unidade: "", codigo_unidade: "", hostname: "", nome_antigo: "",
   telefone: "", email: "", logradouro: "", numero: "", complemento: "",
   bairro: "", cidade: "", estado: "", cep: "", observacoes: "",
 };
@@ -53,7 +53,7 @@ const Unidades = () => {
   useEffect(() => { load(); }, []);
 
   const filtered = unidades.filter((u) =>
-    [u.nome_unidade, u.codigo_unidade, u.cidade, u.estado, (u.empresas as any)?.nome_fantasia].some((v) =>
+    [u.nome_unidade, u.codigo_unidade, u.hostname, u.cidade, u.estado, (u.empresas as any)?.nome_fantasia].some((v) =>
       v?.toLowerCase().includes(search.toLowerCase())
     )
   );
@@ -63,7 +63,7 @@ const Unidades = () => {
     setEditing(u);
     setForm({
       empresa_id: String(u.empresa_id), nome_unidade: u.nome_unidade,
-      codigo_unidade: u.codigo_unidade || "", nome_antigo: u.nome_antigo || "",
+      codigo_unidade: u.codigo_unidade || "", hostname: u.hostname || "", nome_antigo: u.nome_antigo || "",
       telefone: u.telefone || "", email: u.email || "",
       logradouro: u.logradouro || "", numero: u.numero || "", complemento: u.complemento || "",
       bairro: u.bairro || "", cidade: u.cidade || "", estado: u.estado || "",
@@ -160,6 +160,7 @@ const Unidades = () => {
             </div>
             <div><Label>Nome da Unidade *</Label><Input value={form.nome_unidade} onChange={(e) => setForm({...form, nome_unidade: e.target.value})} /></div>
             <div><Label>Código</Label><Input value={form.codigo_unidade} onChange={(e) => setForm({...form, codigo_unidade: e.target.value})} /></div>
+            <div><Label>Hostname (Zabbix)</Label><Input value={form.hostname} onChange={(e) => setForm({...form, hostname: e.target.value})} placeholder="Ex: 200ACL_CLAW1" /></div>
             <div><Label>Nome Antigo</Label><Input value={form.nome_antigo} onChange={(e) => setForm({...form, nome_antigo: e.target.value})} /></div>
             <div><Label>Telefone</Label><Input value={form.telefone} onChange={(e) => setForm({...form, telefone: e.target.value})} /></div>
             <div><Label>Email</Label><Input value={form.email} onChange={(e) => setForm({...form, email: e.target.value})} /></div>
