@@ -160,6 +160,7 @@ const Unidades = () => {
             </div>
             <div><Label>Nome da Unidade *</Label><Input value={form.nome_unidade} onChange={(e) => setForm({...form, nome_unidade: e.target.value})} /></div>
             <div><Label>Código</Label><Input value={form.codigo_unidade} onChange={(e) => setForm({...form, codigo_unidade: e.target.value})} /></div>
+            <div><Label>Hostname (Zabbix)</Label><Input value={form.hostname} onChange={(e) => setForm({...form, hostname: e.target.value})} placeholder="Ex: 200ACL_CLAW1" /></div>
             <div><Label>Nome Antigo</Label><Input value={form.nome_antigo} onChange={(e) => setForm({...form, nome_antigo: e.target.value})} /></div>
             <div><Label>Telefone</Label><Input value={form.telefone} onChange={(e) => setForm({...form, telefone: e.target.value})} /></div>
             <div><Label>Email</Label><Input value={form.email} onChange={(e) => setForm({...form, email: e.target.value})} /></div>

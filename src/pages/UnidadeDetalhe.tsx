@@ -220,6 +220,7 @@ const UnidadeDetalhe = () => {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
             {unidade.codigo_unidade && <div><span className="font-medium text-muted-foreground">Código:</span> {unidade.codigo_unidade}</div>}
+            {unidade.hostname && <div><span className="font-medium text-muted-foreground">Hostname (Zabbix):</span> <code className="bg-muted px-1 rounded font-mono text-xs">{unidade.hostname}</code></div>}
             {unidade.nome_antigo && <div><span className="font-medium text-muted-foreground">Nome Antigo:</span> {unidade.nome_antigo}</div>}
             {unidade.telefone && <div><span className="font-medium text-muted-foreground">Telefone:</span> {unidade.telefone}</div>}
             {unidade.email && <div><span className="font-medium text-muted-foreground">Email:</span> {unidade.email}</div>}
