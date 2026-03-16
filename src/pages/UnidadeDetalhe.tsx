@@ -127,6 +127,7 @@ const UnidadeDetalhe = () => {
       observacoes: linkForm.observacoes, unidade_id: Number(id),
       operadora_id: Number(linkForm.operadora_id), bridge: linkForm.bridge,
       finalidade: linkForm.finalidade || null, tipo_link: linkForm.tipo_link || null,
+      tipo_conexao: linkForm.tipo_conexao || null,
       ip_tipo: linkForm.ip_tipo || null, ip_visibilidade: linkForm.ip_visibilidade || null,
     };
     if (editingLink) {
