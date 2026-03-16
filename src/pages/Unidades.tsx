@@ -179,9 +179,7 @@ const Unidades = () => {
                 </div>
                 <div><Label>UDM (Código) *</Label><Input value={form.codigo_unidade} onChange={(e) => setForm({...form, codigo_unidade: e.target.value})} placeholder="Ex: GS-UDM-ACLIMACAO" /></div>
                 <div><Label>Nome da Unidade *</Label><Input value={form.nome_unidade} onChange={(e) => setForm({...form, nome_unidade: e.target.value})} placeholder="Ex: ACLIMAÇÃO" /></div>
-                <div><Label>Abreviação (3 dígitos)</Label><Input value={form.abreviacao} onChange={(e) => setForm({...form, abreviacao: e.target.value.toUpperCase().slice(0, 10)})} placeholder="Ex: ACL" maxLength={10} /></div>
-                <div><Label>Nome Antigo</Label><Input value={form.nome_antigo} onChange={(e) => setForm({...form, nome_antigo: e.target.value})} /></div>
-                <div><Label>Antiga Razão Social</Label><Input value={form.antiga_razao} onChange={(e) => setForm({...form, antiga_razao: e.target.value})} /></div>
+                <div><Label>Razão Social</Label><Input value={form.antiga_razao} onChange={(e) => setForm({...form, antiga_razao: e.target.value})} /></div>
                 <div><Label>Hostname (Zabbix)</Label><Input value={form.hostname} onChange={(e) => setForm({...form, hostname: e.target.value})} placeholder="Ex: 200ACL_CLAW1" /></div>
               </div>
             </div>
