@@ -53,7 +53,7 @@ const Unidades = () => {
   useEffect(() => { load(); }, []);
 
   const filtered = unidades.filter((u) =>
-    [u.nome_unidade, u.codigo_unidade, u.cidade, u.estado, (u.empresas as any)?.nome_fantasia].some((v) =>
+    [u.nome_unidade, u.codigo_unidade, u.hostname, u.cidade, u.estado, (u.empresas as any)?.nome_fantasia].some((v) =>
       v?.toLowerCase().includes(search.toLowerCase())
     )
   );
