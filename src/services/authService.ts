@@ -29,6 +29,10 @@ export interface AuthResponse {
   user?: AuthUser;
   session?: AuthSession;
   error?: string;
+  requires2FA?: boolean;
+  userId?: number;
+  requiresSetup2FA?: boolean;
+  setupToken?: string;
 }
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
