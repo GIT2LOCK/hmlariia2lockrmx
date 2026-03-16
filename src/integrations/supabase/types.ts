@@ -141,6 +141,7 @@ export type Database = {
           observacoes: string | null
           operadora_id: number
           telefone_operadora: string | null
+          tipo_conexao: string | null
           tipo_link: Database["public"]["Enums"]["tipo_link"] | null
           unidade_id: number
           velocidade_download: string | null
@@ -162,6 +163,7 @@ export type Database = {
           observacoes?: string | null
           operadora_id: number
           telefone_operadora?: string | null
+          tipo_conexao?: string | null
           tipo_link?: Database["public"]["Enums"]["tipo_link"] | null
           unidade_id: number
           velocidade_download?: string | null
@@ -183,6 +185,7 @@ export type Database = {
           observacoes?: string | null
           operadora_id?: number
           telefone_operadora?: string | null
+          tipo_conexao?: string | null
           tipo_link?: Database["public"]["Enums"]["tipo_link"] | null
           unidade_id?: number
           velocidade_download?: string | null
@@ -278,14 +281,18 @@ export type Database = {
       }
       unidades: {
         Row: {
+          abreviacao: string | null
+          antiga_razao: string | null
           atualizado_em: string | null
           bairro: string | null
           cep: string | null
           cidade: string | null
           codigo_unidade: string | null
           complemento: string | null
+          contato_nome: string | null
           criado_em: string | null
           email: string | null
+          email_regional: string | null
           empresa_id: number
           estado: string | null
           hostname: string | null
@@ -295,17 +302,23 @@ export type Database = {
           nome_unidade: string
           numero: string | null
           observacoes: string | null
+          rede_default: string | null
           telefone: string | null
+          wifi_antenas: boolean | null
         }
         Insert: {
+          abreviacao?: string | null
+          antiga_razao?: string | null
           atualizado_em?: string | null
           bairro?: string | null
           cep?: string | null
           cidade?: string | null
           codigo_unidade?: string | null
           complemento?: string | null
+          contato_nome?: string | null
           criado_em?: string | null
           email?: string | null
+          email_regional?: string | null
           empresa_id: number
           estado?: string | null
           hostname?: string | null
@@ -315,17 +328,23 @@ export type Database = {
           nome_unidade: string
           numero?: string | null
           observacoes?: string | null
+          rede_default?: string | null
           telefone?: string | null
+          wifi_antenas?: boolean | null
         }
         Update: {
+          abreviacao?: string | null
+          antiga_razao?: string | null
           atualizado_em?: string | null
           bairro?: string | null
           cep?: string | null
           cidade?: string | null
           codigo_unidade?: string | null
           complemento?: string | null
+          contato_nome?: string | null
           criado_em?: string | null
           email?: string | null
+          email_regional?: string | null
           empresa_id?: number
           estado?: string | null
           hostname?: string | null
@@ -335,7 +354,9 @@ export type Database = {
           nome_unidade?: string
           numero?: string | null
           observacoes?: string | null
+          rede_default?: string | null
           telefone?: string | null
+          wifi_antenas?: boolean | null
         }
         Relationships: [
           {
