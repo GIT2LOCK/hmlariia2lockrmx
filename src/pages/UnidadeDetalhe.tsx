@@ -298,6 +298,7 @@ const UnidadeDetalhe = () => {
                 {link.velocidade_download && <div><span className="text-muted-foreground">Download:</span> {link.velocidade_download}</div>}
                 {link.velocidade_upload && <div><span className="text-muted-foreground">Upload:</span> {link.velocidade_upload}</div>}
                 {link.ip_tipo && <div><span className="text-muted-foreground">IP:</span> {link.ip_tipo} / {link.ip_visibilidade}</div>}
+                {(link as any).tipo_conexao && <div><span className="text-muted-foreground">Conexão:</span> {(link as any).tipo_conexao}</div>}
                 {link.ddns && <div><span className="text-muted-foreground">DDNS:</span> {link.ddns}</div>}
                 <div><span className="text-muted-foreground">Bridge:</span> {link.bridge ? "Sim" : "Não"}</div>
                 {link.canal_atendimento && <div><span className="text-muted-foreground">Canal:</span> {link.canal_atendimento}</div>}
