@@ -383,8 +383,8 @@ const UnidadeDetalhe = () => {
             </div>
             <div><Label>Vel. Download</Label><Input value={linkForm.velocidade_download} onChange={(e) => setLinkForm({...linkForm, velocidade_download: e.target.value})} placeholder="ex: 100 Mbps" /></div>
             <div>
-              <Label>Tipo de Conexão</Label>
-              <Select value={linkForm.tipo_conexao} onValueChange={(v) => setLinkForm({...linkForm, tipo_conexao: v})}>
+              <Label>Tipo do Link</Label>
+              <Select value={linkForm.tipo_autenticacao} onValueChange={(v) => setLinkForm({...linkForm, tipo_autenticacao: v})}>
                 <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="DHCP">DHCP</SelectItem>
@@ -394,6 +394,12 @@ const UnidadeDetalhe = () => {
                 </SelectContent>
               </Select>
             </div>
+            {linkForm.tipo_autenticacao === "PPPoE" && (
+              <>
+                <div><Label>PPPoE - Usuário</Label><Input value={linkForm.pppoe_usuario} onChange={(e) => setLinkForm({...linkForm, pppoe_usuario: e.target.value})} /></div>
+                <div><Label>PPPoE - Senha</Label><Input value={linkForm.pppoe_senha} onChange={(e) => setLinkForm({...linkForm, pppoe_senha: e.target.value})} /></div>
+              </>
+            )}
             <div><Label>Vel. Upload</Label><Input value={linkForm.velocidade_upload} onChange={(e) => setLinkForm({...linkForm, velocidade_upload: e.target.value})} placeholder="ex: 50 Mbps" /></div>
             <div>
               <Label>Tipo de IP</Label>
