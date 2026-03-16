@@ -14,65 +14,294 @@ export type Database = {
   }
   public: {
     Tables: {
-      tb_unidade: {
+      cobertura_unidade: {
         Row: {
-          empresa: string | null
-          hostname: string
-          un_email: string | null
-          un_id: number
-          un_tel: string | null
-          unidade: string
+          criado_em: string | null
+          descricao: string | null
+          id: number
+          tipo: string | null
+          unidade_id: number
         }
         Insert: {
-          empresa?: string | null
-          hostname: string
-          un_email?: string | null
-          un_id?: number
-          un_tel?: string | null
-          unidade: string
+          criado_em?: string | null
+          descricao?: string | null
+          id?: number
+          tipo?: string | null
+          unidade_id: number
         }
         Update: {
-          empresa?: string | null
-          hostname?: string
-          un_email?: string | null
-          un_id?: number
-          un_tel?: string | null
-          unidade?: string
+          criado_em?: string | null
+          descricao?: string | null
+          id?: number
+          tipo?: string | null
+          unidade_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cobertura_unidade_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dados_abertura_chamado: {
+        Row: {
+          atualizado_em: string | null
+          cnpj_abertura: string | null
+          criado_em: string | null
+          email_abertura: string | null
+          id: number
+          link_id: number
+          numero_cliente: string | null
+          numero_contrato: string | null
+          observacoes_abertura: string | null
+          razao_social_abertura: string | null
+          telefone_abertura: string | null
+        }
+        Insert: {
+          atualizado_em?: string | null
+          cnpj_abertura?: string | null
+          criado_em?: string | null
+          email_abertura?: string | null
+          id?: number
+          link_id: number
+          numero_cliente?: string | null
+          numero_contrato?: string | null
+          observacoes_abertura?: string | null
+          razao_social_abertura?: string | null
+          telefone_abertura?: string | null
+        }
+        Update: {
+          atualizado_em?: string | null
+          cnpj_abertura?: string | null
+          criado_em?: string | null
+          email_abertura?: string | null
+          id?: number
+          link_id?: number
+          numero_cliente?: string | null
+          numero_contrato?: string | null
+          observacoes_abertura?: string | null
+          razao_social_abertura?: string | null
+          telefone_abertura?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dados_abertura_chamado_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "links_internet"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      empresas: {
+        Row: {
+          atualizado_em: string | null
+          cnpj: string | null
+          criado_em: string | null
+          id: number
+          nome_fantasia: string
+          observacoes: string | null
+          razao_social: string | null
+        }
+        Insert: {
+          atualizado_em?: string | null
+          cnpj?: string | null
+          criado_em?: string | null
+          id?: number
+          nome_fantasia: string
+          observacoes?: string | null
+          razao_social?: string | null
+        }
+        Update: {
+          atualizado_em?: string | null
+          cnpj?: string | null
+          criado_em?: string | null
+          id?: number
+          nome_fantasia?: string
+          observacoes?: string | null
+          razao_social?: string | null
         }
         Relationships: []
       }
-      usuarios: {
+      links_internet: {
         Row: {
-          ativo: boolean | null
           atualizado_em: string | null
+          bridge: boolean | null
+          canal_atendimento: string | null
           criado_em: string | null
-          email: string
+          ddns: string | null
+          finalidade: Database["public"]["Enums"]["finalidade_link"] | null
           id: number
-          nome: string
-          permissao: string
-          senha_hash: string
+          ip_tipo: Database["public"]["Enums"]["ip_tipo"] | null
+          ip_visibilidade: Database["public"]["Enums"]["ip_visibilidade"] | null
+          nome_link: string | null
+          observacoes: string | null
+          operadora_id: number
+          telefone_operadora: string | null
+          tipo_link: Database["public"]["Enums"]["tipo_link"] | null
+          unidade_id: number
+          velocidade_download: string | null
+          velocidade_upload: string | null
         }
         Insert: {
-          ativo?: boolean | null
           atualizado_em?: string | null
+          bridge?: boolean | null
+          canal_atendimento?: string | null
           criado_em?: string | null
-          email: string
+          ddns?: string | null
+          finalidade?: Database["public"]["Enums"]["finalidade_link"] | null
           id?: number
-          nome: string
-          permissao?: string
-          senha_hash: string
+          ip_tipo?: Database["public"]["Enums"]["ip_tipo"] | null
+          ip_visibilidade?:
+            | Database["public"]["Enums"]["ip_visibilidade"]
+            | null
+          nome_link?: string | null
+          observacoes?: string | null
+          operadora_id: number
+          telefone_operadora?: string | null
+          tipo_link?: Database["public"]["Enums"]["tipo_link"] | null
+          unidade_id: number
+          velocidade_download?: string | null
+          velocidade_upload?: string | null
         }
         Update: {
-          ativo?: boolean | null
+          atualizado_em?: string | null
+          bridge?: boolean | null
+          canal_atendimento?: string | null
+          criado_em?: string | null
+          ddns?: string | null
+          finalidade?: Database["public"]["Enums"]["finalidade_link"] | null
+          id?: number
+          ip_tipo?: Database["public"]["Enums"]["ip_tipo"] | null
+          ip_visibilidade?:
+            | Database["public"]["Enums"]["ip_visibilidade"]
+            | null
+          nome_link?: string | null
+          observacoes?: string | null
+          operadora_id?: number
+          telefone_operadora?: string | null
+          tipo_link?: Database["public"]["Enums"]["tipo_link"] | null
+          unidade_id?: number
+          velocidade_download?: string | null
+          velocidade_upload?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "links_internet_operadora_id_fkey"
+            columns: ["operadora_id"]
+            isOneToOne: false
+            referencedRelation: "operadoras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "links_internet_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      operadoras: {
+        Row: {
+          atualizado_em: string | null
+          criado_em: string | null
+          email: string | null
+          id: number
+          nome: string
+          observacoes: string | null
+          telefone: string | null
+        }
+        Insert: {
           atualizado_em?: string | null
           criado_em?: string | null
-          email?: string
+          email?: string | null
+          id?: number
+          nome: string
+          observacoes?: string | null
+          telefone?: string | null
+        }
+        Update: {
+          atualizado_em?: string | null
+          criado_em?: string | null
+          email?: string | null
           id?: number
           nome?: string
-          permissao?: string
-          senha_hash?: string
+          observacoes?: string | null
+          telefone?: string | null
         }
         Relationships: []
+      }
+      unidades: {
+        Row: {
+          atualizado_em: string | null
+          bairro: string | null
+          cep: string | null
+          cidade: string | null
+          codigo_unidade: string | null
+          complemento: string | null
+          criado_em: string | null
+          email: string | null
+          empresa_id: number
+          estado: string | null
+          id: number
+          logradouro: string | null
+          nome_antigo: string | null
+          nome_unidade: string
+          numero: string | null
+          observacoes: string | null
+          telefone: string | null
+        }
+        Insert: {
+          atualizado_em?: string | null
+          bairro?: string | null
+          cep?: string | null
+          cidade?: string | null
+          codigo_unidade?: string | null
+          complemento?: string | null
+          criado_em?: string | null
+          email?: string | null
+          empresa_id: number
+          estado?: string | null
+          id?: number
+          logradouro?: string | null
+          nome_antigo?: string | null
+          nome_unidade: string
+          numero?: string | null
+          observacoes?: string | null
+          telefone?: string | null
+        }
+        Update: {
+          atualizado_em?: string | null
+          bairro?: string | null
+          cep?: string | null
+          cidade?: string | null
+          codigo_unidade?: string | null
+          complemento?: string | null
+          criado_em?: string | null
+          email?: string | null
+          empresa_id?: number
+          estado?: string | null
+          id?: number
+          logradouro?: string | null
+          nome_antigo?: string | null
+          nome_unidade?: string
+          numero?: string | null
+          observacoes?: string | null
+          telefone?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "unidades_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
@@ -82,7 +311,10 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      finalidade_link: "principal" | "backup"
+      ip_tipo: "dinamico" | "fixo"
+      ip_visibilidade: "publico" | "privado"
+      tipo_link: "banda_larga" | "link_dedicado" | "4g" | "mpls"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -209,6 +441,11 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      finalidade_link: ["principal", "backup"],
+      ip_tipo: ["dinamico", "fixo"],
+      ip_visibilidade: ["publico", "privado"],
+      tipo_link: ["banda_larga", "link_dedicado", "4g", "mpls"],
+    },
   },
 } as const
