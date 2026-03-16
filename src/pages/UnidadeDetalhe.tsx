@@ -41,7 +41,7 @@ interface Cobertura {
 interface Operadora { id: number; nome: string; }
 
 const emptyLinkForm = {
-  operadora_id: "", nome_link: "", finalidade: "", tipo_link: "",
+  operadora_id: "", nome_link: "", finalidade: "", tipo_link: "", tipo_conexao: "",
   velocidade_download: "", velocidade_upload: "", ip_tipo: "", ip_visibilidade: "",
   ddns: "", bridge: false, canal_atendimento: "", telefone_operadora: "", observacoes: "",
 };
