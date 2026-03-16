@@ -235,6 +235,47 @@ export type Database = {
         }
         Relationships: []
       }
+      sessions: {
+        Row: {
+          criado_em: string | null
+          expires_at: string
+          id: number
+          ip_address: string | null
+          last_activity: string | null
+          token: string
+          user_agent: string | null
+          user_id: number
+        }
+        Insert: {
+          criado_em?: string | null
+          expires_at: string
+          id?: number
+          ip_address?: string | null
+          last_activity?: string | null
+          token: string
+          user_agent?: string | null
+          user_id: number
+        }
+        Update: {
+          criado_em?: string | null
+          expires_at?: string
+          id?: number
+          ip_address?: string | null
+          last_activity?: string | null
+          token?: string
+          user_agent?: string | null
+          user_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sessions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       unidades: {
         Row: {
           atualizado_em: string | null
@@ -302,6 +343,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      usuarios: {
+        Row: {
+          ativo: boolean | null
+          atualizado_em: string | null
+          criado_em: string | null
+          email: string
+          id: number
+          nome: string
+          permissao: string
+          senha_hash: string
+        }
+        Insert: {
+          ativo?: boolean | null
+          atualizado_em?: string | null
+          criado_em?: string | null
+          email: string
+          id?: number
+          nome: string
+          permissao?: string
+          senha_hash: string
+        }
+        Update: {
+          ativo?: boolean | null
+          atualizado_em?: string | null
+          criado_em?: string | null
+          email?: string
+          id?: number
+          nome?: string
+          permissao?: string
+          senha_hash?: string
+        }
+        Relationships: []
       }
     }
     Views: {
