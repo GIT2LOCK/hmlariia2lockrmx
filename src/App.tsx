@@ -7,15 +7,10 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import { DashboardLayout } from "./components/DashboardLayout";
 import Dashboard from "./pages/Dashboard";
-import Demandas from "./pages/Demandas";
 import Empresas from "./pages/Empresas";
-import Pessoas from "./pages/Pessoas";
-import Usuarios from "./pages/Usuarios";
-import Configuracoes from "./pages/Configuracoes";
-import Relatorios from "./pages/Relatorios";
-import Grupos from "./pages/Grupos";
-import WebhookConfig from "./pages/WebhookConfig";
-import Triagem from "./pages/Triagem";
+import Unidades from "./pages/Unidades";
+import UnidadeDetalhe from "./pages/UnidadeDetalhe";
+import Operadoras from "./pages/Operadoras";
 import MeuPerfil from "./pages/MeuPerfil";
 import { UserProvider } from "./contexts/UserContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -40,18 +35,12 @@ const App = () => (
               }
             >
               <Route index element={<Dashboard />} />
-              <Route path="demandas" element={<Demandas />} />
               <Route path="empresas" element={<Empresas />} />
-              <Route path="pessoas" element={<Pessoas />} />
-              <Route path="usuarios" element={<Usuarios />} />
-              <Route path="configuracoes" element={<Configuracoes />} />
-              <Route path="relatorios" element={<Relatorios />} />
-              <Route path="grupos" element={<Grupos />} />
-              <Route path="webhook" element={<WebhookConfig />} />
-              <Route path="triagem" element={<Triagem />} />
+              <Route path="unidades" element={<Unidades />} />
+              <Route path="unidades/:id" element={<UnidadeDetalhe />} />
+              <Route path="operadoras" element={<Operadoras />} />
               <Route path="perfil" element={<MeuPerfil />} />
             </Route>
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

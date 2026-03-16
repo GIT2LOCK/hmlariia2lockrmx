@@ -1,25 +1,17 @@
 import { 
   LayoutDashboard, 
-  ClipboardList, 
-  Settings, 
-  Users, 
-  FileText, 
   LogOut,
   PanelLeftClose,
   PanelLeft,
-  UsersRound,
-  Webhook,
   Building2,
-  AlertCircle,
-  Clock,
+  MapPin,
+  Radio,
   User,
-  BarChart3,
-  Inbox,
-  UserCog
+  Search
 } from "lucide-react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useUser, UserRole } from "@/contexts/UserContext";
+import { useUser } from "@/contexts/UserContext";
 import { logout } from "@/services/authService";
 
 import {
@@ -35,123 +27,13 @@ import {
   SidebarFooter,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { LucideIcon } from "lucide-react";
 
-interface MenuItem {
-  title: string;
-  url: string;
-  icon: LucideIcon;
-}
-
-interface MenuSection {
-  label: string;
-  items: MenuItem[];
-}
-
-// Menus por perfil
-const getMenusByRole = (role: UserRole): MenuSection[] => {
-  switch (role) {
-    case "VIEWER":
-      return [
-        {
-          label: "Menu Principal",
-          items: [
-            { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-            { title: "Demandas", url: "/dashboard/demandas", icon: ClipboardList },
-            { title: "Empresas", url: "/dashboard/empresas", icon: Building2 },
-            { title: "Pessoas", url: "/dashboard/pessoas", icon: Users },
-          ],
-        },
-        {
-          label: "Conta",
-          items: [
-            { title: "Meu Perfil", url: "/dashboard/perfil", icon: User },
-          ],
-        },
-      ];
-
-    case "USER":
-      return [
-        {
-          label: "Menu Principal",
-          items: [
-            { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-            { title: "Minhas Demandas", url: "/dashboard/demandas", icon: ClipboardList },
-            { title: "Empresas", url: "/dashboard/empresas", icon: Building2 },
-            { title: "Pessoas", url: "/dashboard/pessoas", icon: Users },
-          ],
-        },
-        {
-          label: "Conta",
-          items: [
-            { title: "Meu Perfil", url: "/dashboard/perfil", icon: User },
-          ],
-        },
-      ];
-    
-    case "ADMIN":
-      return [
-        {
-          label: "Menu Principal",
-          items: [
-            { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-            { title: "Demandas", url: "/dashboard/demandas", icon: ClipboardList },
-            { title: "Empresas", url: "/dashboard/empresas", icon: Building2 },
-            { title: "Pessoas", url: "/dashboard/pessoas", icon: Users },
-            { title: "Relatórios", url: "/dashboard/relatorios", icon: BarChart3 },
-          ],
-        },
-        {
-          label: "Sistema",
-          items: [
-            { title: "Configurações", url: "/dashboard/configuracoes", icon: Settings },
-            { title: "Usuários", url: "/dashboard/usuarios", icon: UserCog },
-            { title: "Grupos", url: "/dashboard/grupos", icon: UsersRound },
-            { title: "Webhook", url: "/dashboard/webhook", icon: Webhook },
-          ],
-        },
-        {
-          label: "Conta",
-          items: [
-            { title: "Meu Perfil", url: "/dashboard/perfil", icon: User },
-          ],
-        },
-      ];
-    
-    case "SUPERADMIN":
-      return [
-        {
-          label: "Menu Principal",
-          items: [
-            { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-            { title: "Triagem / Fila", url: "/dashboard/triagem", icon: Inbox },
-            { title: "Demandas", url: "/dashboard/demandas", icon: ClipboardList },
-            { title: "Empresas", url: "/dashboard/empresas", icon: Building2 },
-            { title: "Pessoas", url: "/dashboard/pessoas", icon: Users },
-            { title: "Relatórios", url: "/dashboard/relatorios", icon: BarChart3 },
-          ],
-        },
-        {
-          label: "Sistema",
-          items: [
-            { title: "Configurações", url: "/dashboard/configuracoes", icon: Settings },
-            { title: "Usuários", url: "/dashboard/usuarios", icon: UserCog },
-            { title: "Grupos", url: "/dashboard/grupos", icon: UsersRound },
-            { title: "Webhook", url: "/dashboard/webhook", icon: Webhook },
-          ],
-        },
-        {
-          label: "Conta",
-          items: [
-            { title: "Meu Perfil", url: "/dashboard/perfil", icon: User },
-          ],
-        },
-      ];
-    
-    default:
-      return [];
-  }
-};
+const menuItems = [
+  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+  { title: "Empresas", url: "/dashboard/empresas", icon: Building2 },
+  { title: "Unidades", url: "/dashboard/unidades", icon: MapPin },
+  { title: "Operadoras", url: "/dashboard/operadoras", icon: Radio },
+];
 
 export function AppSidebar() {
   const { state, toggleSidebar } = useSidebar();
@@ -163,36 +45,25 @@ export function AppSidebar() {
 
   const isActive = (path: string) => currentPath === path;
 
-  const menuSections = getMenusByRole(user.role);
-
   const handleLogout = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    
-    // Clear local state first for immediate feedback
     localStorage.removeItem("auth_token");
     localStorage.removeItem("auth_expires");
     localStorage.removeItem("auth_user");
-    
-    // Navigate immediately
     navigate("/", { replace: true });
     refreshUser();
-    
-    // Then call server-side logout (fire and forget)
     logout().catch(console.error);
   };
 
   return (
-    <Sidebar
-      className="border-r border-border bg-primary"
-      collapsible="icon"
-    >
+    <Sidebar className="border-r border-border bg-primary" collapsible="icon">
       <SidebarHeader className="p-3 border-b border-primary-foreground/20">
         <div className={`flex items-center ${collapsed ? 'justify-center' : 'gap-3'}`}>
           <Avatar className={`${collapsed ? 'h-8 w-8' : 'h-10 w-10'} transition-all duration-300`}>
             <AvatarImage src={user.avatar} alt={`${user.nome} ${user.sobrenome}`} />
             <AvatarFallback className="bg-primary-foreground/20 text-primary-foreground">
-              {user.nome[0]}{user.sobrenome[0]}
+              {user.nome[0]}{user.sobrenome?.[0] || ""}
             </AvatarFallback>
           </Avatar>
           {!collapsed && (
@@ -200,44 +71,60 @@ export function AppSidebar() {
               <span className="text-sm font-medium text-primary-foreground">
                 {user.nome} {user.sobrenome}
               </span>
-              <span className="text-xs text-primary-foreground/60">
-                {user.cargo}
-              </span>
+              <span className="text-xs text-primary-foreground/60">{user.cargo}</span>
             </div>
           )}
         </div>
       </SidebarHeader>
 
       <SidebarContent className="bg-primary">
-        {menuSections.map((section) => (
-          <SidebarGroup key={section.label}>
-            <SidebarGroupLabel className="text-primary-foreground/60 text-xs uppercase tracking-wider">
-              {section.label}
-            </SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {section.items.map((item) => (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton 
-                      asChild 
-                      isActive={isActive(item.url)}
-                      tooltip={item.title}
-                      className="text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10 data-[active=true]:bg-primary-foreground/20 data-[active=true]:text-primary-foreground"
-                    >
-                      <NavLink 
-                        to={item.url} 
-                        className="flex items-center gap-3"
-                      >
-                        <item.icon className="h-5 w-5" />
-                        <span>{item.title}</span>
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        ))}
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-primary-foreground/60 text-xs uppercase tracking-wider">
+            Menu
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {menuItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton 
+                    asChild 
+                    isActive={isActive(item.url)}
+                    tooltip={item.title}
+                    className="text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10 data-[active=true]:bg-primary-foreground/20 data-[active=true]:text-primary-foreground"
+                  >
+                    <NavLink to={item.url} className="flex items-center gap-3">
+                      <item.icon className="h-5 w-5" />
+                      <span>{item.title}</span>
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-primary-foreground/60 text-xs uppercase tracking-wider">
+            Conta
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={isActive("/dashboard/perfil")}
+                  tooltip="Meu Perfil"
+                  className="text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10 data-[active=true]:bg-primary-foreground/20 data-[active=true]:text-primary-foreground"
+                >
+                  <NavLink to="/dashboard/perfil" className="flex items-center gap-3">
+                    <User className="h-5 w-5" />
+                    <span>Meu Perfil</span>
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
 
       <SidebarFooter className="border-t border-primary-foreground/20 bg-primary px-2 py-2">
