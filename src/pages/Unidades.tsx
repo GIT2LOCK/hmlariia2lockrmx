@@ -63,7 +63,7 @@ const Unidades = () => {
     setEditing(u);
     setForm({
       empresa_id: String(u.empresa_id), nome_unidade: u.nome_unidade,
-      codigo_unidade: u.codigo_unidade || "", nome_antigo: u.nome_antigo || "",
+      codigo_unidade: u.codigo_unidade || "", hostname: u.hostname || "", nome_antigo: u.nome_antigo || "",
       telefone: u.telefone || "", email: u.email || "",
       logradouro: u.logradouro || "", numero: u.numero || "", complemento: u.complemento || "",
       bairro: u.bairro || "", cidade: u.cidade || "", estado: u.estado || "",
