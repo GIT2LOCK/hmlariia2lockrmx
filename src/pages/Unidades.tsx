@@ -23,7 +23,7 @@ interface Unidade {
 interface Empresa { id: number; nome_fantasia: string; }
 
 const emptyForm = {
-  empresa_id: "", nome_unidade: "", codigo_unidade: "", nome_antigo: "",
+  empresa_id: "", nome_unidade: "", codigo_unidade: "", hostname: "", nome_antigo: "",
   telefone: "", email: "", logradouro: "", numero: "", complemento: "",
   bairro: "", cidade: "", estado: "", cep: "", observacoes: "",
 };
