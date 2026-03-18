@@ -159,6 +159,10 @@ const Unidades = () => {
         config_rede: links[0].tipo_autenticacao || "",
         tipo_link: links[0].tipo_link || "",
         smart_sigma: (links[0] as any).smart_sigma || false,
+        pppoe_usuario: links[0].pppoe_usuario || "",
+        pppoe_senha: links[0].pppoe_senha || "",
+        ddns_enabled: !!(links[0] as any).ddns,
+        ddns: (links[0] as any).ddns || "",
       });
 
       if (links.length > 1) {
@@ -167,6 +171,10 @@ const Unidades = () => {
           config_rede: links[1].tipo_autenticacao || "",
           tipo_link: links[1].tipo_link || "",
           smart_sigma: (links[1] as any).smart_sigma || false,
+          pppoe_usuario: links[1].pppoe_usuario || "",
+          pppoe_senha: links[1].pppoe_senha || "",
+          ddns_enabled: !!(links[1] as any).ddns,
+          ddns: (links[1] as any).ddns || "",
         });
       } else {
         setLink2(null);
