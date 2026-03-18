@@ -212,24 +212,41 @@ function SingleLinkForm({
                 </div>
               </div>
             ) : (
-              /* Non-SmartSigma: Designação, CNPJ, Código */
+              /* Non-SmartSigma: select Designação ou CNPJ, then Código */
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <Label>Designação</Label>
-                  <Input
-                    value={data.chamado.designacao}
-                    onChange={(e) => updateChamado({ designacao: e.target.value })}
-                    placeholder="Designação do circuito"
-                  />
+                  <Label>Identificador</Label>
+                  <Select
+                    value={data.chamado.identificador_tipo}
+                    onValueChange={(v) => updateChamado({ identificador_tipo: v as any, designacao: "", cnpj_abertura: "" })}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="designacao">Designação</SelectItem>
+                      <SelectItem value="cnpj">CNPJ</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-                <div>
-                  <Label>CNPJ</Label>
-                  <Input
-                    value={data.chamado.cnpj_abertura}
-                    onChange={(e) => updateChamado({ cnpj_abertura: e.target.value })}
-                    placeholder="CNPJ para abertura"
-                  />
-                </div>
+                {data.chamado.identificador_tipo === "designacao" && (
+                  <div>
+                    <Label>Designação</Label>
+                    <Input
+                      value={data.chamado.designacao}
+                      onChange={(e) => updateChamado({ designacao: e.target.value })}
+                      placeholder="Designação do circuito"
+                    />
+                  </div>
+                )}
+                {data.chamado.identificador_tipo === "cnpj" && (
+                  <div>
+                    <Label>CNPJ</Label>
+                    <Input
+                      value={data.chamado.cnpj_abertura}
+                      onChange={(e) => updateChamado({ cnpj_abertura: e.target.value })}
+                      placeholder="CNPJ para abertura"
+                    />
+                  </div>
+                )}
                 <div>
                   <Label>Código</Label>
                   <Input
