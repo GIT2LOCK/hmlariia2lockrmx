@@ -61,9 +61,14 @@ const Unidades = () => {
     return map;
   }, [operadoras]);
 
-  const generatedHostname = useMemo(
-    () => generateHostname(hostnamePrefix, link1, link2, operadorasMap),
-    [hostnamePrefix, link1, link2, operadorasMap]
+  const hostname1 = useMemo(
+    () => generateLinkHostname(hostnamePrefix, link1, 1, operadorasMap),
+    [hostnamePrefix, link1, operadorasMap]
+  );
+
+  const hostname2 = useMemo(
+    () => link2 ? generateLinkHostname(hostnamePrefix, link2, 2, operadorasMap) : "",
+    [hostnamePrefix, link2, operadorasMap]
   );
 
   const load = async () => {
