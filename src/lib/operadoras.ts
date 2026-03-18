@@ -39,6 +39,9 @@ export interface LinkFormData {
   pppoe_senha: string;
   ddns_enabled: boolean;
   ddns: string;
+  ip_estatico: string;
+  mascara: string;
+  gateway: string;
 }
 
 export const emptyLinkData: LinkFormData = {
@@ -50,6 +53,9 @@ export const emptyLinkData: LinkFormData = {
   pppoe_senha: "",
   ddns_enabled: false,
   ddns: "",
+  ip_estatico: "",
+  mascara: "",
+  gateway: "",
 };
 
 export const generateLinkHostname = (
