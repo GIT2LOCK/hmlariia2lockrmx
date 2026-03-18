@@ -15,7 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
 import { OPERADORA_ABREVIACOES } from "@/lib/operadoras";
 import { AbrirChamadoModal } from "@/components/AbrirChamadoModal";
-import { ArrowLeft, Plus, Pencil, Trash2, Wifi, Phone, FileText, MapPin, Building, Globe, Server, Shield, Mail, Copy, Check } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2, Wifi, Phone, FileText, MapPin, Building, Globe, Server, Shield, Mail, Copy, Check, Eye, EyeOff } from "lucide-react";
 
 interface LinkInternet {
   id: number; unidade_id: number; operadora_id: number; nome_link: string | null;
@@ -89,6 +89,23 @@ const InfoItem = ({ label, value, mono }: { label: string; value: React.ReactNod
     )}
   </div>
 );
+
+const PppoesenhaItem = ({ value }: { value: string }) => {
+  const [visible, setVisible] = useState(false);
+  return (
+    <div className="space-y-0.5">
+      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">PPPoE Senha</span>
+      <div className="flex items-center gap-1.5">
+        <code className="bg-muted px-1.5 py-0.5 rounded font-mono text-xs">
+          {visible ? value : "••••••••"}
+        </code>
+        <button type="button" onClick={() => setVisible(!visible)} className="text-muted-foreground hover:text-foreground transition-colors">
+          {visible ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+        </button>
+      </div>
+    </div>
+  );
+};
 
 const UnidadeDetalhe = () => {
   const { id } = useParams();
@@ -433,7 +450,7 @@ const UnidadeDetalhe = () => {
                       <InfoItem label="PPPoE Usuário" value={link.pppoe_usuario} mono />
                     )}
                     {link.tipo_autenticacao === "bridge_pppoe" && link.pppoe_senha && (
-                      <InfoItem label="PPPoE Senha" value={link.pppoe_senha} mono />
+                      <PppoesenhaItem value={link.pppoe_senha} />
                     )}
                     {link.ddns && <InfoItem label="DDNS" value={link.ddns} mono />}
                     {designacao && <InfoItem label="Designação" value={designacao} mono />}
