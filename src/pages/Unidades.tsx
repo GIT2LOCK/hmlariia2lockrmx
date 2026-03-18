@@ -205,12 +205,11 @@ const Unidades = () => {
     };
     const { data: inserted } = await supabase.from("links_internet").insert(linkPayload).select("id").single();
 
-    if (inserted && (linkData.chamado.cnpj_abertura || linkData.chamado.designacao || linkData.chamado.numero_cliente)) {
+    if (inserted && (linkData.chamado.cnpj_abertura || linkData.chamado.designacao)) {
       await supabase.from("dados_abertura_chamado").insert({
         link_id: inserted.id,
         cnpj_abertura: linkData.chamado.cnpj_abertura || null,
         designacao: linkData.chamado.designacao || null,
-        numero_cliente: linkData.chamado.numero_cliente || null,
       });
     }
   };
