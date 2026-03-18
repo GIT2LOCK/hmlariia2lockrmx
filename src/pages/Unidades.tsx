@@ -143,9 +143,9 @@ const Unidades = () => {
     pppoe_senha: link.pppoe_senha || "",
     ddns_enabled: !!link.ddns,
     ddns: link.ddns || "",
-    ip_estatico: "",
-    mascara: "",
-    gateway: "",
+    ip_estatico: link.ip_estatico || "",
+    mascara: link.mascara || "",
+    gateway: link.gateway || "",
     chamado: {
       identificador_tipo: chamadoData?.designacao ? "designacao" : chamadoData?.cnpj_abertura ? "cnpj" : "",
       designacao: chamadoData?.designacao || "",
