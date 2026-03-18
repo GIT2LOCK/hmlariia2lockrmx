@@ -312,7 +312,8 @@ const Unidades = () => {
               link2={link2}
               onLink2Change={setLink2}
               operadoras={operadoras}
-              generatedHostname={generatedHostname}
+              hostname1={hostname1}
+              hostname2={hostname2}
             />
 
             <Separator />
