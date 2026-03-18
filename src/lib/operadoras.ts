@@ -30,13 +30,17 @@ export const TIPO_LINK_OPTIONS = [
   { value: "radio", label: "Radio" },
 ];
 
+export type ChamadoIdentificador = "designacao" | "cnpj";
+
 export interface ChamadoFormData {
+  identificador_tipo: ChamadoIdentificador | "";
   designacao: string;
   cnpj_abertura: string;
   numero_cliente: string;
 }
 
 export const emptyChamadoData: ChamadoFormData = {
+  identificador_tipo: "",
   designacao: "",
   cnpj_abertura: "",
   numero_cliente: "",
