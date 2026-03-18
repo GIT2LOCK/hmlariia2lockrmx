@@ -226,6 +226,9 @@ const Unidades = () => {
       tipo_autenticacao: link1.config_rede || null,
       tipo_link: (link1.tipo_link as any) || null,
       smart_sigma: link1.smart_sigma,
+      pppoe_usuario: link1.config_rede === "bridge_pppoe" ? (link1.pppoe_usuario || null) : null,
+      pppoe_senha: link1.config_rede === "bridge_pppoe" ? (link1.pppoe_senha || null) : null,
+      ddns: link1.ddns_enabled ? (link1.ddns || null) : null,
     };
     await supabase.from("links_internet").insert(link1Payload);
 
