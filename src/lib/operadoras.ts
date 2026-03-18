@@ -30,6 +30,18 @@ export const TIPO_LINK_OPTIONS = [
   { value: "radio", label: "Radio" },
 ];
 
+export interface ChamadoFormData {
+  designacao: string;
+  cnpj_abertura: string;
+  numero_cliente: string;
+}
+
+export const emptyChamadoData: ChamadoFormData = {
+  designacao: "",
+  cnpj_abertura: "",
+  numero_cliente: "",
+};
+
 export interface LinkFormData {
   operadora_id: string;
   config_rede: string;
@@ -42,6 +54,7 @@ export interface LinkFormData {
   ip_estatico: string;
   mascara: string;
   gateway: string;
+  chamado: ChamadoFormData;
 }
 
 export const emptyLinkData: LinkFormData = {
@@ -56,6 +69,7 @@ export const emptyLinkData: LinkFormData = {
   ip_estatico: "",
   mascara: "",
   gateway: "",
+  chamado: { ...emptyChamadoData },
 };
 
 export const generateLinkHostname = (

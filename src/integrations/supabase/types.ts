@@ -51,6 +51,7 @@ export type Database = {
           atualizado_em: string | null
           cnpj_abertura: string | null
           criado_em: string | null
+          designacao: string | null
           email_abertura: string | null
           id: number
           link_id: number
@@ -64,6 +65,7 @@ export type Database = {
           atualizado_em?: string | null
           cnpj_abertura?: string | null
           criado_em?: string | null
+          designacao?: string | null
           email_abertura?: string | null
           id?: number
           link_id: number
@@ -77,6 +79,7 @@ export type Database = {
           atualizado_em?: string | null
           cnpj_abertura?: string | null
           criado_em?: string | null
+          designacao?: string | null
           email_abertura?: string | null
           id?: number
           link_id?: number
