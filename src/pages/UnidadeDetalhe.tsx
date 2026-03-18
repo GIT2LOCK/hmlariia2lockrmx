@@ -63,6 +63,7 @@ const UnidadeDetalhe = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { canEdit, canManageUsers } = useUser();
 
   const [unidade, setUnidade] = useState<any>(null);
   const [links, setLinks] = useState<LinkInternet[]>([]);
