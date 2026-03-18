@@ -12,6 +12,7 @@ import Unidades from "./pages/Unidades";
 import UnidadeDetalhe from "./pages/UnidadeDetalhe";
 import Operadoras from "./pages/Operadoras";
 import MeuPerfil from "./pages/MeuPerfil";
+import Usuarios from "./pages/Usuarios";
 import { UserProvider } from "./contexts/UserContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
