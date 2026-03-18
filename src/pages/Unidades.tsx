@@ -43,6 +43,7 @@ const emptyForm = {
 const Unidades = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { canEdit, canManageUsers } = useUser();
   const [unidades, setUnidades] = useState<Unidade[]>([]);
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [operadoras, setOperadoras] = useState<Operadora[]>([]);
