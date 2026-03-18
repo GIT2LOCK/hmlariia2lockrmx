@@ -606,6 +606,13 @@ const UnidadeDetalhe = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Abrir Chamado Modal */}
+      <AbrirChamadoModal
+        open={abrirChamadoOpen}
+        onOpenChange={setAbrirChamadoOpen}
+        unidadeId={unidade?.id || null}
+      />
     </div>
   );
 };
