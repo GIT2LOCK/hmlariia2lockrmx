@@ -163,6 +163,9 @@ const Unidades = () => {
         pppoe_senha: links[0].pppoe_senha || "",
         ddns_enabled: !!(links[0] as any).ddns,
         ddns: (links[0] as any).ddns || "",
+        ip_estatico: "",
+        mascara: "",
+        gateway: "",
       });
 
       if (links.length > 1) {
@@ -175,6 +178,9 @@ const Unidades = () => {
           pppoe_senha: links[1].pppoe_senha || "",
           ddns_enabled: !!(links[1] as any).ddns,
           ddns: (links[1] as any).ddns || "",
+          ip_estatico: "",
+          mascara: "",
+          gateway: "",
         });
       } else {
         setLink2(null);
