@@ -10,7 +10,8 @@ import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
-import { Plus, Pencil, Trash2, Search, Eye, Loader2, Phone } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Eye, Loader2, Phone, Upload } from "lucide-react";
+import { ImportUnidadesModal } from "@/components/ImportUnidadesModal";
 import { useCepLookup } from "@/hooks/useCepLookup";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useNavigate } from "react-router-dom";
@@ -57,6 +58,9 @@ const Unidades = () => {
   const [hostnamePrefix, setHostnamePrefix] = useState("");
   const [link1, setLink1] = useState<LinkFormData>(emptyLinkData);
   const [link2, setLink2] = useState<LinkFormData | null>(null);
+
+  // Import modal state
+  const [importModalOpen, setImportModalOpen] = useState(false);
 
   // Chamado modal state
   const [chamadoModalOpen, setChamadoModalOpen] = useState(false);
@@ -305,7 +309,12 @@ const Unidades = () => {
           <p className="text-muted-foreground">Gerencie as unidades cadastradas</p>
         </div>
         {canEdit && (
-          <Button onClick={openNew} className="gap-2"><Plus className="h-4 w-4" /> Nova Unidade</Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setImportModalOpen(true)} className="gap-2">
+              <Upload className="h-4 w-4" /> Importar Planilha
+            </Button>
+            <Button onClick={openNew} className="gap-2"><Plus className="h-4 w-4" /> Nova Unidade</Button>
+          </div>
         )}
       </div>
 
@@ -461,6 +470,12 @@ const Unidades = () => {
         open={chamadoModalOpen}
         onOpenChange={setChamadoModalOpen}
         unidadeId={chamadoUnidadeId}
+      />
+
+      <ImportUnidadesModal
+        open={importModalOpen}
+        onOpenChange={setImportModalOpen}
+        onSuccess={load}
       />
     </div>
   );
