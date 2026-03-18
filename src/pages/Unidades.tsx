@@ -331,8 +331,12 @@ const Unidades = () => {
                         <Phone className="h-4 w-4" />
                       </Button>
                       <Button size="icon" variant="ghost" onClick={() => navigate(`/dashboard/unidades/${u.id}`)}><Eye className="h-4 w-4" /></Button>
-                      <Button size="icon" variant="ghost" onClick={() => openEdit(u)}><Pencil className="h-4 w-4" /></Button>
-                      <Button size="icon" variant="ghost" onClick={() => remove(u.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                      {canEdit && (
+                        <Button size="icon" variant="ghost" onClick={() => openEdit(u)}><Pencil className="h-4 w-4" /></Button>
+                      )}
+                      {canManageUsers && (
+                        <Button size="icon" variant="ghost" onClick={() => remove(u.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
