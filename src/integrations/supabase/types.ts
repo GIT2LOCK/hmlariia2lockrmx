@@ -142,6 +142,7 @@ export type Database = {
           operadora_id: number
           pppoe_senha: string | null
           pppoe_usuario: string | null
+          smart_sigma: boolean | null
           telefone_operadora: string | null
           tipo_autenticacao: string | null
           tipo_link: Database["public"]["Enums"]["tipo_link"] | null
@@ -166,6 +167,7 @@ export type Database = {
           operadora_id: number
           pppoe_senha?: string | null
           pppoe_usuario?: string | null
+          smart_sigma?: boolean | null
           telefone_operadora?: string | null
           tipo_autenticacao?: string | null
           tipo_link?: Database["public"]["Enums"]["tipo_link"] | null
@@ -190,6 +192,7 @@ export type Database = {
           operadora_id?: number
           pppoe_senha?: string | null
           pppoe_usuario?: string | null
+          smart_sigma?: boolean | null
           telefone_operadora?: string | null
           tipo_autenticacao?: string | null
           tipo_link?: Database["public"]["Enums"]["tipo_link"] | null
@@ -424,7 +427,7 @@ export type Database = {
       finalidade_link: "principal" | "backup"
       ip_tipo: "dinamico" | "fixo"
       ip_visibilidade: "publico" | "privado"
-      tipo_link: "banda_larga" | "link_dedicado" | "4g" | "mpls"
+      tipo_link: "banda_larga" | "link_dedicado" | "4g" | "mpls" | "radio"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -555,7 +558,7 @@ export const Constants = {
       finalidade_link: ["principal", "backup"],
       ip_tipo: ["dinamico", "fixo"],
       ip_visibilidade: ["publico", "privado"],
-      tipo_link: ["banda_larga", "link_dedicado", "4g", "mpls"],
+      tipo_link: ["banda_larga", "link_dedicado", "4g", "mpls", "radio"],
     },
   },
 } as const
