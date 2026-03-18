@@ -335,8 +335,8 @@ const UnidadeDetalhe = () => {
                         {dc.email_abertura && <div><span className="text-muted-foreground">Email:</span> {dc.email_abertura}</div>}
                       </div>
                       <div className="flex gap-1">
-                        <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => openEditChamado(dc)}><Pencil className="h-3 w-3" /></Button>
-                        <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => removeChamado(dc.id)}><Trash2 className="h-3 w-3 text-destructive" /></Button>
+                        {canEdit && <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => openEditChamado(dc)}><Pencil className="h-3 w-3" /></Button>}
+                        {canManageUsers && <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => removeChamado(dc.id)}><Trash2 className="h-3 w-3 text-destructive" /></Button>}
                       </div>
                     </div>
                     {dc.observacoes_abertura && <p className="text-xs text-muted-foreground">{dc.observacoes_abertura}</p>}
