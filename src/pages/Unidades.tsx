@@ -14,7 +14,7 @@ import { Plus, Pencil, Trash2, Search, Eye } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useNavigate } from "react-router-dom";
 import { UnidadeLinkSection } from "@/components/UnidadeLinkSection";
-import { LinkFormData, emptyLinkData, generateHostname } from "@/lib/operadoras";
+import { LinkFormData, emptyLinkData, generateLinkHostname } from "@/lib/operadoras";
 
 interface Unidade {
   id: number; empresa_id: number; nome_unidade: string; codigo_unidade: string | null;
@@ -61,9 +61,14 @@ const Unidades = () => {
     return map;
   }, [operadoras]);
 
-  const generatedHostname = useMemo(
-    () => generateHostname(hostnamePrefix, link1, link2, operadorasMap),
-    [hostnamePrefix, link1, link2, operadorasMap]
+  const hostname1 = useMemo(
+    () => generateLinkHostname(hostnamePrefix, link1, 1, operadorasMap),
+    [hostnamePrefix, link1, operadorasMap]
+  );
+
+  const hostname2 = useMemo(
+    () => link2 ? generateLinkHostname(hostnamePrefix, link2, 2, operadorasMap) : "",
+    [hostnamePrefix, link2, operadorasMap]
   );
 
   const load = async () => {
@@ -161,7 +166,7 @@ const Unidades = () => {
     const unitPayload = {
       ...form,
       empresa_id: Number(form.empresa_id),
-      hostname: generatedHostname || null,
+      hostname: hostname1 || null,
     };
 
     let unitId: number;
@@ -307,7 +312,8 @@ const Unidades = () => {
               link2={link2}
               onLink2Change={setLink2}
               operadoras={operadoras}
-              generatedHostname={generatedHostname}
+              hostname1={hostname1}
+              hostname2={hostname2}
             />
 
             <Separator />
