@@ -145,6 +145,7 @@ const Unidades = () => {
     mascara: "",
     gateway: "",
     chamado: {
+      identificador_tipo: chamadoData?.designacao ? "designacao" : chamadoData?.cnpj_abertura ? "cnpj" : "",
       designacao: chamadoData?.designacao || "",
       cnpj_abertura: chamadoData?.cnpj_abertura || "",
       numero_cliente: chamadoData?.numero_cliente || "",
