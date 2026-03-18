@@ -10,7 +10,6 @@ import {
   emptyLinkData,
   CONFIG_REDE_OPTIONS,
   TIPO_LINK_OPTIONS,
-  generateHostname,
 } from "@/lib/operadoras";
 
 interface Operadora {
