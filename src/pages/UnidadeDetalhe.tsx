@@ -14,7 +14,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
 import { OPERADORA_ABREVIACOES } from "@/lib/operadoras";
-import { ArrowLeft, Plus, Pencil, Trash2, Wifi, Phone, FileText, MapPin, Building, Globe, Server, Shield } from "lucide-react";
+import { AbrirChamadoModal } from "@/components/AbrirChamadoModal";
+import { ArrowLeft, Plus, Pencil, Trash2, Wifi, Phone, FileText, MapPin, Building, Globe, Server, Shield, Mail } from "lucide-react";
 
 interface LinkInternet {
   id: number; unidade_id: number; operadora_id: number; nome_link: string | null;
@@ -25,7 +26,7 @@ interface LinkInternet {
   canal_atendimento: string | null; telefone_operadora: string | null;
   observacoes: string | null; smart_sigma: boolean | null;
   tipo_autenticacao: string | null; pppoe_usuario: string | null; pppoe_senha: string | null;
-  operadoras?: { nome: string; telefone: string | null };
+  operadoras?: { nome: string; telefone: string | null; email: string | null };
   dados_abertura_chamado?: DadosChamado[];
 }
 
@@ -41,7 +42,7 @@ interface Cobertura {
   id: number; unidade_id: number; tipo: string | null; descricao: string | null;
 }
 
-interface Operadora { id: number; nome: string; telefone: string | null; }
+interface Operadora { id: number; nome: string; telefone: string | null; email: string | null; }
 
 const emptyLinkForm = {
   operadora_id: "", nome_link: "", finalidade: "", tipo_link: "", tipo_autenticacao: "",
@@ -117,13 +118,16 @@ const UnidadeDetalhe = () => {
   const [editingCobertura, setEditingCobertura] = useState<Cobertura | null>(null);
   const [coberturaForm, setCoberturaForm] = useState(emptyCoberturaForm);
 
+  // Abrir Chamado modal
+  const [abrirChamadoOpen, setAbrirChamadoOpen] = useState(false);
+
   const load = async () => {
     setLoading(true);
     const [{ data: u }, { data: l }, { data: c }, { data: o }] = await Promise.all([
       supabase.from("unidades").select("*, empresas(nome_fantasia, cnpj, razao_social)").eq("id", Number(id)).single(),
-      supabase.from("links_internet").select("*, operadoras(nome, telefone), dados_abertura_chamado(*)").eq("unidade_id", Number(id)).order("id"),
+      supabase.from("links_internet").select("*, operadoras(nome, telefone, email), dados_abertura_chamado(*)").eq("unidade_id", Number(id)).order("id"),
       supabase.from("cobertura_unidade").select("*").eq("unidade_id", Number(id)),
-      supabase.from("operadoras").select("id, nome, telefone").order("nome"),
+      supabase.from("operadoras").select("id, nome, telefone, email").order("nome"),
     ]);
     setUnidade(u);
     setLinks((l as any[]) || []);
@@ -263,14 +267,19 @@ const UnidadeDetalhe = () => {
       </Button>
 
       {/* Header */}
-      <div className="space-y-1">
-        <h1 className="text-2xl font-bold">{unidade.nome_unidade}</h1>
-        <div className="flex items-center gap-2 text-muted-foreground text-sm flex-wrap">
-          <Building className="h-4 w-4" />
-          <span>{unidade.empresas?.nome_fantasia}</span>
-          {unidade.empresas?.cnpj && <><span>•</span><span>CNPJ: {unidade.empresas.cnpj}</span></>}
-          {unidade.empresas?.razao_social && <><span>•</span><span>{unidade.empresas.razao_social}</span></>}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold">{unidade.nome_unidade}</h1>
+          <div className="flex items-center gap-2 text-muted-foreground text-sm flex-wrap">
+            <Building className="h-4 w-4" />
+            <span>{unidade.empresas?.nome_fantasia}</span>
+            {unidade.empresas?.cnpj && <><span>•</span><span>CNPJ: {unidade.empresas.cnpj}</span></>}
+            {unidade.empresas?.razao_social && <><span>•</span><span>{unidade.empresas.razao_social}</span></>}
+          </div>
         </div>
+        <Button onClick={() => setAbrirChamadoOpen(true)} className="gap-2">
+          <Phone className="h-4 w-4" /> Abrir Chamado
+        </Button>
       </div>
 
       {/* Dados da Unidade */}
@@ -326,6 +335,7 @@ const UnidadeDetalhe = () => {
             const hostname = linkHostnames[idx];
             const bridgeStatus = isBridge(link.tipo_autenticacao);
             const operadoraTel = link.operadoras?.telefone || link.telefone_operadora;
+            const operadoraEmail = link.operadoras?.email;
             const chamados = link.dados_abertura_chamado || [];
             const designacao = chamados[0]?.designacao;
 
@@ -374,6 +384,7 @@ const UnidadeDetalhe = () => {
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     <InfoItem label="Operadora" value={link.operadoras?.nome || "-"} />
                     {operadoraTel && <InfoItem label="Tel. Operadora" value={operadoraTel} />}
+                    {operadoraEmail && <InfoItem label="Email Operadora" value={operadoraEmail} />}
                     {link.velocidade_download && <InfoItem label="Download" value={link.velocidade_download} />}
                     {link.velocidade_upload && <InfoItem label="Upload" value={link.velocidade_upload} />}
                     {link.tipo_autenticacao && <InfoItem label="Config. de Rede" value={configRedeLabels[link.tipo_autenticacao] || link.tipo_autenticacao} />}
@@ -413,25 +424,37 @@ const UnidadeDetalhe = () => {
                       )}
                     </div>
                     {chamados.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">Nenhum dado cadastrado.</p>
+                      <div className="bg-muted/30 rounded-lg p-4 text-center">
+                        <p className="text-sm text-muted-foreground mb-2">Nenhum dado para abertura de chamado cadastrado.</p>
+                        {canEdit && (
+                          <Button size="sm" variant="outline" onClick={() => openNewChamado(link.id)} className="gap-1">
+                            <Plus className="h-3 w-3" /> Cadastrar dados de abertura
+                          </Button>
+                        )}
+                      </div>
                     ) : chamados.map((dc) => (
-                      <div key={dc.id} className="bg-muted/30 rounded-lg p-3 mb-2">
+                      <div key={dc.id} className="bg-muted/30 rounded-lg p-4 mb-2">
                         <div className="flex justify-between items-start">
-                          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 flex-1 text-sm">
-                            {dc.designacao && <InfoItem label="Designação" value={dc.designacao} mono />}
-                            {dc.razao_social_abertura && <InfoItem label="Razão Social" value={dc.razao_social_abertura} />}
-                            {dc.cnpj_abertura && <InfoItem label="CNPJ" value={dc.cnpj_abertura} />}
-                            {dc.numero_contrato && <InfoItem label="Nº Contrato" value={dc.numero_contrato} />}
-                            {dc.numero_cliente && <InfoItem label="Nº Cliente" value={dc.numero_cliente} />}
-                            {dc.telefone_abertura && <InfoItem label="Telefone" value={dc.telefone_abertura} />}
-                            {dc.email_abertura && <InfoItem label="Email" value={dc.email_abertura} />}
+                          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 flex-1 text-sm">
+                            <InfoItem label="Designação" value={dc.designacao || "-"} mono={!!dc.designacao} />
+                            <InfoItem label="Razão Social" value={dc.razao_social_abertura || "-"} />
+                            <InfoItem label="CNPJ" value={dc.cnpj_abertura || "-"} />
+                            <InfoItem label="Nº Contrato" value={dc.numero_contrato || "-"} />
+                            <InfoItem label="Nº Cliente" value={dc.numero_cliente || "-"} />
+                            <InfoItem label="Telefone" value={dc.telefone_abertura || "-"} />
+                            <InfoItem label="Email" value={dc.email_abertura || "-"} />
                           </div>
                           <div className="flex gap-1 ml-2">
                             {canEdit && <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEditChamado(dc)}><Pencil className="h-3 w-3" /></Button>}
                             {canManageUsers && <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => removeChamado(dc.id)}><Trash2 className="h-3 w-3 text-destructive" /></Button>}
                           </div>
                         </div>
-                        {dc.observacoes_abertura && <p className="text-xs text-muted-foreground mt-2">{dc.observacoes_abertura}</p>}
+                        {dc.observacoes_abertura && (
+                          <div className="mt-3 pt-2 border-t border-border">
+                            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Observações</span>
+                            <p className="text-sm text-muted-foreground mt-0.5">{dc.observacoes_abertura}</p>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -595,6 +618,13 @@ const UnidadeDetalhe = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Abrir Chamado Modal */}
+      <AbrirChamadoModal
+        open={abrirChamadoOpen}
+        onOpenChange={setAbrirChamadoOpen}
+        unidadeId={unidade?.id || null}
+      />
     </div>
   );
 };
