@@ -96,6 +96,48 @@ function SingleLinkForm({
           <Label className="cursor-pointer">SmartSigma</Label>
         </div>
       </div>
+
+      {/* PPPoE fields */}
+      {data.config_rede === "bridge_pppoe" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+          <div>
+            <Label>Usuário PPPoE</Label>
+            <Input
+              value={data.pppoe_usuario}
+              onChange={(e) => onChange({ ...data, pppoe_usuario: e.target.value })}
+              placeholder="Usuário PPPoE"
+            />
+          </div>
+          <div>
+            <Label>Senha PPPoE</Label>
+            <Input
+              value={data.pppoe_senha}
+              onChange={(e) => onChange({ ...data, pppoe_senha: e.target.value })}
+              placeholder="Senha PPPoE"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* DDNS */}
+      <div className="flex items-center gap-2 pt-2">
+        <Checkbox
+          checked={data.ddns_enabled}
+          onCheckedChange={(v) => onChange({ ...data, ddns_enabled: v === true, ddns: v ? data.ddns : "" })}
+        />
+        <Label className="cursor-pointer">DDNS</Label>
+      </div>
+      {data.ddns_enabled && (
+        <div className="pt-1">
+          <Label>Endereço DDNS</Label>
+          <Input
+            value={data.ddns}
+            onChange={(e) => onChange({ ...data, ddns: e.target.value })}
+            placeholder="Ex: unidade.ddns.net"
+            className="max-w-sm"
+          />
+        </div>
+      )}
     </div>
   );
 }
