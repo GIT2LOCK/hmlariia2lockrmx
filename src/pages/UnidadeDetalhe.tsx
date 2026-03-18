@@ -319,7 +319,7 @@ const UnidadeDetalhe = () => {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-sm font-semibold flex items-center gap-1"><FileText className="h-4 w-4" /> Dados para Abertura de Chamado</h4>
-                  <Button size="sm" variant="outline" onClick={() => openNewChamado(link.id)} className="gap-1 h-7 text-xs"><Plus className="h-3 w-3" /> Adicionar</Button>
+                  {canEdit && <Button size="sm" variant="outline" onClick={() => openNewChamado(link.id)} className="gap-1 h-7 text-xs"><Plus className="h-3 w-3" /> Adicionar</Button>}
                 </div>
                 {(!link.dados_abertura_chamado || link.dados_abertura_chamado.length === 0) ? (
                   <p className="text-xs text-muted-foreground">Nenhum dado cadastrado.</p>
