@@ -471,6 +471,12 @@ const Unidades = () => {
         onOpenChange={setChamadoModalOpen}
         unidadeId={chamadoUnidadeId}
       />
+
+      <ImportUnidadesModal
+        open={importModalOpen}
+        onOpenChange={setImportModalOpen}
+        onSuccess={load}
+      />
     </div>
   );
 };
