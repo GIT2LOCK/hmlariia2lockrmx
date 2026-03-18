@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,8 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, Search, Eye } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Eye, Loader2 } from "lucide-react";
+import { useCepLookup } from "@/hooks/useCepLookup";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useNavigate } from "react-router-dom";
 import { UnidadeLinkSection } from "@/components/UnidadeLinkSection";
@@ -54,6 +55,28 @@ const Unidades = () => {
   const [hostnamePrefix, setHostnamePrefix] = useState("");
   const [link1, setLink1] = useState<LinkFormData>(emptyLinkData);
   const [link2, setLink2] = useState<LinkFormData | null>(null);
+
+  // CEP lookup
+  const { isLoading: cepLoading, fetchCep } = useCepLookup();
+
+  const handleCepChange = useCallback(async (rawCep: string) => {
+    const digits = rawCep.replace(/\D/g, "");
+    const masked = digits.length > 5 ? `${digits.slice(0, 5)}-${digits.slice(5, 8)}` : digits;
+    setForm((prev) => ({ ...prev, cep: masked }));
+
+    if (digits.length === 8) {
+      const data = await fetchCep(digits);
+      if (data) {
+        setForm((prev) => ({
+          ...prev,
+          logradouro: data.street || prev.logradouro,
+          bairro: data.neighborhood || prev.bairro,
+          cidade: data.city || prev.cidade,
+          estado: data.state || prev.estado,
+        }));
+      }
+    }
+  }, [fetchCep]);
 
   const operadorasMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -322,7 +345,20 @@ const Unidades = () => {
             <div>
               <h3 className="text-sm font-semibold text-muted-foreground mb-3">ENDEREÇO</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div><Label>CEP</Label><Input value={form.cep} onChange={(e) => setForm({...form, cep: e.target.value})} /></div>
+                <div>
+                  <Label>CEP</Label>
+                  <div className="relative">
+                    <Input
+                      value={form.cep}
+                      onChange={(e) => handleCepChange(e.target.value)}
+                      placeholder="00000-000"
+                      maxLength={9}
+                    />
+                    {cepLoading && (
+                      <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                    )}
+                  </div>
+                </div>
                 <div className="md:col-span-2"><Label>Logradouro</Label><Input value={form.logradouro} onChange={(e) => setForm({...form, logradouro: e.target.value})} placeholder="Ex: Av. Lins de Vasconcelos, 1794" /></div>
                 <div><Label>Número</Label><Input value={form.numero} onChange={(e) => setForm({...form, numero: e.target.value})} /></div>
                 <div><Label>Complemento</Label><Input value={form.complemento} onChange={(e) => setForm({...form, complemento: e.target.value})} /></div>
