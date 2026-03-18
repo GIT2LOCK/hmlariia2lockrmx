@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,8 @@ import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
-import { ArrowLeft, Plus, Pencil, Trash2, Wifi, Phone, FileText, MapPin } from "lucide-react";
+import { OPERADORA_ABREVIACOES } from "@/lib/operadoras";
+import { ArrowLeft, Plus, Pencil, Trash2, Wifi, Phone, FileText, MapPin, Building, Globe, Server, Shield } from "lucide-react";
 
 interface LinkInternet {
   id: number; unidade_id: number; operadora_id: number; nome_link: string | null;
@@ -22,8 +23,9 @@ interface LinkInternet {
   ip_tipo: string | null; ip_visibilidade: string | null;
   ddns: string | null; bridge: boolean | null;
   canal_atendimento: string | null; telefone_operadora: string | null;
-  observacoes: string | null;
-  operadoras?: { nome: string };
+  observacoes: string | null; smart_sigma: boolean | null;
+  tipo_autenticacao: string | null; pppoe_usuario: string | null; pppoe_senha: string | null;
+  operadoras?: { nome: string; telefone: string | null };
   dados_abertura_chamado?: DadosChamado[];
 }
 
@@ -32,32 +34,60 @@ interface DadosChamado {
   razao_social_abertura: string | null; cnpj_abertura: string | null;
   numero_contrato: string | null; numero_cliente: string | null;
   telefone_abertura: string | null; email_abertura: string | null;
-  observacoes_abertura: string | null;
+  observacoes_abertura: string | null; designacao: string | null;
 }
 
 interface Cobertura {
   id: number; unidade_id: number; tipo: string | null; descricao: string | null;
 }
 
-interface Operadora { id: number; nome: string; }
+interface Operadora { id: number; nome: string; telefone: string | null; }
 
 const emptyLinkForm = {
   operadora_id: "", nome_link: "", finalidade: "", tipo_link: "", tipo_autenticacao: "",
   pppoe_usuario: "", pppoe_senha: "",
   velocidade_download: "", velocidade_upload: "", ip_tipo: "", ip_visibilidade: "",
   ddns: "", bridge: false, canal_atendimento: "", telefone_operadora: "", observacoes: "",
+  smart_sigma: false,
 };
 
 const emptyChamadoForm = {
   razao_social_abertura: "", cnpj_abertura: "", numero_contrato: "",
   numero_cliente: "", telefone_abertura: "", email_abertura: "", observacoes_abertura: "",
+  designacao: "",
 };
 
 const emptyCoberturaForm = { tipo: "", descricao: "" };
 
 const tipoLinkLabels: Record<string, string> = {
-  banda_larga: "Banda Larga", link_dedicado: "Link Dedicado", "4g": "4G", mpls: "MPLS",
+  banda_larga: "Banda Larga", link_dedicado: "Link Dedicado", "4g": "4G", mpls: "MPLS", radio: "Rádio",
 };
+
+const configRedeLabels: Record<string, string> = {
+  bridge_pppoe: "Bridge (PPPoE)", cgnat: "CGNAT", estatico: "Estático", dhcp: "DHCP", dhcp_publico: "DHCP Público",
+};
+
+const isBridge = (tipoAuth: string | null): boolean => {
+  return ["bridge_pppoe", "cgnat", "dhcp_publico"].includes(tipoAuth || "");
+};
+
+const generateHostname = (prefix: string, operadoraNome: string, linkNumber: number, smartSigma: boolean): string => {
+  if (!prefix || !operadoraNome) return "";
+  const abrev = OPERADORA_ABREVIACOES[operadoraNome] || "";
+  if (!abrev) return "";
+  return `${prefix}_${abrev}W${linkNumber}${smartSigma ? "S" : ""}`;
+};
+
+const InfoItem = ({ label, value, mono }: { label: string; value: React.ReactNode; mono?: boolean }) => (
+  <div className="space-y-0.5">
+    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</span>
+    {mono ? (
+      <p className="text-sm"><code className="bg-muted px-1.5 py-0.5 rounded font-mono text-xs">{value}</code></p>
+    ) : (
+      <p className="text-sm font-medium">{value}</p>
+    )}
+  </div>
+);
 
 const UnidadeDetalhe = () => {
   const { id } = useParams();
@@ -90,10 +120,10 @@ const UnidadeDetalhe = () => {
   const load = async () => {
     setLoading(true);
     const [{ data: u }, { data: l }, { data: c }, { data: o }] = await Promise.all([
-      supabase.from("unidades").select("*, empresas(nome_fantasia, cnpj)").eq("id", Number(id)).single(),
-      supabase.from("links_internet").select("*, operadoras(nome), dados_abertura_chamado(*)").eq("unidade_id", Number(id)).order("id"),
+      supabase.from("unidades").select("*, empresas(nome_fantasia, cnpj, razao_social)").eq("id", Number(id)).single(),
+      supabase.from("links_internet").select("*, operadoras(nome, telefone), dados_abertura_chamado(*)").eq("unidade_id", Number(id)).order("id"),
       supabase.from("cobertura_unidade").select("*").eq("unidade_id", Number(id)),
-      supabase.from("operadoras").select("id, nome").order("nome"),
+      supabase.from("operadoras").select("id, nome, telefone").order("nome"),
     ]);
     setUnidade(u);
     setLinks((l as any[]) || []);
@@ -104,6 +134,20 @@ const UnidadeDetalhe = () => {
 
   useEffect(() => { load(); }, [id]);
 
+  // Generate hostnames for display
+  const hostnamePrefix = useMemo(() => {
+    if (!unidade?.hostname) return "";
+    const idx = unidade.hostname.indexOf("_");
+    return idx > 0 ? unidade.hostname.substring(0, idx) : unidade.hostname;
+  }, [unidade]);
+
+  const linkHostnames = useMemo(() => {
+    return links.map((link, idx) => {
+      const nome = link.operadoras?.nome || "";
+      return generateHostname(hostnamePrefix, nome, idx + 1, link.smart_sigma || false);
+    });
+  }, [links, hostnamePrefix]);
+
   // --- Link CRUD ---
   const openNewLink = () => { setEditingLink(null); setLinkForm(emptyLinkForm); setLinkModalOpen(true); };
   const openEditLink = (l: LinkInternet) => {
@@ -111,13 +155,13 @@ const UnidadeDetalhe = () => {
     setLinkForm({
       operadora_id: String(l.operadora_id), nome_link: l.nome_link || "",
       finalidade: l.finalidade || "", tipo_link: l.tipo_link || "",
-      tipo_autenticacao: (l as any).tipo_autenticacao || "",
-      pppoe_usuario: (l as any).pppoe_usuario || "", pppoe_senha: (l as any).pppoe_senha || "",
+      tipo_autenticacao: l.tipo_autenticacao || "",
+      pppoe_usuario: l.pppoe_usuario || "", pppoe_senha: l.pppoe_senha || "",
       velocidade_download: l.velocidade_download || "", velocidade_upload: l.velocidade_upload || "",
       ip_tipo: l.ip_tipo || "", ip_visibilidade: l.ip_visibilidade || "",
       ddns: l.ddns || "", bridge: l.bridge || false,
       canal_atendimento: l.canal_atendimento || "", telefone_operadora: l.telefone_operadora || "",
-      observacoes: l.observacoes || "",
+      observacoes: l.observacoes || "", smart_sigma: l.smart_sigma || false,
     });
     setLinkModalOpen(true);
   };
@@ -135,6 +179,7 @@ const UnidadeDetalhe = () => {
       pppoe_usuario: linkForm.tipo_autenticacao === "PPPoE" ? (linkForm.pppoe_usuario || null) : null,
       pppoe_senha: linkForm.tipo_autenticacao === "PPPoE" ? (linkForm.pppoe_senha || null) : null,
       ip_tipo: linkForm.ip_tipo || null, ip_visibilidade: linkForm.ip_visibilidade || null,
+      smart_sigma: linkForm.smart_sigma,
     };
     if (editingLink) {
       await supabase.from("links_internet").update(payload).eq("id", editingLink.id);
@@ -148,6 +193,7 @@ const UnidadeDetalhe = () => {
 
   const removeLink = async (linkId: number) => {
     if (!confirm("Remover este link?")) return;
+    await supabase.from("dados_abertura_chamado").delete().eq("link_id", linkId);
     await supabase.from("links_internet").delete().eq("id", linkId);
     toast({ title: "Link removido" }); load();
   };
@@ -162,7 +208,7 @@ const UnidadeDetalhe = () => {
       razao_social_abertura: c.razao_social_abertura || "", cnpj_abertura: c.cnpj_abertura || "",
       numero_contrato: c.numero_contrato || "", numero_cliente: c.numero_cliente || "",
       telefone_abertura: c.telefone_abertura || "", email_abertura: c.email_abertura || "",
-      observacoes_abertura: c.observacoes_abertura || "",
+      observacoes_abertura: c.observacoes_abertura || "", designacao: c.designacao || "",
     });
     setChamadoModalOpen(true);
   };
@@ -217,37 +263,182 @@ const UnidadeDetalhe = () => {
       </Button>
 
       {/* Header */}
-      <div>
+      <div className="space-y-1">
         <h1 className="text-2xl font-bold">{unidade.nome_unidade}</h1>
-        <p className="text-muted-foreground">{unidade.empresas?.nome_fantasia} {unidade.empresas?.cnpj ? `• CNPJ: ${unidade.empresas.cnpj}` : ""}</p>
+        <div className="flex items-center gap-2 text-muted-foreground text-sm flex-wrap">
+          <Building className="h-4 w-4" />
+          <span>{unidade.empresas?.nome_fantasia}</span>
+          {unidade.empresas?.cnpj && <><span>•</span><span>CNPJ: {unidade.empresas.cnpj}</span></>}
+          {unidade.empresas?.razao_social && <><span>•</span><span>{unidade.empresas.razao_social}</span></>}
+        </div>
       </div>
 
       {/* Dados da Unidade */}
       <Card>
-        <CardHeader><CardTitle className="flex items-center gap-2"><MapPin className="h-5 w-5" /> Dados da Unidade</CardTitle></CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
-            {unidade.codigo_unidade && <div><span className="font-medium text-muted-foreground">UDM:</span> {unidade.codigo_unidade}</div>}
-            {unidade.abreviacao && <div><span className="font-medium text-muted-foreground">Abreviação:</span> {unidade.abreviacao}</div>}
-            {unidade.hostname && <div><span className="font-medium text-muted-foreground">Hostname (Zabbix):</span> <code className="bg-muted px-1 rounded font-mono text-xs">{unidade.hostname}</code></div>}
-            {unidade.nome_antigo && <div><span className="font-medium text-muted-foreground">Nome Antigo:</span> {unidade.nome_antigo}</div>}
-            {unidade.antiga_razao && <div><span className="font-medium text-muted-foreground">Antiga Razão:</span> {unidade.antiga_razao}</div>}
-            {unidade.rede_default && <div><span className="font-medium text-muted-foreground">Rede Default:</span> <code className="bg-muted px-1 rounded font-mono text-xs">{unidade.rede_default}</code></div>}
-            {unidade.wifi_antenas && <div><span className="font-medium text-muted-foreground">Wi-Fi/Antenas:</span> Sim</div>}
-            {unidade.contato_nome && <div><span className="font-medium text-muted-foreground">Contato:</span> {unidade.contato_nome}</div>}
-            {unidade.telefone && <div><span className="font-medium text-muted-foreground">Telefone:</span> {unidade.telefone}</div>}
-            {unidade.email && <div><span className="font-medium text-muted-foreground">Email:</span> {unidade.email}</div>}
-            {unidade.email_regional && <div><span className="font-medium text-muted-foreground">Email Regional:</span> {unidade.email_regional}</div>}
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg"><MapPin className="h-5 w-5" /> Identificação & Contato</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {unidade.codigo_unidade && <InfoItem label="UDM (Código)" value={unidade.codigo_unidade} />}
+            {unidade.hostname && <InfoItem label="Hostname Zabbix" value={unidade.hostname} mono />}
+            {unidade.abreviacao && <InfoItem label="Abreviação" value={unidade.abreviacao} />}
+            {unidade.antiga_razao && <InfoItem label="Razão Social" value={unidade.antiga_razao} />}
+            {unidade.nome_antigo && <InfoItem label="Nome Antigo" value={unidade.nome_antigo} />}
+            {unidade.contato_nome && <InfoItem label="Contato" value={unidade.contato_nome} />}
+            {unidade.telefone && <InfoItem label="Telefone" value={unidade.telefone} />}
+            {unidade.email && <InfoItem label="Email" value={unidade.email} />}
+            {unidade.email_regional && <InfoItem label="Email Regional" value={unidade.email_regional} />}
+            {unidade.rede_default && <InfoItem label="Rede Default" value={unidade.rede_default} mono />}
+            <InfoItem label="Wi-Fi / Antenas" value={unidade.wifi_antenas ? "Sim" : "Não"} />
           </div>
+
           {(unidade.logradouro || unidade.cidade) && (
-            <div className="mt-4 p-3 bg-muted/50 rounded-md text-sm">
-              <span className="font-medium">Endereço: </span>
-              {[unidade.logradouro, unidade.numero, unidade.complemento, unidade.bairro].filter(Boolean).join(", ")}
-              {unidade.cidade && ` - ${unidade.cidade}/${unidade.estado}`}
-              {unidade.cep && ` • CEP: ${unidade.cep}`}
+            <div className="p-3 bg-muted/50 rounded-md text-sm space-y-1">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Endereço</span>
+              <p className="font-medium">
+                {[unidade.logradouro, unidade.numero && `nº ${unidade.numero}`, unidade.complemento, unidade.bairro].filter(Boolean).join(", ")}
+                {unidade.cidade && ` — ${unidade.cidade}/${unidade.estado}`}
+                {unidade.cep && ` • CEP: ${unidade.cep}`}
+              </p>
             </div>
           )}
-          {unidade.observacoes && <p className="mt-3 text-sm text-muted-foreground">{unidade.observacoes}</p>}
+
+          {unidade.observacoes && (
+            <div className="space-y-1">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Observações</span>
+              <p className="text-sm text-muted-foreground">{unidade.observacoes}</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Links de Internet */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="flex items-center gap-2 text-lg"><Wifi className="h-5 w-5" /> Links de Internet</CardTitle>
+          {canEdit && <Button size="sm" onClick={openNewLink} className="gap-1"><Plus className="h-3 w-3" /> Novo Link</Button>}
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {links.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhum link cadastrado.</p>
+          ) : links.map((link, idx) => {
+            const hostname = linkHostnames[idx];
+            const bridgeStatus = isBridge(link.tipo_autenticacao);
+            const operadoraTel = link.operadoras?.telefone || link.telefone_operadora;
+            const chamados = link.dados_abertura_chamado || [];
+            const designacao = chamados[0]?.designacao;
+
+            return (
+              <div key={link.id} className="border rounded-lg overflow-hidden">
+                {/* Link Header */}
+                <div className="bg-muted/30 px-4 py-3 flex items-center justify-between">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-semibold text-base">
+                      {link.nome_link || `Link ${idx + 1}`}
+                    </h3>
+                    <Badge variant="outline" className="font-mono text-xs">
+                      {link.operadoras?.nome}
+                    </Badge>
+                    {link.finalidade && (
+                      <Badge variant={link.finalidade === "principal" ? "default" : "secondary"}>
+                        {link.finalidade === "principal" ? "Principal" : "Backup"}
+                      </Badge>
+                    )}
+                    {link.tipo_link && (
+                      <Badge variant="outline">{tipoLinkLabels[link.tipo_link] || link.tipo_link}</Badge>
+                    )}
+                    {link.smart_sigma && (
+                      <Badge variant="secondary" className="gap-1">
+                        <Shield className="h-3 w-3" /> SmartSigma
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex gap-1">
+                    {canEdit && <Button size="icon" variant="ghost" onClick={() => openEditLink(link)}><Pencil className="h-4 w-4" /></Button>}
+                    {canManageUsers && <Button size="icon" variant="ghost" onClick={() => removeLink(link.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>}
+                  </div>
+                </div>
+
+                <div className="p-4 space-y-4">
+                  {/* Hostname Zabbix */}
+                  {hostname && (
+                    <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-md">
+                      <Server className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-xs font-medium text-muted-foreground">Hostname Zabbix:</span>
+                      <code className="bg-background px-2 py-0.5 rounded font-mono text-sm font-semibold">{hostname}</code>
+                    </div>
+                  )}
+
+                  {/* Info Grid */}
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    <InfoItem label="Operadora" value={link.operadoras?.nome || "-"} />
+                    {operadoraTel && <InfoItem label="Tel. Operadora" value={operadoraTel} />}
+                    {link.velocidade_download && <InfoItem label="Download" value={link.velocidade_download} />}
+                    {link.velocidade_upload && <InfoItem label="Upload" value={link.velocidade_upload} />}
+                    {link.tipo_autenticacao && <InfoItem label="Config. de Rede" value={configRedeLabels[link.tipo_autenticacao] || link.tipo_autenticacao} />}
+                    <InfoItem label="Bridge" value={bridgeStatus ? "Sim" : "Não"} />
+                    {link.ip_tipo && <InfoItem label="Tipo de IP" value={link.ip_tipo === "dinamico" ? "Dinâmico" : "Fixo"} />}
+                    {link.ip_visibilidade && <InfoItem label="Visibilidade IP" value={link.ip_visibilidade === "publico" ? "Público" : "Privado"} />}
+                    {link.tipo_autenticacao === "bridge_pppoe" && link.pppoe_usuario && (
+                      <InfoItem label="PPPoE Usuário" value={link.pppoe_usuario} mono />
+                    )}
+                    {link.tipo_autenticacao === "bridge_pppoe" && link.pppoe_senha && (
+                      <InfoItem label="PPPoE Senha" value={link.pppoe_senha} mono />
+                    )}
+                    {link.ddns && <InfoItem label="DDNS" value={link.ddns} mono />}
+                    {designacao && <InfoItem label="Designação" value={designacao} mono />}
+                    {link.canal_atendimento && <InfoItem label="Canal de Atendimento" value={link.canal_atendimento} />}
+                  </div>
+
+                  {link.observacoes && (
+                    <div className="space-y-1">
+                      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Observações</span>
+                      <p className="text-sm text-muted-foreground">{link.observacoes}</p>
+                    </div>
+                  )}
+
+                  <Separator />
+
+                  {/* Dados abertura chamado */}
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-sm font-semibold flex items-center gap-1.5">
+                        <FileText className="h-4 w-4" /> Dados para Abertura de Chamado
+                      </h4>
+                      {canEdit && (
+                        <Button size="sm" variant="outline" onClick={() => openNewChamado(link.id)} className="gap-1 h-7 text-xs">
+                          <Plus className="h-3 w-3" /> Adicionar
+                        </Button>
+                      )}
+                    </div>
+                    {chamados.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">Nenhum dado cadastrado.</p>
+                    ) : chamados.map((dc) => (
+                      <div key={dc.id} className="bg-muted/30 rounded-lg p-3 mb-2">
+                        <div className="flex justify-between items-start">
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 flex-1 text-sm">
+                            {dc.designacao && <InfoItem label="Designação" value={dc.designacao} mono />}
+                            {dc.razao_social_abertura && <InfoItem label="Razão Social" value={dc.razao_social_abertura} />}
+                            {dc.cnpj_abertura && <InfoItem label="CNPJ" value={dc.cnpj_abertura} />}
+                            {dc.numero_contrato && <InfoItem label="Nº Contrato" value={dc.numero_contrato} />}
+                            {dc.numero_cliente && <InfoItem label="Nº Cliente" value={dc.numero_cliente} />}
+                            {dc.telefone_abertura && <InfoItem label="Telefone" value={dc.telefone_abertura} />}
+                            {dc.email_abertura && <InfoItem label="Email" value={dc.email_abertura} />}
+                          </div>
+                          <div className="flex gap-1 ml-2">
+                            {canEdit && <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEditChamado(dc)}><Pencil className="h-3 w-3" /></Button>}
+                            {canManageUsers && <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => removeChamado(dc.id)}><Trash2 className="h-3 w-3 text-destructive" /></Button>}
+                          </div>
+                        </div>
+                        {dc.observacoes_abertura && <p className="text-xs text-muted-foreground mt-2">{dc.observacoes_abertura}</p>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </CardContent>
       </Card>
 
@@ -273,78 +464,6 @@ const UnidadeDetalhe = () => {
               ))}
             </div>
           )}
-        </CardContent>
-      </Card>
-
-      {/* Links de Internet */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="flex items-center gap-2"><Wifi className="h-5 w-5" /> Links de Internet</CardTitle>
-          {canEdit && <Button size="sm" onClick={openNewLink} className="gap-1"><Plus className="h-3 w-3" /> Novo Link</Button>}
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {links.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nenhum link cadastrado.</p>
-          ) : links.map((link) => (
-            <div key={link.id} className="border rounded-lg p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-semibold">{link.nome_link || link.operadoras?.nome || "Link"}</h3>
-                  {link.finalidade && <Badge variant={link.finalidade === "principal" ? "default" : "secondary"}>{link.finalidade}</Badge>}
-                  {link.tipo_link && <Badge variant="outline">{tipoLinkLabels[link.tipo_link] || link.tipo_link}</Badge>}
-                </div>
-                <div className="flex gap-1">
-                  {canEdit && <Button size="icon" variant="ghost" onClick={() => openEditLink(link)}><Pencil className="h-4 w-4" /></Button>}
-                  {canManageUsers && <Button size="icon" variant="ghost" onClick={() => removeLink(link.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 text-sm">
-                <div><span className="text-muted-foreground">Operadora:</span> {link.operadoras?.nome}</div>
-                {link.velocidade_download && <div><span className="text-muted-foreground">Download:</span> {link.velocidade_download}</div>}
-                {link.velocidade_upload && <div><span className="text-muted-foreground">Upload:</span> {link.velocidade_upload}</div>}
-                {link.ip_tipo && <div><span className="text-muted-foreground">IP:</span> {link.ip_tipo} / {link.ip_visibilidade}</div>}
-                {(link as any).tipo_autenticacao && <div><span className="text-muted-foreground">Tipo Link:</span> {(link as any).tipo_autenticacao}</div>}
-                {(link as any).tipo_autenticacao === "PPPoE" && (link as any).pppoe_usuario && <div><span className="text-muted-foreground">PPPoE User:</span> <code className="bg-muted px-1 rounded font-mono text-xs">{(link as any).pppoe_usuario}</code></div>}
-                {link.ddns && <div><span className="text-muted-foreground">DDNS:</span> {link.ddns}</div>}
-                <div><span className="text-muted-foreground">Bridge:</span> {link.bridge ? "Sim" : "Não"}</div>
-                {link.canal_atendimento && <div><span className="text-muted-foreground">Canal:</span> {link.canal_atendimento}</div>}
-                {link.telefone_operadora && <div><span className="text-muted-foreground">Tel Operadora:</span> {link.telefone_operadora}</div>}
-              </div>
-              {link.observacoes && <p className="text-sm text-muted-foreground">{link.observacoes}</p>}
-
-              <Separator />
-
-              {/* Dados abertura chamado */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-sm font-semibold flex items-center gap-1"><FileText className="h-4 w-4" /> Dados para Abertura de Chamado</h4>
-                  {canEdit && <Button size="sm" variant="outline" onClick={() => openNewChamado(link.id)} className="gap-1 h-7 text-xs"><Plus className="h-3 w-3" /> Adicionar</Button>}
-                </div>
-                {(!link.dados_abertura_chamado || link.dados_abertura_chamado.length === 0) ? (
-                  <p className="text-xs text-muted-foreground">Nenhum dado cadastrado.</p>
-                ) : link.dados_abertura_chamado.map((dc) => (
-                  <div key={dc.id} className="bg-muted/30 rounded p-3 text-sm space-y-1 mb-2">
-                    <div className="flex justify-between">
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 flex-1">
-                        {dc.razao_social_abertura && <div><span className="text-muted-foreground">Razão Social:</span> {dc.razao_social_abertura}</div>}
-                        {dc.cnpj_abertura && <div><span className="text-muted-foreground">CNPJ:</span> {dc.cnpj_abertura}</div>}
-                        {dc.numero_contrato && <div><span className="text-muted-foreground">Contrato:</span> {dc.numero_contrato}</div>}
-                        {dc.numero_cliente && <div><span className="text-muted-foreground">Nº Cliente:</span> {dc.numero_cliente}</div>}
-                        {dc.telefone_abertura && <div><span className="text-muted-foreground">Telefone:</span> {dc.telefone_abertura}</div>}
-                        {dc.email_abertura && <div><span className="text-muted-foreground">Email:</span> {dc.email_abertura}</div>}
-                      </div>
-                      <div className="flex gap-1">
-                        {canEdit && <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => openEditChamado(dc)}><Pencil className="h-3 w-3" /></Button>}
-                        {canManageUsers && <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => removeChamado(dc.id)}><Trash2 className="h-3 w-3 text-destructive" /></Button>}
-                      </div>
-                    </div>
-                    {dc.observacoes_abertura && <p className="text-xs text-muted-foreground">{dc.observacoes_abertura}</p>}
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
         </CardContent>
       </Card>
 
@@ -380,29 +499,31 @@ const UnidadeDetalhe = () => {
                   <SelectItem value="link_dedicado">Link Dedicado</SelectItem>
                   <SelectItem value="4g">4G</SelectItem>
                   <SelectItem value="mpls">MPLS</SelectItem>
+                  <SelectItem value="radio">Rádio</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div><Label>Vel. Download</Label><Input value={linkForm.velocidade_download} onChange={(e) => setLinkForm({...linkForm, velocidade_download: e.target.value})} placeholder="ex: 100 Mbps" /></div>
+            <div><Label>Vel. Upload</Label><Input value={linkForm.velocidade_upload} onChange={(e) => setLinkForm({...linkForm, velocidade_upload: e.target.value})} placeholder="ex: 50 Mbps" /></div>
             <div>
-              <Label>Tipo do Link</Label>
+              <Label>Config. de Rede</Label>
               <Select value={linkForm.tipo_autenticacao} onValueChange={(v) => setLinkForm({...linkForm, tipo_autenticacao: v})}>
                 <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="DHCP">DHCP</SelectItem>
-                  <SelectItem value="PPPoE">PPPoE</SelectItem>
-                  <SelectItem value="Estático">Estático</SelectItem>
-                  <SelectItem value="IPoE">IPoE</SelectItem>
+                  <SelectItem value="bridge_pppoe">Bridge (PPPoE)</SelectItem>
+                  <SelectItem value="cgnat">CGNAT</SelectItem>
+                  <SelectItem value="estatico">Estático</SelectItem>
+                  <SelectItem value="dhcp">DHCP</SelectItem>
+                  <SelectItem value="dhcp_publico">DHCP Público</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            {linkForm.tipo_autenticacao === "PPPoE" && (
+            {linkForm.tipo_autenticacao === "bridge_pppoe" && (
               <>
                 <div><Label>PPPoE - Usuário</Label><Input value={linkForm.pppoe_usuario} onChange={(e) => setLinkForm({...linkForm, pppoe_usuario: e.target.value})} /></div>
                 <div><Label>PPPoE - Senha</Label><Input value={linkForm.pppoe_senha} onChange={(e) => setLinkForm({...linkForm, pppoe_senha: e.target.value})} /></div>
               </>
             )}
-            <div><Label>Vel. Upload</Label><Input value={linkForm.velocidade_upload} onChange={(e) => setLinkForm({...linkForm, velocidade_upload: e.target.value})} placeholder="ex: 50 Mbps" /></div>
             <div>
               <Label>Tipo de IP</Label>
               <Select value={linkForm.ip_tipo} onValueChange={(v) => setLinkForm({...linkForm, ip_tipo: v})}>
@@ -425,8 +546,8 @@ const UnidadeDetalhe = () => {
             </div>
             <div><Label>DDNS</Label><Input value={linkForm.ddns} onChange={(e) => setLinkForm({...linkForm, ddns: e.target.value})} /></div>
             <div className="flex items-center gap-3 pt-6">
-              <Switch checked={linkForm.bridge as boolean} onCheckedChange={(v) => setLinkForm({...linkForm, bridge: v})} />
-              <Label>Bridge</Label>
+              <Switch checked={linkForm.smart_sigma} onCheckedChange={(v) => setLinkForm({...linkForm, smart_sigma: v})} />
+              <Label>SmartSigma</Label>
             </div>
             <div><Label>Canal de Atendimento</Label><Input value={linkForm.canal_atendimento} onChange={(e) => setLinkForm({...linkForm, canal_atendimento: e.target.value})} /></div>
             <div><Label>Tel. Operadora</Label><Input value={linkForm.telefone_operadora} onChange={(e) => setLinkForm({...linkForm, telefone_operadora: e.target.value})} /></div>
@@ -444,6 +565,7 @@ const UnidadeDetalhe = () => {
         <DialogContent>
           <DialogHeader><DialogTitle>{editingChamado ? "Editar Dados" : "Dados para Abertura de Chamado"}</DialogTitle></DialogHeader>
           <div className="space-y-4">
+            <div><Label>Designação</Label><Input value={chamadoForm.designacao} onChange={(e) => setChamadoForm({...chamadoForm, designacao: e.target.value})} /></div>
             <div><Label>Razão Social</Label><Input value={chamadoForm.razao_social_abertura} onChange={(e) => setChamadoForm({...chamadoForm, razao_social_abertura: e.target.value})} /></div>
             <div><Label>CNPJ</Label><Input value={chamadoForm.cnpj_abertura} onChange={(e) => setChamadoForm({...chamadoForm, cnpj_abertura: e.target.value})} /></div>
             <div><Label>Nº Contrato</Label><Input value={chamadoForm.numero_contrato} onChange={(e) => setChamadoForm({...chamadoForm, numero_contrato: e.target.value})} /></div>
