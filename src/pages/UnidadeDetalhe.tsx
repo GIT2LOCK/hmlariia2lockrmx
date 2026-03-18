@@ -118,6 +118,9 @@ const UnidadeDetalhe = () => {
   const [editingCobertura, setEditingCobertura] = useState<Cobertura | null>(null);
   const [coberturaForm, setCoberturaForm] = useState(emptyCoberturaForm);
 
+  // Abrir Chamado modal
+  const [abrirChamadoOpen, setAbrirChamadoOpen] = useState(false);
+
   const load = async () => {
     setLoading(true);
     const [{ data: u }, { data: l }, { data: c }, { data: o }] = await Promise.all([
