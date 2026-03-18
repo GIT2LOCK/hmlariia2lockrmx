@@ -45,10 +45,6 @@ export const emptyChamadoData: ChamadoFormData = {
   cnpj_abertura: "",
   numero_cliente: "",
 };
-  designacao: "",
-  cnpj_abertura: "",
-  numero_cliente: "",
-};
 
 export interface LinkFormData {
   operadora_id: string;
