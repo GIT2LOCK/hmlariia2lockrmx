@@ -25,7 +25,8 @@ interface UnidadeLinkSectionProps {
   link2: LinkFormData | null;
   onLink2Change: (data: LinkFormData | null) => void;
   operadoras: Operadora[];
-  generatedHostname: string;
+  hostname1: string;
+  hostname2: string;
 }
 
 function SingleLinkForm({
