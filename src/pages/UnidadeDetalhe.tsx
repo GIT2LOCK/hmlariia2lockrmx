@@ -335,7 +335,9 @@ const UnidadeDetalhe = () => {
             const hostname = linkHostnames[idx];
             const bridgeStatus = isBridge(link.tipo_autenticacao);
             const operadoraTel = link.operadoras?.telefone || link.telefone_operadora;
+            const operadoraEmail = link.operadoras?.email;
             const chamados = link.dados_abertura_chamado || [];
+            const designacao = chamados[0]?.designacao;
             const designacao = chamados[0]?.designacao;
 
             return (
