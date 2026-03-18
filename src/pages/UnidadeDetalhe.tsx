@@ -26,6 +26,7 @@ interface LinkInternet {
   canal_atendimento: string | null; telefone_operadora: string | null;
   observacoes: string | null; smart_sigma: boolean | null;
   tipo_autenticacao: string | null; pppoe_usuario: string | null; pppoe_senha: string | null;
+  ip_estatico: string | null; mascara: string | null; gateway: string | null;
   operadoras?: { nome: string; telefone: string | null; email: string | null };
   dados_abertura_chamado?: DadosChamado[];
 }
