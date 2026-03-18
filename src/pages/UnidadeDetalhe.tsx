@@ -280,7 +280,7 @@ const UnidadeDetalhe = () => {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="flex items-center gap-2"><Wifi className="h-5 w-5" /> Links de Internet</CardTitle>
-          <Button size="sm" onClick={openNewLink} className="gap-1"><Plus className="h-3 w-3" /> Novo Link</Button>
+          {canEdit && <Button size="sm" onClick={openNewLink} className="gap-1"><Plus className="h-3 w-3" /> Novo Link</Button>}
         </CardHeader>
         <CardContent className="space-y-6">
           {links.length === 0 ? (
