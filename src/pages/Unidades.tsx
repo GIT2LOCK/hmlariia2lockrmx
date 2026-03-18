@@ -370,20 +370,6 @@ const Unidades = () => {
 
             <Separator />
 
-            {/* Rede & Infra */}
-            <div>
-              <h3 className="text-sm font-semibold text-muted-foreground mb-3">REDE & INFRAESTRUTURA</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div><Label>Rede Default</Label><Input value={form.rede_default} onChange={(e) => setForm({...form, rede_default: e.target.value})} placeholder="Ex: 10.156.100.0/23" /></div>
-                <div className="flex items-center gap-3 pt-6">
-                  <Switch checked={form.wifi_antenas as boolean} onCheckedChange={(v) => setForm({...form, wifi_antenas: v})} />
-                  <Label>Wi-Fi / Antenas</Label>
-                </div>
-              </div>
-            </div>
-
-            <Separator />
-
             {/* Contato */}
             <div>
               <h3 className="text-sm font-semibold text-muted-foreground mb-3">CONTATO</h3>
