@@ -125,9 +125,9 @@ const UnidadeDetalhe = () => {
     setLoading(true);
     const [{ data: u }, { data: l }, { data: c }, { data: o }] = await Promise.all([
       supabase.from("unidades").select("*, empresas(nome_fantasia, cnpj, razao_social)").eq("id", Number(id)).single(),
-      supabase.from("links_internet").select("*, operadoras(nome, telefone), dados_abertura_chamado(*)").eq("unidade_id", Number(id)).order("id"),
+      supabase.from("links_internet").select("*, operadoras(nome, telefone, email), dados_abertura_chamado(*)").eq("unidade_id", Number(id)).order("id"),
       supabase.from("cobertura_unidade").select("*").eq("unidade_id", Number(id)),
-      supabase.from("operadoras").select("id, nome, telefone").order("nome"),
+      supabase.from("operadoras").select("id, nome, telefone, email").order("nome"),
     ]);
     setUnidade(u);
     setLinks((l as any[]) || []);
