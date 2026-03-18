@@ -106,7 +106,6 @@ const PppoesenhaItem = ({ value }: { value: string }) => {
     </div>
   );
 };
-);
 
 const UnidadeDetalhe = () => {
   const { id } = useParams();
