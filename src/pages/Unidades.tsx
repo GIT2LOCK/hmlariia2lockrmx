@@ -293,7 +293,9 @@ const Unidades = () => {
           <h2 className="text-2xl font-bold text-foreground">Unidades</h2>
           <p className="text-muted-foreground">Gerencie as unidades cadastradas</p>
         </div>
-        <Button onClick={openNew} className="gap-2"><Plus className="h-4 w-4" /> Nova Unidade</Button>
+        {canEdit && (
+          <Button onClick={openNew} className="gap-2"><Plus className="h-4 w-4" /> Nova Unidade</Button>
+        )}
       </div>
 
       <Card>
