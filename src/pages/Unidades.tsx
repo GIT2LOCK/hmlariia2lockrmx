@@ -14,7 +14,7 @@ import { Plus, Pencil, Trash2, Search, Eye } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useNavigate } from "react-router-dom";
 import { UnidadeLinkSection } from "@/components/UnidadeLinkSection";
-import { LinkFormData, emptyLinkData, generateHostname } from "@/lib/operadoras";
+import { LinkFormData, emptyLinkData, generateLinkHostname } from "@/lib/operadoras";
 
 interface Unidade {
   id: number; empresa_id: number; nome_unidade: string; codigo_unidade: string | null;
