@@ -226,6 +226,14 @@ const Unidades = () => {
     if (!link1.operadora_id) {
       toast({ title: "Link 1 (operadora) é obrigatório", variant: "destructive" }); return;
     }
+    const checkIpGateway = (linkData: LinkFormData, label: string) => {
+      if (linkData.config_rede === "estatico" && linkData.ip_estatico && linkData.gateway && linkData.ip_estatico.trim() === linkData.gateway.trim()) {
+        toast({ title: `${label}: O IP não pode ser igual ao Gateway`, variant: "destructive" }); return false;
+      }
+      return true;
+    };
+    if (!checkIpGateway(link1, "Link 1")) return;
+    if (link2 && !checkIpGateway(link2, "Link 2")) return;
 
     const unitPayload = {
       ...form,
