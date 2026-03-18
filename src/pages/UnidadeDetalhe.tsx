@@ -385,6 +385,7 @@ const UnidadeDetalhe = () => {
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     <InfoItem label="Operadora" value={link.operadoras?.nome || "-"} />
                     {operadoraTel && <InfoItem label="Tel. Operadora" value={operadoraTel} />}
+                    {operadoraEmail && <InfoItem label="Email Operadora" value={operadoraEmail} />}
                     {link.velocidade_download && <InfoItem label="Download" value={link.velocidade_download} />}
                     {link.velocidade_upload && <InfoItem label="Upload" value={link.velocidade_upload} />}
                     {link.tipo_autenticacao && <InfoItem label="Config. de Rede" value={configRedeLabels[link.tipo_autenticacao] || link.tipo_autenticacao} />}
