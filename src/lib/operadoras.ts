@@ -35,6 +35,10 @@ export interface LinkFormData {
   config_rede: string;
   tipo_link: string;
   smart_sigma: boolean;
+  pppoe_usuario: string;
+  pppoe_senha: string;
+  ddns_enabled: boolean;
+  ddns: string;
 }
 
 export const emptyLinkData: LinkFormData = {
@@ -42,6 +46,10 @@ export const emptyLinkData: LinkFormData = {
   config_rede: "",
   tipo_link: "",
   smart_sigma: false,
+  pppoe_usuario: "",
+  pppoe_senha: "",
+  ddns_enabled: false,
+  ddns: "",
 };
 
 export const generateLinkHostname = (

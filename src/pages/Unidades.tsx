@@ -159,6 +159,10 @@ const Unidades = () => {
         config_rede: links[0].tipo_autenticacao || "",
         tipo_link: links[0].tipo_link || "",
         smart_sigma: (links[0] as any).smart_sigma || false,
+        pppoe_usuario: links[0].pppoe_usuario || "",
+        pppoe_senha: links[0].pppoe_senha || "",
+        ddns_enabled: !!(links[0] as any).ddns,
+        ddns: (links[0] as any).ddns || "",
       });
 
       if (links.length > 1) {
@@ -167,6 +171,10 @@ const Unidades = () => {
           config_rede: links[1].tipo_autenticacao || "",
           tipo_link: links[1].tipo_link || "",
           smart_sigma: (links[1] as any).smart_sigma || false,
+          pppoe_usuario: links[1].pppoe_usuario || "",
+          pppoe_senha: links[1].pppoe_senha || "",
+          ddns_enabled: !!(links[1] as any).ddns,
+          ddns: (links[1] as any).ddns || "",
         });
       } else {
         setLink2(null);
@@ -218,6 +226,9 @@ const Unidades = () => {
       tipo_autenticacao: link1.config_rede || null,
       tipo_link: (link1.tipo_link as any) || null,
       smart_sigma: link1.smart_sigma,
+      pppoe_usuario: link1.config_rede === "bridge_pppoe" ? (link1.pppoe_usuario || null) : null,
+      pppoe_senha: link1.config_rede === "bridge_pppoe" ? (link1.pppoe_senha || null) : null,
+      ddns: link1.ddns_enabled ? (link1.ddns || null) : null,
     };
     await supabase.from("links_internet").insert(link1Payload);
 
@@ -229,6 +240,9 @@ const Unidades = () => {
         tipo_autenticacao: link2.config_rede || null,
         tipo_link: (link2.tipo_link as any) || null,
         smart_sigma: link2.smart_sigma,
+        pppoe_usuario: link2.config_rede === "bridge_pppoe" ? (link2.pppoe_usuario || null) : null,
+        pppoe_senha: link2.config_rede === "bridge_pppoe" ? (link2.pppoe_senha || null) : null,
+        ddns: link2.ddns_enabled ? (link2.ddns || null) : null,
       };
       await supabase.from("links_internet").insert(link2Payload);
     }
