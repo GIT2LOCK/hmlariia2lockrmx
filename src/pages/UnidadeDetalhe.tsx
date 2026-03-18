@@ -94,7 +94,7 @@ const UnidadeDetalhe = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { canEdit, canManageUsers } = useUser();
+  const { canEdit, canManageUsers, user } = useUser();
 
   const [unidade, setUnidade] = useState<any>(null);
   const [links, setLinks] = useState<LinkInternet[]>([]);
@@ -120,6 +120,10 @@ const UnidadeDetalhe = () => {
 
   // Abrir Chamado modal
   const [abrirChamadoOpen, setAbrirChamadoOpen] = useState(false);
+
+  // SmartSigma email observacoes per link
+  const [emailObservacoes, setEmailObservacoes] = useState<Record<number, string>>({});
+  const [copiedLinkId, setCopiedLinkId] = useState<number | null>(null);
 
   const load = async () => {
     setLoading(true);
