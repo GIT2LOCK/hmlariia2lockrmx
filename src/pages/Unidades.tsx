@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2, Search, Eye } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useNavigate } from "react-router-dom";
+import { UnidadeLinkSection } from "@/components/UnidadeLinkSection";
+import { LinkFormData, emptyLinkData, generateHostname } from "@/lib/operadoras";
 
 interface Unidade {
   id: number; empresa_id: number; nome_unidade: string; codigo_unidade: string | null;
@@ -25,9 +27,10 @@ interface Unidade {
 }
 
 interface Empresa { id: number; nome_fantasia: string; razao_social: string | null; cnpj: string | null; }
+interface Operadora { id: number; nome: string; }
 
 const emptyForm = {
-  empresa_id: "", nome_unidade: "", codigo_unidade: "", hostname: "",
+  empresa_id: "", nome_unidade: "", codigo_unidade: "",
   antiga_razao: "", contato_nome: "",
   telefone: "", email: "", email_regional: "",
   logradouro: "", numero: "", complemento: "",
@@ -40,37 +43,68 @@ const Unidades = () => {
   const navigate = useNavigate();
   const [unidades, setUnidades] = useState<Unidade[]>([]);
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
+  const [operadoras, setOperadoras] = useState<Operadora[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Unidade | null>(null);
   const [form, setForm] = useState(emptyForm);
 
+  // Link state
+  const [hostnamePrefix, setHostnamePrefix] = useState("");
+  const [link1, setLink1] = useState<LinkFormData>(emptyLinkData);
+  const [link2, setLink2] = useState<LinkFormData | null>(null);
+
+  const operadorasMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    operadoras.forEach((op) => { map[String(op.id)] = op.nome; });
+    return map;
+  }, [operadoras]);
+
+  const generatedHostname = useMemo(
+    () => generateHostname(hostnamePrefix, link1, link2, operadorasMap),
+    [hostnamePrefix, link1, link2, operadorasMap]
+  );
+
   const load = async () => {
     setLoading(true);
-    const [{ data: u }, { data: e }] = await Promise.all([
+    const [{ data: u }, { data: e }, { data: o }] = await Promise.all([
       supabase.from("unidades").select("*, empresas(nome_fantasia)").order("nome_unidade"),
       supabase.from("empresas").select("id, nome_fantasia, razao_social, cnpj").order("nome_fantasia"),
+      supabase.from("operadoras").select("id, nome").order("nome"),
     ]);
     setUnidades((u as any[]) || []);
     setEmpresas((e as Empresa[]) || []);
+    setOperadoras((o as Operadora[]) || []);
     setLoading(false);
   };
 
   useEffect(() => { load(); }, []);
 
   const filtered = unidades.filter((u) =>
-    [u.nome_unidade, u.codigo_unidade, u.hostname, u.abreviacao, u.cidade, u.estado, (u.empresas as any)?.nome_fantasia].some((v) =>
+    [u.nome_unidade, u.codigo_unidade, u.hostname, u.cidade, u.estado, (u.empresas as any)?.nome_fantasia].some((v) =>
       v?.toLowerCase().includes(search.toLowerCase())
     )
   );
 
-  const openNew = () => { setEditing(null); setForm(emptyForm); setModalOpen(true); };
-  const openEdit = (u: Unidade) => {
+  const resetLinkState = () => {
+    setHostnamePrefix("");
+    setLink1(emptyLinkData);
+    setLink2(null);
+  };
+
+  const openNew = () => {
+    setEditing(null);
+    setForm(emptyForm);
+    resetLinkState();
+    setModalOpen(true);
+  };
+
+  const openEdit = async (u: Unidade) => {
     setEditing(u);
     setForm({
       empresa_id: String(u.empresa_id), nome_unidade: u.nome_unidade,
-      codigo_unidade: u.codigo_unidade || "", hostname: u.hostname || "",
+      codigo_unidade: u.codigo_unidade || "",
       antiga_razao: u.antiga_razao || "", contato_nome: u.contato_nome || "",
       telefone: u.telefone || "", email: u.email || "", email_regional: u.email_regional || "",
       logradouro: u.logradouro || "", numero: u.numero || "", complemento: u.complemento || "",
@@ -78,6 +112,41 @@ const Unidades = () => {
       cep: u.cep || "", rede_default: u.rede_default || "",
       wifi_antenas: u.wifi_antenas || false, observacoes: u.observacoes || "",
     });
+
+    // Load existing links for this unit
+    const { data: links } = await supabase
+      .from("links_internet")
+      .select("*")
+      .eq("unidade_id", u.id)
+      .order("id");
+
+    if (links && links.length > 0) {
+      // Try to extract prefix from hostname
+      const hostname = u.hostname || "";
+      const underscoreIdx = hostname.indexOf("_");
+      setHostnamePrefix(underscoreIdx > 0 ? hostname.substring(0, underscoreIdx) : hostname);
+
+      setLink1({
+        operadora_id: String(links[0].operadora_id),
+        config_rede: links[0].tipo_autenticacao || "",
+        tipo_link: links[0].tipo_link || "",
+        smart_sigma: (links[0] as any).smart_sigma || false,
+      });
+
+      if (links.length > 1) {
+        setLink2({
+          operadora_id: String(links[1].operadora_id),
+          config_rede: links[1].tipo_autenticacao || "",
+          tipo_link: links[1].tipo_link || "",
+          smart_sigma: (links[1] as any).smart_sigma || false,
+        });
+      } else {
+        setLink2(null);
+      }
+    } else {
+      resetLinkState();
+    }
+
     setModalOpen(true);
   };
 
@@ -85,20 +154,64 @@ const Unidades = () => {
     if (!form.nome_unidade.trim() || !form.empresa_id) {
       toast({ title: "Nome e empresa são obrigatórios", variant: "destructive" }); return;
     }
-    const payload = { ...form, empresa_id: Number(form.empresa_id) };
+    if (!link1.operadora_id) {
+      toast({ title: "Link 1 (operadora) é obrigatório", variant: "destructive" }); return;
+    }
+
+    const unitPayload = {
+      ...form,
+      empresa_id: Number(form.empresa_id),
+      hostname: generatedHostname || null,
+    };
+
+    let unitId: number;
+
     if (editing) {
-      await supabase.from("unidades").update(payload).eq("id", editing.id);
+      await supabase.from("unidades").update(unitPayload).eq("id", editing.id);
+      unitId = editing.id;
+
+      // Delete existing links and re-create
+      await supabase.from("links_internet").delete().eq("unidade_id", editing.id);
+
       toast({ title: "Unidade atualizada" });
     } else {
-      await supabase.from("unidades").insert(payload);
+      const { data: inserted, error } = await supabase.from("unidades").insert(unitPayload).select("id").single();
+      if (error || !inserted) {
+        toast({ title: "Erro ao cadastrar unidade", description: error?.message, variant: "destructive" }); return;
+      }
+      unitId = inserted.id;
       toast({ title: "Unidade cadastrada" });
     }
+
+    // Save link 1
+    const link1Payload = {
+      unidade_id: unitId,
+      operadora_id: Number(link1.operadora_id),
+      tipo_autenticacao: link1.config_rede || null,
+      tipo_link: (link1.tipo_link as any) || null,
+      smart_sigma: link1.smart_sigma,
+    };
+    await supabase.from("links_internet").insert(link1Payload);
+
+    // Save link 2 if present
+    if (link2 && link2.operadora_id) {
+      const link2Payload = {
+        unidade_id: unitId,
+        operadora_id: Number(link2.operadora_id),
+        tipo_autenticacao: link2.config_rede || null,
+        tipo_link: (link2.tipo_link as any) || null,
+        smart_sigma: link2.smart_sigma,
+      };
+      await supabase.from("links_internet").insert(link2Payload);
+    }
+
     setModalOpen(false);
     load();
   };
 
   const remove = async (id: number) => {
     if (!confirm("Remover esta unidade?")) return;
+    await supabase.from("links_internet").delete().eq("unidade_id", id);
     await supabase.from("unidades").delete().eq("id", id);
     toast({ title: "Unidade removida" });
     load();
@@ -180,9 +293,22 @@ const Unidades = () => {
                 <div><Label>UDM (Código) *</Label><Input value={form.codigo_unidade} onChange={(e) => setForm({...form, codigo_unidade: e.target.value})} placeholder="Ex: GS-UDM-ACLIMACAO" /></div>
                 <div><Label>Nome da Unidade *</Label><Input value={form.nome_unidade} onChange={(e) => setForm({...form, nome_unidade: e.target.value})} placeholder="Ex: ACLIMAÇÃO" /></div>
                 <div><Label>Razão Social</Label><Input value={form.antiga_razao} onChange={(e) => setForm({...form, antiga_razao: e.target.value})} /></div>
-                
               </div>
             </div>
+
+            <Separator />
+
+            {/* Links de Internet */}
+            <UnidadeLinkSection
+              hostnamePrefix={hostnamePrefix}
+              onHostnamePrefixChange={setHostnamePrefix}
+              link1={link1}
+              onLink1Change={setLink1}
+              link2={link2}
+              onLink2Change={setLink2}
+              operadoras={operadoras}
+              generatedHostname={generatedHostname}
+            />
 
             <Separator />
 
