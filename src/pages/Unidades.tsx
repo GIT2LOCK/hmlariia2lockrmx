@@ -309,7 +309,12 @@ const Unidades = () => {
           <p className="text-muted-foreground">Gerencie as unidades cadastradas</p>
         </div>
         {canEdit && (
-          <Button onClick={openNew} className="gap-2"><Plus className="h-4 w-4" /> Nova Unidade</Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setImportModalOpen(true)} className="gap-2">
+              <Upload className="h-4 w-4" /> Importar Planilha
+            </Button>
+            <Button onClick={openNew} className="gap-2"><Plus className="h-4 w-4" /> Nova Unidade</Button>
+          </div>
         )}
       </div>
 
