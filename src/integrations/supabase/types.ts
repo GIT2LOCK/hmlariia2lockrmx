@@ -384,36 +384,42 @@ export type Database = {
         Row: {
           ativo: boolean | null
           atualizado_em: string | null
+          avatar_url: string | null
           criado_em: string | null
           email: string
           id: number
           nome: string
           permissao: string
           senha_hash: string
+          telefone: string | null
           totp_enabled: boolean | null
           totp_secret: string | null
         }
         Insert: {
           ativo?: boolean | null
           atualizado_em?: string | null
+          avatar_url?: string | null
           criado_em?: string | null
           email: string
           id?: number
           nome: string
           permissao?: string
           senha_hash: string
+          telefone?: string | null
           totp_enabled?: boolean | null
           totp_secret?: string | null
         }
         Update: {
           ativo?: boolean | null
           atualizado_em?: string | null
+          avatar_url?: string | null
           criado_em?: string | null
           email?: string
           id?: number
           nome?: string
           permissao?: string
           senha_hash?: string
+          telefone?: string | null
           totp_enabled?: boolean | null
           totp_secret?: string | null
         }
