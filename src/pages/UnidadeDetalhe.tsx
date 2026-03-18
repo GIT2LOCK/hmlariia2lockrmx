@@ -453,6 +453,15 @@ const UnidadeDetalhe = () => {
                     {link.tipo_autenticacao === "bridge_pppoe" && link.pppoe_senha && (
                       <PppoesenhaItem value={link.pppoe_senha} />
                     )}
+                    {link.tipo_autenticacao === "estatico" && link.ip_estatico && (
+                      <InfoItem label="IP Estático" value={link.ip_estatico} mono />
+                    )}
+                    {link.tipo_autenticacao === "estatico" && link.mascara && (
+                      <InfoItem label="Máscara" value={link.mascara} mono />
+                    )}
+                    {link.tipo_autenticacao === "estatico" && link.gateway && (
+                      <InfoItem label="Gateway" value={link.gateway} mono />
+                    )}
                     {link.ddns && <InfoItem label="DDNS" value={link.ddns} mono />}
                     {designacao && <InfoItem label="Designação" value={designacao} mono />}
                     {link.canal_atendimento && <InfoItem label="Canal de Atendimento" value={link.canal_atendimento} />}

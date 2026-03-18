@@ -131,31 +131,38 @@ function SingleLinkForm({
 
       {/* Estático fields */}
       {data.config_rede === "estatico" && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-          <div>
-            <Label>IP</Label>
-            <Input
-              value={data.ip_estatico}
-              onChange={(e) => onChange({ ...data, ip_estatico: e.target.value })}
-              placeholder="Ex: 192.168.1.100"
-            />
+        <div className="space-y-3 pt-2">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <Label>IP</Label>
+              <Input
+                value={data.ip_estatico}
+                onChange={(e) => onChange({ ...data, ip_estatico: e.target.value })}
+                placeholder="Ex: 192.168.1.100"
+                className={data.ip_estatico && data.gateway && data.ip_estatico.trim() === data.gateway.trim() ? "border-destructive focus-visible:ring-destructive" : ""}
+              />
+            </div>
+            <div>
+              <Label>Máscara</Label>
+              <Input
+                value={data.mascara}
+                onChange={(e) => onChange({ ...data, mascara: e.target.value })}
+                placeholder="Ex: 255.255.255.0"
+              />
+            </div>
+            <div>
+              <Label>Gateway</Label>
+              <Input
+                value={data.gateway}
+                onChange={(e) => onChange({ ...data, gateway: e.target.value })}
+                placeholder="Ex: 192.168.1.1"
+                className={data.ip_estatico && data.gateway && data.ip_estatico.trim() === data.gateway.trim() ? "border-destructive focus-visible:ring-destructive" : ""}
+              />
+            </div>
           </div>
-          <div>
-            <Label>Máscara</Label>
-            <Input
-              value={data.mascara}
-              onChange={(e) => onChange({ ...data, mascara: e.target.value })}
-              placeholder="Ex: 255.255.255.0"
-            />
-          </div>
-          <div>
-            <Label>Gateway</Label>
-            <Input
-              value={data.gateway}
-              onChange={(e) => onChange({ ...data, gateway: e.target.value })}
-              placeholder="Ex: 192.168.1.1"
-            />
-          </div>
+          {data.ip_estatico && data.gateway && data.ip_estatico.trim() === data.gateway.trim() && (
+            <p className="text-sm text-destructive font-medium">O IP não pode ser igual ao Gateway.</p>
+          )}
         </div>
       )}
 
