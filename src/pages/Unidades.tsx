@@ -56,6 +56,28 @@ const Unidades = () => {
   const [link1, setLink1] = useState<LinkFormData>(emptyLinkData);
   const [link2, setLink2] = useState<LinkFormData | null>(null);
 
+  // CEP lookup
+  const { isLoading: cepLoading, fetchCep } = useCepLookup();
+
+  const handleCepChange = useCallback(async (rawCep: string) => {
+    const digits = rawCep.replace(/\D/g, "");
+    const masked = digits.length > 5 ? `${digits.slice(0, 5)}-${digits.slice(5, 8)}` : digits;
+    setForm((prev) => ({ ...prev, cep: masked }));
+
+    if (digits.length === 8) {
+      const data = await fetchCep(digits);
+      if (data) {
+        setForm((prev) => ({
+          ...prev,
+          logradouro: data.street || prev.logradouro,
+          bairro: data.neighborhood || prev.bairro,
+          cidade: data.city || prev.cidade,
+          estado: data.state || prev.estado,
+        }));
+      }
+    }
+  }, [fetchCep]);
+
   const operadorasMap = useMemo(() => {
     const map: Record<string, string> = {};
     operadoras.forEach((op) => { map[String(op.id)] = op.nome; });
