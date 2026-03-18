@@ -119,24 +119,58 @@ function SingleLinkForm({
         </div>
       )}
 
-      {/* DDNS */}
-      <div className="flex items-center gap-2 pt-2">
-        <Checkbox
-          checked={data.ddns_enabled}
-          onCheckedChange={(v) => onChange({ ...data, ddns_enabled: v === true, ddns: v ? data.ddns : "" })}
-        />
-        <Label className="cursor-pointer">DDNS</Label>
-      </div>
-      {data.ddns_enabled && (
-        <div className="pt-1">
-          <Label>Endereço DDNS</Label>
-          <Input
-            value={data.ddns}
-            onChange={(e) => onChange({ ...data, ddns: e.target.value })}
-            placeholder="Ex: unidade.ddns.net"
-            className="max-w-sm"
-          />
+      {/* Estático fields */}
+      {data.config_rede === "estatico" && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+          <div>
+            <Label>IP</Label>
+            <Input
+              value={data.ip_estatico}
+              onChange={(e) => onChange({ ...data, ip_estatico: e.target.value })}
+              placeholder="Ex: 192.168.1.100"
+            />
+          </div>
+          <div>
+            <Label>Máscara</Label>
+            <Input
+              value={data.mascara}
+              onChange={(e) => onChange({ ...data, mascara: e.target.value })}
+              placeholder="Ex: 255.255.255.0"
+            />
+          </div>
+          <div>
+            <Label>Gateway</Label>
+            <Input
+              value={data.gateway}
+              onChange={(e) => onChange({ ...data, gateway: e.target.value })}
+              placeholder="Ex: 192.168.1.1"
+            />
+          </div>
         </div>
+      )}
+
+      {/* DDNS - not available for estático */}
+      {data.config_rede !== "estatico" && (
+        <>
+          <div className="flex items-center gap-2 pt-2">
+            <Checkbox
+              checked={data.ddns_enabled}
+              onCheckedChange={(v) => onChange({ ...data, ddns_enabled: v === true, ddns: v ? data.ddns : "" })}
+            />
+            <Label className="cursor-pointer">DDNS</Label>
+          </div>
+          {data.ddns_enabled && (
+            <div className="pt-1">
+              <Label>Endereço DDNS</Label>
+              <Input
+                value={data.ddns}
+                onChange={(e) => onChange({ ...data, ddns: e.target.value })}
+                placeholder="Ex: unidade.ddns.net"
+                className="max-w-sm"
+              />
+            </div>
+          )}
+        </>
       )}
     </div>
   );
