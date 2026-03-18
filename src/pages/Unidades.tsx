@@ -143,9 +143,9 @@ const Unidades = () => {
     pppoe_senha: link.pppoe_senha || "",
     ddns_enabled: !!link.ddns,
     ddns: link.ddns || "",
-    ip_estatico: "",
-    mascara: "",
-    gateway: "",
+    ip_estatico: link.ip_estatico || "",
+    mascara: link.mascara || "",
+    gateway: link.gateway || "",
     chamado: {
       identificador_tipo: chamadoData?.designacao ? "designacao" : chamadoData?.cnpj_abertura ? "cnpj" : "",
       designacao: chamadoData?.designacao || "",
@@ -204,6 +204,9 @@ const Unidades = () => {
       pppoe_usuario: linkData.config_rede === "bridge_pppoe" ? (linkData.pppoe_usuario || null) : null,
       pppoe_senha: linkData.config_rede === "bridge_pppoe" ? (linkData.pppoe_senha || null) : null,
       ddns: linkData.ddns_enabled ? (linkData.ddns || null) : null,
+      ip_estatico: linkData.config_rede === "estatico" ? (linkData.ip_estatico || null) : null,
+      mascara: linkData.config_rede === "estatico" ? (linkData.mascara || null) : null,
+      gateway: linkData.config_rede === "estatico" ? (linkData.gateway || null) : null,
     };
     const { data: inserted } = await supabase.from("links_internet").insert(linkPayload).select("id").single();
 
@@ -223,6 +226,14 @@ const Unidades = () => {
     if (!link1.operadora_id) {
       toast({ title: "Link 1 (operadora) é obrigatório", variant: "destructive" }); return;
     }
+    const checkIpGateway = (linkData: LinkFormData, label: string) => {
+      if (linkData.config_rede === "estatico" && linkData.ip_estatico && linkData.gateway && linkData.ip_estatico.trim() === linkData.gateway.trim()) {
+        toast({ title: `${label}: O IP não pode ser igual ao Gateway`, variant: "destructive" }); return false;
+      }
+      return true;
+    };
+    if (!checkIpGateway(link1, "Link 1")) return;
+    if (link2 && !checkIpGateway(link2, "Link 2")) return;
 
     const unitPayload = {
       ...form,

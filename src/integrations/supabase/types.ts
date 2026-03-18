@@ -137,9 +137,12 @@ export type Database = {
           criado_em: string | null
           ddns: string | null
           finalidade: Database["public"]["Enums"]["finalidade_link"] | null
+          gateway: string | null
           id: number
+          ip_estatico: string | null
           ip_tipo: Database["public"]["Enums"]["ip_tipo"] | null
           ip_visibilidade: Database["public"]["Enums"]["ip_visibilidade"] | null
+          mascara: string | null
           nome_link: string | null
           observacoes: string | null
           operadora_id: number
@@ -160,11 +163,14 @@ export type Database = {
           criado_em?: string | null
           ddns?: string | null
           finalidade?: Database["public"]["Enums"]["finalidade_link"] | null
+          gateway?: string | null
           id?: number
+          ip_estatico?: string | null
           ip_tipo?: Database["public"]["Enums"]["ip_tipo"] | null
           ip_visibilidade?:
             | Database["public"]["Enums"]["ip_visibilidade"]
             | null
+          mascara?: string | null
           nome_link?: string | null
           observacoes?: string | null
           operadora_id: number
@@ -185,11 +191,14 @@ export type Database = {
           criado_em?: string | null
           ddns?: string | null
           finalidade?: Database["public"]["Enums"]["finalidade_link"] | null
+          gateway?: string | null
           id?: number
+          ip_estatico?: string | null
           ip_tipo?: Database["public"]["Enums"]["ip_tipo"] | null
           ip_visibilidade?:
             | Database["public"]["Enums"]["ip_visibilidade"]
             | null
+          mascara?: string | null
           nome_link?: string | null
           observacoes?: string | null
           operadora_id?: number

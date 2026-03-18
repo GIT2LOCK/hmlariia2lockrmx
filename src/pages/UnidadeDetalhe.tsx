@@ -26,6 +26,7 @@ interface LinkInternet {
   canal_atendimento: string | null; telefone_operadora: string | null;
   observacoes: string | null; smart_sigma: boolean | null;
   tipo_autenticacao: string | null; pppoe_usuario: string | null; pppoe_senha: string | null;
+  ip_estatico: string | null; mascara: string | null; gateway: string | null;
   operadoras?: { nome: string; telefone: string | null; email: string | null };
   dados_abertura_chamado?: DadosChamado[];
 }
@@ -451,6 +452,15 @@ const UnidadeDetalhe = () => {
                     )}
                     {link.tipo_autenticacao === "bridge_pppoe" && link.pppoe_senha && (
                       <PppoesenhaItem value={link.pppoe_senha} />
+                    )}
+                    {link.tipo_autenticacao === "estatico" && link.ip_estatico && (
+                      <InfoItem label="IP Estático" value={link.ip_estatico} mono />
+                    )}
+                    {link.tipo_autenticacao === "estatico" && link.mascara && (
+                      <InfoItem label="Máscara" value={link.mascara} mono />
+                    )}
+                    {link.tipo_autenticacao === "estatico" && link.gateway && (
+                      <InfoItem label="Gateway" value={link.gateway} mono />
                     )}
                     {link.ddns && <InfoItem label="DDNS" value={link.ddns} mono />}
                     {designacao && <InfoItem label="Designação" value={designacao} mono />}
