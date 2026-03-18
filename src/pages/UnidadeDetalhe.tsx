@@ -42,7 +42,7 @@ interface Cobertura {
   id: number; unidade_id: number; tipo: string | null; descricao: string | null;
 }
 
-interface Operadora { id: number; nome: string; telefone: string | null; }
+interface Operadora { id: number; nome: string; telefone: string | null; email: string | null; }
 
 const emptyLinkForm = {
   operadora_id: "", nome_link: "", finalidade: "", tipo_link: "", tipo_autenticacao: "",
