@@ -15,7 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
 import { OPERADORA_ABREVIACOES } from "@/lib/operadoras";
 import { AbrirChamadoModal } from "@/components/AbrirChamadoModal";
-import { ArrowLeft, Plus, Pencil, Trash2, Wifi, Phone, FileText, MapPin, Building, Globe, Server, Shield, Mail } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2, Wifi, Phone, FileText, MapPin, Building, Globe, Server, Shield, Mail, Copy, Check } from "lucide-react";
 
 interface LinkInternet {
   id: number; unidade_id: number; operadora_id: number; nome_link: string | null;
@@ -94,7 +94,7 @@ const UnidadeDetalhe = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { canEdit, canManageUsers } = useUser();
+  const { canEdit, canManageUsers, user } = useUser();
 
   const [unidade, setUnidade] = useState<any>(null);
   const [links, setLinks] = useState<LinkInternet[]>([]);
@@ -120,6 +120,10 @@ const UnidadeDetalhe = () => {
 
   // Abrir Chamado modal
   const [abrirChamadoOpen, setAbrirChamadoOpen] = useState(false);
+
+  // SmartSigma email observacoes per link
+  const [emailObservacoes, setEmailObservacoes] = useState<Record<number, string>>({});
+  const [copiedLinkId, setCopiedLinkId] = useState<number | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -151,6 +155,40 @@ const UnidadeDetalhe = () => {
       return generateHostname(hostnamePrefix, nome, idx + 1, link.smart_sigma || false);
     });
   }, [links, hostnamePrefix]);
+
+  // --- SmartSigma email helpers ---
+  const buildEndereco = () => {
+    if (!unidade) return "";
+    return [
+      unidade.logradouro,
+      unidade.numero ? `Nº ${unidade.numero}` : null,
+      unidade.complemento,
+      unidade.bairro,
+      unidade.cidade && unidade.estado ? `${unidade.cidade}/${unidade.estado}` : unidade.cidade,
+      unidade.cep ? `CEP: ${unidade.cep}` : null,
+    ].filter(Boolean).join(", ");
+  };
+
+  const generateSmartSigmaEmail = (link: LinkInternet) => {
+    if (!unidade || !link.smart_sigma) return "";
+    const nomeUsuario = user?.nome || "";
+    const chamado = link.dados_abertura_chamado?.[0];
+    const cnpj = chamado?.cnpj_abertura || "";
+    const obs = emailObservacoes[link.id]?.trim();
+
+    if (obs) {
+      return `Olá!\n\nMe chamo ${nomeUsuario}, faço parte do time de monitoramento da ${unidade.empresas?.nome_fantasia || ""}. Identificamos que o link de internet ${link.operadoras?.nome || ""}, da unidade ${unidade.nome_unidade}, está inoperante. ${obs}\n\nDiante disso, gostaríamos de abrir um chamado ao link. Segue dados do mesmo:\n\nRazão: ${unidade.antiga_razao || "-"}\nCNPJ: ${cnpj || "-"}\nEndereço: ${buildEndereco() || "-"}\n\nContato:\nTelefone: ${unidade.telefone || "-"}\nEmail: ${unidade.email || "-"}\n\nAgradecemos a atenção e aguardamos retorno.`;
+    }
+    return `Olá!\n\nMe chamo ${nomeUsuario}, faço parte do time de monitoramento da ${unidade.empresas?.nome_fantasia || ""}. Identificamos que o link de internet ${link.operadoras?.nome || ""}, da unidade ${unidade.nome_unidade}, está inoperante, gostaríamos de abrir um chamado ao link. Segue dados do mesmo:\n\nRazão: ${unidade.antiga_razao || "-"}\nCNPJ: ${cnpj || "-"}\nEndereço: ${buildEndereco() || "-"}\n\nContato:\nTelefone: ${unidade.telefone || "-"}\nEmail: ${unidade.email || "-"}`;
+  };
+
+  const handleCopyEmail = async (link: LinkInternet) => {
+    const text = generateSmartSigmaEmail(link);
+    await navigator.clipboard.writeText(text);
+    setCopiedLinkId(link.id);
+    toast({ title: "Texto copiado para a área de transferência" });
+    setTimeout(() => setCopiedLinkId(null), 2000);
+  };
 
   // --- Link CRUD ---
   const openNewLink = () => { setEditingLink(null); setLinkForm(emptyLinkForm); setLinkModalOpen(true); };
@@ -437,12 +475,13 @@ const UnidadeDetalhe = () => {
                         <div className="flex justify-between items-start">
                           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 flex-1 text-sm">
                             <InfoItem label="Designação" value={dc.designacao || "-"} mono={!!dc.designacao} />
-                            <InfoItem label="Razão Social" value={dc.razao_social_abertura || "-"} />
+                            <InfoItem label="Razão Social" value={dc.razao_social_abertura || unidade?.antiga_razao || "-"} />
                             <InfoItem label="CNPJ" value={dc.cnpj_abertura || "-"} />
                             <InfoItem label="Nº Contrato" value={dc.numero_contrato || "-"} />
                             <InfoItem label="Nº Cliente" value={dc.numero_cliente || "-"} />
-                            <InfoItem label="Telefone" value={dc.telefone_abertura || "-"} />
-                            <InfoItem label="Email" value={dc.email_abertura || "-"} />
+                            <InfoItem label="Telefone" value={dc.telefone_abertura || unidade?.telefone || "-"} />
+                            <InfoItem label="Email" value={dc.email_abertura || unidade?.email || "-"} />
+                            <InfoItem label="Endereço" value={buildEndereco() || "-"} />
                           </div>
                           <div className="flex gap-1 ml-2">
                             {canEdit && <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEditChamado(dc)}><Pencil className="h-3 w-3" /></Button>}
@@ -458,6 +497,50 @@ const UnidadeDetalhe = () => {
                       </div>
                     ))}
                   </div>
+
+                  {/* SmartSigma Email Preview */}
+                  {link.smart_sigma && (
+                    <>
+                      <Separator />
+                      <div>
+                        <h4 className="text-sm font-semibold flex items-center gap-1.5 mb-3">
+                          <Mail className="h-4 w-4" /> E-mail SmartSigma
+                        </h4>
+
+                        <div className="space-y-3">
+                          <div>
+                            <Label className="text-xs">Observações adicionais (opcional)</Label>
+                            <Textarea
+                              value={emailObservacoes[link.id] || ""}
+                              onChange={(e) => setEmailObservacoes((prev) => ({ ...prev, [link.id]: e.target.value }))}
+                              rows={2}
+                              placeholder="Informações adicionais para o chamado..."
+                              className="mt-1"
+                            />
+                          </div>
+
+                          <div className="bg-muted rounded-lg p-4">
+                            <Label className="text-xs text-muted-foreground mb-2 block">Prévia do e-mail</Label>
+                            <pre className="text-sm whitespace-pre-wrap font-sans text-foreground">
+                              {generateSmartSigmaEmail(link)}
+                            </pre>
+                          </div>
+
+                          <Button
+                            onClick={() => handleCopyEmail(link)}
+                            className="w-full gap-2"
+                            variant={copiedLinkId === link.id ? "secondary" : "default"}
+                          >
+                            {copiedLinkId === link.id ? (
+                              <><Check className="h-4 w-4" /> Copiado!</>
+                            ) : (
+                              <><Copy className="h-4 w-4" /> Copiar texto do chamado</>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             );
