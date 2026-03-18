@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useUser } from "@/contexts/UserContext";
 import { Plus, Pencil, Trash2, Search } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
@@ -16,6 +17,7 @@ interface Empresa {
 
 const Empresas = () => {
   const { toast } = useToast();
+  const { canEdit, canManageUsers } = useUser();
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -66,7 +68,9 @@ const Empresas = () => {
           <h2 className="text-2xl font-bold text-foreground">Empresas</h2>
           <p className="text-muted-foreground">Gerencie as empresas cadastradas</p>
         </div>
-        <Button onClick={openNew} className="gap-2"><Plus className="h-4 w-4" /> Nova Empresa</Button>
+        {canManageUsers && (
+          <Button onClick={openNew} className="gap-2"><Plus className="h-4 w-4" /> Nova Empresa</Button>
+        )}
       </div>
 
       <Card>
@@ -81,23 +85,29 @@ const Empresas = () => {
             <TableHeader>
               <TableRow>
                 <TableHead>Nome</TableHead>
-                <TableHead className="w-24">Ações</TableHead>
+                {canEdit && <TableHead className="w-24">Ações</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.map((e) => (
                 <TableRow key={e.id}>
                   <TableCell className="font-medium">{e.nome_fantasia}</TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      <Button size="icon" variant="ghost" onClick={() => openEdit(e)}><Pencil className="h-4 w-4" /></Button>
-                      <Button size="icon" variant="ghost" onClick={() => remove(e.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                    </div>
-                  </TableCell>
+                  {canEdit && (
+                    <TableCell>
+                      <div className="flex gap-1">
+                        {canManageUsers && (
+                          <Button size="icon" variant="ghost" onClick={() => openEdit(e)}><Pencil className="h-4 w-4" /></Button>
+                        )}
+                        {canManageUsers && (
+                          <Button size="icon" variant="ghost" onClick={() => remove(e.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
               {!loading && filtered.length === 0 && (
-                <TableRow><TableCell colSpan={2} className="text-center text-muted-foreground py-8">Nenhuma empresa encontrada</TableCell></TableRow>
+                <TableRow><TableCell colSpan={canEdit ? 2 : 1} className="text-center text-muted-foreground py-8">Nenhuma empresa encontrada</TableCell></TableRow>
               )}
             </TableBody>
           </Table>

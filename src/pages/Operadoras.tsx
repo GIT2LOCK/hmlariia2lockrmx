@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useUser } from "@/contexts/UserContext";
 import { Plus, Pencil, Trash2, Search } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
@@ -18,6 +19,7 @@ const emptyForm = { nome: "", telefone: "", email: "", observacoes: "" };
 
 const Operadoras = () => {
   const { toast } = useToast();
+  const { canEdit, canManageUsers } = useUser();
   const [items, setItems] = useState<Operadora[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -73,7 +75,9 @@ const Operadoras = () => {
           <h2 className="text-2xl font-bold text-foreground">Operadoras</h2>
           <p className="text-muted-foreground">Gerencie as operadoras de internet</p>
         </div>
-        <Button onClick={openNew} className="gap-2"><Plus className="h-4 w-4" /> Nova Operadora</Button>
+        {canManageUsers && (
+          <Button onClick={openNew} className="gap-2"><Plus className="h-4 w-4" /> Nova Operadora</Button>
+        )}
       </div>
 
       <Card>
@@ -90,7 +94,7 @@ const Operadoras = () => {
                 <TableHead>Nome</TableHead>
                 <TableHead>Telefone</TableHead>
                 <TableHead>Email</TableHead>
-                <TableHead className="w-24">Ações</TableHead>
+                {canEdit && <TableHead className="w-24">Ações</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -99,16 +103,20 @@ const Operadoras = () => {
                   <TableCell className="font-medium">{o.nome}</TableCell>
                   <TableCell>{o.telefone || "-"}</TableCell>
                   <TableCell>{o.email || "-"}</TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      <Button size="icon" variant="ghost" onClick={() => openEdit(o)}><Pencil className="h-4 w-4" /></Button>
-                      <Button size="icon" variant="ghost" onClick={() => remove(o.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                    </div>
-                  </TableCell>
+                  {canEdit && (
+                    <TableCell>
+                      <div className="flex gap-1">
+                        <Button size="icon" variant="ghost" onClick={() => openEdit(o)}><Pencil className="h-4 w-4" /></Button>
+                        {canManageUsers && (
+                          <Button size="icon" variant="ghost" onClick={() => remove(o.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
               {!loading && filtered.length === 0 && (
-                <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">Nenhuma operadora encontrada</TableCell></TableRow>
+                <TableRow><TableCell colSpan={canEdit ? 4 : 3} className="text-center text-muted-foreground py-8">Nenhuma operadora encontrada</TableCell></TableRow>
               )}
             </TableBody>
           </Table>
