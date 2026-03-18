@@ -12,6 +12,7 @@ import Unidades from "./pages/Unidades";
 import UnidadeDetalhe from "./pages/UnidadeDetalhe";
 import Operadoras from "./pages/Operadoras";
 import MeuPerfil from "./pages/MeuPerfil";
+import Usuarios from "./pages/Usuarios";
 import { UserProvider } from "./contexts/UserContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
@@ -39,6 +40,7 @@ const App = () => (
               <Route path="unidades" element={<Unidades />} />
               <Route path="unidades/:id" element={<UnidadeDetalhe />} />
               <Route path="operadoras" element={<Operadoras />} />
+              <Route path="usuarios" element={<Usuarios />} />
               <Route path="perfil" element={<MeuPerfil />} />
             </Route>
             <Route path="*" element={<NotFound />} />

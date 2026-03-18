@@ -7,6 +7,7 @@ import {
   MapPin,
   Radio,
   User,
+  Users,
   Search
 } from "lucide-react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
@@ -41,7 +42,7 @@ export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const currentPath = location.pathname;
-  const { user, refreshUser } = useUser();
+  const { user, refreshUser, canManageUsers } = useUser();
 
   const isActive = (path: string) => currentPath === path;
 
@@ -109,6 +110,21 @@ export function AppSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
+              {canManageUsers && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive("/dashboard/usuarios")}
+                    tooltip="Usuários"
+                    className="text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10 data-[active=true]:bg-primary-foreground/20 data-[active=true]:text-primary-foreground"
+                  >
+                    <NavLink to="/dashboard/usuarios" className="flex items-center gap-3">
+                      <Users className="h-5 w-5" />
+                      <span>Usuários</span>
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
               <SidebarMenuItem>
                 <SidebarMenuButton
                   asChild
