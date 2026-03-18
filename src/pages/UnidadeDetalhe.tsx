@@ -255,7 +255,7 @@ const UnidadeDetalhe = () => {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-lg">Ruas / Cobertura Atendida</CardTitle>
-          <Button size="sm" onClick={openNewCobertura} className="gap-1"><Plus className="h-3 w-3" /> Adicionar</Button>
+          {canManageUsers && <Button size="sm" onClick={openNewCobertura} className="gap-1"><Plus className="h-3 w-3" /> Adicionar</Button>}
         </CardHeader>
         <CardContent>
           {coberturas.length === 0 ? (
