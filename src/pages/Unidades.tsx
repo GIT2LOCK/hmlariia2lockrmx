@@ -166,7 +166,7 @@ const Unidades = () => {
     const unitPayload = {
       ...form,
       empresa_id: Number(form.empresa_id),
-      hostname: generatedHostname || null,
+      hostname: hostname1 || null,
     };
 
     let unitId: number;
