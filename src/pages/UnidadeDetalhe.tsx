@@ -266,8 +266,8 @@ const UnidadeDetalhe = () => {
                 <div key={c.id} className="flex items-center justify-between p-2 border rounded">
                   <div><Badge variant="secondary">{c.tipo || "Geral"}</Badge> <span className="ml-2 text-sm">{c.descricao}</span></div>
                   <div className="flex gap-1">
-                    <Button size="icon" variant="ghost" onClick={() => openEditCobertura(c)}><Pencil className="h-3 w-3" /></Button>
-                    <Button size="icon" variant="ghost" onClick={() => removeCobertura(c.id)}><Trash2 className="h-3 w-3 text-destructive" /></Button>
+                    {canEdit && <Button size="icon" variant="ghost" onClick={() => openEditCobertura(c)}><Pencil className="h-3 w-3" /></Button>}
+                    {canManageUsers && <Button size="icon" variant="ghost" onClick={() => removeCobertura(c.id)}><Trash2 className="h-3 w-3 text-destructive" /></Button>}
                   </div>
                 </div>
               ))}
