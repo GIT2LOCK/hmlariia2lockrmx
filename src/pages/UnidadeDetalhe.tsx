@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useUser } from "@/contexts/UserContext";
 import { ArrowLeft, Plus, Pencil, Trash2, Wifi, Phone, FileText, MapPin } from "lucide-react";
 
 interface LinkInternet {
@@ -62,6 +63,7 @@ const UnidadeDetalhe = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { canEdit, canManageUsers } = useUser();
 
   const [unidade, setUnidade] = useState<any>(null);
   const [links, setLinks] = useState<LinkInternet[]>([]);
@@ -253,7 +255,7 @@ const UnidadeDetalhe = () => {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-lg">Ruas / Cobertura Atendida</CardTitle>
-          <Button size="sm" onClick={openNewCobertura} className="gap-1"><Plus className="h-3 w-3" /> Adicionar</Button>
+          {canManageUsers && <Button size="sm" onClick={openNewCobertura} className="gap-1"><Plus className="h-3 w-3" /> Adicionar</Button>}
         </CardHeader>
         <CardContent>
           {coberturas.length === 0 ? (
@@ -264,8 +266,8 @@ const UnidadeDetalhe = () => {
                 <div key={c.id} className="flex items-center justify-between p-2 border rounded">
                   <div><Badge variant="secondary">{c.tipo || "Geral"}</Badge> <span className="ml-2 text-sm">{c.descricao}</span></div>
                   <div className="flex gap-1">
-                    <Button size="icon" variant="ghost" onClick={() => openEditCobertura(c)}><Pencil className="h-3 w-3" /></Button>
-                    <Button size="icon" variant="ghost" onClick={() => removeCobertura(c.id)}><Trash2 className="h-3 w-3 text-destructive" /></Button>
+                    {canEdit && <Button size="icon" variant="ghost" onClick={() => openEditCobertura(c)}><Pencil className="h-3 w-3" /></Button>}
+                    {canManageUsers && <Button size="icon" variant="ghost" onClick={() => removeCobertura(c.id)}><Trash2 className="h-3 w-3 text-destructive" /></Button>}
                   </div>
                 </div>
               ))}
@@ -278,7 +280,7 @@ const UnidadeDetalhe = () => {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="flex items-center gap-2"><Wifi className="h-5 w-5" /> Links de Internet</CardTitle>
-          <Button size="sm" onClick={openNewLink} className="gap-1"><Plus className="h-3 w-3" /> Novo Link</Button>
+          {canEdit && <Button size="sm" onClick={openNewLink} className="gap-1"><Plus className="h-3 w-3" /> Novo Link</Button>}
         </CardHeader>
         <CardContent className="space-y-6">
           {links.length === 0 ? (
@@ -292,8 +294,8 @@ const UnidadeDetalhe = () => {
                   {link.tipo_link && <Badge variant="outline">{tipoLinkLabels[link.tipo_link] || link.tipo_link}</Badge>}
                 </div>
                 <div className="flex gap-1">
-                  <Button size="icon" variant="ghost" onClick={() => openEditLink(link)}><Pencil className="h-4 w-4" /></Button>
-                  <Button size="icon" variant="ghost" onClick={() => removeLink(link.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                  {canEdit && <Button size="icon" variant="ghost" onClick={() => openEditLink(link)}><Pencil className="h-4 w-4" /></Button>}
+                  {canManageUsers && <Button size="icon" variant="ghost" onClick={() => removeLink(link.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>}
                 </div>
               </div>
 
@@ -317,7 +319,7 @@ const UnidadeDetalhe = () => {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-sm font-semibold flex items-center gap-1"><FileText className="h-4 w-4" /> Dados para Abertura de Chamado</h4>
-                  <Button size="sm" variant="outline" onClick={() => openNewChamado(link.id)} className="gap-1 h-7 text-xs"><Plus className="h-3 w-3" /> Adicionar</Button>
+                  {canEdit && <Button size="sm" variant="outline" onClick={() => openNewChamado(link.id)} className="gap-1 h-7 text-xs"><Plus className="h-3 w-3" /> Adicionar</Button>}
                 </div>
                 {(!link.dados_abertura_chamado || link.dados_abertura_chamado.length === 0) ? (
                   <p className="text-xs text-muted-foreground">Nenhum dado cadastrado.</p>
@@ -333,8 +335,8 @@ const UnidadeDetalhe = () => {
                         {dc.email_abertura && <div><span className="text-muted-foreground">Email:</span> {dc.email_abertura}</div>}
                       </div>
                       <div className="flex gap-1">
-                        <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => openEditChamado(dc)}><Pencil className="h-3 w-3" /></Button>
-                        <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => removeChamado(dc.id)}><Trash2 className="h-3 w-3 text-destructive" /></Button>
+                        {canEdit && <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => openEditChamado(dc)}><Pencil className="h-3 w-3" /></Button>}
+                        {canManageUsers && <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => removeChamado(dc.id)}><Trash2 className="h-3 w-3 text-destructive" /></Button>}
                       </div>
                     </div>
                     {dc.observacoes_abertura && <p className="text-xs text-muted-foreground">{dc.observacoes_abertura}</p>}

@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useUser } from "@/contexts/UserContext";
 import { Plus, Pencil, Trash2, Search, Eye, Loader2, Phone } from "lucide-react";
 import { useCepLookup } from "@/hooks/useCepLookup";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -42,6 +43,7 @@ const emptyForm = {
 const Unidades = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { canEdit, canManageUsers } = useUser();
   const [unidades, setUnidades] = useState<Unidade[]>([]);
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [operadoras, setOperadoras] = useState<Operadora[]>([]);
@@ -291,7 +293,9 @@ const Unidades = () => {
           <h2 className="text-2xl font-bold text-foreground">Unidades</h2>
           <p className="text-muted-foreground">Gerencie as unidades cadastradas</p>
         </div>
-        <Button onClick={openNew} className="gap-2"><Plus className="h-4 w-4" /> Nova Unidade</Button>
+        {canEdit && (
+          <Button onClick={openNew} className="gap-2"><Plus className="h-4 w-4" /> Nova Unidade</Button>
+        )}
       </div>
 
       <Card>
@@ -327,8 +331,12 @@ const Unidades = () => {
                         <Phone className="h-4 w-4" />
                       </Button>
                       <Button size="icon" variant="ghost" onClick={() => navigate(`/dashboard/unidades/${u.id}`)}><Eye className="h-4 w-4" /></Button>
-                      <Button size="icon" variant="ghost" onClick={() => openEdit(u)}><Pencil className="h-4 w-4" /></Button>
-                      <Button size="icon" variant="ghost" onClick={() => remove(u.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                      {canEdit && (
+                        <Button size="icon" variant="ghost" onClick={() => openEdit(u)}><Pencil className="h-4 w-4" /></Button>
+                      )}
+                      {canManageUsers && (
+                        <Button size="icon" variant="ghost" onClick={() => remove(u.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
