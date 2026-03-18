@@ -6,16 +6,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, Search, Eye, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Eye, Loader2, Phone } from "lucide-react";
 import { useCepLookup } from "@/hooks/useCepLookup";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useNavigate } from "react-router-dom";
 import { UnidadeLinkSection } from "@/components/UnidadeLinkSection";
-import { LinkFormData, emptyLinkData, generateLinkHostname } from "@/lib/operadoras";
+import { LinkFormData, emptyLinkData, emptyChamadoData, generateLinkHostname } from "@/lib/operadoras";
+import { AbrirChamadoModal } from "@/components/AbrirChamadoModal";
 
 interface Unidade {
   id: number; empresa_id: number; nome_unidade: string; codigo_unidade: string | null;
@@ -28,7 +28,7 @@ interface Unidade {
 }
 
 interface Empresa { id: number; nome_fantasia: string; razao_social: string | null; cnpj: string | null; }
-interface Operadora { id: number; nome: string; }
+interface Operadora { id: number; nome: string; telefone?: string | null; }
 
 const emptyForm = {
   empresa_id: "", nome_unidade: "", codigo_unidade: "",
@@ -55,6 +55,10 @@ const Unidades = () => {
   const [hostnamePrefix, setHostnamePrefix] = useState("");
   const [link1, setLink1] = useState<LinkFormData>(emptyLinkData);
   const [link2, setLink2] = useState<LinkFormData | null>(null);
+
+  // Chamado modal state
+  const [chamadoModalOpen, setChamadoModalOpen] = useState(false);
+  const [chamadoUnidadeId, setChamadoUnidadeId] = useState<number | null>(null);
 
   // CEP lookup
   const { isLoading: cepLoading, fetchCep } = useCepLookup();
@@ -99,7 +103,7 @@ const Unidades = () => {
     const [{ data: u }, { data: e }, { data: o }] = await Promise.all([
       supabase.from("unidades").select("*, empresas(nome_fantasia)").order("nome_unidade"),
       supabase.from("empresas").select("id, nome_fantasia, razao_social, cnpj").order("nome_fantasia"),
-      supabase.from("operadoras").select("id, nome").order("nome"),
+      supabase.from("operadoras").select("id, nome, telefone").order("nome"),
     ]);
     setUnidades((u as any[]) || []);
     setEmpresas((e as Empresa[]) || []);
@@ -128,6 +132,25 @@ const Unidades = () => {
     setModalOpen(true);
   };
 
+  const buildLinkFromDb = (link: any, chamadoData: any): LinkFormData => ({
+    operadora_id: String(link.operadora_id),
+    config_rede: link.tipo_autenticacao || "",
+    tipo_link: link.tipo_link || "",
+    smart_sigma: link.smart_sigma || false,
+    pppoe_usuario: link.pppoe_usuario || "",
+    pppoe_senha: link.pppoe_senha || "",
+    ddns_enabled: !!link.ddns,
+    ddns: link.ddns || "",
+    ip_estatico: "",
+    mascara: "",
+    gateway: "",
+    chamado: {
+      designacao: chamadoData?.designacao || "",
+      cnpj_abertura: chamadoData?.cnpj_abertura || "",
+      numero_cliente: chamadoData?.numero_cliente || "",
+    },
+  });
+
   const openEdit = async (u: Unidade) => {
     setEditing(u);
     setForm({
@@ -141,47 +164,24 @@ const Unidades = () => {
       wifi_antenas: u.wifi_antenas || false, observacoes: u.observacoes || "",
     });
 
-    // Load existing links for this unit
+    // Load existing links with chamado data
     const { data: links } = await supabase
       .from("links_internet")
-      .select("*")
+      .select("*, dados_abertura_chamado(*)")
       .eq("unidade_id", u.id)
       .order("id");
 
     if (links && links.length > 0) {
-      // Try to extract prefix from hostname
       const hostname = u.hostname || "";
       const underscoreIdx = hostname.indexOf("_");
       setHostnamePrefix(underscoreIdx > 0 ? hostname.substring(0, underscoreIdx) : hostname);
 
-      setLink1({
-        operadora_id: String(links[0].operadora_id),
-        config_rede: links[0].tipo_autenticacao || "",
-        tipo_link: links[0].tipo_link || "",
-        smart_sigma: (links[0] as any).smart_sigma || false,
-        pppoe_usuario: links[0].pppoe_usuario || "",
-        pppoe_senha: links[0].pppoe_senha || "",
-        ddns_enabled: !!(links[0] as any).ddns,
-        ddns: (links[0] as any).ddns || "",
-        ip_estatico: "",
-        mascara: "",
-        gateway: "",
-      });
+      const chamado1 = (links[0] as any).dados_abertura_chamado?.[0];
+      setLink1(buildLinkFromDb(links[0], chamado1));
 
       if (links.length > 1) {
-        setLink2({
-          operadora_id: String(links[1].operadora_id),
-          config_rede: links[1].tipo_autenticacao || "",
-          tipo_link: links[1].tipo_link || "",
-          smart_sigma: (links[1] as any).smart_sigma || false,
-          pppoe_usuario: links[1].pppoe_usuario || "",
-          pppoe_senha: links[1].pppoe_senha || "",
-          ddns_enabled: !!(links[1] as any).ddns,
-          ddns: (links[1] as any).ddns || "",
-          ip_estatico: "",
-          mascara: "",
-          gateway: "",
-        });
+        const chamado2 = (links[1] as any).dados_abertura_chamado?.[0];
+        setLink2(buildLinkFromDb(links[1], chamado2));
       } else {
         setLink2(null);
       }
@@ -190,6 +190,29 @@ const Unidades = () => {
     }
 
     setModalOpen(true);
+  };
+
+  const saveLinkAndChamado = async (linkData: LinkFormData, unitId: number) => {
+    const linkPayload = {
+      unidade_id: unitId,
+      operadora_id: Number(linkData.operadora_id),
+      tipo_autenticacao: linkData.config_rede || null,
+      tipo_link: (linkData.tipo_link as any) || null,
+      smart_sigma: linkData.smart_sigma,
+      pppoe_usuario: linkData.config_rede === "bridge_pppoe" ? (linkData.pppoe_usuario || null) : null,
+      pppoe_senha: linkData.config_rede === "bridge_pppoe" ? (linkData.pppoe_senha || null) : null,
+      ddns: linkData.ddns_enabled ? (linkData.ddns || null) : null,
+    };
+    const { data: inserted } = await supabase.from("links_internet").insert(linkPayload).select("id").single();
+
+    if (inserted && (linkData.chamado.cnpj_abertura || linkData.chamado.designacao || linkData.chamado.numero_cliente)) {
+      await supabase.from("dados_abertura_chamado").insert({
+        link_id: inserted.id,
+        cnpj_abertura: linkData.chamado.cnpj_abertura || null,
+        designacao: linkData.chamado.designacao || null,
+        numero_cliente: linkData.chamado.numero_cliente || null,
+      });
+    }
   };
 
   const save = async () => {
@@ -212,7 +235,13 @@ const Unidades = () => {
       await supabase.from("unidades").update(unitPayload).eq("id", editing.id);
       unitId = editing.id;
 
-      // Delete existing links and re-create
+      // Delete existing chamado data and links
+      const { data: existingLinks } = await supabase.from("links_internet").select("id").eq("unidade_id", editing.id);
+      if (existingLinks) {
+        for (const l of existingLinks) {
+          await supabase.from("dados_abertura_chamado").delete().eq("link_id", l.id);
+        }
+      }
       await supabase.from("links_internet").delete().eq("unidade_id", editing.id);
 
       toast({ title: "Unidade atualizada" });
@@ -225,32 +254,12 @@ const Unidades = () => {
       toast({ title: "Unidade cadastrada" });
     }
 
-    // Save link 1
-    const link1Payload = {
-      unidade_id: unitId,
-      operadora_id: Number(link1.operadora_id),
-      tipo_autenticacao: link1.config_rede || null,
-      tipo_link: (link1.tipo_link as any) || null,
-      smart_sigma: link1.smart_sigma,
-      pppoe_usuario: link1.config_rede === "bridge_pppoe" ? (link1.pppoe_usuario || null) : null,
-      pppoe_senha: link1.config_rede === "bridge_pppoe" ? (link1.pppoe_senha || null) : null,
-      ddns: link1.ddns_enabled ? (link1.ddns || null) : null,
-    };
-    await supabase.from("links_internet").insert(link1Payload);
+    // Save link 1 + chamado
+    await saveLinkAndChamado(link1, unitId);
 
-    // Save link 2 if present
+    // Save link 2 + chamado if present
     if (link2 && link2.operadora_id) {
-      const link2Payload = {
-        unidade_id: unitId,
-        operadora_id: Number(link2.operadora_id),
-        tipo_autenticacao: link2.config_rede || null,
-        tipo_link: (link2.tipo_link as any) || null,
-        smart_sigma: link2.smart_sigma,
-        pppoe_usuario: link2.config_rede === "bridge_pppoe" ? (link2.pppoe_usuario || null) : null,
-        pppoe_senha: link2.config_rede === "bridge_pppoe" ? (link2.pppoe_senha || null) : null,
-        ddns: link2.ddns_enabled ? (link2.ddns || null) : null,
-      };
-      await supabase.from("links_internet").insert(link2Payload);
+      await saveLinkAndChamado(link2, unitId);
     }
 
     setModalOpen(false);
@@ -259,10 +268,21 @@ const Unidades = () => {
 
   const remove = async (id: number) => {
     if (!confirm("Remover esta unidade?")) return;
+    const { data: existingLinks } = await supabase.from("links_internet").select("id").eq("unidade_id", id);
+    if (existingLinks) {
+      for (const l of existingLinks) {
+        await supabase.from("dados_abertura_chamado").delete().eq("link_id", l.id);
+      }
+    }
     await supabase.from("links_internet").delete().eq("unidade_id", id);
     await supabase.from("unidades").delete().eq("id", id);
     toast({ title: "Unidade removida" });
     load();
+  };
+
+  const openChamado = (unidadeId: number) => {
+    setChamadoUnidadeId(unidadeId);
+    setChamadoModalOpen(true);
   };
 
   return (
@@ -291,7 +311,7 @@ const Unidades = () => {
                 <TableHead>Empresa</TableHead>
                 <TableHead>Cidade/UF</TableHead>
                 <TableHead>Telefone</TableHead>
-                <TableHead className="w-32">Ações</TableHead>
+                <TableHead className="w-40">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -304,6 +324,9 @@ const Unidades = () => {
                   <TableCell>{u.telefone || "-"}</TableCell>
                   <TableCell>
                     <div className="flex gap-1">
+                      <Button size="icon" variant="ghost" title="Abrir Chamado" onClick={() => openChamado(u.id)}>
+                        <Phone className="h-4 w-4" />
+                      </Button>
                       <Button size="icon" variant="ghost" onClick={() => navigate(`/dashboard/unidades/${u.id}`)}><Eye className="h-4 w-4" /></Button>
                       <Button size="icon" variant="ghost" onClick={() => openEdit(u)}><Pencil className="h-4 w-4" /></Button>
                       <Button size="icon" variant="ghost" onClick={() => remove(u.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
@@ -415,6 +438,12 @@ const Unidades = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AbrirChamadoModal
+        open={chamadoModalOpen}
+        onOpenChange={setChamadoModalOpen}
+        unidadeId={chamadoUnidadeId}
+      />
     </div>
   );
 };

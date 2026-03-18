@@ -7,6 +7,7 @@ import { Separator } from "@/components/ui/separator";
 import { Plus, Trash2 } from "lucide-react";
 import {
   LinkFormData,
+  ChamadoFormData,
   emptyLinkData,
   CONFIG_REDE_OPTIONS,
   TIPO_LINK_OPTIONS,
@@ -15,6 +16,7 @@ import {
 interface Operadora {
   id: number;
   nome: string;
+  telefone?: string | null;
 }
 
 interface UnidadeLinkSectionProps {
@@ -42,6 +44,14 @@ function SingleLinkForm({
   onRemove?: () => void;
   operadoras: Operadora[];
 }) {
+  const selectedOp = operadoras.find((op) => String(op.id) === data.operadora_id);
+  const opNome = selectedOp?.nome || "Operadora";
+  const opTelefone = selectedOp?.telefone || "";
+
+  const updateChamado = (partial: Partial<ChamadoFormData>) => {
+    onChange({ ...data, chamado: { ...data.chamado, ...partial } });
+  };
+
   return (
     <div className="space-y-3 rounded-lg border border-border p-4">
       <div className="flex items-center justify-between">
@@ -170,6 +180,67 @@ function SingleLinkForm({
               />
             </div>
           )}
+        </>
+      )}
+
+      {/* Dados para abertura de chamado */}
+      {data.operadora_id && (
+        <>
+          <Separator className="my-3" />
+          <div className="space-y-3">
+            <h4 className="text-xs font-semibold text-muted-foreground">
+              DADOS PARA ABERTURA DE CHAMADO — {opNome}
+            </h4>
+
+            {opTelefone && (
+              <div className="text-sm">
+                <span className="text-muted-foreground">Telefone da Operadora:</span>{" "}
+                <span className="font-medium text-foreground">{opTelefone}</span>
+              </div>
+            )}
+
+            {data.smart_sigma ? (
+              /* SmartSigma: only CNPJ */
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>CNPJ *</Label>
+                  <Input
+                    value={data.chamado.cnpj_abertura}
+                    onChange={(e) => updateChamado({ cnpj_abertura: e.target.value })}
+                    placeholder="CNPJ para abertura de chamado"
+                  />
+                </div>
+              </div>
+            ) : (
+              /* Non-SmartSigma: Designação, CNPJ, Código */
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <Label>Designação</Label>
+                  <Input
+                    value={data.chamado.designacao}
+                    onChange={(e) => updateChamado({ designacao: e.target.value })}
+                    placeholder="Designação do circuito"
+                  />
+                </div>
+                <div>
+                  <Label>CNPJ</Label>
+                  <Input
+                    value={data.chamado.cnpj_abertura}
+                    onChange={(e) => updateChamado({ cnpj_abertura: e.target.value })}
+                    placeholder="CNPJ para abertura"
+                  />
+                </div>
+                <div>
+                  <Label>Código</Label>
+                  <Input
+                    value={data.chamado.numero_cliente}
+                    onChange={(e) => updateChamado({ numero_cliente: e.target.value })}
+                    placeholder="Código do cliente"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
         </>
       )}
     </div>
