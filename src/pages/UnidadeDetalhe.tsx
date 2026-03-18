@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useUser } from "@/contexts/UserContext";
 import { ArrowLeft, Plus, Pencil, Trash2, Wifi, Phone, FileText, MapPin } from "lucide-react";
 
 interface LinkInternet {
