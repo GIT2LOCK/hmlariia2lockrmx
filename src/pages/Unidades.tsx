@@ -323,7 +323,20 @@ const Unidades = () => {
             <div>
               <h3 className="text-sm font-semibold text-muted-foreground mb-3">ENDEREÇO</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div><Label>CEP</Label><Input value={form.cep} onChange={(e) => setForm({...form, cep: e.target.value})} /></div>
+                <div>
+                  <Label>CEP</Label>
+                  <div className="relative">
+                    <Input
+                      value={form.cep}
+                      onChange={(e) => handleCepChange(e.target.value)}
+                      placeholder="00000-000"
+                      maxLength={9}
+                    />
+                    {cepLoading && (
+                      <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                    )}
+                  </div>
+                </div>
                 <div className="md:col-span-2"><Label>Logradouro</Label><Input value={form.logradouro} onChange={(e) => setForm({...form, logradouro: e.target.value})} placeholder="Ex: Av. Lins de Vasconcelos, 1794" /></div>
                 <div><Label>Número</Label><Input value={form.numero} onChange={(e) => setForm({...form, numero: e.target.value})} /></div>
                 <div><Label>Complemento</Label><Input value={form.complemento} onChange={(e) => setForm({...form, complemento: e.target.value})} /></div>
