@@ -59,6 +59,9 @@ const Unidades = () => {
   const [link1, setLink1] = useState<LinkFormData>(emptyLinkData);
   const [link2, setLink2] = useState<LinkFormData | null>(null);
 
+  // Import modal state
+  const [importModalOpen, setImportModalOpen] = useState(false);
+
   // Chamado modal state
   const [chamadoModalOpen, setChamadoModalOpen] = useState(false);
   const [chamadoUnidadeId, setChamadoUnidadeId] = useState<number | null>(null);
