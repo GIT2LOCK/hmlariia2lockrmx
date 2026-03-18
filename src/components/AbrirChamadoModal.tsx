@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,9 +14,10 @@ interface LinkComChamado {
   operadora_id: number;
   smart_sigma: boolean | null;
   operadora_nome: string;
+  operadora_telefone: string;
+  operadora_email: string;
   cnpj_abertura: string;
   designacao: string;
-  numero_cliente: string;
 }
 
 interface UnidadeInfo {
@@ -71,7 +72,7 @@ export function AbrirChamadoModal({ open, onOpenChange, unidadeId }: AbrirChamad
         .single(),
       supabase
         .from("links_internet")
-        .select("*, operadoras(nome, telefone), dados_abertura_chamado(*)")
+        .select("*, operadoras(nome, telefone, email), dados_abertura_chamado(*)")
         .eq("unidade_id", id)
         .order("id"),
     ]);
@@ -102,9 +103,10 @@ export function AbrirChamadoModal({ open, onOpenChange, unidadeId }: AbrirChamad
           operadora_id: l.operadora_id,
           smart_sigma: l.smart_sigma,
           operadora_nome: l.operadoras?.nome || "",
+          operadora_telefone: l.operadoras?.telefone || "",
+          operadora_email: l.operadoras?.email || "",
           cnpj_abertura: chamado.cnpj_abertura || "",
           designacao: chamado.designacao || "",
-          numero_cliente: chamado.numero_cliente || "",
         };
       });
       setLinks(mapped);
@@ -126,27 +128,36 @@ export function AbrirChamadoModal({ open, onOpenChange, unidadeId }: AbrirChamad
     return parts.join(", ");
   };
 
-  const generateEmailSmartSigma = (link: LinkComChamado) => {
+  const generateEmail = (link: LinkComChamado) => {
     if (!unidade) return "";
     const nomeUsuario = `${user.nome}${user.sobrenome ? ` ${user.sobrenome}` : ""}`;
     const obs = observacoes[link.id]?.trim();
 
-    if (obs) {
-      return `Olá!\n\nMe chamo ${nomeUsuario}, faço parte do time de monitoramento da ${unidade.empresa_nome}. Identificamos que o link de internet ${link.operadora_nome}, da unidade ${unidade.nome_unidade}, está inoperante. ${obs}\n\nDiante disso, gostaríamos de abrir um chamado ao link. Segue dados do mesmo:\n\nRazão: ${unidade.antiga_razao || "-"}\nCNPJ: ${link.cnpj_abertura || "-"}\nEndereço: ${buildEndereco() || "-"}\n\nContato:\nTelefone: ${unidade.telefone || "-"}\nEmail: ${unidade.email || "-"}\n\nAgradecemos a atenção e aguardamos retorno.`;
+    if (link.smart_sigma) {
+      // SmartSigma template
+      if (obs) {
+        return `Olá!\n\nMe chamo ${nomeUsuario}, faço parte do time de monitoramento da ${unidade.empresa_nome}. Identificamos que o link de internet ${link.operadora_nome}, da unidade ${unidade.nome_unidade}, está inoperante. ${obs}\n\nDiante disso, gostaríamos de abrir um chamado ao link. Segue dados do mesmo:\n\nRazão: ${unidade.antiga_razao || "-"}\nCNPJ: ${link.cnpj_abertura || "-"}\nEndereço: ${buildEndereco() || "-"}\n\nContato:\nTelefone: ${unidade.telefone || "-"}\nEmail: ${unidade.email || "-"}\n\nAgradecemos a atenção e aguardamos retorno.`;
+      }
+      return `Olá!\n\nMe chamo ${nomeUsuario}, faço parte do time de monitoramento da ${unidade.empresa_nome}. Identificamos que o link de internet ${link.operadora_nome}, da unidade ${unidade.nome_unidade}, está inoperante, gostaríamos de abrir um chamado ao link. Segue dados do mesmo:\n\nRazão: ${unidade.antiga_razao || "-"}\nCNPJ: ${link.cnpj_abertura || "-"}\nEndereço: ${buildEndereco() || "-"}\n\nContato:\nTelefone: ${unidade.telefone || "-"}\nEmail: ${unidade.email || "-"}`;
     }
 
-    return `Olá!\n\nMe chamo ${nomeUsuario}, faço parte do time de monitoramento da ${unidade.empresa_nome}. Identificamos que o link de internet ${link.operadora_nome}, da unidade ${unidade.nome_unidade}, está inoperante, gostaríamos de abrir um chamado ao link. Segue dados do mesmo:\n\nRazão: ${unidade.antiga_razao || "-"}\nCNPJ: ${link.cnpj_abertura || "-"}\nEndereço: ${buildEndereco() || "-"}\n\nContato:\nTelefone: ${unidade.telefone || "-"}\nEmail: ${unidade.email || "-"}`;
+    // Non-SmartSigma: no email template, just show info card
+    return "";
   };
 
   const handleCopy = async (link: LinkComChamado) => {
-    const text = generateEmailSmartSigma(link);
+    const text = generateEmail(link);
     await navigator.clipboard.writeText(text);
     setCopiedId(link.id);
     toast({ title: "Texto copiado para a área de transferência" });
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const smartSigmaLinks = links.filter((l) => l.smart_sigma);
+  const getIdentificador = (link: LinkComChamado) => {
+    if (link.designacao) return { label: "Designação", value: link.designacao };
+    if (link.cnpj_abertura) return { label: "CNPJ", value: link.cnpj_abertura };
+    return null;
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -160,58 +171,86 @@ export function AbrirChamadoModal({ open, onOpenChange, unidadeId }: AbrirChamad
 
         {loading && <p className="text-muted-foreground text-center py-8">Carregando...</p>}
 
-        {!loading && smartSigmaLinks.length === 0 && (
+        {!loading && links.length === 0 && (
           <p className="text-muted-foreground text-center py-8">
-            Nenhum link SmartSigma encontrado para esta unidade.
+            Nenhum link encontrado para esta unidade.
           </p>
         )}
 
         {!loading &&
-          smartSigmaLinks.map((link) => (
-            <Card key={link.id} className="border-border">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-semibold">
-                  LINK DE INTERNET — {link.operadora_nome}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="text-sm text-muted-foreground space-y-1">
-                  <p><span className="font-medium text-foreground">CNPJ:</span> {link.cnpj_abertura || "-"}</p>
-                </div>
+          links.map((link) => {
+            const identificador = getIdentificador(link);
 
-                <div>
-                  <Label>Observações (opcional)</Label>
-                  <Textarea
-                    value={observacoes[link.id] || ""}
-                    onChange={(e) =>
-                      setObservacoes((prev) => ({ ...prev, [link.id]: e.target.value }))
-                    }
-                    rows={2}
-                    placeholder="Informações adicionais para o chamado..."
-                  />
-                </div>
+            return (
+              <Card key={link.id} className="border-border">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-semibold">
+                    LINK DE INTERNET — {link.operadora_nome}
+                    {link.smart_sigma && (
+                      <span className="ml-2 text-xs font-normal bg-accent text-accent-foreground px-2 py-0.5 rounded">SmartSigma</span>
+                    )}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Info block — all links */}
+                  <div className="text-sm space-y-1">
+                    <p><span className="text-muted-foreground">Razão Social:</span> <span className="font-medium text-foreground">{unidade?.antiga_razao || "-"}</span></p>
+                    {identificador && (
+                      <p><span className="text-muted-foreground">{identificador.label}:</span> <span className="font-medium text-foreground">{identificador.value}</span></p>
+                    )}
+                    <p><span className="text-muted-foreground">Endereço:</span> <span className="font-medium text-foreground">{buildEndereco() || "-"}</span></p>
+                    {(link.operadora_telefone || link.operadora_email) && (
+                      <div className="pt-1 border-t border-border mt-2">
+                        <p className="text-xs font-semibold text-muted-foreground pt-1">Contato da Operadora</p>
+                        {link.operadora_telefone && (
+                          <p><span className="text-muted-foreground">Telefone:</span> <span className="font-medium text-foreground">{link.operadora_telefone}</span></p>
+                        )}
+                        {link.operadora_email && (
+                          <p><span className="text-muted-foreground">Email:</span> <span className="font-medium text-foreground">{link.operadora_email}</span></p>
+                        )}
+                      </div>
+                    )}
+                  </div>
 
-                <div className="bg-muted rounded-lg p-4">
-                  <Label className="text-xs text-muted-foreground mb-2 block">Prévia do e-mail</Label>
-                  <pre className="text-sm whitespace-pre-wrap font-sans text-foreground">
-                    {generateEmailSmartSigma(link)}
-                  </pre>
-                </div>
+                  {/* SmartSigma: observation + email preview + copy */}
+                  {link.smart_sigma && (
+                    <>
+                      <div>
+                        <Label>Observações (opcional)</Label>
+                        <Textarea
+                          value={observacoes[link.id] || ""}
+                          onChange={(e) =>
+                            setObservacoes((prev) => ({ ...prev, [link.id]: e.target.value }))
+                          }
+                          rows={2}
+                          placeholder="Informações adicionais para o chamado..."
+                        />
+                      </div>
 
-                <Button
-                  onClick={() => handleCopy(link)}
-                  className="w-full gap-2"
-                  variant={copiedId === link.id ? "secondary" : "default"}
-                >
-                  {copiedId === link.id ? (
-                    <><Check className="h-4 w-4" /> Copiado!</>
-                  ) : (
-                    <><Copy className="h-4 w-4" /> Copiar texto do chamado</>
+                      <div className="bg-muted rounded-lg p-4">
+                        <Label className="text-xs text-muted-foreground mb-2 block">Prévia do e-mail</Label>
+                        <pre className="text-sm whitespace-pre-wrap font-sans text-foreground">
+                          {generateEmail(link)}
+                        </pre>
+                      </div>
+
+                      <Button
+                        onClick={() => handleCopy(link)}
+                        className="w-full gap-2"
+                        variant={copiedId === link.id ? "secondary" : "default"}
+                      >
+                        {copiedId === link.id ? (
+                          <><Check className="h-4 w-4" /> Copiado!</>
+                        ) : (
+                          <><Copy className="h-4 w-4" /> Copiar texto do chamado</>
+                        )}
+                      </Button>
+                    </>
                   )}
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
       </DialogContent>
     </Dialog>
   );
