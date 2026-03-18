@@ -240,6 +240,9 @@ const Unidades = () => {
         tipo_autenticacao: link2.config_rede || null,
         tipo_link: (link2.tipo_link as any) || null,
         smart_sigma: link2.smart_sigma,
+        pppoe_usuario: link2.config_rede === "bridge_pppoe" ? (link2.pppoe_usuario || null) : null,
+        pppoe_senha: link2.config_rede === "bridge_pppoe" ? (link2.pppoe_senha || null) : null,
+        ddns: link2.ddns_enabled ? (link2.ddns || null) : null,
       };
       await supabase.from("links_internet").insert(link2Payload);
     }
