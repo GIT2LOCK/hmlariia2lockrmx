@@ -267,14 +267,19 @@ const UnidadeDetalhe = () => {
       </Button>
 
       {/* Header */}
-      <div className="space-y-1">
-        <h1 className="text-2xl font-bold">{unidade.nome_unidade}</h1>
-        <div className="flex items-center gap-2 text-muted-foreground text-sm flex-wrap">
-          <Building className="h-4 w-4" />
-          <span>{unidade.empresas?.nome_fantasia}</span>
-          {unidade.empresas?.cnpj && <><span>•</span><span>CNPJ: {unidade.empresas.cnpj}</span></>}
-          {unidade.empresas?.razao_social && <><span>•</span><span>{unidade.empresas.razao_social}</span></>}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold">{unidade.nome_unidade}</h1>
+          <div className="flex items-center gap-2 text-muted-foreground text-sm flex-wrap">
+            <Building className="h-4 w-4" />
+            <span>{unidade.empresas?.nome_fantasia}</span>
+            {unidade.empresas?.cnpj && <><span>•</span><span>CNPJ: {unidade.empresas.cnpj}</span></>}
+            {unidade.empresas?.razao_social && <><span>•</span><span>{unidade.empresas.razao_social}</span></>}
+          </div>
         </div>
+        <Button onClick={() => setAbrirChamadoOpen(true)} className="gap-2">
+          <Phone className="h-4 w-4" /> Abrir Chamado
+        </Button>
       </div>
 
       {/* Dados da Unidade */}
