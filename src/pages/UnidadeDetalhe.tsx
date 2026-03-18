@@ -475,12 +475,13 @@ const UnidadeDetalhe = () => {
                         <div className="flex justify-between items-start">
                           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 flex-1 text-sm">
                             <InfoItem label="Designação" value={dc.designacao || "-"} mono={!!dc.designacao} />
-                            <InfoItem label="Razão Social" value={dc.razao_social_abertura || "-"} />
+                            <InfoItem label="Razão Social" value={dc.razao_social_abertura || unidade?.antiga_razao || "-"} />
                             <InfoItem label="CNPJ" value={dc.cnpj_abertura || "-"} />
                             <InfoItem label="Nº Contrato" value={dc.numero_contrato || "-"} />
                             <InfoItem label="Nº Cliente" value={dc.numero_cliente || "-"} />
-                            <InfoItem label="Telefone" value={dc.telefone_abertura || "-"} />
-                            <InfoItem label="Email" value={dc.email_abertura || "-"} />
+                            <InfoItem label="Telefone" value={dc.telefone_abertura || unidade?.telefone || "-"} />
+                            <InfoItem label="Email" value={dc.email_abertura || unidade?.email || "-"} />
+                            <InfoItem label="Endereço" value={buildEndereco() || "-"} />
                           </div>
                           <div className="flex gap-1 ml-2">
                             {canEdit && <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEditChamado(dc)}><Pencil className="h-3 w-3" /></Button>}
@@ -496,6 +497,50 @@ const UnidadeDetalhe = () => {
                       </div>
                     ))}
                   </div>
+
+                  {/* SmartSigma Email Preview */}
+                  {link.smart_sigma && (
+                    <>
+                      <Separator />
+                      <div>
+                        <h4 className="text-sm font-semibold flex items-center gap-1.5 mb-3">
+                          <Mail className="h-4 w-4" /> E-mail SmartSigma
+                        </h4>
+
+                        <div className="space-y-3">
+                          <div>
+                            <Label className="text-xs">Observações adicionais (opcional)</Label>
+                            <Textarea
+                              value={emailObservacoes[link.id] || ""}
+                              onChange={(e) => setEmailObservacoes((prev) => ({ ...prev, [link.id]: e.target.value }))}
+                              rows={2}
+                              placeholder="Informações adicionais para o chamado..."
+                              className="mt-1"
+                            />
+                          </div>
+
+                          <div className="bg-muted rounded-lg p-4">
+                            <Label className="text-xs text-muted-foreground mb-2 block">Prévia do e-mail</Label>
+                            <pre className="text-sm whitespace-pre-wrap font-sans text-foreground">
+                              {generateSmartSigmaEmail(link)}
+                            </pre>
+                          </div>
+
+                          <Button
+                            onClick={() => handleCopyEmail(link)}
+                            className="w-full gap-2"
+                            variant={copiedLinkId === link.id ? "secondary" : "default"}
+                          >
+                            {copiedLinkId === link.id ? (
+                              <><Check className="h-4 w-4" /> Copiado!</>
+                            ) : (
+                              <><Copy className="h-4 w-4" /> Copiar texto do chamado</>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             );
