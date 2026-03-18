@@ -424,25 +424,37 @@ const UnidadeDetalhe = () => {
                       )}
                     </div>
                     {chamados.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">Nenhum dado cadastrado.</p>
+                      <div className="bg-muted/30 rounded-lg p-4 text-center">
+                        <p className="text-sm text-muted-foreground mb-2">Nenhum dado para abertura de chamado cadastrado.</p>
+                        {canEdit && (
+                          <Button size="sm" variant="outline" onClick={() => openNewChamado(link.id)} className="gap-1">
+                            <Plus className="h-3 w-3" /> Cadastrar dados de abertura
+                          </Button>
+                        )}
+                      </div>
                     ) : chamados.map((dc) => (
-                      <div key={dc.id} className="bg-muted/30 rounded-lg p-3 mb-2">
+                      <div key={dc.id} className="bg-muted/30 rounded-lg p-4 mb-2">
                         <div className="flex justify-between items-start">
-                          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 flex-1 text-sm">
-                            {dc.designacao && <InfoItem label="Designação" value={dc.designacao} mono />}
-                            {dc.razao_social_abertura && <InfoItem label="Razão Social" value={dc.razao_social_abertura} />}
-                            {dc.cnpj_abertura && <InfoItem label="CNPJ" value={dc.cnpj_abertura} />}
-                            {dc.numero_contrato && <InfoItem label="Nº Contrato" value={dc.numero_contrato} />}
-                            {dc.numero_cliente && <InfoItem label="Nº Cliente" value={dc.numero_cliente} />}
-                            {dc.telefone_abertura && <InfoItem label="Telefone" value={dc.telefone_abertura} />}
-                            {dc.email_abertura && <InfoItem label="Email" value={dc.email_abertura} />}
+                          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 flex-1 text-sm">
+                            <InfoItem label="Designação" value={dc.designacao || "-"} mono={!!dc.designacao} />
+                            <InfoItem label="Razão Social" value={dc.razao_social_abertura || "-"} />
+                            <InfoItem label="CNPJ" value={dc.cnpj_abertura || "-"} />
+                            <InfoItem label="Nº Contrato" value={dc.numero_contrato || "-"} />
+                            <InfoItem label="Nº Cliente" value={dc.numero_cliente || "-"} />
+                            <InfoItem label="Telefone" value={dc.telefone_abertura || "-"} />
+                            <InfoItem label="Email" value={dc.email_abertura || "-"} />
                           </div>
                           <div className="flex gap-1 ml-2">
                             {canEdit && <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEditChamado(dc)}><Pencil className="h-3 w-3" /></Button>}
                             {canManageUsers && <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => removeChamado(dc.id)}><Trash2 className="h-3 w-3 text-destructive" /></Button>}
                           </div>
                         </div>
-                        {dc.observacoes_abertura && <p className="text-xs text-muted-foreground mt-2">{dc.observacoes_abertura}</p>}
+                        {dc.observacoes_abertura && (
+                          <div className="mt-3 pt-2 border-t border-border">
+                            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Observações</span>
+                            <p className="text-sm text-muted-foreground mt-0.5">{dc.observacoes_abertura}</p>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
