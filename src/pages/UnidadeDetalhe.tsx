@@ -338,7 +338,6 @@ const UnidadeDetalhe = () => {
             const operadoraEmail = link.operadoras?.email;
             const chamados = link.dados_abertura_chamado || [];
             const designacao = chamados[0]?.designacao;
-            const designacao = chamados[0]?.designacao;
 
             return (
               <div key={link.id} className="border rounded-lg overflow-hidden">
