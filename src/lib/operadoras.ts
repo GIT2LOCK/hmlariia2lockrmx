@@ -44,34 +44,17 @@ export const emptyLinkData: LinkFormData = {
   smart_sigma: false,
 };
 
-export const generateHostname = (
+export const generateLinkHostname = (
   prefix: string,
-  link1: LinkFormData,
-  link2: LinkFormData | null,
-  operadorasMap: Record<string, string> // id -> nome
+  linkData: LinkFormData,
+  linkNumber: 1 | 2,
+  operadorasMap: Record<string, string>
 ): string => {
-  if (!prefix.trim()) return "";
+  if (!prefix.trim() || !linkData.operadora_id) return "";
 
-  const getAbrev = (operadoraId: string) => {
-    const nome = operadorasMap[operadoraId];
-    return nome ? OPERADORA_ABREVIACOES[nome] || "" : "";
-  };
+  const nome = operadorasMap[linkData.operadora_id];
+  const abrev = nome ? OPERADORA_ABREVIACOES[nome] || "" : "";
+  if (!abrev) return "";
 
-  let hostname = prefix.trim();
-
-  if (link1.operadora_id) {
-    const abrev = getAbrev(link1.operadora_id);
-    if (abrev) {
-      hostname += `_${abrev}W1${link1.smart_sigma ? "S" : ""}`;
-    }
-  }
-
-  if (link2 && link2.operadora_id) {
-    const abrev = getAbrev(link2.operadora_id);
-    if (abrev) {
-      hostname += `_${abrev}W2${link2.smart_sigma ? "S" : ""}`;
-    }
-  }
-
-  return hostname;
+  return `${prefix.trim()}_${abrev}W${linkNumber}${linkData.smart_sigma ? "S" : ""}`;
 };

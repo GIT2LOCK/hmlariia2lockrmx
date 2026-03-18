@@ -108,30 +108,21 @@ export function UnidadeLinkSection({
   link2,
   onLink2Change,
   operadoras,
-  generatedHostname,
+  hostname1,
+  hostname2,
 }: UnidadeLinkSectionProps) {
   return (
     <div className="space-y-4">
       <h3 className="text-sm font-semibold text-muted-foreground">LINKS DE INTERNET</h3>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <Label>Código + Abreviação (Prefixo Hostname)</Label>
-          <Input
-            value={hostnamePrefix}
-            onChange={(e) => onHostnamePrefixChange(e.target.value.toUpperCase())}
-            placeholder="Ex: 200ACL"
-          />
-        </div>
-        <div>
-          <Label>Hostname Zabbix (auto)</Label>
-          <Input
-            value={generatedHostname}
-            readOnly
-            className="bg-muted text-muted-foreground cursor-not-allowed"
-            placeholder="Preencha o prefixo e os dados do link"
-          />
-        </div>
+      <div>
+        <Label>Código + Abreviação (Prefixo Hostname)</Label>
+        <Input
+          value={hostnamePrefix}
+          onChange={(e) => onHostnamePrefixChange(e.target.value.toUpperCase())}
+          placeholder="Ex: 200ACL"
+          className="max-w-xs"
+        />
       </div>
 
       <SingleLinkForm
@@ -140,6 +131,12 @@ export function UnidadeLinkSection({
         onChange={onLink1Change}
         operadoras={operadoras}
       />
+      {hostname1 && (
+        <div>
+          <Label className="text-xs text-muted-foreground">Hostname Zabbix - Link 1</Label>
+          <Input value={hostname1} readOnly className="bg-muted text-muted-foreground cursor-not-allowed max-w-sm font-mono text-sm" />
+        </div>
+      )}
 
       {link2 === null ? (
         <Button
@@ -152,13 +149,21 @@ export function UnidadeLinkSection({
           <Plus className="h-3.5 w-3.5" /> Adicionar Link 2
         </Button>
       ) : (
-        <SingleLinkForm
-          linkNumber={2}
-          data={link2}
-          onChange={(d) => onLink2Change(d)}
-          onRemove={() => onLink2Change(null)}
-          operadoras={operadoras}
-        />
+        <>
+          <SingleLinkForm
+            linkNumber={2}
+            data={link2}
+            onChange={(d) => onLink2Change(d)}
+            onRemove={() => onLink2Change(null)}
+            operadoras={operadoras}
+          />
+          {hostname2 && (
+            <div>
+              <Label className="text-xs text-muted-foreground">Hostname Zabbix - Link 2</Label>
+              <Input value={hostname2} readOnly className="bg-muted text-muted-foreground cursor-not-allowed max-w-sm font-mono text-sm" />
+            </div>
+          )}
+        </>
       )}
     </div>
   );
