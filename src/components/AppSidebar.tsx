@@ -42,7 +42,7 @@ export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const currentPath = location.pathname;
-  const { user, refreshUser } = useUser();
+  const { user, refreshUser, canManageUsers } = useUser();
 
   const isActive = (path: string) => currentPath === path;
 
