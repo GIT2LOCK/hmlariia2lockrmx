@@ -204,6 +204,9 @@ const Unidades = () => {
       pppoe_usuario: linkData.config_rede === "bridge_pppoe" ? (linkData.pppoe_usuario || null) : null,
       pppoe_senha: linkData.config_rede === "bridge_pppoe" ? (linkData.pppoe_senha || null) : null,
       ddns: linkData.ddns_enabled ? (linkData.ddns || null) : null,
+      ip_estatico: linkData.config_rede === "estatico" ? (linkData.ip_estatico || null) : null,
+      mascara: linkData.config_rede === "estatico" ? (linkData.mascara || null) : null,
+      gateway: linkData.config_rede === "estatico" ? (linkData.gateway || null) : null,
     };
     const { data: inserted } = await supabase.from("links_internet").insert(linkPayload).select("id").single();
 
