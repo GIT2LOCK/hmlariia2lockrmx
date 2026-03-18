@@ -247,14 +247,6 @@ function SingleLinkForm({
                     />
                   </div>
                 )}
-                <div>
-                  <Label>Código</Label>
-                  <Input
-                    value={data.chamado.numero_cliente}
-                    onChange={(e) => updateChamado({ numero_cliente: e.target.value })}
-                    placeholder="Código do cliente"
-                  />
-                </div>
               </div>
             )}
           </div>

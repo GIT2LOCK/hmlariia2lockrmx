@@ -36,14 +36,12 @@ export interface ChamadoFormData {
   identificador_tipo: ChamadoIdentificador | "";
   designacao: string;
   cnpj_abertura: string;
-  numero_cliente: string;
 }
 
 export const emptyChamadoData: ChamadoFormData = {
   identificador_tipo: "",
   designacao: "",
   cnpj_abertura: "",
-  numero_cliente: "",
 };
 
 export interface LinkFormData {
