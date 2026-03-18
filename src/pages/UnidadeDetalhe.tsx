@@ -156,6 +156,40 @@ const UnidadeDetalhe = () => {
     });
   }, [links, hostnamePrefix]);
 
+  // --- SmartSigma email helpers ---
+  const buildEndereco = () => {
+    if (!unidade) return "";
+    return [
+      unidade.logradouro,
+      unidade.numero ? `Nº ${unidade.numero}` : null,
+      unidade.complemento,
+      unidade.bairro,
+      unidade.cidade && unidade.estado ? `${unidade.cidade}/${unidade.estado}` : unidade.cidade,
+      unidade.cep ? `CEP: ${unidade.cep}` : null,
+    ].filter(Boolean).join(", ");
+  };
+
+  const generateSmartSigmaEmail = (link: LinkInternet) => {
+    if (!unidade || !link.smart_sigma) return "";
+    const nomeUsuario = user?.nome || "";
+    const chamado = link.dados_abertura_chamado?.[0];
+    const cnpj = chamado?.cnpj_abertura || "";
+    const obs = emailObservacoes[link.id]?.trim();
+
+    if (obs) {
+      return `Olá!\n\nMe chamo ${nomeUsuario}, faço parte do time de monitoramento da ${unidade.empresas?.nome_fantasia || ""}. Identificamos que o link de internet ${link.operadoras?.nome || ""}, da unidade ${unidade.nome_unidade}, está inoperante. ${obs}\n\nDiante disso, gostaríamos de abrir um chamado ao link. Segue dados do mesmo:\n\nRazão: ${unidade.antiga_razao || "-"}\nCNPJ: ${cnpj || "-"}\nEndereço: ${buildEndereco() || "-"}\n\nContato:\nTelefone: ${unidade.telefone || "-"}\nEmail: ${unidade.email || "-"}\n\nAgradecemos a atenção e aguardamos retorno.`;
+    }
+    return `Olá!\n\nMe chamo ${nomeUsuario}, faço parte do time de monitoramento da ${unidade.empresas?.nome_fantasia || ""}. Identificamos que o link de internet ${link.operadoras?.nome || ""}, da unidade ${unidade.nome_unidade}, está inoperante, gostaríamos de abrir um chamado ao link. Segue dados do mesmo:\n\nRazão: ${unidade.antiga_razao || "-"}\nCNPJ: ${cnpj || "-"}\nEndereço: ${buildEndereco() || "-"}\n\nContato:\nTelefone: ${unidade.telefone || "-"}\nEmail: ${unidade.email || "-"}`;
+  };
+
+  const handleCopyEmail = async (link: LinkInternet) => {
+    const text = generateSmartSigmaEmail(link);
+    await navigator.clipboard.writeText(text);
+    setCopiedLinkId(link.id);
+    toast({ title: "Texto copiado para a área de transferência" });
+    setTimeout(() => setCopiedLinkId(null), 2000);
+  };
+
   // --- Link CRUD ---
   const openNewLink = () => { setEditingLink(null); setLinkForm(emptyLinkForm); setLinkModalOpen(true); };
   const openEditLink = (l: LinkInternet) => {
