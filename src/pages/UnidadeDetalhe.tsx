@@ -433,7 +433,7 @@ const UnidadeDetalhe = () => {
                       <InfoItem label="PPPoE Usuário" value={link.pppoe_usuario} mono />
                     )}
                     {link.tipo_autenticacao === "bridge_pppoe" && link.pppoe_senha && (
-                      <InfoItem label="PPPoE Senha" value={link.pppoe_senha} mono />
+                      <PppoesenhaItem value={link.pppoe_senha} />
                     )}
                     {link.ddns && <InfoItem label="DDNS" value={link.ddns} mono />}
                     {designacao && <InfoItem label="Designação" value={designacao} mono />}
