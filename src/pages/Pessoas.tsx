@@ -59,7 +59,12 @@ const Pessoas = () => {
     setEmpresas(data || []);
   };
 
-  useEffect(() => { fetchPessoas(); fetchUnidades(); }, []);
+  useEffect(() => { fetchPessoas(); fetchUnidades(); fetchEmpresas(); }, []);
+
+  const filteredUnidades = useMemo(() => {
+    if (!form.empresa_id) return [];
+    return unidades.filter(u => u.empresa_id === Number(form.empresa_id));
+  }, [unidades, form.empresa_id]);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return pessoas;
