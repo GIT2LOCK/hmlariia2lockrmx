@@ -389,7 +389,7 @@ const Unidades = () => {
                   </Select>
                 </div>
                 <div><Label>UDM (Código) *</Label><Input value={form.codigo_unidade} onChange={(e) => setForm({...form, codigo_unidade: e.target.value})} placeholder="Ex: GS-UDM-ACLIMACAO" /></div>
-                <div><Label>Nome da Unidade *</Label><Input value={form.nome_unidade} onChange={(e) => setForm({...form, nome_unidade: e.target.value})} placeholder="Ex: ACLIMAÇÃO" /></div>
+                <div><Label>Nome da Unidade *</Label><Input value={form.nome_unidade} onChange={(e) => setForm({...form, nome_unidade: e.target.value.toUpperCase()})} placeholder="Ex: ACLIMAÇÃO" className="uppercase" /></div>
                 <div><Label>Razão Social</Label><Input value={form.antiga_razao} onChange={(e) => setForm({...form, antiga_razao: e.target.value})} /></div>
               </div>
             </div>
