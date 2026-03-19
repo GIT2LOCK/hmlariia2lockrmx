@@ -136,11 +136,69 @@ const Unidades = () => {
 
   useEffect(() => { load(); }, []);
 
-  const filtered = unidades.filter((u) =>
-    [u.nome_unidade, u.codigo_unidade, u.hostname, u.cidade, u.estado, (u.empresas as any)?.nome_fantasia].some((v) =>
-      v?.toLowerCase().includes(search.toLowerCase())
-    )
-  );
+  // Derived filter options
+  const empresaOptions = useMemo(() => {
+    const opts = [{ value: "todos", label: "Todas as empresas" }];
+    empresas.forEach(e => opts.push({ value: String(e.id), label: e.nome_fantasia }));
+    return opts;
+  }, [empresas]);
+
+  const cidadeOptions = useMemo(() => {
+    const cidades = new Set(unidades.map(u => u.cidade).filter(Boolean) as string[]);
+    const sorted = Array.from(cidades).sort();
+    return [{ value: "todos", label: "Todas as cidades" }, ...sorted.map(c => ({ value: c, label: c }))];
+  }, [unidades]);
+
+  const filtered = useMemo(() => unidades.filter((u) => {
+    if (filterEmpresa !== "todos" && String(u.empresa_id) !== filterEmpresa) return false;
+    if (filterCidade !== "todos" && u.cidade !== filterCidade) return false;
+    if (search) {
+      return [u.nome_unidade, u.codigo_unidade, u.hostname, u.cidade, u.estado, (u.empresas as any)?.nome_fantasia]
+        .some((v) => v?.toLowerCase().includes(search.toLowerCase()));
+    }
+    return true;
+  }), [unidades, search, filterEmpresa, filterCidade]);
+
+  // Bulk selection helpers
+  const allFilteredSelected = filtered.length > 0 && filtered.every(u => selectedIds.has(u.id));
+
+  const toggleSelectAll = () => {
+    if (allFilteredSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filtered.map(u => u.id)));
+    }
+  };
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const bulkRemove = async () => {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Remover ${selectedIds.size} unidade(s) selecionada(s)?`)) return;
+    setDeleting(true);
+    const ids = Array.from(selectedIds);
+    // Delete related data first
+    const { data: existingLinks } = await supabase.from("links_internet").select("id").in("unidade_id", ids);
+    if (existingLinks) {
+      const linkIds = existingLinks.map(l => l.id);
+      if (linkIds.length > 0) {
+        await supabase.from("dados_abertura_chamado").delete().in("link_id", linkIds);
+      }
+    }
+    await supabase.from("links_internet").delete().in("unidade_id", ids);
+    await supabase.from("pessoas").delete().in("unidade_id", ids);
+    await supabase.from("unidades").delete().in("id", ids);
+    setSelectedIds(new Set());
+    setDeleting(false);
+    toast({ title: `${ids.length} unidade(s) removida(s)` });
+    load();
+  };
 
   const resetLinkState = () => {
     setHostnamePrefix("");
