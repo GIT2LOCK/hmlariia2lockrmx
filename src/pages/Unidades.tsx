@@ -20,13 +20,6 @@ import { UnidadeLinkSection } from "@/components/UnidadeLinkSection";
 import { LinkFormData, emptyLinkData, emptyChamadoData, generateLinkHostname } from "@/lib/operadoras";
 import { AbrirChamadoModal } from "@/components/AbrirChamadoModal";
 import { ClearableSelect } from "@/components/ClearableSelect";
-import { ImportUnidadesModal } from "@/components/ImportUnidadesModal";
-import { useCepLookup } from "@/hooks/useCepLookup";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useNavigate } from "react-router-dom";
-import { UnidadeLinkSection } from "@/components/UnidadeLinkSection";
-import { LinkFormData, emptyLinkData, emptyChamadoData, generateLinkHostname } from "@/lib/operadoras";
-import { AbrirChamadoModal } from "@/components/AbrirChamadoModal";
 
 interface Unidade {
   id: number; empresa_id: number; nome_unidade: string; codigo_unidade: string | null;
