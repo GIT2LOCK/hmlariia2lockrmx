@@ -50,8 +50,13 @@ const Pessoas = () => {
   };
 
   const fetchUnidades = async () => {
-    const { data } = await supabase.from("unidades").select("id, nome_unidade").order("nome_unidade");
+    const { data } = await supabase.from("unidades").select("id, nome_unidade, empresa_id").order("nome_unidade");
     setUnidades(data || []);
+  };
+
+  const fetchEmpresas = async () => {
+    const { data } = await supabase.from("empresas").select("id, nome_fantasia").order("nome_fantasia");
+    setEmpresas(data || []);
   };
 
   useEffect(() => { fetchPessoas(); fetchUnidades(); }, []);
