@@ -395,15 +395,34 @@ const Unidades = () => {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center gap-2">
-            <Search className="h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Buscar unidade..." value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-sm" />
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+              <Search className="h-4 w-4 text-muted-foreground" />
+              <Input placeholder="Buscar unidade..." value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-sm" />
+            </div>
+            <ClearableSelect value={filterEmpresa} onValueChange={setFilterEmpresa} options={empresaOptions} placeholder="Empresa" className="w-56" />
+            <ClearableSelect value={filterCidade} onValueChange={setFilterCidade} options={cidadeOptions} placeholder="Cidade" className="w-48" />
           </div>
+          {canManageUsers && selectedIds.size > 0 && (
+            <div className="flex items-center gap-3 mt-3 p-2 rounded-md bg-destructive/10 border border-destructive/20">
+              <span className="text-sm font-medium">{selectedIds.size} selecionada(s)</span>
+              <Button variant="destructive" size="sm" onClick={bulkRemove} disabled={deleting} className="gap-1">
+                {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                Excluir selecionadas
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>Limpar seleção</Button>
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
+                {canManageUsers && (
+                  <TableHead className="w-10">
+                    <Checkbox checked={allFilteredSelected && filtered.length > 0} onCheckedChange={toggleSelectAll} />
+                  </TableHead>
+                )}
                 <TableHead>UDM</TableHead>
                 <TableHead>Unidade</TableHead>
                 <TableHead>Empresa</TableHead>
@@ -414,7 +433,12 @@ const Unidades = () => {
             </TableHeader>
             <TableBody>
               {filtered.map((u) => (
-                <TableRow key={u.id}>
+                <TableRow key={u.id} className={selectedIds.has(u.id) ? "bg-muted/50" : ""}>
+                  {canManageUsers && (
+                    <TableCell>
+                      <Checkbox checked={selectedIds.has(u.id)} onCheckedChange={() => toggleSelect(u.id)} />
+                    </TableCell>
+                  )}
                   <TableCell className="font-mono text-xs">{u.codigo_unidade || "-"}</TableCell>
                   <TableCell className="font-medium">{u.nome_unidade}</TableCell>
                   <TableCell>{(u.empresas as any)?.nome_fantasia || "-"}</TableCell>
@@ -437,7 +461,7 @@ const Unidades = () => {
                 </TableRow>
               ))}
               {!loading && filtered.length === 0 && (
-                <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Nenhuma unidade encontrada</TableCell></TableRow>
+                <TableRow><TableCell colSpan={canManageUsers ? 7 : 6} className="text-center text-muted-foreground py-8">Nenhuma unidade encontrada</TableCell></TableRow>
               )}
             </TableBody>
           </Table>
