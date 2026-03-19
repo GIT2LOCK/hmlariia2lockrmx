@@ -54,6 +54,14 @@ const Unidades = () => {
   const [editing, setEditing] = useState<Unidade | null>(null);
   const [form, setForm] = useState(emptyForm);
 
+  // Filters
+  const [filterEmpresa, setFilterEmpresa] = useState("todos");
+  const [filterCidade, setFilterCidade] = useState("todos");
+
+  // Bulk selection
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [deleting, setDeleting] = useState(false);
+
   // Link state
   const [hostnamePrefix, setHostnamePrefix] = useState("");
   const [link1, setLink1] = useState<LinkFormData>(emptyLinkData);
