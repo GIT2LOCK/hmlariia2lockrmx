@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
@@ -18,6 +19,7 @@ import { useNavigate } from "react-router-dom";
 import { UnidadeLinkSection } from "@/components/UnidadeLinkSection";
 import { LinkFormData, emptyLinkData, emptyChamadoData, generateLinkHostname } from "@/lib/operadoras";
 import { AbrirChamadoModal } from "@/components/AbrirChamadoModal";
+import { ClearableSelect } from "@/components/ClearableSelect";
 
 interface Unidade {
   id: number; empresa_id: number; nome_unidade: string; codigo_unidade: string | null;
@@ -53,6 +55,14 @@ const Unidades = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Unidade | null>(null);
   const [form, setForm] = useState(emptyForm);
+
+  // Filters
+  const [filterEmpresa, setFilterEmpresa] = useState("todos");
+  const [filterCidade, setFilterCidade] = useState("todos");
+
+  // Bulk selection
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [deleting, setDeleting] = useState(false);
 
   // Link state
   const [hostnamePrefix, setHostnamePrefix] = useState("");
@@ -119,11 +129,69 @@ const Unidades = () => {
 
   useEffect(() => { load(); }, []);
 
-  const filtered = unidades.filter((u) =>
-    [u.nome_unidade, u.codigo_unidade, u.hostname, u.cidade, u.estado, (u.empresas as any)?.nome_fantasia].some((v) =>
-      v?.toLowerCase().includes(search.toLowerCase())
-    )
-  );
+  // Derived filter options
+  const empresaOptions = useMemo(() => {
+    const opts = [{ value: "todos", label: "Todas as empresas" }];
+    empresas.forEach(e => opts.push({ value: String(e.id), label: e.nome_fantasia }));
+    return opts;
+  }, [empresas]);
+
+  const cidadeOptions = useMemo(() => {
+    const cidades = new Set(unidades.map(u => u.cidade).filter(Boolean) as string[]);
+    const sorted = Array.from(cidades).sort();
+    return [{ value: "todos", label: "Todas as cidades" }, ...sorted.map(c => ({ value: c, label: c }))];
+  }, [unidades]);
+
+  const filtered = useMemo(() => unidades.filter((u) => {
+    if (filterEmpresa !== "todos" && String(u.empresa_id) !== filterEmpresa) return false;
+    if (filterCidade !== "todos" && u.cidade !== filterCidade) return false;
+    if (search) {
+      return [u.nome_unidade, u.codigo_unidade, u.hostname, u.cidade, u.estado, (u.empresas as any)?.nome_fantasia]
+        .some((v) => v?.toLowerCase().includes(search.toLowerCase()));
+    }
+    return true;
+  }), [unidades, search, filterEmpresa, filterCidade]);
+
+  // Bulk selection helpers
+  const allFilteredSelected = filtered.length > 0 && filtered.every(u => selectedIds.has(u.id));
+
+  const toggleSelectAll = () => {
+    if (allFilteredSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filtered.map(u => u.id)));
+    }
+  };
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const bulkRemove = async () => {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Remover ${selectedIds.size} unidade(s) selecionada(s)?`)) return;
+    setDeleting(true);
+    const ids = Array.from(selectedIds);
+    // Delete related data first
+    const { data: existingLinks } = await supabase.from("links_internet").select("id").in("unidade_id", ids);
+    if (existingLinks) {
+      const linkIds = existingLinks.map(l => l.id);
+      if (linkIds.length > 0) {
+        await supabase.from("dados_abertura_chamado").delete().in("link_id", linkIds);
+      }
+    }
+    await supabase.from("links_internet").delete().in("unidade_id", ids);
+    await supabase.from("pessoas").delete().in("unidade_id", ids);
+    await supabase.from("unidades").delete().in("id", ids);
+    setSelectedIds(new Set());
+    setDeleting(false);
+    toast({ title: `${ids.length} unidade(s) removida(s)` });
+    load();
+  };
 
   const resetLinkState = () => {
     setHostnamePrefix("");
@@ -320,15 +388,34 @@ const Unidades = () => {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center gap-2">
-            <Search className="h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Buscar unidade..." value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-sm" />
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+              <Search className="h-4 w-4 text-muted-foreground" />
+              <Input placeholder="Buscar unidade..." value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-sm" />
+            </div>
+            <ClearableSelect value={filterEmpresa} onValueChange={setFilterEmpresa} options={empresaOptions} placeholder="Empresa" className="w-56" />
+            <ClearableSelect value={filterCidade} onValueChange={setFilterCidade} options={cidadeOptions} placeholder="Cidade" className="w-48" />
           </div>
+          {canManageUsers && selectedIds.size > 0 && (
+            <div className="flex items-center gap-3 mt-3 p-2 rounded-md bg-destructive/10 border border-destructive/20">
+              <span className="text-sm font-medium">{selectedIds.size} selecionada(s)</span>
+              <Button variant="destructive" size="sm" onClick={bulkRemove} disabled={deleting} className="gap-1">
+                {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                Excluir selecionadas
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>Limpar seleção</Button>
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
+                {canManageUsers && (
+                  <TableHead className="w-10">
+                    <Checkbox checked={allFilteredSelected && filtered.length > 0} onCheckedChange={toggleSelectAll} />
+                  </TableHead>
+                )}
                 <TableHead>UDM</TableHead>
                 <TableHead>Unidade</TableHead>
                 <TableHead>Empresa</TableHead>
@@ -339,7 +426,12 @@ const Unidades = () => {
             </TableHeader>
             <TableBody>
               {filtered.map((u) => (
-                <TableRow key={u.id}>
+                <TableRow key={u.id} className={selectedIds.has(u.id) ? "bg-muted/50" : ""}>
+                  {canManageUsers && (
+                    <TableCell>
+                      <Checkbox checked={selectedIds.has(u.id)} onCheckedChange={() => toggleSelect(u.id)} />
+                    </TableCell>
+                  )}
                   <TableCell className="font-mono text-xs">{u.codigo_unidade || "-"}</TableCell>
                   <TableCell className="font-medium">{u.nome_unidade}</TableCell>
                   <TableCell>{(u.empresas as any)?.nome_fantasia || "-"}</TableCell>
@@ -362,7 +454,7 @@ const Unidades = () => {
                 </TableRow>
               ))}
               {!loading && filtered.length === 0 && (
-                <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Nenhuma unidade encontrada</TableCell></TableRow>
+                <TableRow><TableCell colSpan={canManageUsers ? 7 : 6} className="text-center text-muted-foreground py-8">Nenhuma unidade encontrada</TableCell></TableRow>
               )}
             </TableBody>
           </Table>
