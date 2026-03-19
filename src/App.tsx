@@ -13,6 +13,8 @@ import UnidadeDetalhe from "./pages/UnidadeDetalhe";
 import Operadoras from "./pages/Operadoras";
 import MeuPerfil from "./pages/MeuPerfil";
 import Usuarios from "./pages/Usuarios";
+import Pessoas from "./pages/Pessoas";
+import Responsaveis from "./pages/Responsaveis";
 import { UserProvider } from "./contexts/UserContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
@@ -40,6 +42,8 @@ const App = () => (
               <Route path="unidades" element={<Unidades />} />
               <Route path="unidades/:id" element={<UnidadeDetalhe />} />
               <Route path="operadoras" element={<Operadoras />} />
+              <Route path="pessoas" element={<Pessoas />} />
+              <Route path="responsaveis" element={<Responsaveis />} />
               <Route path="usuarios" element={<Usuarios />} />
               <Route path="perfil" element={<MeuPerfil />} />
             </Route>

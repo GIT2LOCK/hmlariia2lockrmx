@@ -259,6 +259,79 @@ export type Database = {
         }
         Relationships: []
       }
+      pessoas: {
+        Row: {
+          atualizado_em: string | null
+          criado_em: string | null
+          id: number
+          nome: string
+          telefone: string | null
+          unidade_id: number
+        }
+        Insert: {
+          atualizado_em?: string | null
+          criado_em?: string | null
+          id?: number
+          nome: string
+          telefone?: string | null
+          unidade_id: number
+        }
+        Update: {
+          atualizado_em?: string | null
+          criado_em?: string | null
+          id?: number
+          nome?: string
+          telefone?: string | null
+          unidade_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pessoas_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      responsaveis: {
+        Row: {
+          atualizado_em: string | null
+          criado_em: string | null
+          email: string | null
+          empresa_id: number
+          id: number
+          nome: string
+          telefone: string | null
+        }
+        Insert: {
+          atualizado_em?: string | null
+          criado_em?: string | null
+          email?: string | null
+          empresa_id: number
+          id?: number
+          nome: string
+          telefone?: string | null
+        }
+        Update: {
+          atualizado_em?: string | null
+          criado_em?: string | null
+          email?: string | null
+          empresa_id?: number
+          id?: number
+          nome?: string
+          telefone?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "responsaveis_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sessions: {
         Row: {
           criado_em: string | null
