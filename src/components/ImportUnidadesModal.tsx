@@ -131,7 +131,7 @@ export const ImportUnidadesModal = ({ open, onOpenChange, onSuccess }: ImportUni
         try {
           // Validate required fields
           const empresaNome = String(row.empresa_nome_fantasia || "").trim();
-          const nomeUnidade = String(row.nome_unidade || "").trim();
+          const nomeUnidade = String(row.nome_unidade || "").trim().toUpperCase();
 
           if (!empresaNome || !nomeUnidade) {
             errors.push(`Linha ${rowNum}: empresa_nome_fantasia e nome_unidade são obrigatórios`);
