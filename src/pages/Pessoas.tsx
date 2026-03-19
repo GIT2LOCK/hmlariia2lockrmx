@@ -19,9 +19,10 @@ interface Pessoa {
   unidades?: { nome_unidade: string };
 }
 
-interface Unidade { id: number; nome_unidade: string; }
+interface Unidade { id: number; nome_unidade: string; empresa_id: number; }
+interface Empresa { id: number; nome_fantasia: string; }
 
-const emptyForm = { nome: "", telefone: "", unidade_id: "" };
+const emptyForm = { nome: "", telefone: "", empresa_id: "", unidade_id: "" };
 
 const Pessoas = () => {
   const { toast } = useToast();
