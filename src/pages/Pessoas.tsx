@@ -19,15 +19,17 @@ interface Pessoa {
   unidades?: { nome_unidade: string };
 }
 
-interface Unidade { id: number; nome_unidade: string; }
+interface Unidade { id: number; nome_unidade: string; empresa_id: number; }
+interface Empresa { id: number; nome_fantasia: string; }
 
-const emptyForm = { nome: "", telefone: "", unidade_id: "" };
+const emptyForm = { nome: "", telefone: "", empresa_id: "", unidade_id: "" };
 
 const Pessoas = () => {
   const { toast } = useToast();
   const { canEdit, canManageUsers } = useUser();
   const [pessoas, setPessoas] = useState<Pessoa[]>([]);
   const [unidades, setUnidades] = useState<Unidade[]>([]);
+  const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -48,11 +50,21 @@ const Pessoas = () => {
   };
 
   const fetchUnidades = async () => {
-    const { data } = await supabase.from("unidades").select("id, nome_unidade").order("nome_unidade");
+    const { data } = await supabase.from("unidades").select("id, nome_unidade, empresa_id").order("nome_unidade");
     setUnidades(data || []);
   };
 
-  useEffect(() => { fetchPessoas(); fetchUnidades(); }, []);
+  const fetchEmpresas = async () => {
+    const { data } = await supabase.from("empresas").select("id, nome_fantasia").order("nome_fantasia");
+    setEmpresas(data || []);
+  };
+
+  useEffect(() => { fetchPessoas(); fetchUnidades(); fetchEmpresas(); }, []);
+
+  const filteredUnidades = useMemo(() => {
+    if (!form.empresa_id) return [];
+    return unidades.filter(u => u.empresa_id === Number(form.empresa_id));
+  }, [unidades, form.empresa_id]);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return pessoas;
@@ -67,7 +79,8 @@ const Pessoas = () => {
   const openNew = () => { setEditId(null); setForm(emptyForm); setDialogOpen(true); };
   const openEdit = (p: Pessoa) => {
     setEditId(p.id);
-    setForm({ nome: p.nome, telefone: p.telefone || "", unidade_id: String(p.unidade_id) });
+    const unidade = unidades.find(u => u.id === p.unidade_id);
+    setForm({ nome: p.nome, telefone: p.telefone || "", empresa_id: unidade ? String(unidade.empresa_id) : "", unidade_id: String(p.unidade_id) });
     setDialogOpen(true);
   };
 
@@ -169,14 +182,25 @@ const Pessoas = () => {
               <Input value={form.telefone} onChange={e => setForm({ ...form, telefone: e.target.value })} />
             </div>
             <div>
-              <Label>Unidade *</Label>
-              <Select value={form.unidade_id} onValueChange={v => setForm({ ...form, unidade_id: v })}>
-                <SelectTrigger><SelectValue placeholder="Selecione a unidade" /></SelectTrigger>
+              <Label>Empresa *</Label>
+              <Select value={form.empresa_id} onValueChange={v => setForm({ ...form, empresa_id: v, unidade_id: "" })}>
+                <SelectTrigger><SelectValue placeholder="Selecione a empresa" /></SelectTrigger>
                 <SelectContent>
-                  {unidades.map(u => <SelectItem key={u.id} value={String(u.id)}>{u.nome_unidade}</SelectItem>)}
+                  {empresas.map(e => <SelectItem key={e.id} value={String(e.id)}>{e.nome_fantasia}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
+            {form.empresa_id && (
+              <div>
+                <Label>Unidade *</Label>
+                <Select value={form.unidade_id} onValueChange={v => setForm({ ...form, unidade_id: v })}>
+                  <SelectTrigger><SelectValue placeholder="Selecione a unidade" /></SelectTrigger>
+                  <SelectContent>
+                    {filteredUnidades.map(u => <SelectItem key={u.id} value={String(u.id)}>{u.nome_unidade}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
