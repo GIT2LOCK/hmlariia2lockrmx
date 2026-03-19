@@ -36,6 +36,8 @@ const menuItems = [
   { title: "Empresas", url: "/dashboard/empresas", icon: Building2 },
   { title: "Unidades", url: "/dashboard/unidades", icon: MapPin },
   { title: "Operadoras", url: "/dashboard/operadoras", icon: Radio },
+  { title: "Pessoas", url: "/dashboard/pessoas", icon: Contact },
+  { title: "Responsáveis", url: "/dashboard/responsaveis", icon: UserCheck },
 ];
 
 export function AppSidebar() {
