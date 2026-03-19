@@ -79,7 +79,8 @@ const Pessoas = () => {
   const openNew = () => { setEditId(null); setForm(emptyForm); setDialogOpen(true); };
   const openEdit = (p: Pessoa) => {
     setEditId(p.id);
-    setForm({ nome: p.nome, telefone: p.telefone || "", unidade_id: String(p.unidade_id) });
+    const unidade = unidades.find(u => u.id === p.unidade_id);
+    setForm({ nome: p.nome, telefone: p.telefone || "", empresa_id: unidade ? String(unidade.empresa_id) : "", unidade_id: String(p.unidade_id) });
     setDialogOpen(true);
   };
 
