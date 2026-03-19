@@ -29,6 +29,7 @@ const Pessoas = () => {
   const { canEdit, canManageUsers } = useUser();
   const [pessoas, setPessoas] = useState<Pessoa[]>([]);
   const [unidades, setUnidades] = useState<Unidade[]>([]);
+  const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
