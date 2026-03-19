@@ -182,14 +182,25 @@ const Pessoas = () => {
               <Input value={form.telefone} onChange={e => setForm({ ...form, telefone: e.target.value })} />
             </div>
             <div>
-              <Label>Unidade *</Label>
-              <Select value={form.unidade_id} onValueChange={v => setForm({ ...form, unidade_id: v })}>
-                <SelectTrigger><SelectValue placeholder="Selecione a unidade" /></SelectTrigger>
+              <Label>Empresa *</Label>
+              <Select value={form.empresa_id} onValueChange={v => setForm({ ...form, empresa_id: v, unidade_id: "" })}>
+                <SelectTrigger><SelectValue placeholder="Selecione a empresa" /></SelectTrigger>
                 <SelectContent>
-                  {unidades.map(u => <SelectItem key={u.id} value={String(u.id)}>{u.nome_unidade}</SelectItem>)}
+                  {empresas.map(e => <SelectItem key={e.id} value={String(e.id)}>{e.nome_fantasia}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
+            {form.empresa_id && (
+              <div>
+                <Label>Unidade *</Label>
+                <Select value={form.unidade_id} onValueChange={v => setForm({ ...form, unidade_id: v })}>
+                  <SelectTrigger><SelectValue placeholder="Selecione a unidade" /></SelectTrigger>
+                  <SelectContent>
+                    {filteredUnidades.map(u => <SelectItem key={u.id} value={String(u.id)}>{u.nome_unidade}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
