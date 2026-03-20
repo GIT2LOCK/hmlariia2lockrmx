@@ -337,9 +337,14 @@ const UnidadeDetalhe = () => {
             {unidade.empresas?.razao_social && <><span>•</span><span>{unidade.empresas.razao_social}</span></>}
           </div>
         </div>
-        <Button onClick={() => setAbrirChamadoOpen(true)} className="gap-2">
-          <Phone className="h-4 w-4" /> Abrir Chamado
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={() => setHistoricoOpen(true)} variant="outline" className="gap-2">
+            <History className="h-4 w-4" /> Histórico
+          </Button>
+          <Button onClick={() => setAbrirChamadoOpen(true)} className="gap-2">
+            <Phone className="h-4 w-4" /> Abrir Chamado
+          </Button>
+        </div>
       </div>
 
       {/* Dados da Unidade */}
