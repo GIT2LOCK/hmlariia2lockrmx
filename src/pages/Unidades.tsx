@@ -77,6 +77,11 @@ const Unidades = () => {
   const [chamadoModalOpen, setChamadoModalOpen] = useState(false);
   const [chamadoUnidadeId, setChamadoUnidadeId] = useState<number | null>(null);
 
+  // Historico modal state
+  const [historicoModalOpen, setHistoricoModalOpen] = useState(false);
+  const [historicoUnidadeId, setHistoricoUnidadeId] = useState<number | null>(null);
+  const [historicoUnidadeNome, setHistoricoUnidadeNome] = useState("");
+
   // CEP lookup
   const { isLoading: cepLoading, fetchCep } = useCepLookup();
 
