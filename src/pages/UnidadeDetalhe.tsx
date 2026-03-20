@@ -744,6 +744,13 @@ const UnidadeDetalhe = () => {
         onOpenChange={setAbrirChamadoOpen}
         unidadeId={unidade?.id || null}
       />
+
+      <HistoricoChamadosModal
+        open={historicoOpen}
+        onOpenChange={setHistoricoOpen}
+        unidadeId={unidade?.id || null}
+        unidadeNome={unidade?.nome_unidade}
+      />
     </div>
   );
 };
