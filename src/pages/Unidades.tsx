@@ -11,7 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
-import { Plus, Pencil, Trash2, Search, Eye, Loader2, Phone, Upload } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Eye, Loader2, Phone, Upload, History } from "lucide-react";
 import { ImportUnidadesModal } from "@/components/ImportUnidadesModal";
 import { useCepLookup } from "@/hooks/useCepLookup";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
