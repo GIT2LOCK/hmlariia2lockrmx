@@ -375,6 +375,12 @@ const Unidades = () => {
     setChamadoModalOpen(true);
   };
 
+  const openHistorico = (u: Unidade) => {
+    setHistoricoUnidadeId(u.id);
+    setHistoricoUnidadeNome(u.nome_unidade);
+    setHistoricoModalOpen(true);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
