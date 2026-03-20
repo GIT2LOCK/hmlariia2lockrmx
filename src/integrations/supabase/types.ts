@@ -14,6 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      chamados: {
+        Row: {
+          aberto_por: string | null
+          atualizado_em: string | null
+          codigo_servico: string | null
+          criado_em: string | null
+          id: number
+          link_id: number
+          protocolo: string
+          unidade_id: number
+        }
+        Insert: {
+          aberto_por?: string | null
+          atualizado_em?: string | null
+          codigo_servico?: string | null
+          criado_em?: string | null
+          id?: number
+          link_id: number
+          protocolo: string
+          unidade_id: number
+        }
+        Update: {
+          aberto_por?: string | null
+          atualizado_em?: string | null
+          codigo_servico?: string | null
+          criado_em?: string | null
+          id?: number
+          link_id?: number
+          protocolo?: string
+          unidade_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chamados_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "links_internet"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chamados_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cobertura_unidade: {
         Row: {
           criado_em: string | null

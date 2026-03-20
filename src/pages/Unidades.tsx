@@ -11,7 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
-import { Plus, Pencil, Trash2, Search, Eye, Loader2, Phone, Upload } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Eye, Loader2, Phone, Upload, History } from "lucide-react";
 import { ImportUnidadesModal } from "@/components/ImportUnidadesModal";
 import { useCepLookup } from "@/hooks/useCepLookup";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -19,6 +19,7 @@ import { useNavigate } from "react-router-dom";
 import { UnidadeLinkSection } from "@/components/UnidadeLinkSection";
 import { LinkFormData, emptyLinkData, emptyChamadoData, generateLinkHostname } from "@/lib/operadoras";
 import { AbrirChamadoModal } from "@/components/AbrirChamadoModal";
+import { HistoricoChamadosModal } from "@/components/HistoricoChamadosModal";
 import { ClearableSelect } from "@/components/ClearableSelect";
 
 interface Unidade {
@@ -75,6 +76,11 @@ const Unidades = () => {
   // Chamado modal state
   const [chamadoModalOpen, setChamadoModalOpen] = useState(false);
   const [chamadoUnidadeId, setChamadoUnidadeId] = useState<number | null>(null);
+
+  // Historico modal state
+  const [historicoModalOpen, setHistoricoModalOpen] = useState(false);
+  const [historicoUnidadeId, setHistoricoUnidadeId] = useState<number | null>(null);
+  const [historicoUnidadeNome, setHistoricoUnidadeNome] = useState("");
 
   // CEP lookup
   const { isLoading: cepLoading, fetchCep } = useCepLookup();
@@ -369,6 +375,12 @@ const Unidades = () => {
     setChamadoModalOpen(true);
   };
 
+  const openHistorico = (u: Unidade) => {
+    setHistoricoUnidadeId(u.id);
+    setHistoricoUnidadeNome(u.nome_unidade);
+    setHistoricoModalOpen(true);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
@@ -441,6 +453,9 @@ const Unidades = () => {
                     <div className="flex gap-1">
                       <Button size="icon" variant="ghost" title="Abrir Chamado" onClick={() => openChamado(u.id)}>
                         <Phone className="h-4 w-4" />
+                      </Button>
+                      <Button size="icon" variant="ghost" title="Histórico de Chamados" onClick={() => openHistorico(u)}>
+                        <History className="h-4 w-4" />
                       </Button>
                       <Button size="icon" variant="ghost" onClick={() => navigate(`/dashboard/unidades/${u.id}`)}><Eye className="h-4 w-4" /></Button>
                       {canEdit && (
@@ -562,6 +577,13 @@ const Unidades = () => {
         open={chamadoModalOpen}
         onOpenChange={setChamadoModalOpen}
         unidadeId={chamadoUnidadeId}
+      />
+
+      <HistoricoChamadosModal
+        open={historicoModalOpen}
+        onOpenChange={setHistoricoModalOpen}
+        unidadeId={historicoUnidadeId}
+        unidadeNome={historicoUnidadeNome}
       />
 
       <ImportUnidadesModal

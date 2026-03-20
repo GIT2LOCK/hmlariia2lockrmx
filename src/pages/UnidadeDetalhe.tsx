@@ -15,7 +15,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
 import { OPERADORA_ABREVIACOES } from "@/lib/operadoras";
 import { AbrirChamadoModal } from "@/components/AbrirChamadoModal";
-import { ArrowLeft, Plus, Pencil, Trash2, Wifi, Phone, FileText, MapPin, Building, Globe, Server, Shield, Mail, Copy, Check, Eye, EyeOff } from "lucide-react";
+import { HistoricoChamadosModal } from "@/components/HistoricoChamadosModal";
+import { ArrowLeft, Plus, Pencil, Trash2, Wifi, Phone, FileText, MapPin, Building, Globe, Server, Shield, Mail, Copy, Check, Eye, EyeOff, History } from "lucide-react";
 
 interface LinkInternet {
   id: number; unidade_id: number; operadora_id: number; nome_link: string | null;
@@ -138,6 +139,9 @@ const UnidadeDetalhe = () => {
 
   // Abrir Chamado modal
   const [abrirChamadoOpen, setAbrirChamadoOpen] = useState(false);
+
+  // Historico Chamados modal
+  const [historicoOpen, setHistoricoOpen] = useState(false);
 
   // SmartSigma email observacoes per link
   const [emailObservacoes, setEmailObservacoes] = useState<Record<number, string>>({});
@@ -333,9 +337,14 @@ const UnidadeDetalhe = () => {
             {unidade.empresas?.razao_social && <><span>•</span><span>{unidade.empresas.razao_social}</span></>}
           </div>
         </div>
-        <Button onClick={() => setAbrirChamadoOpen(true)} className="gap-2">
-          <Phone className="h-4 w-4" /> Abrir Chamado
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={() => setHistoricoOpen(true)} variant="outline" className="gap-2">
+            <History className="h-4 w-4" /> Histórico
+          </Button>
+          <Button onClick={() => setAbrirChamadoOpen(true)} className="gap-2">
+            <Phone className="h-4 w-4" /> Abrir Chamado
+          </Button>
+        </div>
       </div>
 
       {/* Dados da Unidade */}
@@ -734,6 +743,13 @@ const UnidadeDetalhe = () => {
         open={abrirChamadoOpen}
         onOpenChange={setAbrirChamadoOpen}
         unidadeId={unidade?.id || null}
+      />
+
+      <HistoricoChamadosModal
+        open={historicoOpen}
+        onOpenChange={setHistoricoOpen}
+        unidadeId={unidade?.id || null}
+        unidadeNome={unidade?.nome_unidade}
       />
     </div>
   );
