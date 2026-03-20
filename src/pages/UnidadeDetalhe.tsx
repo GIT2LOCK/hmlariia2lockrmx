@@ -140,6 +140,9 @@ const UnidadeDetalhe = () => {
   // Abrir Chamado modal
   const [abrirChamadoOpen, setAbrirChamadoOpen] = useState(false);
 
+  // Historico Chamados modal
+  const [historicoOpen, setHistoricoOpen] = useState(false);
+
   // SmartSigma email observacoes per link
   const [emailObservacoes, setEmailObservacoes] = useState<Record<number, string>>({});
   const [copiedLinkId, setCopiedLinkId] = useState<number | null>(null);
