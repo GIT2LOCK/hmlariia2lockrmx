@@ -15,7 +15,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
 import { OPERADORA_ABREVIACOES } from "@/lib/operadoras";
 import { AbrirChamadoModal } from "@/components/AbrirChamadoModal";
-import { ArrowLeft, Plus, Pencil, Trash2, Wifi, Phone, FileText, MapPin, Building, Globe, Server, Shield, Mail, Copy, Check, Eye, EyeOff } from "lucide-react";
+import { HistoricoChamadosModal } from "@/components/HistoricoChamadosModal";
+import { ArrowLeft, Plus, Pencil, Trash2, Wifi, Phone, FileText, MapPin, Building, Globe, Server, Shield, Mail, Copy, Check, Eye, EyeOff, History } from "lucide-react";
 
 interface LinkInternet {
   id: number; unidade_id: number; operadora_id: number; nome_link: string | null;
