@@ -454,6 +454,9 @@ const Unidades = () => {
                       <Button size="icon" variant="ghost" title="Abrir Chamado" onClick={() => openChamado(u.id)}>
                         <Phone className="h-4 w-4" />
                       </Button>
+                      <Button size="icon" variant="ghost" title="Histórico de Chamados" onClick={() => openHistorico(u)}>
+                        <History className="h-4 w-4" />
+                      </Button>
                       <Button size="icon" variant="ghost" onClick={() => navigate(`/dashboard/unidades/${u.id}`)}><Eye className="h-4 w-4" /></Button>
                       {canEdit && (
                         <Button size="icon" variant="ghost" onClick={() => openEdit(u)}><Pencil className="h-4 w-4" /></Button>
