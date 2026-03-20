@@ -579,6 +579,13 @@ const Unidades = () => {
         unidadeId={chamadoUnidadeId}
       />
 
+      <HistoricoChamadosModal
+        open={historicoModalOpen}
+        onOpenChange={setHistoricoModalOpen}
+        unidadeId={historicoUnidadeId}
+        unidadeNome={historicoUnidadeNome}
+      />
+
       <ImportUnidadesModal
         open={importModalOpen}
         onOpenChange={setImportModalOpen}
