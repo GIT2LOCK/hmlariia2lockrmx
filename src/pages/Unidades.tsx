@@ -19,6 +19,7 @@ import { useNavigate } from "react-router-dom";
 import { UnidadeLinkSection } from "@/components/UnidadeLinkSection";
 import { LinkFormData, emptyLinkData, emptyChamadoData, generateLinkHostname } from "@/lib/operadoras";
 import { AbrirChamadoModal } from "@/components/AbrirChamadoModal";
+import { HistoricoChamadosModal } from "@/components/HistoricoChamadosModal";
 import { ClearableSelect } from "@/components/ClearableSelect";
 
 interface Unidade {
