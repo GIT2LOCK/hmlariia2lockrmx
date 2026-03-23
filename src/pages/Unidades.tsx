@@ -54,6 +54,7 @@ const Unidades = () => {
   const [unidades, setUnidades] = useState<Unidade[]>([]);
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [operadoras, setOperadoras] = useState<Operadora[]>([]);
+  const [linksData, setLinksData] = useState<LinkData[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
@@ -63,6 +64,11 @@ const Unidades = () => {
   // Filters
   const [filterEmpresa, setFilterEmpresa] = useState("todos");
   const [filterCidade, setFilterCidade] = useState("todos");
+  const [filterOperadoras, setFilterOperadoras] = useState<string[]>([]);
+  const [filterConfigRede, setFilterConfigRede] = useState<string[]>([]);
+  const [filterTipoLink, setFilterTipoLink] = useState<string[]>([]);
+  const [filterSmartSigma, setFilterSmartSigma] = useState("todos");
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
   // Bulk selection
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
