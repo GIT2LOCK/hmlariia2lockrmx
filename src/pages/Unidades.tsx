@@ -11,16 +11,18 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
-import { Plus, Pencil, Trash2, Search, Eye, Loader2, Phone, Upload, History } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Eye, Loader2, Phone, Upload, History, Filter, ChevronDown, ChevronUp } from "lucide-react";
 import { ImportUnidadesModal } from "@/components/ImportUnidadesModal";
 import { useCepLookup } from "@/hooks/useCepLookup";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useNavigate } from "react-router-dom";
 import { UnidadeLinkSection } from "@/components/UnidadeLinkSection";
-import { LinkFormData, emptyLinkData, emptyChamadoData, generateLinkHostname } from "@/lib/operadoras";
+import { LinkFormData, emptyLinkData, emptyChamadoData, generateLinkHostname, CONFIG_REDE_OPTIONS, TIPO_LINK_OPTIONS } from "@/lib/operadoras";
 import { AbrirChamadoModal } from "@/components/AbrirChamadoModal";
 import { HistoricoChamadosModal } from "@/components/HistoricoChamadosModal";
 import { ClearableSelect } from "@/components/ClearableSelect";
+import { Badge } from "@/components/ui/badge";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 interface Unidade {
   id: number; empresa_id: number; nome_unidade: string; codigo_unidade: string | null;
