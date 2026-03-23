@@ -88,12 +88,18 @@ const MeuPerfil = () => {
   const [disabling2FA, setDisabling2FA] = useState(false);
 
   const callProfileAPI = async (body: any) => {
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/update-profile`, {
-      method: "POST",
-      headers: getAuthHeaders(),
-      body: JSON.stringify(body),
-    });
-    return res.json();
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/update-profile`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) return { success: false, error: data.error };
+      return data;
+    } catch {
+      return { success: false, error: "Falha na conexão" };
+    }
   };
 
   const loadProfile = async () => {
