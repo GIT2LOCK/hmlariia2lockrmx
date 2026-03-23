@@ -10,6 +10,8 @@ import { Copy, Check, Mail, Phone } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
+import { OPERADORA_ABREVIACOES } from "@/lib/operadoras";
+import { Server } from "lucide-react";
 
 interface LinkOption {
   id: number;
