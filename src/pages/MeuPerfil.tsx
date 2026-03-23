@@ -135,7 +135,28 @@ const MeuPerfil = () => {
   const loadSessions = async () => {
     setLoadingSessions(true);
     const data = await callProfileAPI({ action: "get-sessions" });
-    if (data.success) setSessions(data.sessions);
+    if (data.success) {
+      setSessions(data.sessions);
+    } else {
+      // Fallback: load sessions directly from database
+      const currentToken = localStorage.getItem("auth_token");
+      const { data: sessionsData } = await supabase
+        .from("sessions")
+        .select("id, ip_address, user_agent, criado_em, last_activity, expires_at")
+        .eq("user_id", user.id)
+        .order("last_activity", { ascending: false });
+
+      const { data: currentSession } = currentToken
+        ? await supabase.from("sessions").select("id").eq("token", currentToken).maybeSingle()
+        : { data: null };
+
+      setSessions(
+        (sessionsData || []).map((s: any) => ({
+          ...s,
+          is_current: s.id === currentSession?.id,
+        }))
+      );
+    }
     setLoadingSessions(false);
   };
 
