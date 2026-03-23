@@ -11,16 +11,18 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
-import { Plus, Pencil, Trash2, Search, Eye, Loader2, Phone, Upload, History } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Eye, Loader2, Phone, Upload, History, Filter, ChevronDown, ChevronUp } from "lucide-react";
 import { ImportUnidadesModal } from "@/components/ImportUnidadesModal";
 import { useCepLookup } from "@/hooks/useCepLookup";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useNavigate } from "react-router-dom";
 import { UnidadeLinkSection } from "@/components/UnidadeLinkSection";
-import { LinkFormData, emptyLinkData, emptyChamadoData, generateLinkHostname } from "@/lib/operadoras";
+import { LinkFormData, emptyLinkData, emptyChamadoData, generateLinkHostname, CONFIG_REDE_OPTIONS, TIPO_LINK_OPTIONS } from "@/lib/operadoras";
 import { AbrirChamadoModal } from "@/components/AbrirChamadoModal";
 import { HistoricoChamadosModal } from "@/components/HistoricoChamadosModal";
 import { ClearableSelect } from "@/components/ClearableSelect";
+import { Badge } from "@/components/ui/badge";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 interface Unidade {
   id: number; empresa_id: number; nome_unidade: string; codigo_unidade: string | null;
@@ -34,6 +36,7 @@ interface Unidade {
 
 interface Empresa { id: number; nome_fantasia: string; razao_social: string | null; cnpj: string | null; }
 interface Operadora { id: number; nome: string; telefone?: string | null; }
+interface LinkData { unidade_id: number; operadora_id: number; tipo_autenticacao: string | null; tipo_link: string | null; smart_sigma: boolean | null; }
 
 const emptyForm = {
   empresa_id: "", nome_unidade: "", codigo_unidade: "",
@@ -51,6 +54,7 @@ const Unidades = () => {
   const [unidades, setUnidades] = useState<Unidade[]>([]);
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [operadoras, setOperadoras] = useState<Operadora[]>([]);
+  const [linksData, setLinksData] = useState<LinkData[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
@@ -60,6 +64,11 @@ const Unidades = () => {
   // Filters
   const [filterEmpresa, setFilterEmpresa] = useState("todos");
   const [filterCidade, setFilterCidade] = useState("todos");
+  const [filterOperadoras, setFilterOperadoras] = useState<string[]>([]);
+  const [filterConfigRede, setFilterConfigRede] = useState<string[]>([]);
+  const [filterTipoLink, setFilterTipoLink] = useState<string[]>([]);
+  const [filterSmartSigma, setFilterSmartSigma] = useState("todos");
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
   // Bulk selection
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -122,14 +131,16 @@ const Unidades = () => {
 
   const load = async () => {
     setLoading(true);
-    const [{ data: u }, { data: e }, { data: o }] = await Promise.all([
+    const [{ data: u }, { data: e }, { data: o }, { data: l }] = await Promise.all([
       supabase.from("unidades").select("*, empresas(nome_fantasia)").order("nome_unidade"),
       supabase.from("empresas").select("id, nome_fantasia, razao_social, cnpj").order("nome_fantasia"),
       supabase.from("operadoras").select("id, nome, telefone").order("nome"),
+      supabase.from("links_internet").select("unidade_id, operadora_id, tipo_autenticacao, tipo_link, smart_sigma"),
     ]);
     setUnidades((u as any[]) || []);
     setEmpresas((e as Empresa[]) || []);
     setOperadoras((o as Operadora[]) || []);
+    setLinksData((l as LinkData[]) || []);
     setLoading(false);
   };
 
@@ -148,15 +159,62 @@ const Unidades = () => {
     return [{ value: "todos", label: "Todas as cidades" }, ...sorted.map(c => ({ value: c, label: c }))];
   }, [unidades]);
 
+  // Build a map of unidade_id -> links for filtering
+  const linksByUnidade = useMemo(() => {
+    const map = new Map<number, LinkData[]>();
+    linksData.forEach(l => {
+      const arr = map.get(l.unidade_id) || [];
+      arr.push(l);
+      map.set(l.unidade_id, arr);
+    });
+    return map;
+  }, [linksData]);
+
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (filterOperadoras.length > 0) count++;
+    if (filterConfigRede.length > 0) count++;
+    if (filterTipoLink.length > 0) count++;
+    if (filterSmartSigma !== "todos") count++;
+    return count;
+  }, [filterOperadoras, filterConfigRede, filterTipoLink, filterSmartSigma]);
+
+  const clearAdvancedFilters = () => {
+    setFilterOperadoras([]);
+    setFilterConfigRede([]);
+    setFilterTipoLink([]);
+    setFilterSmartSigma("todos");
+  };
+
   const filtered = useMemo(() => unidades.filter((u) => {
     if (filterEmpresa !== "todos" && String(u.empresa_id) !== filterEmpresa) return false;
     if (filterCidade !== "todos" && u.cidade !== filterCidade) return false;
     if (search) {
-      return [u.nome_unidade, u.codigo_unidade, u.hostname, u.cidade, u.estado, (u.empresas as any)?.nome_fantasia]
+      const match = [u.nome_unidade, u.codigo_unidade, u.hostname, u.cidade, u.estado, (u.empresas as any)?.nome_fantasia]
         .some((v) => v?.toLowerCase().includes(search.toLowerCase()));
+      if (!match) return false;
     }
+
+    // Link-based filters
+    const uLinks = linksByUnidade.get(u.id) || [];
+
+    if (filterOperadoras.length > 0) {
+      if (!uLinks.some(l => filterOperadoras.includes(String(l.operadora_id)))) return false;
+    }
+    if (filterConfigRede.length > 0) {
+      if (!uLinks.some(l => l.tipo_autenticacao && filterConfigRede.includes(l.tipo_autenticacao))) return false;
+    }
+    if (filterTipoLink.length > 0) {
+      if (!uLinks.some(l => l.tipo_link && filterTipoLink.includes(l.tipo_link))) return false;
+    }
+    if (filterSmartSigma === "sim") {
+      if (!uLinks.some(l => l.smart_sigma)) return false;
+    } else if (filterSmartSigma === "nao") {
+      if (!uLinks.every(l => !l.smart_sigma)) return false;
+    }
+
     return true;
-  }), [unidades, search, filterEmpresa, filterCidade]);
+  }), [unidades, search, filterEmpresa, filterCidade, filterOperadoras, filterConfigRede, filterTipoLink, filterSmartSigma, linksByUnidade]);
 
   // Bulk selection helpers
   const allFilteredSelected = filtered.length > 0 && filtered.every(u => selectedIds.has(u.id));
@@ -407,7 +465,101 @@ const Unidades = () => {
             </div>
             <ClearableSelect value={filterEmpresa} onValueChange={setFilterEmpresa} options={empresaOptions} placeholder="Empresa" className="w-56" />
             <ClearableSelect value={filterCidade} onValueChange={setFilterCidade} options={cidadeOptions} placeholder="Cidade" className="w-48" />
+            <Button
+              variant={showAdvancedFilters ? "secondary" : "outline"}
+              size="sm"
+              onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+              className="gap-1.5"
+            >
+              <Filter className="h-4 w-4" />
+              Filtros
+              {activeFilterCount > 0 && (
+                <Badge variant="default" className="ml-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs">
+                  {activeFilterCount}
+                </Badge>
+              )}
+              {showAdvancedFilters ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+            </Button>
           </div>
+
+          {showAdvancedFilters && (
+            <div className="mt-3 space-y-4 p-4 rounded-lg border border-border bg-muted/30">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-semibold text-foreground">Filtros Avançados (Links)</h4>
+                {activeFilterCount > 0 && (
+                  <Button variant="ghost" size="sm" onClick={clearAdvancedFilters} className="text-xs h-7">
+                    Limpar filtros
+                  </Button>
+                )}
+              </div>
+
+              {/* Operadora */}
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Operadora</Label>
+                <ToggleGroup
+                  type="multiple"
+                  value={filterOperadoras}
+                  onValueChange={setFilterOperadoras}
+                  className="flex flex-wrap justify-start gap-1"
+                >
+                  {operadoras.map(op => (
+                    <ToggleGroupItem key={op.id} value={String(op.id)} variant="outline" size="sm" className="text-xs h-7 px-2.5">
+                      {op.nome}
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+              </div>
+
+              {/* Config Rede */}
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Configuração de Rede</Label>
+                <ToggleGroup
+                  type="multiple"
+                  value={filterConfigRede}
+                  onValueChange={setFilterConfigRede}
+                  className="flex flex-wrap justify-start gap-1"
+                >
+                  {CONFIG_REDE_OPTIONS.map(opt => (
+                    <ToggleGroupItem key={opt.value} value={opt.value} variant="outline" size="sm" className="text-xs h-7 px-2.5">
+                      {opt.label}
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+              </div>
+
+              {/* Tipo Link */}
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Tipo de Link</Label>
+                <ToggleGroup
+                  type="multiple"
+                  value={filterTipoLink}
+                  onValueChange={setFilterTipoLink}
+                  className="flex flex-wrap justify-start gap-1"
+                >
+                  {TIPO_LINK_OPTIONS.map(opt => (
+                    <ToggleGroupItem key={opt.value} value={opt.value} variant="outline" size="sm" className="text-xs h-7 px-2.5">
+                      {opt.label}
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+              </div>
+
+              {/* Smart Sigma */}
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Smart Sigma</Label>
+                <ToggleGroup
+                  type="single"
+                  value={filterSmartSigma}
+                  onValueChange={(v) => setFilterSmartSigma(v || "todos")}
+                  className="flex flex-wrap justify-start gap-1"
+                >
+                  <ToggleGroupItem value="todos" variant="outline" size="sm" className="text-xs h-7 px-2.5">Todos</ToggleGroupItem>
+                  <ToggleGroupItem value="sim" variant="outline" size="sm" className="text-xs h-7 px-2.5">Sim</ToggleGroupItem>
+                  <ToggleGroupItem value="nao" variant="outline" size="sm" className="text-xs h-7 px-2.5">Não</ToggleGroupItem>
+                </ToggleGroup>
+              </div>
+            </div>
+          )}
           {canManageUsers && selectedIds.size > 0 && (
             <div className="flex items-center gap-3 mt-3 p-2 rounded-md bg-destructive/10 border border-destructive/20">
               <span className="text-sm font-medium">{selectedIds.size} selecionada(s)</span>
