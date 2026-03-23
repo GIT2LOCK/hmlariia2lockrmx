@@ -131,14 +131,16 @@ const Unidades = () => {
 
   const load = async () => {
     setLoading(true);
-    const [{ data: u }, { data: e }, { data: o }] = await Promise.all([
+    const [{ data: u }, { data: e }, { data: o }, { data: l }] = await Promise.all([
       supabase.from("unidades").select("*, empresas(nome_fantasia)").order("nome_unidade"),
       supabase.from("empresas").select("id, nome_fantasia, razao_social, cnpj").order("nome_fantasia"),
       supabase.from("operadoras").select("id, nome, telefone").order("nome"),
+      supabase.from("links_internet").select("unidade_id, operadora_id, tipo_autenticacao, tipo_link, smart_sigma"),
     ]);
     setUnidades((u as any[]) || []);
     setEmpresas((e as Empresa[]) || []);
     setOperadoras((o as Operadora[]) || []);
+    setLinksData((l as LinkData[]) || []);
     setLoading(false);
   };
 
