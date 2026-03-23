@@ -106,6 +106,29 @@ const MeuPerfil = () => {
         telefone: data.user.telefone || "",
       });
       if (data.user.avatar_url) updateAvatar(data.user.avatar_url);
+    } else {
+      // Fallback: load profile directly from database
+      const { data: dbUser } = await supabase
+        .from("usuarios")
+        .select("id, nome, email, permissao, telefone, avatar_url, totp_enabled")
+        .eq("id", user.id)
+        .single();
+      if (dbUser) {
+        setProfile({
+          nome: dbUser.nome,
+          email: dbUser.email,
+          telefone: dbUser.telefone || "",
+          avatar_url: dbUser.avatar_url || "",
+          totp_enabled: dbUser.totp_enabled || false,
+          permissao: dbUser.permissao,
+        });
+        setEditForm({
+          nome: dbUser.nome || "",
+          email: dbUser.email || "",
+          telefone: dbUser.telefone || "",
+        });
+        if (dbUser.avatar_url) updateAvatar(dbUser.avatar_url);
+      }
     }
   };
 
