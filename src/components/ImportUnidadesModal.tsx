@@ -169,6 +169,7 @@ export const ImportUnidadesModal = ({ open, onOpenChange, onSuccess }: ImportUni
             empresa_id: empresaId,
             nome_unidade: nomeUnidade,
             codigo_unidade: row.codigo_unidade || null,
+            hostname: row.hostname || null,
             antiga_razao: row.antiga_razao || null,
             contato_nome: row.contato_nome || null,
             telefone: row.telefone || null,
