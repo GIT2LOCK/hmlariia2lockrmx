@@ -119,6 +119,15 @@ export function AbrirChamadoModal({ open, onOpenChange, unidadeId }: AbrirChamad
 
   const selectedLink = links.find((l) => String(l.id) === selectedLinkId) || null;
 
+  const getHostname = (link: LinkOption) => {
+    if (!unidade?.hostname || !link.operadora_nome) return "";
+    const prefix = unidade.hostname.includes("_") ? unidade.hostname.substring(0, unidade.hostname.indexOf("_")) : unidade.hostname;
+    const abrev = OPERADORA_ABREVIACOES[link.operadora_nome] || "";
+    if (!abrev) return "";
+    const linkIndex = links.findIndex((l) => l.id === link.id) + 1;
+    return `${prefix}_${abrev}W${linkIndex}${link.smart_sigma ? "S" : ""}`;
+  };
+
   const buildEndereco = () => {
     if (!unidade) return "";
     return [
