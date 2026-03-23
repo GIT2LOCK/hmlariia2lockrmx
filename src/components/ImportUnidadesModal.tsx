@@ -180,7 +180,7 @@ export const ImportUnidadesModal = ({ open, onOpenChange, onSuccess }: ImportUni
             bairro: row.bairro || null,
             cidade: row.cidade || null,
             estado: row.estado || null,
-            cep: row.cep ? String(row.cep) : null,
+            cep: row.cep ? String(row.cep).replace(/\D/g, "").slice(0, 9) : null,
             observacoes: row.observacoes || null,
           }).select("id").single();
 
