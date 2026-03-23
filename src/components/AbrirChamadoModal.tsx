@@ -92,6 +92,7 @@ export function AbrirChamadoModal({ open, onOpenChange, unidadeId }: AbrirChamad
         numero: u.numero, complemento: u.complemento, bairro: u.bairro,
         cidade: u.cidade, estado: u.estado, cep: u.cep,
         empresa_nome: (u.empresas as any)?.nome_fantasia || "",
+        hostname: u.hostname,
       });
     }
 
