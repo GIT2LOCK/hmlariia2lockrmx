@@ -216,6 +216,13 @@ export function AbrirChamadoModal({ open, onOpenChange, unidadeId }: AbrirChamad
               <Card className="border-border">
                 <CardContent className="pt-4 space-y-4">
                   {/* Info block */}
+                  {getHostname(selectedLink) && (
+                    <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-md">
+                      <Server className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-xs font-medium text-muted-foreground">Hostname Zabbix:</span>
+                      <code className="bg-background px-2 py-0.5 rounded font-mono text-sm font-semibold">{getHostname(selectedLink)}</code>
+                    </div>
+                  )}
                   <div className="text-sm space-y-1">
                     <p><span className="text-muted-foreground">Razão Social:</span> <span className="font-medium">{selectedLink.razao_social_abertura || unidade?.antiga_razao || "-"}</span></p>
                     {selectedLink.designacao && <p><span className="text-muted-foreground">Designação:</span> <span className="font-medium">{selectedLink.designacao}</span></p>}
