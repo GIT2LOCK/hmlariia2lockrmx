@@ -36,6 +36,7 @@ interface Unidade {
 
 interface Empresa { id: number; nome_fantasia: string; razao_social: string | null; cnpj: string | null; }
 interface Operadora { id: number; nome: string; telefone?: string | null; }
+interface LinkData { unidade_id: number; operadora_id: number; tipo_autenticacao: string | null; tipo_link: string | null; smart_sigma: boolean | null; }
 
 const emptyForm = {
   empresa_id: "", nome_unidade: "", codigo_unidade: "",
