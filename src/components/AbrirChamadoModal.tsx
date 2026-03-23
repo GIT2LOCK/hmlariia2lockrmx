@@ -43,6 +43,7 @@ interface UnidadeInfo {
   estado: string | null;
   cep: string | null;
   empresa_nome: string;
+  hostname: string | null;
 }
 
 interface AbrirChamadoModalProps {
