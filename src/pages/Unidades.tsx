@@ -159,15 +159,62 @@ const Unidades = () => {
     return [{ value: "todos", label: "Todas as cidades" }, ...sorted.map(c => ({ value: c, label: c }))];
   }, [unidades]);
 
+  // Build a map of unidade_id -> links for filtering
+  const linksByUnidade = useMemo(() => {
+    const map = new Map<number, LinkData[]>();
+    linksData.forEach(l => {
+      const arr = map.get(l.unidade_id) || [];
+      arr.push(l);
+      map.set(l.unidade_id, arr);
+    });
+    return map;
+  }, [linksData]);
+
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (filterOperadoras.length > 0) count++;
+    if (filterConfigRede.length > 0) count++;
+    if (filterTipoLink.length > 0) count++;
+    if (filterSmartSigma !== "todos") count++;
+    return count;
+  }, [filterOperadoras, filterConfigRede, filterTipoLink, filterSmartSigma]);
+
+  const clearAdvancedFilters = () => {
+    setFilterOperadoras([]);
+    setFilterConfigRede([]);
+    setFilterTipoLink([]);
+    setFilterSmartSigma("todos");
+  };
+
   const filtered = useMemo(() => unidades.filter((u) => {
     if (filterEmpresa !== "todos" && String(u.empresa_id) !== filterEmpresa) return false;
     if (filterCidade !== "todos" && u.cidade !== filterCidade) return false;
     if (search) {
-      return [u.nome_unidade, u.codigo_unidade, u.hostname, u.cidade, u.estado, (u.empresas as any)?.nome_fantasia]
+      const match = [u.nome_unidade, u.codigo_unidade, u.hostname, u.cidade, u.estado, (u.empresas as any)?.nome_fantasia]
         .some((v) => v?.toLowerCase().includes(search.toLowerCase()));
+      if (!match) return false;
     }
+
+    // Link-based filters
+    const uLinks = linksByUnidade.get(u.id) || [];
+
+    if (filterOperadoras.length > 0) {
+      if (!uLinks.some(l => filterOperadoras.includes(String(l.operadora_id)))) return false;
+    }
+    if (filterConfigRede.length > 0) {
+      if (!uLinks.some(l => l.tipo_autenticacao && filterConfigRede.includes(l.tipo_autenticacao))) return false;
+    }
+    if (filterTipoLink.length > 0) {
+      if (!uLinks.some(l => l.tipo_link && filterTipoLink.includes(l.tipo_link))) return false;
+    }
+    if (filterSmartSigma === "sim") {
+      if (!uLinks.some(l => l.smart_sigma)) return false;
+    } else if (filterSmartSigma === "nao") {
+      if (!uLinks.every(l => !l.smart_sigma)) return false;
+    }
+
     return true;
-  }), [unidades, search, filterEmpresa, filterCidade]);
+  }), [unidades, search, filterEmpresa, filterCidade, filterOperadoras, filterConfigRede, filterTipoLink, filterSmartSigma, linksByUnidade]);
 
   // Bulk selection helpers
   const allFilteredSelected = filtered.length > 0 && filtered.every(u => selectedIds.has(u.id));
