@@ -10,6 +10,8 @@ import { Copy, Check, Mail, Phone } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
+import { OPERADORA_ABREVIACOES } from "@/lib/operadoras";
+import { Server } from "lucide-react";
 
 interface LinkOption {
   id: number;
@@ -41,6 +43,7 @@ interface UnidadeInfo {
   estado: string | null;
   cep: string | null;
   empresa_nome: string;
+  hostname: string | null;
 }
 
 interface AbrirChamadoModalProps {
@@ -89,6 +92,7 @@ export function AbrirChamadoModal({ open, onOpenChange, unidadeId }: AbrirChamad
         numero: u.numero, complemento: u.complemento, bairro: u.bairro,
         cidade: u.cidade, estado: u.estado, cep: u.cep,
         empresa_nome: (u.empresas as any)?.nome_fantasia || "",
+        hostname: u.hostname,
       });
     }
 
@@ -114,6 +118,15 @@ export function AbrirChamadoModal({ open, onOpenChange, unidadeId }: AbrirChamad
   };
 
   const selectedLink = links.find((l) => String(l.id) === selectedLinkId) || null;
+
+  const getHostname = (link: LinkOption) => {
+    if (!unidade?.hostname || !link.operadora_nome) return "";
+    const prefix = unidade.hostname.includes("_") ? unidade.hostname.substring(0, unidade.hostname.indexOf("_")) : unidade.hostname;
+    const abrev = OPERADORA_ABREVIACOES[link.operadora_nome] || "";
+    if (!abrev) return "";
+    const linkIndex = links.findIndex((l) => l.id === link.id) + 1;
+    return `${prefix}_${abrev}W${linkIndex}${link.smart_sigma ? "S" : ""}`;
+  };
 
   const buildEndereco = () => {
     if (!unidade) return "";
@@ -203,6 +216,13 @@ export function AbrirChamadoModal({ open, onOpenChange, unidadeId }: AbrirChamad
               <Card className="border-border">
                 <CardContent className="pt-4 space-y-4">
                   {/* Info block */}
+                  {getHostname(selectedLink) && (
+                    <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-md">
+                      <Server className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-xs font-medium text-muted-foreground">Hostname Zabbix:</span>
+                      <code className="bg-background px-2 py-0.5 rounded font-mono text-sm font-semibold">{getHostname(selectedLink)}</code>
+                    </div>
+                  )}
                   <div className="text-sm space-y-1">
                     <p><span className="text-muted-foreground">Razão Social:</span> <span className="font-medium">{selectedLink.razao_social_abertura || unidade?.antiga_razao || "-"}</span></p>
                     {selectedLink.designacao && <p><span className="text-muted-foreground">Designação:</span> <span className="font-medium">{selectedLink.designacao}</span></p>}
