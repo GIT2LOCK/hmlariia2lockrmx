@@ -465,7 +465,101 @@ const Unidades = () => {
             </div>
             <ClearableSelect value={filterEmpresa} onValueChange={setFilterEmpresa} options={empresaOptions} placeholder="Empresa" className="w-56" />
             <ClearableSelect value={filterCidade} onValueChange={setFilterCidade} options={cidadeOptions} placeholder="Cidade" className="w-48" />
+            <Button
+              variant={showAdvancedFilters ? "secondary" : "outline"}
+              size="sm"
+              onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+              className="gap-1.5"
+            >
+              <Filter className="h-4 w-4" />
+              Filtros
+              {activeFilterCount > 0 && (
+                <Badge variant="default" className="ml-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs">
+                  {activeFilterCount}
+                </Badge>
+              )}
+              {showAdvancedFilters ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+            </Button>
           </div>
+
+          {showAdvancedFilters && (
+            <div className="mt-3 space-y-4 p-4 rounded-lg border border-border bg-muted/30">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-semibold text-foreground">Filtros Avançados (Links)</h4>
+                {activeFilterCount > 0 && (
+                  <Button variant="ghost" size="sm" onClick={clearAdvancedFilters} className="text-xs h-7">
+                    Limpar filtros
+                  </Button>
+                )}
+              </div>
+
+              {/* Operadora */}
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Operadora</Label>
+                <ToggleGroup
+                  type="multiple"
+                  value={filterOperadoras}
+                  onValueChange={setFilterOperadoras}
+                  className="flex flex-wrap justify-start gap-1"
+                >
+                  {operadoras.map(op => (
+                    <ToggleGroupItem key={op.id} value={String(op.id)} variant="outline" size="sm" className="text-xs h-7 px-2.5">
+                      {op.nome}
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+              </div>
+
+              {/* Config Rede */}
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Configuração de Rede</Label>
+                <ToggleGroup
+                  type="multiple"
+                  value={filterConfigRede}
+                  onValueChange={setFilterConfigRede}
+                  className="flex flex-wrap justify-start gap-1"
+                >
+                  {CONFIG_REDE_OPTIONS.map(opt => (
+                    <ToggleGroupItem key={opt.value} value={opt.value} variant="outline" size="sm" className="text-xs h-7 px-2.5">
+                      {opt.label}
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+              </div>
+
+              {/* Tipo Link */}
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Tipo de Link</Label>
+                <ToggleGroup
+                  type="multiple"
+                  value={filterTipoLink}
+                  onValueChange={setFilterTipoLink}
+                  className="flex flex-wrap justify-start gap-1"
+                >
+                  {TIPO_LINK_OPTIONS.map(opt => (
+                    <ToggleGroupItem key={opt.value} value={opt.value} variant="outline" size="sm" className="text-xs h-7 px-2.5">
+                      {opt.label}
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+              </div>
+
+              {/* Smart Sigma */}
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Smart Sigma</Label>
+                <ToggleGroup
+                  type="single"
+                  value={filterSmartSigma}
+                  onValueChange={(v) => setFilterSmartSigma(v || "todos")}
+                  className="flex flex-wrap justify-start gap-1"
+                >
+                  <ToggleGroupItem value="todos" variant="outline" size="sm" className="text-xs h-7 px-2.5">Todos</ToggleGroupItem>
+                  <ToggleGroupItem value="sim" variant="outline" size="sm" className="text-xs h-7 px-2.5">Sim</ToggleGroupItem>
+                  <ToggleGroupItem value="nao" variant="outline" size="sm" className="text-xs h-7 px-2.5">Não</ToggleGroupItem>
+                </ToggleGroup>
+              </div>
+            </div>
+          )}
           {canManageUsers && selectedIds.size > 0 && (
             <div className="flex items-center gap-3 mt-3 p-2 rounded-md bg-destructive/10 border border-destructive/20">
               <span className="text-sm font-medium">{selectedIds.size} selecionada(s)</span>
