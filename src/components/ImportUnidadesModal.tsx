@@ -18,8 +18,8 @@ interface RowData {
 }
 
 const EXPECTED_COLUMNS_UNIDADE = [
-  "empresa_nome_fantasia", "nome_unidade", "codigo_unidade", "antiga_razao",
-  "contato_nome", "telefone", "email", "email_regional",
+  "empresa_nome_fantasia", "nome_unidade", "codigo_unidade", "hostname",
+  "antiga_razao", "contato_nome", "telefone", "email", "email_regional",
   "logradouro", "numero", "complemento", "bairro", "cidade", "estado", "cep",
   "observacoes",
 ];
@@ -169,6 +169,7 @@ export const ImportUnidadesModal = ({ open, onOpenChange, onSuccess }: ImportUni
             empresa_id: empresaId,
             nome_unidade: nomeUnidade,
             codigo_unidade: row.codigo_unidade || null,
+            hostname: row.hostname || null,
             antiga_razao: row.antiga_razao || null,
             contato_nome: row.contato_nome || null,
             telefone: row.telefone || null,
