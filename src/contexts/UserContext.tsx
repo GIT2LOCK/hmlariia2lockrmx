@@ -54,9 +54,16 @@ export function UserProvider({ children }: { children: ReactNode }) {
     if (storedUser) {
       const { nome, sobrenome } = splitName(storedUser.nome);
       const role = (storedUser.permissao as UserRole) || "VIEWER";
+      // Fetch avatar from database
+      let avatarUrl = "";
+      try {
+        const { supabase } = await import("@/integrations/supabase/client");
+        const { data } = await supabase.from("usuarios").select("avatar_url").eq("id", storedUser.id).single();
+        avatarUrl = data?.avatar_url || "";
+      } catch {}
       setUser({
         id: storedUser.id, nome, sobrenome,
-        email: storedUser.email || "", cargo: role, role, avatar: "",
+        email: storedUser.email || "", cargo: role, role, avatar: avatarUrl,
       });
       setIsAuthenticated(true);
     } else {
