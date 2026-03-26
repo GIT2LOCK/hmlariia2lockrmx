@@ -172,6 +172,21 @@ export function AbrirChamadoModal({ open, onOpenChange, unidadeId }: AbrirChamad
       codigo_servico: codigoServico.trim() || null,
       aberto_por: nomeUsuario,
     });
+
+    // Send webhook to N8N
+    const hostname = getHostname(selectedLink);
+    try {
+      await supabase.functions.invoke("send-chamado-webhook", {
+        body: {
+          hostname: hostname || "",
+          protocolo: protocolo.trim(),
+          codigo_servico: codigoServico.trim() || null,
+        },
+      });
+    } catch (e) {
+      console.error("Webhook error:", e);
+    }
+
     setSaving(false);
     toast({ title: "Chamado registrado com sucesso" });
     setProtocolo("");
