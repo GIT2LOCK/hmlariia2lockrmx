@@ -666,6 +666,8 @@ const Unidades = () => {
               operadoras={operadoras}
               hostname1={hostname1}
               hostname2={hostname2}
+              ddns={form.ddns}
+              onDdnsChange={(v) => setForm({...form, ddns: v})}
             />
 
             <Separator />
