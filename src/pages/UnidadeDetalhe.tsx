@@ -223,7 +223,7 @@ const UnidadeDetalhe = () => {
       pppoe_usuario: l.pppoe_usuario || "", pppoe_senha: l.pppoe_senha || "",
       velocidade_download: l.velocidade_download || "", velocidade_upload: l.velocidade_upload || "",
       ip_tipo: l.ip_tipo || "", ip_visibilidade: l.ip_visibilidade || "",
-      ddns: l.ddns || "", bridge: l.bridge || false,
+      bridge: l.bridge || false,
       canal_atendimento: l.canal_atendimento || "", telefone_operadora: l.telefone_operadora || "",
       observacoes: l.observacoes || "", smart_sigma: l.smart_sigma || false,
     });
