@@ -23,7 +23,7 @@ interface LinkInternet {
   finalidade: string | null; tipo_link: string | null;
   velocidade_download: string | null; velocidade_upload: string | null;
   ip_tipo: string | null; ip_visibilidade: string | null;
-  ddns: string | null; bridge: boolean | null;
+  bridge: boolean | null;
   canal_atendimento: string | null; telefone_operadora: string | null;
   observacoes: string | null; smart_sigma: boolean | null;
   tipo_autenticacao: string | null; pppoe_usuario: string | null; pppoe_senha: string | null;
