@@ -686,7 +686,6 @@ const UnidadeDetalhe = () => {
                 </SelectContent>
               </Select>
             </div>
-            <div><Label>DDNS</Label><Input value={linkForm.ddns} onChange={(e) => setLinkForm({...linkForm, ddns: e.target.value})} /></div>
             <div className="flex items-center gap-3 pt-6">
               <Switch checked={linkForm.smart_sigma} onCheckedChange={(v) => setLinkForm({...linkForm, smart_sigma: v})} />
               <Label>SmartSigma</Label>
