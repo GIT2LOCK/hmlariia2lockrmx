@@ -51,8 +51,6 @@ export interface LinkFormData {
   smart_sigma: boolean;
   pppoe_usuario: string;
   pppoe_senha: string;
-  ddns_enabled: boolean;
-  ddns: string;
   ip_estatico: string;
   mascara: string;
   gateway: string;
@@ -66,8 +64,6 @@ export const emptyLinkData: LinkFormData = {
   smart_sigma: false,
   pppoe_usuario: "",
   pppoe_senha: "",
-  ddns_enabled: false,
-  ddns: "",
   ip_estatico: "",
   mascara: "",
   gateway: "",

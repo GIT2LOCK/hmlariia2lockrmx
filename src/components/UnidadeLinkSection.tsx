@@ -253,19 +253,30 @@ export function UnidadeLinkSection({
   operadoras,
   hostname1,
   hostname2,
+  ddns,
+  onDdnsChange,
 }: UnidadeLinkSectionProps) {
   return (
     <div className="space-y-4">
       <h3 className="text-sm font-semibold text-muted-foreground">LINKS DE INTERNET</h3>
 
-      <div>
-        <Label>Código + Abreviação (Prefixo Hostname)</Label>
-        <Input
-          value={hostnamePrefix}
-          onChange={(e) => onHostnamePrefixChange(e.target.value.toUpperCase())}
-          placeholder="Ex: 200ACL"
-          className="max-w-xs"
-        />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <Label>Código + Abreviação (Prefixo Hostname)</Label>
+          <Input
+            value={hostnamePrefix}
+            onChange={(e) => onHostnamePrefixChange(e.target.value.toUpperCase())}
+            placeholder="Ex: 200ACL"
+          />
+        </div>
+        <div>
+          <Label>DDNS (Geral da Unidade)</Label>
+          <Input
+            value={ddns}
+            onChange={(e) => onDdnsChange(e.target.value)}
+            placeholder="Ex: unidade.ddns.net"
+          />
+        </div>
       </div>
 
       <SingleLinkForm
