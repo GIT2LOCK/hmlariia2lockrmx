@@ -29,6 +29,8 @@ interface UnidadeLinkSectionProps {
   operadoras: Operadora[];
   hostname1: string;
   hostname2: string;
+  ddns: string;
+  onDdnsChange: (v: string) => void;
 }
 
 function SingleLinkForm({
