@@ -21,7 +21,7 @@ const EXPECTED_COLUMNS_UNIDADE = [
   "empresa_nome_fantasia", "nome_unidade", "codigo_unidade", "hostname",
   "antiga_razao", "contato_nome", "telefone", "email", "email_regional",
   "logradouro", "numero", "complemento", "bairro", "cidade", "estado", "cep",
-  "ddns", "observacoes",
+  "ddns", "ddns_usuario", "ddns_senha", "observacoes",
 ];
 
 const EXPECTED_COLUMNS_LINK1 = [
