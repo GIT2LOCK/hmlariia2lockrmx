@@ -234,7 +234,7 @@ const UnidadeDetalhe = () => {
     if (!linkForm.operadora_id) { toast({ title: "Selecione a operadora", variant: "destructive" }); return; }
     const payload: any = {
       nome_link: linkForm.nome_link, velocidade_download: linkForm.velocidade_download,
-      velocidade_upload: linkForm.velocidade_upload, ddns: linkForm.ddns,
+      velocidade_upload: linkForm.velocidade_upload,
       canal_atendimento: linkForm.canal_atendimento, telefone_operadora: linkForm.telefone_operadora,
       observacoes: linkForm.observacoes, unidade_id: Number(id),
       operadora_id: Number(linkForm.operadora_id), bridge: linkForm.bridge,
