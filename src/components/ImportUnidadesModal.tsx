@@ -247,7 +247,6 @@ export const ImportUnidadesModal = ({ open, onOpenChange, onSuccess }: ImportUni
                   smart_sigma: String(row.link2_smart_sigma).toLowerCase() === "sim" || row.link2_smart_sigma === true,
                   pppoe_usuario: l2ConfigRede === "bridge_pppoe" ? (row.link2_pppoe_usuario || null) : null,
                   pppoe_senha: l2ConfigRede === "bridge_pppoe" ? (row.link2_pppoe_senha || null) : null,
-                  ddns: row.link2_ddns || null,
                   ip_estatico: l2ConfigRede === "estatico" ? (l2Ip || null) : null,
                   mascara: l2ConfigRede === "estatico" ? (row.link2_mascara || null) : null,
                   gateway: l2ConfigRede === "estatico" ? (l2Gw || null) : null,
