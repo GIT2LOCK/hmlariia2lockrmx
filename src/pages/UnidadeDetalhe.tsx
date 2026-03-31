@@ -126,6 +126,7 @@ const DdnsSenhaItem = ({ value }: { value: string }) => {
   );
 };
 
+const UnidadeDetalhe = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
