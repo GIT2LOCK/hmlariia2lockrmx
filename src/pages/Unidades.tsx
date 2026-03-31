@@ -299,7 +299,7 @@ const Unidades = () => {
       bairro: u.bairro || "", cidade: u.cidade || "", estado: u.estado || "",
       cep: u.cep || "", rede_default: u.rede_default || "",
       wifi_antenas: u.wifi_antenas || false, observacoes: u.observacoes || "",
-      ddns: (u as any).ddns || "",
+      ddns: (u as any).ddns || "", ddns_usuario: (u as any).ddns_usuario || "", ddns_senha: (u as any).ddns_senha || "",
     });
 
     // Load existing links with chamado data
