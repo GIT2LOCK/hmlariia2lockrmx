@@ -182,6 +182,7 @@ export const ImportUnidadesModal = ({ open, onOpenChange, onSuccess }: ImportUni
             cidade: row.cidade || null,
             estado: row.estado || null,
             cep: row.cep ? String(row.cep).replace(/\D/g, "").slice(0, 9) : null,
+            ddns: row.ddns || null,
             observacoes: row.observacoes || null,
           }).select("id").single();
 
