@@ -30,7 +30,11 @@ interface UnidadeLinkSectionProps {
   hostname1: string;
   hostname2: string;
   ddns: string;
+  ddnsUsuario: string;
+  ddnsSenha: string;
   onDdnsChange: (v: string) => void;
+  onDdnsUsuarioChange: (v: string) => void;
+  onDdnsSenhaChange: (v: string) => void;
 }
 
 function SingleLinkForm({
