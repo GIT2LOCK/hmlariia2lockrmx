@@ -39,7 +39,7 @@ const EXPECTED_COLUMNS_CHAMADO1 = [
 const EXPECTED_COLUMNS_LINK2 = [
   "link2_operadora", "link2_tipo_link", "link2_config_rede", "link2_smart_sigma",
   "link2_pppoe_usuario", "link2_pppoe_senha",
-  "link2_ddns", "link2_ip_estatico", "link2_mascara", "link2_gateway",
+  "link2_ip_estatico", "link2_mascara", "link2_gateway",
 ];
 
 const EXPECTED_COLUMNS_CHAMADO2 = [
