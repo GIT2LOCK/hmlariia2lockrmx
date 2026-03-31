@@ -471,7 +471,7 @@ const UnidadeDetalhe = () => {
                     {link.tipo_autenticacao === "estatico" && link.gateway && (
                       <InfoItem label="Gateway" value={link.gateway} mono />
                     )}
-                    {link.ddns && <InfoItem label="DDNS" value={link.ddns} mono />}
+                    {unidade?.ddns && <InfoItem label="DDNS" value={unidade.ddns} mono />}
                     {designacao && <InfoItem label="Designação" value={designacao} mono />}
                     {link.canal_atendimento && <InfoItem label="Canal de Atendimento" value={link.canal_atendimento} />}
                   </div>
