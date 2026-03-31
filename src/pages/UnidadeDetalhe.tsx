@@ -109,7 +109,23 @@ const PppoesenhaItem = ({ value }: { value: string }) => {
   );
 };
 
-const UnidadeDetalhe = () => {
+const DdnsSenhaItem = ({ value }: { value: string }) => {
+  const [visible, setVisible] = useState(false);
+  return (
+    <div className="space-y-0.5">
+      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">DDNS Senha</span>
+      <div className="flex items-center gap-1.5">
+        <code className="bg-muted px-1.5 py-0.5 rounded font-mono text-xs">
+          {visible ? value : "••••••••"}
+        </code>
+        <button type="button" onClick={() => setVisible(!visible)} className="text-muted-foreground hover:text-foreground transition-colors">
+          {visible ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+        </button>
+      </div>
+    </div>
+  );
+};
+
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
