@@ -278,8 +278,6 @@ const Unidades = () => {
     smart_sigma: link.smart_sigma || false,
     pppoe_usuario: link.pppoe_usuario || "",
     pppoe_senha: link.pppoe_senha || "",
-    ddns_enabled: !!link.ddns,
-    ddns: link.ddns || "",
     ip_estatico: link.ip_estatico || "",
     mascara: link.mascara || "",
     gateway: link.gateway || "",
