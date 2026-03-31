@@ -50,7 +50,7 @@ const emptyLinkForm = {
   operadora_id: "", nome_link: "", finalidade: "", tipo_link: "", tipo_autenticacao: "",
   pppoe_usuario: "", pppoe_senha: "",
   velocidade_download: "", velocidade_upload: "", ip_tipo: "", ip_visibilidade: "",
-  ddns: "", bridge: false, canal_atendimento: "", telefone_operadora: "", observacoes: "",
+  bridge: false, canal_atendimento: "", telefone_operadora: "", observacoes: "",
   smart_sigma: false,
 };
 
