@@ -27,7 +27,7 @@ const EXPECTED_COLUMNS_UNIDADE = [
 const EXPECTED_COLUMNS_LINK1 = [
   "link1_operadora", "link1_tipo_link", "link1_config_rede", "link1_smart_sigma",
   "link1_pppoe_usuario", "link1_pppoe_senha",
-  "link1_ddns", "link1_ip_estatico", "link1_mascara", "link1_gateway",
+  "link1_ip_estatico", "link1_mascara", "link1_gateway",
 ];
 
 const EXPECTED_COLUMNS_CHAMADO1 = [
