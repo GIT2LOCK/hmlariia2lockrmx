@@ -45,7 +45,7 @@ const emptyForm = {
   logradouro: "", numero: "", complemento: "",
   bairro: "", cidade: "", estado: "", cep: "",
   rede_default: "", wifi_antenas: false, observacoes: "",
-  ddns: "",
+  ddns: "", ddns_usuario: "", ddns_senha: "",
 };
 
 const Unidades = () => {
@@ -299,7 +299,7 @@ const Unidades = () => {
       bairro: u.bairro || "", cidade: u.cidade || "", estado: u.estado || "",
       cep: u.cep || "", rede_default: u.rede_default || "",
       wifi_antenas: u.wifi_antenas || false, observacoes: u.observacoes || "",
-      ddns: (u as any).ddns || "",
+      ddns: (u as any).ddns || "", ddns_usuario: (u as any).ddns_usuario || "", ddns_senha: (u as any).ddns_senha || "",
     });
 
     // Load existing links with chamado data
@@ -375,6 +375,8 @@ const Unidades = () => {
       empresa_id: Number(form.empresa_id),
       hostname: hostname1 || null,
       ddns: form.ddns || null,
+      ddns_usuario: form.ddns_usuario || null,
+      ddns_senha: form.ddns_senha || null,
     };
 
     let unitId: number;
@@ -667,7 +669,11 @@ const Unidades = () => {
               hostname1={hostname1}
               hostname2={hostname2}
               ddns={form.ddns}
+              ddnsUsuario={form.ddns_usuario}
+              ddnsSenha={form.ddns_senha}
               onDdnsChange={(v) => setForm({...form, ddns: v})}
+              onDdnsUsuarioChange={(v) => setForm({...form, ddns_usuario: v})}
+              onDdnsSenhaChange={(v) => setForm({...form, ddns_senha: v})}
             />
 
             <Separator />

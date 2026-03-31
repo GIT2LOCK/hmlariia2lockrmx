@@ -21,7 +21,7 @@ const EXPECTED_COLUMNS_UNIDADE = [
   "empresa_nome_fantasia", "nome_unidade", "codigo_unidade", "hostname",
   "antiga_razao", "contato_nome", "telefone", "email", "email_regional",
   "logradouro", "numero", "complemento", "bairro", "cidade", "estado", "cep",
-  "ddns", "observacoes",
+  "ddns", "ddns_usuario", "ddns_senha", "observacoes",
 ];
 
 const EXPECTED_COLUMNS_LINK1 = [
@@ -183,6 +183,8 @@ export const ImportUnidadesModal = ({ open, onOpenChange, onSuccess }: ImportUni
             estado: row.estado || null,
             cep: row.cep ? String(row.cep).replace(/\D/g, "").slice(0, 9) : null,
             ddns: row.ddns || null,
+            ddns_usuario: row.ddns_usuario || null,
+            ddns_senha: row.ddns_senha || null,
             observacoes: row.observacoes || null,
           }).select("id").single();
 

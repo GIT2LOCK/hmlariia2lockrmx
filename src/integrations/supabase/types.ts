@@ -431,6 +431,8 @@ export type Database = {
           contato_nome: string | null
           criado_em: string | null
           ddns: string | null
+          ddns_senha: string | null
+          ddns_usuario: string | null
           email: string | null
           email_regional: string | null
           empresa_id: number
@@ -458,6 +460,8 @@ export type Database = {
           contato_nome?: string | null
           criado_em?: string | null
           ddns?: string | null
+          ddns_senha?: string | null
+          ddns_usuario?: string | null
           email?: string | null
           email_regional?: string | null
           empresa_id: number
@@ -485,6 +489,8 @@ export type Database = {
           contato_nome?: string | null
           criado_em?: string | null
           ddns?: string | null
+          ddns_senha?: string | null
+          ddns_usuario?: string | null
           email?: string | null
           email_regional?: string | null
           empresa_id?: number

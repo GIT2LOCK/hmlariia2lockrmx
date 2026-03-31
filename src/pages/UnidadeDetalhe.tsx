@@ -109,6 +109,23 @@ const PppoesenhaItem = ({ value }: { value: string }) => {
   );
 };
 
+const DdnsSenhaItem = ({ value }: { value: string }) => {
+  const [visible, setVisible] = useState(false);
+  return (
+    <div className="space-y-0.5">
+      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">DDNS Senha</span>
+      <div className="flex items-center gap-1.5">
+        <code className="bg-muted px-1.5 py-0.5 rounded font-mono text-xs">
+          {visible ? value : "••••••••"}
+        </code>
+        <button type="button" onClick={() => setVisible(!visible)} className="text-muted-foreground hover:text-foreground transition-colors">
+          {visible ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+        </button>
+      </div>
+    </div>
+  );
+};
+
 const UnidadeDetalhe = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -364,7 +381,11 @@ const UnidadeDetalhe = () => {
             {unidade.email && <InfoItem label="Email" value={unidade.email} />}
             {unidade.email_regional && <InfoItem label="Email Regional" value={unidade.email_regional} />}
             {unidade.rede_default && <InfoItem label="Rede Default" value={unidade.rede_default} mono />}
-            {unidade.ddns && <InfoItem label="DDNS" value={unidade.ddns} mono />}
+            {unidade.ddns && <InfoItem label="DDNS Host" value={unidade.ddns} mono />}
+            {unidade.ddns_usuario && <InfoItem label="DDNS Usuário" value={unidade.ddns_usuario} mono />}
+            {unidade.ddns_senha && (
+              <DdnsSenhaItem value={unidade.ddns_senha} />
+            )}
             <InfoItem label="Wi-Fi / Antenas" value={unidade.wifi_antenas ? "Sim" : "Não"} />
           </div>
 
