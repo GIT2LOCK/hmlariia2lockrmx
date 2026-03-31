@@ -375,6 +375,8 @@ const Unidades = () => {
       empresa_id: Number(form.empresa_id),
       hostname: hostname1 || null,
       ddns: form.ddns || null,
+      ddns_usuario: form.ddns_usuario || null,
+      ddns_senha: form.ddns_senha || null,
     };
 
     let unitId: number;
