@@ -364,7 +364,11 @@ const UnidadeDetalhe = () => {
             {unidade.email && <InfoItem label="Email" value={unidade.email} />}
             {unidade.email_regional && <InfoItem label="Email Regional" value={unidade.email_regional} />}
             {unidade.rede_default && <InfoItem label="Rede Default" value={unidade.rede_default} mono />}
-            {unidade.ddns && <InfoItem label="DDNS" value={unidade.ddns} mono />}
+            {unidade.ddns && <InfoItem label="DDNS Host" value={unidade.ddns} mono />}
+            {unidade.ddns_usuario && <InfoItem label="DDNS Usuário" value={unidade.ddns_usuario} mono />}
+            {unidade.ddns_senha && (
+              <DdnsSenhaItem value={unidade.ddns_senha} />
+            )}
             <InfoItem label="Wi-Fi / Antenas" value={unidade.wifi_antenas ? "Sim" : "Não"} />
           </div>
 

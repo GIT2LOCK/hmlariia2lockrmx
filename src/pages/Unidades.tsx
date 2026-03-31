@@ -669,7 +669,11 @@ const Unidades = () => {
               hostname1={hostname1}
               hostname2={hostname2}
               ddns={form.ddns}
+              ddnsUsuario={form.ddns_usuario}
+              ddnsSenha={form.ddns_senha}
               onDdnsChange={(v) => setForm({...form, ddns: v})}
+              onDdnsUsuarioChange={(v) => setForm({...form, ddns_usuario: v})}
+              onDdnsSenhaChange={(v) => setForm({...form, ddns_senha: v})}
             />
 
             <Separator />

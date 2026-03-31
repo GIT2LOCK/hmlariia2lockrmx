@@ -258,7 +258,11 @@ export function UnidadeLinkSection({
   hostname1,
   hostname2,
   ddns,
+  ddnsUsuario,
+  ddnsSenha,
   onDdnsChange,
+  onDdnsUsuarioChange,
+  onDdnsSenhaChange,
 }: UnidadeLinkSectionProps) {
   return (
     <div className="space-y-4">
@@ -273,13 +277,37 @@ export function UnidadeLinkSection({
             placeholder="Ex: 200ACL"
           />
         </div>
-        <div>
-          <Label>DDNS (Geral da Unidade)</Label>
-          <Input
-            value={ddns}
-            onChange={(e) => onDdnsChange(e.target.value)}
-            placeholder="Ex: unidade.ddns.net"
-          />
+      </div>
+
+      {/* DDNS Section */}
+      <div className="rounded-lg border border-border p-4 space-y-3">
+        <span className="text-sm font-semibold text-foreground">DDNS (Geral da Unidade)</span>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <Label>Host</Label>
+            <Input
+              value={ddns}
+              onChange={(e) => onDdnsChange(e.target.value)}
+              placeholder="Ex: unidade.ddns.net"
+            />
+          </div>
+          <div>
+            <Label>Usuário</Label>
+            <Input
+              value={ddnsUsuario}
+              onChange={(e) => onDdnsUsuarioChange(e.target.value)}
+              placeholder="Usuário DDNS"
+            />
+          </div>
+          <div>
+            <Label>Senha</Label>
+            <Input
+              value={ddnsSenha}
+              onChange={(e) => onDdnsSenhaChange(e.target.value)}
+              placeholder="Senha DDNS"
+              type="password"
+            />
+          </div>
         </div>
       </div>
 
