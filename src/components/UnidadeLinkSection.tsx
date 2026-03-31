@@ -168,29 +168,7 @@ function SingleLinkForm({
         </div>
       )}
 
-      {/* DDNS - not available for estático */}
-      {data.config_rede !== "estatico" && (
-        <>
-          <div className="flex items-center gap-2 pt-2">
-            <Checkbox
-              checked={data.ddns_enabled}
-              onCheckedChange={(v) => onChange({ ...data, ddns_enabled: v === true, ddns: v ? data.ddns : "" })}
-            />
-            <Label className="cursor-pointer">DDNS</Label>
-          </div>
-          {data.ddns_enabled && (
-            <div className="pt-1">
-              <Label>Endereço DDNS</Label>
-              <Input
-                value={data.ddns}
-                onChange={(e) => onChange({ ...data, ddns: e.target.value })}
-                placeholder="Ex: unidade.ddns.net"
-                className="max-w-sm"
-              />
-            </div>
-          )}
-        </>
-      )}
+      {/* DDNS removed from link level - now at unit level */}
 
       {/* Dados para abertura de chamado */}
       {data.operadora_id && (
