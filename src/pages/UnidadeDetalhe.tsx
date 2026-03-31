@@ -23,7 +23,7 @@ interface LinkInternet {
   finalidade: string | null; tipo_link: string | null;
   velocidade_download: string | null; velocidade_upload: string | null;
   ip_tipo: string | null; ip_visibilidade: string | null;
-  ddns: string | null; bridge: boolean | null;
+  bridge: boolean | null;
   canal_atendimento: string | null; telefone_operadora: string | null;
   observacoes: string | null; smart_sigma: boolean | null;
   tipo_autenticacao: string | null; pppoe_usuario: string | null; pppoe_senha: string | null;
@@ -50,7 +50,7 @@ const emptyLinkForm = {
   operadora_id: "", nome_link: "", finalidade: "", tipo_link: "", tipo_autenticacao: "",
   pppoe_usuario: "", pppoe_senha: "",
   velocidade_download: "", velocidade_upload: "", ip_tipo: "", ip_visibilidade: "",
-  ddns: "", bridge: false, canal_atendimento: "", telefone_operadora: "", observacoes: "",
+  bridge: false, canal_atendimento: "", telefone_operadora: "", observacoes: "",
   smart_sigma: false,
 };
 
@@ -223,7 +223,7 @@ const UnidadeDetalhe = () => {
       pppoe_usuario: l.pppoe_usuario || "", pppoe_senha: l.pppoe_senha || "",
       velocidade_download: l.velocidade_download || "", velocidade_upload: l.velocidade_upload || "",
       ip_tipo: l.ip_tipo || "", ip_visibilidade: l.ip_visibilidade || "",
-      ddns: l.ddns || "", bridge: l.bridge || false,
+      bridge: l.bridge || false,
       canal_atendimento: l.canal_atendimento || "", telefone_operadora: l.telefone_operadora || "",
       observacoes: l.observacoes || "", smart_sigma: l.smart_sigma || false,
     });
@@ -234,7 +234,7 @@ const UnidadeDetalhe = () => {
     if (!linkForm.operadora_id) { toast({ title: "Selecione a operadora", variant: "destructive" }); return; }
     const payload: any = {
       nome_link: linkForm.nome_link, velocidade_download: linkForm.velocidade_download,
-      velocidade_upload: linkForm.velocidade_upload, ddns: linkForm.ddns,
+      velocidade_upload: linkForm.velocidade_upload,
       canal_atendimento: linkForm.canal_atendimento, telefone_operadora: linkForm.telefone_operadora,
       observacoes: linkForm.observacoes, unidade_id: Number(id),
       operadora_id: Number(linkForm.operadora_id), bridge: linkForm.bridge,
@@ -364,6 +364,7 @@ const UnidadeDetalhe = () => {
             {unidade.email && <InfoItem label="Email" value={unidade.email} />}
             {unidade.email_regional && <InfoItem label="Email Regional" value={unidade.email_regional} />}
             {unidade.rede_default && <InfoItem label="Rede Default" value={unidade.rede_default} mono />}
+            {unidade.ddns && <InfoItem label="DDNS" value={unidade.ddns} mono />}
             <InfoItem label="Wi-Fi / Antenas" value={unidade.wifi_antenas ? "Sim" : "Não"} />
           </div>
 
@@ -471,7 +472,6 @@ const UnidadeDetalhe = () => {
                     {link.tipo_autenticacao === "estatico" && link.gateway && (
                       <InfoItem label="Gateway" value={link.gateway} mono />
                     )}
-                    {link.ddns && <InfoItem label="DDNS" value={link.ddns} mono />}
                     {designacao && <InfoItem label="Designação" value={designacao} mono />}
                     {link.canal_atendimento && <InfoItem label="Canal de Atendimento" value={link.canal_atendimento} />}
                   </div>
@@ -686,7 +686,6 @@ const UnidadeDetalhe = () => {
                 </SelectContent>
               </Select>
             </div>
-            <div><Label>DDNS</Label><Input value={linkForm.ddns} onChange={(e) => setLinkForm({...linkForm, ddns: e.target.value})} /></div>
             <div className="flex items-center gap-3 pt-6">
               <Switch checked={linkForm.smart_sigma} onCheckedChange={(v) => setLinkForm({...linkForm, smart_sigma: v})} />
               <Label>SmartSigma</Label>

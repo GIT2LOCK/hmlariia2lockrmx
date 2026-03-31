@@ -29,6 +29,8 @@ interface UnidadeLinkSectionProps {
   operadoras: Operadora[];
   hostname1: string;
   hostname2: string;
+  ddns: string;
+  onDdnsChange: (v: string) => void;
 }
 
 function SingleLinkForm({
@@ -166,29 +168,7 @@ function SingleLinkForm({
         </div>
       )}
 
-      {/* DDNS - not available for estático */}
-      {data.config_rede !== "estatico" && (
-        <>
-          <div className="flex items-center gap-2 pt-2">
-            <Checkbox
-              checked={data.ddns_enabled}
-              onCheckedChange={(v) => onChange({ ...data, ddns_enabled: v === true, ddns: v ? data.ddns : "" })}
-            />
-            <Label className="cursor-pointer">DDNS</Label>
-          </div>
-          {data.ddns_enabled && (
-            <div className="pt-1">
-              <Label>Endereço DDNS</Label>
-              <Input
-                value={data.ddns}
-                onChange={(e) => onChange({ ...data, ddns: e.target.value })}
-                placeholder="Ex: unidade.ddns.net"
-                className="max-w-sm"
-              />
-            </div>
-          )}
-        </>
-      )}
+      {/* DDNS removed from link level - now at unit level */}
 
       {/* Dados para abertura de chamado */}
       {data.operadora_id && (
@@ -273,19 +253,30 @@ export function UnidadeLinkSection({
   operadoras,
   hostname1,
   hostname2,
+  ddns,
+  onDdnsChange,
 }: UnidadeLinkSectionProps) {
   return (
     <div className="space-y-4">
       <h3 className="text-sm font-semibold text-muted-foreground">LINKS DE INTERNET</h3>
 
-      <div>
-        <Label>Código + Abreviação (Prefixo Hostname)</Label>
-        <Input
-          value={hostnamePrefix}
-          onChange={(e) => onHostnamePrefixChange(e.target.value.toUpperCase())}
-          placeholder="Ex: 200ACL"
-          className="max-w-xs"
-        />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <Label>Código + Abreviação (Prefixo Hostname)</Label>
+          <Input
+            value={hostnamePrefix}
+            onChange={(e) => onHostnamePrefixChange(e.target.value.toUpperCase())}
+            placeholder="Ex: 200ACL"
+          />
+        </div>
+        <div>
+          <Label>DDNS (Geral da Unidade)</Label>
+          <Input
+            value={ddns}
+            onChange={(e) => onDdnsChange(e.target.value)}
+            placeholder="Ex: unidade.ddns.net"
+          />
+        </div>
       </div>
 
       <SingleLinkForm

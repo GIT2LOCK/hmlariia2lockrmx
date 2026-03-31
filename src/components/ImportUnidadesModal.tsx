@@ -21,13 +21,13 @@ const EXPECTED_COLUMNS_UNIDADE = [
   "empresa_nome_fantasia", "nome_unidade", "codigo_unidade", "hostname",
   "antiga_razao", "contato_nome", "telefone", "email", "email_regional",
   "logradouro", "numero", "complemento", "bairro", "cidade", "estado", "cep",
-  "observacoes",
+  "ddns", "observacoes",
 ];
 
 const EXPECTED_COLUMNS_LINK1 = [
   "link1_operadora", "link1_tipo_link", "link1_config_rede", "link1_smart_sigma",
   "link1_pppoe_usuario", "link1_pppoe_senha",
-  "link1_ddns", "link1_ip_estatico", "link1_mascara", "link1_gateway",
+  "link1_ip_estatico", "link1_mascara", "link1_gateway",
 ];
 
 const EXPECTED_COLUMNS_CHAMADO1 = [
@@ -39,7 +39,7 @@ const EXPECTED_COLUMNS_CHAMADO1 = [
 const EXPECTED_COLUMNS_LINK2 = [
   "link2_operadora", "link2_tipo_link", "link2_config_rede", "link2_smart_sigma",
   "link2_pppoe_usuario", "link2_pppoe_senha",
-  "link2_ddns", "link2_ip_estatico", "link2_mascara", "link2_gateway",
+  "link2_ip_estatico", "link2_mascara", "link2_gateway",
 ];
 
 const EXPECTED_COLUMNS_CHAMADO2 = [
@@ -182,6 +182,7 @@ export const ImportUnidadesModal = ({ open, onOpenChange, onSuccess }: ImportUni
             cidade: row.cidade || null,
             estado: row.estado || null,
             cep: row.cep ? String(row.cep).replace(/\D/g, "").slice(0, 9) : null,
+            ddns: row.ddns || null,
             observacoes: row.observacoes || null,
           }).select("id").single();
 
@@ -202,7 +203,6 @@ export const ImportUnidadesModal = ({ open, onOpenChange, onSuccess }: ImportUni
             smart_sigma: String(row.link1_smart_sigma).toLowerCase() === "sim" || row.link1_smart_sigma === true,
             pppoe_usuario: l1ConfigRede === "bridge_pppoe" ? (row.link1_pppoe_usuario || null) : null,
             pppoe_senha: l1ConfigRede === "bridge_pppoe" ? (row.link1_pppoe_senha || null) : null,
-            ddns: row.link1_ddns || null,
             ip_estatico: l1ConfigRede === "estatico" ? (l1Ip || null) : null,
             mascara: l1ConfigRede === "estatico" ? (row.link1_mascara || null) : null,
             gateway: l1ConfigRede === "estatico" ? (l1Gw || null) : null,
@@ -247,7 +247,6 @@ export const ImportUnidadesModal = ({ open, onOpenChange, onSuccess }: ImportUni
                   smart_sigma: String(row.link2_smart_sigma).toLowerCase() === "sim" || row.link2_smart_sigma === true,
                   pppoe_usuario: l2ConfigRede === "bridge_pppoe" ? (row.link2_pppoe_usuario || null) : null,
                   pppoe_senha: l2ConfigRede === "bridge_pppoe" ? (row.link2_pppoe_senha || null) : null,
-                  ddns: row.link2_ddns || null,
                   ip_estatico: l2ConfigRede === "estatico" ? (l2Ip || null) : null,
                   mascara: l2ConfigRede === "estatico" ? (row.link2_mascara || null) : null,
                   gateway: l2ConfigRede === "estatico" ? (l2Gw || null) : null,

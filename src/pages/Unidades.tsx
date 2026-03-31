@@ -45,6 +45,7 @@ const emptyForm = {
   logradouro: "", numero: "", complemento: "",
   bairro: "", cidade: "", estado: "", cep: "",
   rede_default: "", wifi_antenas: false, observacoes: "",
+  ddns: "",
 };
 
 const Unidades = () => {
@@ -277,8 +278,6 @@ const Unidades = () => {
     smart_sigma: link.smart_sigma || false,
     pppoe_usuario: link.pppoe_usuario || "",
     pppoe_senha: link.pppoe_senha || "",
-    ddns_enabled: !!link.ddns,
-    ddns: link.ddns || "",
     ip_estatico: link.ip_estatico || "",
     mascara: link.mascara || "",
     gateway: link.gateway || "",
@@ -300,6 +299,7 @@ const Unidades = () => {
       bairro: u.bairro || "", cidade: u.cidade || "", estado: u.estado || "",
       cep: u.cep || "", rede_default: u.rede_default || "",
       wifi_antenas: u.wifi_antenas || false, observacoes: u.observacoes || "",
+      ddns: (u as any).ddns || "",
     });
 
     // Load existing links with chamado data
@@ -339,7 +339,6 @@ const Unidades = () => {
       smart_sigma: linkData.smart_sigma,
       pppoe_usuario: linkData.config_rede === "bridge_pppoe" ? (linkData.pppoe_usuario || null) : null,
       pppoe_senha: linkData.config_rede === "bridge_pppoe" ? (linkData.pppoe_senha || null) : null,
-      ddns: linkData.ddns_enabled ? (linkData.ddns || null) : null,
       ip_estatico: linkData.config_rede === "estatico" ? (linkData.ip_estatico || null) : null,
       mascara: linkData.config_rede === "estatico" ? (linkData.mascara || null) : null,
       gateway: linkData.config_rede === "estatico" ? (linkData.gateway || null) : null,
@@ -375,6 +374,7 @@ const Unidades = () => {
       ...form,
       empresa_id: Number(form.empresa_id),
       hostname: hostname1 || null,
+      ddns: form.ddns || null,
     };
 
     let unitId: number;
@@ -666,6 +666,8 @@ const Unidades = () => {
               operadoras={operadoras}
               hostname1={hostname1}
               hostname2={hostname2}
+              ddns={form.ddns}
+              onDdnsChange={(v) => setForm({...form, ddns: v})}
             />
 
             <Separator />

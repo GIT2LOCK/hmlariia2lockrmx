@@ -183,7 +183,6 @@ export type Database = {
           bridge: boolean | null
           canal_atendimento: string | null
           criado_em: string | null
-          ddns: string | null
           finalidade: Database["public"]["Enums"]["finalidade_link"] | null
           gateway: string | null
           id: number
@@ -209,7 +208,6 @@ export type Database = {
           bridge?: boolean | null
           canal_atendimento?: string | null
           criado_em?: string | null
-          ddns?: string | null
           finalidade?: Database["public"]["Enums"]["finalidade_link"] | null
           gateway?: string | null
           id?: number
@@ -237,7 +235,6 @@ export type Database = {
           bridge?: boolean | null
           canal_atendimento?: string | null
           criado_em?: string | null
-          ddns?: string | null
           finalidade?: Database["public"]["Enums"]["finalidade_link"] | null
           gateway?: string | null
           id?: number
@@ -433,6 +430,7 @@ export type Database = {
           complemento: string | null
           contato_nome: string | null
           criado_em: string | null
+          ddns: string | null
           email: string | null
           email_regional: string | null
           empresa_id: number
@@ -459,6 +457,7 @@ export type Database = {
           complemento?: string | null
           contato_nome?: string | null
           criado_em?: string | null
+          ddns?: string | null
           email?: string | null
           email_regional?: string | null
           empresa_id: number
@@ -485,6 +484,7 @@ export type Database = {
           complemento?: string | null
           contato_nome?: string | null
           criado_em?: string | null
+          ddns?: string | null
           email?: string | null
           email_regional?: string | null
           empresa_id?: number
