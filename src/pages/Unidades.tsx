@@ -45,6 +45,7 @@ const emptyForm = {
   logradouro: "", numero: "", complemento: "",
   bairro: "", cidade: "", estado: "", cep: "",
   rede_default: "", wifi_antenas: false, observacoes: "",
+  ddns: "",
 };
 
 const Unidades = () => {
