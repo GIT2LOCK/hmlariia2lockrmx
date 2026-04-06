@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,14 +11,16 @@ import TwoFactorModal from "@/components/TwoFactorModal";
 import TwoFactorSetupModal from "@/components/TwoFactorSetupModal";
 import logo from "@/assets/logo.png";
 
+type PanelPhase = "idle" | "expanding" | "full" | "shrinking";
+
 const Index = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { refreshUser } = useUser();
 
   const [isSignUp, setIsSignUp] = useState(false);
-  const [isAnimating, setIsAnimating] = useState(false);
-  const [showContent, setShowContent] = useState(true);
+  const [phase, setPhase] = useState<PanelPhase>("idle");
+  const animating = useRef(false);
 
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
@@ -39,16 +41,63 @@ const Index = () => {
   const [setupToken, setSetupToken] = useState("");
 
   const handleToggle = (toSignUp: boolean) => {
-    if (isAnimating) return;
-    setIsAnimating(true);
-    setShowContent(false);
+    if (animating.current) return;
+    animating.current = true;
+
+    // Phase 1: expand to fill entire screen
+    setPhase("expanding");
+
     setTimeout(() => {
+      // Phase 2: fully covering — switch the form
+      setPhase("full");
       setIsSignUp(toSignUp);
+
       setTimeout(() => {
-        setShowContent(true);
-        setIsAnimating(false);
-      }, 400);
-    }, 300);
+        // Phase 3: shrink to the new side
+        setPhase("shrinking");
+
+        setTimeout(() => {
+          // Phase 4: done
+          setPhase("idle");
+          animating.current = false;
+        }, 700);
+      }, 100);
+    }, 600);
+  };
+
+  // Panel styles based on phase and current side
+  const getPanelStyle = (): React.CSSProperties => {
+    const ease = "cubic-bezier(0.76, 0, 0.24, 1)";
+
+    if (phase === "idle") {
+      return {
+        left: isSignUp ? "60%" : "0%",
+        width: "40%",
+        transition: `left 0.7s ${ease}, width 0.7s ${ease}`,
+      };
+    }
+    if (phase === "expanding") {
+      // Expand toward the opposite side to fill 100%
+      return {
+        left: "0%",
+        width: "100%",
+        transition: `left 0.6s ${ease}, width 0.6s ${ease}`,
+      };
+    }
+    if (phase === "full") {
+      // Still full width, no transition
+      return {
+        left: "0%",
+        width: "100%",
+        transition: "none",
+      };
+    }
+    // shrinking — shrink to the new side
+    return {
+      left: isSignUp ? "60%" : "0%",
+      width: "40%",
+      transition: `left 0.7s ${ease}, width 0.7s ${ease}`,
+    };
   };
 
   const completeLogin = (user: any, session: any) => {
@@ -112,23 +161,21 @@ const Index = () => {
     }
   };
 
+  const formsVisible = phase === "idle";
+
   return (
     <div className="min-h-screen flex bg-background overflow-hidden relative">
       {/* Blue overlay panel */}
       <div
-        className="absolute top-0 bottom-0 w-[40%] z-20 bg-primary pointer-events-auto flex items-center justify-center"
-        style={{
-          left: isSignUp ? "60%" : "0%",
-          borderRadius: isSignUp ? "2rem 0 0 2rem" : "0 2rem 2rem 0",
-          transition: "left 0.9s cubic-bezier(0.76, 0, 0.24, 1), border-radius 0.9s cubic-bezier(0.76, 0, 0.24, 1)",
-        }}
+        className="absolute top-0 bottom-0 z-20 bg-primary flex items-center justify-center"
+        style={getPanelStyle()}
       >
         <div
           className="text-center text-primary-foreground px-8 max-w-sm"
           style={{
-            opacity: showContent ? 1 : 0,
-            transform: showContent ? "translateY(0)" : "translateY(12px)",
-            transition: "opacity 0.4s ease, transform 0.4s ease",
+            opacity: phase === "idle" ? 1 : 0,
+            transform: phase === "idle" ? "scale(1)" : "scale(0.95)",
+            transition: "opacity 0.3s ease, transform 0.3s ease",
           }}
         >
           <h2 className="text-3xl font-bold mb-4">Olá, Amigo!</h2>
@@ -151,10 +198,10 @@ const Index = () => {
       <div
         className="w-1/2 ml-auto flex items-center justify-center p-8"
         style={{
-          opacity: isSignUp ? 0 : 1,
-          transform: isSignUp ? "translateX(30px)" : "translateX(0)",
-          pointerEvents: isSignUp ? "none" : "auto",
-          transition: "opacity 0.6s ease 0.2s, transform 0.6s ease 0.2s",
+          opacity: !isSignUp && formsVisible ? 1 : 0,
+          transform: !isSignUp && formsVisible ? "translateY(0)" : "translateY(20px)",
+          pointerEvents: !isSignUp && formsVisible ? "auto" : "none",
+          transition: "opacity 0.5s ease 0.1s, transform 0.5s ease 0.1s",
         }}
       >
         <div className="w-full max-w-md space-y-6">
@@ -196,10 +243,10 @@ const Index = () => {
       <div
         className="absolute top-0 left-0 w-1/2 h-full flex items-center justify-center p-8"
         style={{
-          opacity: isSignUp ? 1 : 0,
-          transform: isSignUp ? "translateX(0)" : "translateX(-30px)",
-          pointerEvents: isSignUp ? "auto" : "none",
-          transition: "opacity 0.6s ease 0.2s, transform 0.6s ease 0.2s",
+          opacity: isSignUp && formsVisible ? 1 : 0,
+          transform: isSignUp && formsVisible ? "translateY(0)" : "translateY(20px)",
+          pointerEvents: isSignUp && formsVisible ? "auto" : "none",
+          transition: "opacity 0.5s ease 0.1s, transform 0.5s ease 0.1s",
         }}
       >
         <div className="w-full max-w-md space-y-5">
