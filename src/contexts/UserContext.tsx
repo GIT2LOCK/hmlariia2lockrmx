@@ -17,7 +17,7 @@ interface UserContextType {
   user: User;
   isLoading: boolean;
   isAuthenticated: boolean;
-  refreshUser: () => void;
+  refreshUser: () => Promise<void>;
   syncFromDatabase: () => Promise<void>;
   updateAvatar: (newAvatarUrl: string) => void;
   canEdit: boolean;
@@ -96,7 +96,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
-  const refreshUser = () => { loadUser(); };
+  const refreshUser = () => loadUser();
   const canEdit = user.role === "SUPERADMIN" || user.role === "ADMIN" || user.role === "USER";
   const canManageUsers = user.role === "SUPERADMIN" || user.role === "ADMIN";
   const canManageAdmins = user.role === "SUPERADMIN";
@@ -118,7 +118,7 @@ export function useUser(): UserContextType {
   if (!context) {
     return {
       user: defaultUser, isLoading: true, isAuthenticated: false,
-      refreshUser: () => {}, syncFromDatabase: async () => {}, updateAvatar: () => {},
+      refreshUser: async () => {}, syncFromDatabase: async () => {}, updateAvatar: () => {},
       canEdit: false, canManageUsers: false, canManageAdmins: false, hasFullAccess: false, isViewer: true,
     };
   }
