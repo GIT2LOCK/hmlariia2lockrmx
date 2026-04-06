@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +16,14 @@ type PanelPhase = "idle" | "expanding" | "full" | "shrinking";
 const Index = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { refreshUser } = useUser();
+  const { refreshUser, isAuthenticated, isLoading } = useUser();
+
+  // Redirect to dashboard if already authenticated
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [isLoading, isAuthenticated, navigate]);
 
   const [isSignUp, setIsSignUp] = useState(false);
   const [phase, setPhase] = useState<PanelPhase>("idle");
