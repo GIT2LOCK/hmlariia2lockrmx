@@ -55,12 +55,11 @@ const Index = () => {
         setTimeout(() => {
           setPhase("idle");
           animating.current = false;
-        }, 450);
-      }, 50);
-    }, 380);
+        }, 320);
+      }, 30);
+    }, 280);
   };
 
-  // Panel styles based on phase and current side
   const getPanelStyle = (): React.CSSProperties => {
     const ease = "cubic-bezier(0.76, 0, 0.24, 1)";
 
@@ -68,14 +67,14 @@ const Index = () => {
       return {
         left: isSignUp ? "60%" : "0%",
         width: "40%",
-        transition: `left 0.45s ${ease}, width 0.45s ${ease}`,
+        transition: `left 0.32s ${ease}, width 0.32s ${ease}`,
       };
     }
     if (phase === "expanding") {
       return {
         left: "0%",
         width: "100%",
-        transition: `left 0.38s ${ease}, width 0.38s ${ease}`,
+        transition: `left 0.28s ${ease}, width 0.28s ${ease}`,
       };
     }
     if (phase === "full") {
