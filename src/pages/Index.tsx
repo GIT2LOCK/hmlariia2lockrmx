@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -111,10 +111,6 @@ const Index = () => {
       setSignupLoading(false);
     }
   };
-
-  // Clip-path for the blue overlay — smooth curve on the leading edge
-  const clipLeft = "polygon(0% 0%, 85% 0%, 100% 50%, 85% 100%, 0% 100%)";
-  const clipRight = "polygon(15% 0%, 100% 0%, 100% 100%, 15% 100%, 0% 50%)";
 
   return (
     <div className="min-h-screen flex bg-background overflow-hidden relative">
