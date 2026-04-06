@@ -8,94 +8,94 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 210 20% 98%;
-    --foreground: 210 50% 15%;
+    --background: 220 20% 97%;
+    --foreground: 235 80% 12%;
 
     --card: 0 0% 100%;
-    --card-foreground: 210 50% 15%;
+    --card-foreground: 235 80% 12%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 210 50% 15%;
+    --popover-foreground: 235 80% 12%;
 
-    --primary: 210 70% 25%;
+    --primary: 235 100% 18%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 82 70% 40%;
+    --secondary: 215 85% 65%;
     --secondary-foreground: 0 0% 100%;
 
-    --muted: 210 20% 94%;
-    --muted-foreground: 210 20% 45%;
+    --muted: 220 20% 94%;
+    --muted-foreground: 220 20% 45%;
 
-    --accent: 82 70% 40%;
+    --accent: 215 85% 65%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 210 25% 88%;
-    --input: 210 25% 88%;
-    --ring: 210 70% 25%;
+    --border: 220 25% 88%;
+    --input: 220 25% 88%;
+    --ring: 235 100% 18%;
 
     --radius: 0.75rem;
 
-    --sidebar-background: 210 70% 25%;
+    --sidebar-background: 235 100% 18%;
     --sidebar-foreground: 0 0% 100%;
-    --sidebar-primary: 82 70% 40%;
+    --sidebar-primary: 215 85% 65%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 210 60% 30%;
+    --sidebar-accent: 235 80% 25%;
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 210 50% 35%;
-    --sidebar-ring: 82 70% 40%;
+    --sidebar-border: 235 60% 30%;
+    --sidebar-ring: 215 85% 65%;
 
-    /* Custom brand colors */
-    --brand-blue: 210 70% 25%;
-    --brand-blue-light: 210 60% 35%;
-    --brand-green: 82 70% 40%;
-    --brand-green-light: 82 60% 50%;
+    /* Brand colors based on 2lock logo */
+    --brand-navy: 235 100% 18%;
+    --brand-navy-light: 235 80% 25%;
+    --brand-blue: 215 85% 65%;
+    --brand-blue-light: 215 80% 75%;
   }
 
   .dark {
-    --background: 220 20% 10%;
-    --foreground: 210 15% 93%;
+    --background: 235 30% 8%;
+    --foreground: 215 20% 93%;
 
-    --card: 220 20% 13%;
-    --card-foreground: 210 15% 93%;
+    --card: 235 25% 12%;
+    --card-foreground: 215 20% 93%;
 
-    --popover: 220 20% 13%;
-    --popover-foreground: 210 15% 93%;
+    --popover: 235 25% 12%;
+    --popover-foreground: 215 20% 93%;
 
-    --primary: 210 60% 50%;
+    --primary: 215 85% 55%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 15% 22%;
-    --secondary-foreground: 210 15% 93%;
+    --secondary: 235 30% 22%;
+    --secondary-foreground: 215 20% 93%;
 
-    --muted: 220 15% 18%;
-    --muted-foreground: 210 10% 55%;
+    --muted: 235 20% 18%;
+    --muted-foreground: 215 15% 55%;
 
-    --accent: 210 50% 40%;
+    --accent: 215 70% 45%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 65% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 15% 22%;
-    --input: 220 15% 22%;
-    --ring: 210 60% 50%;
+    --border: 235 20% 22%;
+    --input: 235 20% 22%;
+    --ring: 215 85% 55%;
 
-    --sidebar-background: 220 20% 8%;
-    --sidebar-foreground: 210 15% 93%;
-    --sidebar-primary: 210 60% 50%;
+    --sidebar-background: 235 30% 6%;
+    --sidebar-foreground: 215 20% 93%;
+    --sidebar-primary: 215 85% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 15% 15%;
-    --sidebar-accent-foreground: 210 15% 93%;
-    --sidebar-border: 220 15% 18%;
-    --sidebar-ring: 210 60% 50%;
+    --sidebar-accent: 235 25% 15%;
+    --sidebar-accent-foreground: 215 20% 93%;
+    --sidebar-border: 235 20% 18%;
+    --sidebar-ring: 215 85% 55%;
 
-    --brand-blue: 210 60% 50%;
-    --brand-blue-light: 210 50% 60%;
-    --brand-green: 150 50% 45%;
-    --brand-green-light: 150 45% 55%;
+    --brand-navy: 215 85% 55%;
+    --brand-navy-light: 215 70% 45%;
+    --brand-blue: 215 80% 65%;
+    --brand-blue-light: 215 70% 75%;
   }
 }
 
