@@ -17,7 +17,7 @@ interface UserContextType {
   user: User;
   isLoading: boolean;
   isAuthenticated: boolean;
-  refreshUser: () => void;
+  refreshUser: () => Promise<void>;
   syncFromDatabase: () => Promise<void>;
   updateAvatar: (newAvatarUrl: string) => void;
   canEdit: boolean;
