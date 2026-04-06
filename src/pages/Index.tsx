@@ -148,7 +148,7 @@ const Index = () => {
       >
         <div className="w-full max-w-md space-y-6">
           <div className="flex flex-col items-center">
-            <img src={logo} alt="Ariia" className="h-20 md:h-32 mb-6 mx-auto" />
+            <img src={logo} alt="Ariia" className="max-h-16 md:max-h-24 w-auto mb-6 mx-auto object-contain" />
             <h1 className="text-2xl font-bold text-foreground">Entrar na Conta</h1>
             <p className="text-sm text-muted-foreground mt-1">Use seu e-mail para login</p>
           </div>
@@ -191,7 +191,7 @@ const Index = () => {
       >
         <div className="w-full max-w-md space-y-5">
           <div className="flex flex-col items-center">
-            <img src={logo} alt="Ariia" className="h-20 md:h-32 mb-6 mx-auto" />
+            <img src={logo} alt="Ariia" className="max-h-16 md:max-h-24 w-auto mb-6 mx-auto object-contain" />
             <h1 className="text-2xl font-bold text-foreground">Criar Conta</h1>
             <p className="text-sm text-muted-foreground mt-1">Preencha os dados para se cadastrar</p>
           </div>
