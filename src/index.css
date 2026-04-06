@@ -99,6 +99,17 @@ All colors MUST be HSL.
   }
 }
 
+@keyframes overlayFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 @layer base {
   * {
     @apply border-border;
