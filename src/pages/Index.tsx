@@ -108,36 +108,66 @@ const Index = () => {
 
   return (
     <div className="min-h-screen flex bg-background overflow-hidden relative">
-      {/* Overlay panel (blue) */}
+      {/* Overlay panel (blue) with wave edges */}
       <div
-        className="absolute top-0 bottom-0 w-[37.5%] bg-primary z-20 flex items-center justify-center pointer-events-auto"
+        className="absolute top-0 bottom-0 z-20 pointer-events-auto"
         style={{
-          transform: isSignUp ? "translateX(166.67%)" : "translateX(0)",
-          transition: "transform 0.6s cubic-bezier(0.65, 0, 0.35, 1)",
+          width: "42%",
+          left: isSignUp ? "58%" : "0%",
+          transition: "left 0.8s cubic-bezier(0.76, 0, 0.24, 1)",
         }}
       >
-        <div className="text-center text-primary-foreground px-8 max-w-sm">
-          {isSignUp ? (
-            <>
-              <h2 className="text-3xl font-bold mb-4">Olá, Amigo!</h2>
-              <p className="text-primary-foreground/80 mb-8">Já possui uma conta? Entre com seus dados</p>
-              <Button
-                variant="outline"
-                className="border-primary-foreground text-primary-foreground bg-transparent hover:bg-primary-foreground/10 px-10 py-2 rounded-full"
-                onClick={() => setIsSignUp(false)}
-              >ENTRAR</Button>
-            </>
-          ) : (
-            <>
-              <h2 className="text-3xl font-bold mb-4">Olá, Amigo!</h2>
-              <p className="text-primary-foreground/80 mb-8">Preencha seus dados pessoais e comece sua jornada conosco</p>
-              <Button
-                variant="outline"
-                className="border-primary-foreground text-primary-foreground bg-transparent hover:bg-primary-foreground/10 px-10 py-2 rounded-full"
-                onClick={() => setIsSignUp(true)}
-              >CADASTRAR</Button>
-            </>
-          )}
+        {/* Wave edge - leading side */}
+        <svg
+          className="absolute top-0 h-full z-10"
+          style={{
+            width: "80px",
+            right: isSignUp ? "auto" : "-40px",
+            left: isSignUp ? "-40px" : "auto",
+            transform: isSignUp ? "scaleX(-1)" : "scaleX(1)",
+            transition: "right 0.8s cubic-bezier(0.76, 0, 0.24, 1), left 0.8s cubic-bezier(0.76, 0, 0.24, 1), transform 0.8s cubic-bezier(0.76, 0, 0.24, 1)",
+          }}
+          viewBox="0 0 80 900"
+          preserveAspectRatio="none"
+          fill="hsl(var(--primary))"
+        >
+          <path d="M80,0 L80,900 L0,900 C30,750 10,600 40,450 C70,300 20,150 0,0 Z" />
+        </svg>
+
+        {/* Main panel body */}
+        <div
+          className="absolute inset-0 bg-primary flex items-center justify-center"
+        >
+          <div
+            className="text-center text-primary-foreground px-8 max-w-sm"
+            style={{
+              opacity: 1,
+              animation: "overlayFadeIn 0.5s ease-out 0.3s both",
+            }}
+            key={isSignUp ? "signup-overlay" : "login-overlay"}
+          >
+            {isSignUp ? (
+              <>
+                <h2 className="text-3xl font-bold mb-4">Olá, Amigo!</h2>
+                <p className="text-primary-foreground/80 mb-8">Já possui uma conta? Entre com seus dados</p>
+                <Button
+                  variant="outline"
+                  className="border-primary-foreground text-primary-foreground bg-transparent hover:bg-primary-foreground/10 px-10 py-2 rounded-full transition-all duration-300 hover:scale-105"
+                  onClick={() => setIsSignUp(false)}
+                >ENTRAR</Button>
+              </>
+            ) : (
+              <>
+                <h2 className="text-3xl font-bold mb-4">Olá, Amigo!</h2>
+                <p className="text-primary-foreground/80 mb-8">Preencha seus dados pessoais e comece sua jornada conosco</p>
+                <Button
+                  variant="outline"
+                  className="border-primary-foreground text-primary-foreground bg-transparent hover:bg-primary-foreground/10 px-10 py-2 rounded-full transition-all duration-300 hover:scale-105"
+                  onClick={() => setIsSignUp(true)}
+                >CADASTRAR</Button>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
