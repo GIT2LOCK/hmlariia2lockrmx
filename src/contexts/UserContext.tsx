@@ -118,7 +118,7 @@ export function useUser(): UserContextType {
   if (!context) {
     return {
       user: defaultUser, isLoading: true, isAuthenticated: false,
-      refreshUser: () => {}, syncFromDatabase: async () => {}, updateAvatar: () => {},
+      refreshUser: async () => {}, syncFromDatabase: async () => {}, updateAvatar: () => {},
       canEdit: false, canManageUsers: false, canManageAdmins: false, hasFullAccess: false, isViewer: true,
     };
   }
