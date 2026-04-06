@@ -93,15 +93,15 @@ const Index = () => {
     };
   };
 
-  const completeLogin = (user: any, session: any) => {
+  const completeLogin = async (user: any, session: any) => {
     localStorage.setItem("auth_token", session.token);
     localStorage.setItem("auth_expires", session.expires_at);
     localStorage.setItem("auth_user", JSON.stringify(user));
     setShow2FAModal(false);
     setShow2FASetup(false);
     toast({ title: "Login realizado!", description: `Bem-vindo, ${user.nome}!` });
-    refreshUser();
-    navigate("/dashboard");
+    await refreshUser();
+    navigate("/dashboard", { replace: true });
   };
 
   const handleLogin = async (e: React.FormEvent) => {
