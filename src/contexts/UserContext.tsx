@@ -96,6 +96,56 @@ export function UserProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
+  // Realtime subscription to detect permission/role changes
+  useEffect(() => {
+    if (!isAuthenticated || user.id === 0) return;
+
+    const channel = (async () => {
+      const { supabase } = await import("@/integrations/supabase/client");
+      const ch = supabase
+        .channel(`user-role-${user.id}`)
+        .on(
+          "postgres_changes" as any,
+          { event: "UPDATE", schema: "public", table: "usuarios", filter: `id=eq.${user.id}` },
+          (payload: any) => {
+            const newData = payload.new;
+            if (newData) {
+              const newRole = (newData.permissao as UserRole) || "VIEWER";
+              const { nome, sobrenome } = splitName(newData.nome || "");
+              setUser(prev => ({
+                ...prev,
+                nome,
+                sobrenome,
+                email: newData.email || prev.email,
+                role: newRole,
+                cargo: newRole,
+                avatar: newData.avatar_url || prev.avatar,
+              }));
+              // Also update localStorage
+              const stored = getStoredUser();
+              if (stored) {
+                localStorage.setItem("auth_user", JSON.stringify({
+                  ...stored,
+                  nome: newData.nome || stored.nome,
+                  email: newData.email || stored.email,
+                  permissao: newRole,
+                }));
+              }
+            }
+          }
+        )
+        .subscribe();
+      return ch;
+    })();
+
+    return () => {
+      channel.then(async (ch) => {
+        const { supabase } = await import("@/integrations/supabase/client");
+        supabase.removeChannel(ch);
+      });
+    };
+  }, [isAuthenticated, user.id]);
+
   const refreshUser = () => loadUser();
   const canEdit = user.role === "SUPERADMIN" || user.role === "ADMIN" || user.role === "USER";
   const canManageUsers = user.role === "SUPERADMIN" || user.role === "ADMIN";
