@@ -48,21 +48,16 @@ const Index = () => {
     setPhase("expanding");
 
     setTimeout(() => {
-      // Phase 2: fully covering — switch the form
       setPhase("full");
       setIsSignUp(toSignUp);
-
       setTimeout(() => {
-        // Phase 3: shrink to the new side
         setPhase("shrinking");
-
         setTimeout(() => {
-          // Phase 4: done
           setPhase("idle");
           animating.current = false;
-        }, 700);
-      }, 100);
-    }, 600);
+        }, 450);
+      }, 50);
+    }, 380);
   };
 
   // Panel styles based on phase and current side
@@ -73,15 +68,14 @@ const Index = () => {
       return {
         left: isSignUp ? "60%" : "0%",
         width: "40%",
-        transition: `left 0.7s ${ease}, width 0.7s ${ease}`,
+        transition: `left 0.45s ${ease}, width 0.45s ${ease}`,
       };
     }
     if (phase === "expanding") {
-      // Expand toward the opposite side to fill 100%
       return {
         left: "0%",
         width: "100%",
-        transition: `left 0.6s ${ease}, width 0.6s ${ease}`,
+        transition: `left 0.38s ${ease}, width 0.38s ${ease}`,
       };
     }
     if (phase === "full") {
