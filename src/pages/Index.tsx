@@ -48,21 +48,16 @@ const Index = () => {
     setPhase("expanding");
 
     setTimeout(() => {
-      // Phase 2: fully covering — switch the form
       setPhase("full");
       setIsSignUp(toSignUp);
-
       setTimeout(() => {
-        // Phase 3: shrink to the new side
         setPhase("shrinking");
-
         setTimeout(() => {
-          // Phase 4: done
           setPhase("idle");
           animating.current = false;
-        }, 700);
-      }, 100);
-    }, 600);
+        }, 450);
+      }, 50);
+    }, 380);
   };
 
   // Panel styles based on phase and current side
