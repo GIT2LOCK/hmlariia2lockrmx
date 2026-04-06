@@ -17,16 +17,16 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 235 80% 12%;
 
-    --primary: 215 85% 65%;
-    --primary-foreground: 235 100% 12%;
+    --primary: 235 100% 18%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 235 100% 18%;
+    --secondary: 215 85% 65%;
     --secondary-foreground: 0 0% 100%;
 
     --muted: 220 20% 94%;
     --muted-foreground: 220 20% 45%;
 
-    --accent: 235 100% 18%;
+    --accent: 215 85% 65%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84% 60%;
@@ -34,18 +34,18 @@ All colors MUST be HSL.
 
     --border: 220 25% 88%;
     --input: 220 25% 88%;
-    --ring: 215 85% 65%;
+    --ring: 235 100% 18%;
 
     --radius: 0.75rem;
 
-    --sidebar-background: 215 85% 65%;
-    --sidebar-foreground: 235 100% 12%;
-    --sidebar-primary: 235 100% 18%;
+    --sidebar-background: 235 100% 18%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 215 85% 65%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 215 80% 55%;
-    --sidebar-accent-foreground: 235 100% 12%;
-    --sidebar-border: 215 70% 55%;
-    --sidebar-ring: 235 100% 18%;
+    --sidebar-accent: 235 80% 25%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 235 60% 30%;
+    --sidebar-ring: 215 85% 65%;
 
     /* Brand colors based on 2lock logo */
     --brand-navy: 235 100% 18%;
