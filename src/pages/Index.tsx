@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -112,82 +112,38 @@ const Index = () => {
     }
   };
 
-  // Clip-path for the blue overlay — smooth curve on the leading edge
-  const clipLeft = "polygon(0% 0%, 85% 0%, 100% 50%, 85% 100%, 0% 100%)";
-  const clipRight = "polygon(15% 0%, 100% 0%, 100% 100%, 15% 100%, 0% 50%)";
-
   return (
     <div className="min-h-screen flex bg-background overflow-hidden relative">
       {/* Blue overlay panel */}
       <div
-        className="absolute inset-0 z-20 pointer-events-none"
+        className="absolute top-0 bottom-0 w-[40%] z-20 bg-primary pointer-events-auto flex items-center justify-center"
         style={{
-          clipPath: isSignUp ? clipRight : clipLeft,
-          transition: "clip-path 1s cubic-bezier(0.76, 0, 0.24, 1)",
+          left: isSignUp ? "60%" : "0%",
+          borderRadius: isSignUp ? "2rem 0 0 2rem" : "0 2rem 2rem 0",
+          transition: "left 0.9s cubic-bezier(0.76, 0, 0.24, 1), border-radius 0.9s cubic-bezier(0.76, 0, 0.24, 1)",
         }}
       >
         <div
-          className="absolute inset-0 bg-primary"
+          className="text-center text-primary-foreground px-8 max-w-sm"
           style={{
-            background: "linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(235 80% 25%) 50%, hsl(215 85% 45%) 100%)",
-          }}
-        />
-
-        {/* Animated subtle circles for depth */}
-        <div className="absolute inset-0 overflow-hidden opacity-10">
-          <div
-            className="absolute rounded-full bg-white/20"
-            style={{
-              width: "600px", height: "600px",
-              top: "-200px",
-              left: isSignUp ? "60%" : "-10%",
-              transition: "left 1.2s cubic-bezier(0.76, 0, 0.24, 1)",
-              filter: "blur(60px)",
-            }}
-          />
-          <div
-            className="absolute rounded-full bg-white/10"
-            style={{
-              width: "400px", height: "400px",
-              bottom: "-100px",
-              right: isSignUp ? "-5%" : "55%",
-              transition: "right 1.2s cubic-bezier(0.76, 0, 0.24, 1)",
-              filter: "blur(40px)",
-            }}
-          />
-        </div>
-
-        {/* Overlay content */}
-        <div
-          className="absolute inset-0 flex items-center justify-center pointer-events-auto"
-          style={{
-            paddingLeft: isSignUp ? "55%" : "0",
-            paddingRight: isSignUp ? "0" : "55%",
-            transition: "padding 1s cubic-bezier(0.76, 0, 0.24, 1)",
+            opacity: showContent ? 1 : 0,
+            transform: showContent ? "translateY(0)" : "translateY(12px)",
+            transition: "opacity 0.4s ease, transform 0.4s ease",
           }}
         >
-          <div
-            className="text-center text-primary-foreground px-8 max-w-sm"
-            style={{
-              opacity: showContent ? 1 : 0,
-              transform: showContent ? "translateY(0) scale(1)" : "translateY(20px) scale(0.95)",
-              transition: "opacity 0.5s ease, transform 0.5s ease",
-            }}
+          <h2 className="text-3xl font-bold mb-4">Olá, Amigo!</h2>
+          <p className="text-primary-foreground/80 mb-8">
+            {isSignUp
+              ? "Já possui uma conta? Entre com seus dados"
+              : "Preencha seus dados pessoais e comece sua jornada conosco"}
+          </p>
+          <Button
+            variant="outline"
+            className="border-primary-foreground text-primary-foreground bg-transparent hover:bg-primary-foreground/10 px-10 py-2 rounded-full transition-all duration-300 hover:scale-105 active:scale-95"
+            onClick={() => handleToggle(!isSignUp)}
           >
-            <h2 className="text-3xl font-bold mb-4">Olá, Amigo!</h2>
-            <p className="text-primary-foreground/80 mb-8">
-              {isSignUp
-                ? "Já possui uma conta? Entre com seus dados"
-                : "Preencha seus dados pessoais e comece sua jornada conosco"}
-            </p>
-            <Button
-              variant="outline"
-              className="border-primary-foreground text-primary-foreground bg-transparent hover:bg-primary-foreground/10 px-10 py-2 rounded-full transition-all duration-300 hover:scale-105 active:scale-95"
-              onClick={() => handleToggle(!isSignUp)}
-            >
-              {isSignUp ? "ENTRAR" : "CADASTRAR"}
-            </Button>
-          </div>
+            {isSignUp ? "ENTRAR" : "CADASTRAR"}
+          </Button>
         </div>
       </div>
 
