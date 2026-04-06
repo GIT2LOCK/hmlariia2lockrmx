@@ -96,7 +96,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
-  const refreshUser = () => { loadUser(); };
+  const refreshUser = () => loadUser();
   const canEdit = user.role === "SUPERADMIN" || user.role === "ADMIN" || user.role === "USER";
   const canManageUsers = user.role === "SUPERADMIN" || user.role === "ADMIN";
   const canManageAdmins = user.role === "SUPERADMIN";
