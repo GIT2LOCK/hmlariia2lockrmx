@@ -68,15 +68,14 @@ const Index = () => {
       return {
         left: isSignUp ? "60%" : "0%",
         width: "40%",
-        transition: `left 0.7s ${ease}, width 0.7s ${ease}`,
+        transition: `left 0.45s ${ease}, width 0.45s ${ease}`,
       };
     }
     if (phase === "expanding") {
-      // Expand toward the opposite side to fill 100%
       return {
         left: "0%",
         width: "100%",
-        transition: `left 0.6s ${ease}, width 0.6s ${ease}`,
+        transition: `left 0.38s ${ease}, width 0.38s ${ease}`,
       };
     }
     if (phase === "full") {
