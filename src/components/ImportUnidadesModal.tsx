@@ -100,7 +100,7 @@ export const ImportUnidadesModal = ({ open, onOpenChange, onSuccess }: ImportUni
       const buffer = await file.arrayBuffer();
       const wb = XLSX.read(buffer, { type: "array" });
       const ws = wb.Sheets[wb.SheetNames[0]];
-      const rows: RowData[] = XLSX.utils.sheet_to_json(ws, { defval: "" });
+      const rows: RowData[] = XLSX.utils.sheet_to_json(ws, { defval: "", raw: false });
 
       if (rows.length === 0) {
         toast({ title: "Planilha vazia", variant: "destructive" });
