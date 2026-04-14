@@ -11,12 +11,12 @@ import { useUser } from "@/contexts/UserContext";
 import { Plus, Pencil, Trash2, Search, Loader2 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-interface Responsavel {
+interface Contato {
   id: number;
   nome: string;
   telefone: string | null;
   email: string | null;
-  empresa_id: number;
+  empresa_id: number | null;
   empresas?: { nome_fantasia: string };
 }
 
@@ -27,7 +27,7 @@ const emptyForm = { nome: "", telefone: "", email: "", empresa_id: "" };
 const Responsaveis = () => {
   const { toast } = useToast();
   const { canEdit, canManageUsers } = useUser();
-  const [responsaveis, setResponsaveis] = useState<Responsavel[]>([]);
+  const [responsaveis, setResponsaveis] = useState<Contato[]>([]);
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -41,8 +41,9 @@ const Responsaveis = () => {
   const fetchResponsaveis = async () => {
     setLoading(true);
     const { data } = await supabase
-      .from("responsaveis")
+      .from("contatos")
       .select("*, empresas(nome_fantasia)")
+      .eq("tipo", "responsavel")
       .order("nome");
     setResponsaveis((data as any) || []);
     setLoading(false);
@@ -67,7 +68,7 @@ const Responsaveis = () => {
   }, [responsaveis, search]);
 
   const openNew = () => { setEditId(null); setForm(emptyForm); setDialogOpen(true); };
-  const openEdit = (r: Responsavel) => {
+  const openEdit = (r: Contato) => {
     setEditId(r.id);
     setForm({ nome: r.nome, telefone: r.telefone || "", email: r.email || "", empresa_id: String(r.empresa_id) });
     setDialogOpen(true);
@@ -83,14 +84,15 @@ const Responsaveis = () => {
       telefone: form.telefone.trim() || null,
       email: form.email.trim() || null,
       empresa_id: Number(form.empresa_id),
+      tipo: "responsavel" as const,
     };
 
     if (editId) {
-      const { error } = await supabase.from("responsaveis").update(payload).eq("id", editId);
+      const { error } = await supabase.from("contatos").update(payload).eq("id", editId);
       if (error) { toast({ title: "Erro ao atualizar", variant: "destructive" }); }
       else { toast({ title: "Responsável atualizado" }); setDialogOpen(false); fetchResponsaveis(); }
     } else {
-      const { error } = await supabase.from("responsaveis").insert(payload);
+      const { error } = await supabase.from("contatos").insert(payload);
       if (error) { toast({ title: "Erro ao cadastrar", variant: "destructive" }); }
       else { toast({ title: "Responsável cadastrado" }); setDialogOpen(false); fetchResponsaveis(); }
     }
@@ -99,7 +101,7 @@ const Responsaveis = () => {
 
   const handleDelete = async () => {
     if (!deleteId) return;
-    const { error } = await supabase.from("responsaveis").delete().eq("id", deleteId);
+    const { error } = await supabase.from("contatos").delete().eq("id", deleteId);
     if (error) { toast({ title: "Erro ao excluir", variant: "destructive" }); }
     else { toast({ title: "Responsável excluído" }); fetchResponsaveis(); }
     setDeleteDialogOpen(false);
