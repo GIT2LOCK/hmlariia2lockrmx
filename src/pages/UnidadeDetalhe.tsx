@@ -49,6 +49,7 @@ interface Operadora { id: number; nome: string; telefone: string | null; email: 
 const emptyLinkForm = {
   operadora_id: "", nome_link: "", finalidade: "", tipo_link: "", tipo_autenticacao: "",
   pppoe_usuario: "", pppoe_senha: "",
+  ip_estatico: "", mascara: "", gateway: "",
   velocidade_download: "", velocidade_upload: "", ip_tipo: "", ip_visibilidade: "",
   bridge: false, canal_atendimento: "", telefone_operadora: "", observacoes: "",
   smart_sigma: false,
@@ -238,6 +239,7 @@ const UnidadeDetalhe = () => {
       finalidade: l.finalidade || "", tipo_link: l.tipo_link || "",
       tipo_autenticacao: l.tipo_autenticacao || "",
       pppoe_usuario: l.pppoe_usuario || "", pppoe_senha: l.pppoe_senha || "",
+      ip_estatico: l.ip_estatico || "", mascara: l.mascara || "", gateway: l.gateway || "",
       velocidade_download: l.velocidade_download || "", velocidade_upload: l.velocidade_upload || "",
       ip_tipo: l.ip_tipo || "", ip_visibilidade: l.ip_visibilidade || "",
       bridge: l.bridge || false,
@@ -257,8 +259,11 @@ const UnidadeDetalhe = () => {
       operadora_id: Number(linkForm.operadora_id), bridge: linkForm.bridge,
       finalidade: linkForm.finalidade || null, tipo_link: linkForm.tipo_link || null,
       tipo_autenticacao: linkForm.tipo_autenticacao || null,
-      pppoe_usuario: linkForm.tipo_autenticacao === "PPPoE" ? (linkForm.pppoe_usuario || null) : null,
-      pppoe_senha: linkForm.tipo_autenticacao === "PPPoE" ? (linkForm.pppoe_senha || null) : null,
+      pppoe_usuario: linkForm.tipo_autenticacao === "bridge_pppoe" ? (linkForm.pppoe_usuario || null) : null,
+      pppoe_senha: linkForm.tipo_autenticacao === "bridge_pppoe" ? (linkForm.pppoe_senha || null) : null,
+      ip_estatico: linkForm.tipo_autenticacao === "estatico" ? (linkForm.ip_estatico || null) : null,
+      mascara: linkForm.tipo_autenticacao === "estatico" ? (linkForm.mascara || null) : null,
+      gateway: linkForm.tipo_autenticacao === "estatico" ? (linkForm.gateway || null) : null,
       ip_tipo: linkForm.ip_tipo || null, ip_visibilidade: linkForm.ip_visibilidade || null,
       smart_sigma: linkForm.smart_sigma,
     };
@@ -685,6 +690,13 @@ const UnidadeDetalhe = () => {
               <>
                 <div><Label>PPPoE - Usuário</Label><Input value={linkForm.pppoe_usuario} onChange={(e) => setLinkForm({...linkForm, pppoe_usuario: e.target.value})} /></div>
                 <div><Label>PPPoE - Senha</Label><Input value={linkForm.pppoe_senha} onChange={(e) => setLinkForm({...linkForm, pppoe_senha: e.target.value})} /></div>
+              </>
+            )}
+            {linkForm.tipo_autenticacao === "estatico" && (
+              <>
+                <div><Label>IP</Label><Input value={linkForm.ip_estatico} onChange={(e) => setLinkForm({...linkForm, ip_estatico: e.target.value})} placeholder="Ex: 192.168.1.100" /></div>
+                <div><Label>Máscara</Label><Input value={linkForm.mascara} onChange={(e) => setLinkForm({...linkForm, mascara: e.target.value})} placeholder="Ex: 255.255.255.0" /></div>
+                <div><Label>Gateway</Label><Input value={linkForm.gateway} onChange={(e) => setLinkForm({...linkForm, gateway: e.target.value})} placeholder="Ex: 192.168.1.1" /></div>
               </>
             )}
             <div>
