@@ -97,13 +97,15 @@ export default function BaseConhecimento() {
     fetchArticles(search, 1);
   };
 
+  const decodeHtmlEntities = (html: string) => {
+    const textarea = document.createElement("textarea");
+    textarea.innerHTML = html;
+    return textarea.value;
+  };
+
   const openArticle = async (item: KnowbaseItem) => {
-    if (item.answer) {
-      setSelectedItem(item);
-      return;
-    }
     setDetailLoading(true);
-    setSelectedItem({ ...item, answer: "Carregando..." });
+    setSelectedItem({ ...item, answer: "" });
     try {
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -117,7 +119,8 @@ export default function BaseConhecimento() {
         }
       );
       const detail = await res.json();
-      setSelectedItem({ id: detail.id, name: detail.name, answer: detail.answer, date: detail.date_mod || detail.date });
+      const answer = decodeHtmlEntities(detail.answer || "");
+      setSelectedItem({ id: detail.id, name: detail.name, answer, date: detail.date_mod || detail.date });
     } catch {
       toast({ title: "Erro ao carregar artigo", variant: "destructive" });
     }
