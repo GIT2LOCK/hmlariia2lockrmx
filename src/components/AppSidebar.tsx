@@ -11,6 +11,7 @@ import {
   Search,
   Contact,
   UserCheck,
+  BookOpen,
 } from "lucide-react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -38,6 +39,7 @@ const menuItems = [
   { title: "Operadoras", url: "/dashboard/operadoras", icon: Radio },
   { title: "Pessoas", url: "/dashboard/pessoas", icon: Contact },
   { title: "Responsáveis", url: "/dashboard/responsaveis", icon: UserCheck },
+  { title: "Base de Conhecimento", url: "/dashboard/base-conhecimento", icon: BookOpen },
 ];
 
 export function AppSidebar() {
