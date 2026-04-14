@@ -224,7 +224,7 @@ export default function BaseConhecimento() {
             <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
           ) : (
             <div
-              className="prose prose-sm dark:prose-invert max-w-none"
+              className="prose prose-sm dark:prose-invert max-w-none [&_table]:border-collapse [&_table]:w-full [&_td]:border [&_td]:border-border [&_td]:p-2 [&_th]:border [&_th]:border-border [&_th]:p-2 [&_th]:bg-muted [&_img]:max-w-full [&_img]:h-auto [&_a]:text-primary [&_a]:underline"
               dangerouslySetInnerHTML={{ __html: selectedItem?.answer || "" }}
             />
           )}
