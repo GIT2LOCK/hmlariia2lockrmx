@@ -191,8 +191,10 @@ const Unidades = () => {
     if (filterEmpresa !== "todos" && String(u.empresa_id) !== filterEmpresa) return false;
     if (filterCidade !== "todos" && u.cidade !== filterCidade) return false;
     if (search) {
+      const strip = (s: string) => s.replace(/[.\-\/\s]/g, "").toLowerCase();
+      const term = strip(search);
       const match = [u.nome_unidade, u.codigo_unidade, u.hostname, u.cidade, u.estado, (u.empresas as any)?.nome_fantasia, (u.empresas as any)?.cnpj, (u.empresas as any)?.razao_social]
-        .some((v) => v?.toLowerCase().includes(search.toLowerCase()));
+        .some((v) => v && (v.toLowerCase().includes(search.toLowerCase()) || strip(v).includes(term)));
       if (!match) return false;
     }
 
