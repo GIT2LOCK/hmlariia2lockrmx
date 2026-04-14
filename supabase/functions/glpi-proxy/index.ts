@@ -60,7 +60,9 @@ Deno.serve(async (req) => {
       if (!res.ok) {
         throw new Error(`GLPI returned ${res.status}`)
       }
-      result = await res.json()
+      const articleData = await res.json()
+      console.log('GLPI article answer type:', typeof articleData.answer, 'first 200 chars:', String(articleData.answer).substring(0, 200))
+      result = articleData
     } else if (action === 'search' && search) {
       // Search articles
       const searchParams = new URLSearchParams({
