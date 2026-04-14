@@ -11,11 +11,11 @@ import { useUser } from "@/contexts/UserContext";
 import { Plus, Pencil, Trash2, Search, Loader2 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-interface Pessoa {
+interface Contato {
   id: number;
   nome: string;
   telefone: string | null;
-  unidade_id: number;
+  unidade_id: number | null;
   unidades?: { nome_unidade: string };
 }
 
@@ -27,7 +27,7 @@ const emptyForm = { nome: "", telefone: "", empresa_id: "", unidade_id: "" };
 const Pessoas = () => {
   const { toast } = useToast();
   const { canEdit, canManageUsers } = useUser();
-  const [pessoas, setPessoas] = useState<Pessoa[]>([]);
+  const [pessoas, setPessoas] = useState<Contato[]>([]);
   const [unidades, setUnidades] = useState<Unidade[]>([]);
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,8 +42,9 @@ const Pessoas = () => {
   const fetchPessoas = async () => {
     setLoading(true);
     const { data } = await supabase
-      .from("pessoas")
+      .from("contatos")
       .select("*, unidades(nome_unidade)")
+      .eq("tipo", "pessoa")
       .order("nome");
     setPessoas((data as any) || []);
     setLoading(false);
@@ -77,7 +78,7 @@ const Pessoas = () => {
   }, [pessoas, search]);
 
   const openNew = () => { setEditId(null); setForm(emptyForm); setDialogOpen(true); };
-  const openEdit = (p: Pessoa) => {
+  const openEdit = (p: Contato) => {
     setEditId(p.id);
     const unidade = unidades.find(u => u.id === p.unidade_id);
     setForm({ nome: p.nome, telefone: p.telefone || "", empresa_id: unidade ? String(unidade.empresa_id) : "", unidade_id: String(p.unidade_id) });
@@ -89,14 +90,14 @@ const Pessoas = () => {
       toast({ title: "Preencha nome e unidade", variant: "destructive" }); return;
     }
     setSaving(true);
-    const payload = { nome: form.nome.trim(), telefone: form.telefone.trim() || null, unidade_id: Number(form.unidade_id) };
+    const payload = { nome: form.nome.trim(), telefone: form.telefone.trim() || null, unidade_id: Number(form.unidade_id), tipo: "pessoa" as const };
     
     if (editId) {
-      const { error } = await supabase.from("pessoas").update(payload).eq("id", editId);
+      const { error } = await supabase.from("contatos").update(payload).eq("id", editId);
       if (error) { toast({ title: "Erro ao atualizar", variant: "destructive" }); }
       else { toast({ title: "Pessoa atualizada" }); setDialogOpen(false); fetchPessoas(); }
     } else {
-      const { error } = await supabase.from("pessoas").insert(payload);
+      const { error } = await supabase.from("contatos").insert(payload);
       if (error) { toast({ title: "Erro ao cadastrar", variant: "destructive" }); }
       else { toast({ title: "Pessoa cadastrada" }); setDialogOpen(false); fetchPessoas(); }
     }
@@ -105,7 +106,7 @@ const Pessoas = () => {
 
   const handleDelete = async () => {
     if (!deleteId) return;
-    const { error } = await supabase.from("pessoas").delete().eq("id", deleteId);
+    const { error } = await supabase.from("contatos").delete().eq("id", deleteId);
     if (error) { toast({ title: "Erro ao excluir", variant: "destructive" }); }
     else { toast({ title: "Pessoa excluída" }); fetchPessoas(); }
     setDeleteDialogOpen(false);
