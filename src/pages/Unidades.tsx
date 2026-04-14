@@ -31,7 +31,7 @@ interface Unidade {
   cidade: string | null; estado: string | null; logradouro: string | null; numero: string | null;
   bairro: string | null; cep: string | null; complemento: string | null;
   rede_default: string | null; wifi_antenas: boolean | null; observacoes: string | null;
-  empresas?: { nome_fantasia: string };
+  empresas?: { nome_fantasia: string; cnpj?: string | null; razao_social?: string | null };
 }
 
 interface Empresa { id: number; nome_fantasia: string; razao_social: string | null; cnpj: string | null; }
