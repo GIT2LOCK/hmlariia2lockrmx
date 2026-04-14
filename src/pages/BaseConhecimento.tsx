@@ -44,12 +44,8 @@ export default function BaseConhecimento() {
         params.action = "list";
       }
 
-      const { data, error } = await supabase.functions.invoke("glpi-proxy", {
-        body: null,
-        headers: { "Content-Type": "application/json" },
-      });
+      // Build URL with query params for GET-style invocation
 
-      // Use query params via GET-style invocation
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
       const queryString = new URLSearchParams(params).toString();
