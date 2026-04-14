@@ -250,7 +250,7 @@ const Unidades = () => {
       }
     }
     await supabase.from("links_internet").delete().in("unidade_id", ids);
-    await supabase.from("pessoas").delete().in("unidade_id", ids);
+    await supabase.from("contatos").delete().in("unidade_id", ids);
     await supabase.from("unidades").delete().in("id", ids);
     setSelectedIds(new Set());
     setDeleting(false);
