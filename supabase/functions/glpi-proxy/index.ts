@@ -84,9 +84,13 @@ Deno.serve(async (req) => {
       result = await res.json()
     } else {
       // List articles
-      const res = await fetch(`${GLPI_URL}/KnowbaseItem?range=${(page - 1) * perPage}-${page * perPage - 1}&order=DESC&sort=3`, { headers: glpiHeaders })
+      const listUrl = `${GLPI_URL}/KnowbaseItem?range=${(page - 1) * perPage}-${page * perPage - 1}&order=DESC&sort=id`
+      console.log('GLPI list URL:', listUrl)
+      const res = await fetch(listUrl, { headers: glpiHeaders })
       if (!res.ok) {
-        throw new Error(`GLPI list returned ${res.status}`)
+        const errBody = await res.text()
+        console.error('GLPI list error:', res.status, errBody)
+        throw new Error(`GLPI list returned ${res.status}: ${errBody}`)
       }
       result = await res.json()
     }
