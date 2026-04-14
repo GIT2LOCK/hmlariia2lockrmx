@@ -94,6 +94,57 @@ export type Database = {
           },
         ]
       }
+      contatos: {
+        Row: {
+          atualizado_em: string | null
+          criado_em: string | null
+          email: string | null
+          empresa_id: number | null
+          id: number
+          nome: string
+          telefone: string | null
+          tipo: Database["public"]["Enums"]["tipo_contato"]
+          unidade_id: number | null
+        }
+        Insert: {
+          atualizado_em?: string | null
+          criado_em?: string | null
+          email?: string | null
+          empresa_id?: number | null
+          id?: number
+          nome: string
+          telefone?: string | null
+          tipo: Database["public"]["Enums"]["tipo_contato"]
+          unidade_id?: number | null
+        }
+        Update: {
+          atualizado_em?: string | null
+          criado_em?: string | null
+          email?: string | null
+          empresa_id?: number | null
+          id?: number
+          nome?: string
+          telefone?: string | null
+          tipo?: Database["public"]["Enums"]["tipo_contato"]
+          unidade_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contatos_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contatos_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dados_abertura_chamado: {
         Row: {
           atualizado_em: string | null
@@ -304,79 +355,6 @@ export type Database = {
         }
         Relationships: []
       }
-      pessoas: {
-        Row: {
-          atualizado_em: string | null
-          criado_em: string | null
-          id: number
-          nome: string
-          telefone: string | null
-          unidade_id: number
-        }
-        Insert: {
-          atualizado_em?: string | null
-          criado_em?: string | null
-          id?: number
-          nome: string
-          telefone?: string | null
-          unidade_id: number
-        }
-        Update: {
-          atualizado_em?: string | null
-          criado_em?: string | null
-          id?: number
-          nome?: string
-          telefone?: string | null
-          unidade_id?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "pessoas_unidade_id_fkey"
-            columns: ["unidade_id"]
-            isOneToOne: false
-            referencedRelation: "unidades"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      responsaveis: {
-        Row: {
-          atualizado_em: string | null
-          criado_em: string | null
-          email: string | null
-          empresa_id: number
-          id: number
-          nome: string
-          telefone: string | null
-        }
-        Insert: {
-          atualizado_em?: string | null
-          criado_em?: string | null
-          email?: string | null
-          empresa_id: number
-          id?: number
-          nome: string
-          telefone?: string | null
-        }
-        Update: {
-          atualizado_em?: string | null
-          criado_em?: string | null
-          email?: string | null
-          empresa_id?: number
-          id?: number
-          nome?: string
-          telefone?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "responsaveis_empresa_id_fkey"
-            columns: ["empresa_id"]
-            isOneToOne: false
-            referencedRelation: "empresas"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       sessions: {
         Row: {
           criado_em: string | null
@@ -572,6 +550,7 @@ export type Database = {
       finalidade_link: "principal" | "backup"
       ip_tipo: "dinamico" | "fixo"
       ip_visibilidade: "publico" | "privado"
+      tipo_contato: "pessoa" | "responsavel"
       tipo_link: "banda_larga" | "link_dedicado" | "4g" | "mpls" | "radio"
     }
     CompositeTypes: {
@@ -703,6 +682,7 @@ export const Constants = {
       finalidade_link: ["principal", "backup"],
       ip_tipo: ["dinamico", "fixo"],
       ip_visibilidade: ["publico", "privado"],
+      tipo_contato: ["pessoa", "responsavel"],
       tipo_link: ["banda_larga", "link_dedicado", "4g", "mpls", "radio"],
     },
   },
