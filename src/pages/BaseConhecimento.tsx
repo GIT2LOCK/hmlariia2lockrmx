@@ -130,6 +130,8 @@ export default function BaseConhecimento() {
   };
 
   const stripHtml = (html: string) => {
+    if (!html) return "";
+    // Decode HTML entities first, then strip tags
     const doc = new DOMParser().parseFromString(html, "text/html");
     return doc.body.textContent || "";
   };
