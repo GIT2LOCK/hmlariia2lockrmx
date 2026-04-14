@@ -36,7 +36,17 @@ interface Unidade {
 
 interface Empresa { id: number; nome_fantasia: string; razao_social: string | null; cnpj: string | null; }
 interface Operadora { id: number; nome: string; telefone?: string | null; }
-interface LinkData { unidade_id: number; operadora_id: number; tipo_autenticacao: string | null; tipo_link: string | null; smart_sigma: boolean | null; }
+interface LinkData {
+  unidade_id: number;
+  operadora_id: number;
+  tipo_autenticacao: string | null;
+  tipo_link: string | null;
+  smart_sigma: boolean | null;
+  dados_abertura_chamado?: Array<{
+    cnpj_abertura: string | null;
+    razao_social_abertura: string | null;
+  }> | null;
+}
 
 const emptyForm = {
   empresa_id: "", nome_unidade: "", codigo_unidade: "",
@@ -136,7 +146,7 @@ const Unidades = () => {
       supabase.from("unidades").select("*, empresas(nome_fantasia, cnpj, razao_social)").order("nome_unidade"),
       supabase.from("empresas").select("id, nome_fantasia, razao_social, cnpj").order("nome_fantasia"),
       supabase.from("operadoras").select("id, nome, telefone").order("nome"),
-      supabase.from("links_internet").select("unidade_id, operadora_id, tipo_autenticacao, tipo_link, smart_sigma"),
+      supabase.from("links_internet").select("unidade_id, operadora_id, tipo_autenticacao, tipo_link, smart_sigma, dados_abertura_chamado(cnpj_abertura, razao_social_abertura)"),
     ]);
     setUnidades((u as any[]) || []);
     setEmpresas((e as Empresa[]) || []);
@@ -190,17 +200,35 @@ const Unidades = () => {
   const filtered = useMemo(() => unidades.filter((u) => {
     if (filterEmpresa !== "todos" && String(u.empresa_id) !== filterEmpresa) return false;
     if (filterCidade !== "todos" && u.cidade !== filterCidade) return false;
+    const uLinks = linksByUnidade.get(u.id) || [];
+
     if (search) {
       const strip = (s: string) => s.replace(/[.\-\/\s]/g, "").toLowerCase();
       const term = strip(search);
-      const match = [u.nome_unidade, u.codigo_unidade, u.hostname, u.cidade, u.estado, (u.empresas as any)?.nome_fantasia, (u.empresas as any)?.cnpj, (u.empresas as any)?.razao_social]
+      const linkSearchTerms = uLinks.flatMap((link) =>
+        (link.dados_abertura_chamado || []).flatMap((chamado) => [
+          chamado.cnpj_abertura,
+          chamado.razao_social_abertura,
+        ])
+      );
+
+      const match = [
+        u.nome_unidade,
+        u.codigo_unidade,
+        u.hostname,
+        u.cidade,
+        u.estado,
+        u.antiga_razao,
+        (u.empresas as any)?.nome_fantasia,
+        (u.empresas as any)?.cnpj,
+        (u.empresas as any)?.razao_social,
+        ...linkSearchTerms,
+      ]
         .some((v) => v && (v.toLowerCase().includes(search.toLowerCase()) || strip(v).includes(term)));
       if (!match) return false;
     }
 
     // Link-based filters
-    const uLinks = linksByUnidade.get(u.id) || [];
-
     if (filterOperadoras.length > 0) {
       if (!uLinks.some(l => filterOperadoras.includes(String(l.operadora_id)))) return false;
     }
