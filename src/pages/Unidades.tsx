@@ -31,7 +31,7 @@ interface Unidade {
   cidade: string | null; estado: string | null; logradouro: string | null; numero: string | null;
   bairro: string | null; cep: string | null; complemento: string | null;
   rede_default: string | null; wifi_antenas: boolean | null; observacoes: string | null;
-  empresas?: { nome_fantasia: string };
+  empresas?: { nome_fantasia: string; cnpj?: string | null; razao_social?: string | null };
 }
 
 interface Empresa { id: number; nome_fantasia: string; razao_social: string | null; cnpj: string | null; }
@@ -133,7 +133,7 @@ const Unidades = () => {
   const load = async () => {
     setLoading(true);
     const [{ data: u }, { data: e }, { data: o }, { data: l }] = await Promise.all([
-      supabase.from("unidades").select("*, empresas(nome_fantasia)").order("nome_unidade"),
+      supabase.from("unidades").select("*, empresas(nome_fantasia, cnpj, razao_social)").order("nome_unidade"),
       supabase.from("empresas").select("id, nome_fantasia, razao_social, cnpj").order("nome_fantasia"),
       supabase.from("operadoras").select("id, nome, telefone").order("nome"),
       supabase.from("links_internet").select("unidade_id, operadora_id, tipo_autenticacao, tipo_link, smart_sigma"),
@@ -191,7 +191,7 @@ const Unidades = () => {
     if (filterEmpresa !== "todos" && String(u.empresa_id) !== filterEmpresa) return false;
     if (filterCidade !== "todos" && u.cidade !== filterCidade) return false;
     if (search) {
-      const match = [u.nome_unidade, u.codigo_unidade, u.hostname, u.cidade, u.estado, (u.empresas as any)?.nome_fantasia]
+      const match = [u.nome_unidade, u.codigo_unidade, u.hostname, u.cidade, u.estado, (u.empresas as any)?.nome_fantasia, (u.empresas as any)?.cnpj, (u.empresas as any)?.razao_social]
         .some((v) => v?.toLowerCase().includes(search.toLowerCase()));
       if (!match) return false;
     }
