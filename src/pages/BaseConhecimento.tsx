@@ -217,7 +217,7 @@ export default function BaseConhecimento() {
       )}
 
       <Dialog open={!!selectedItem} onOpenChange={(o) => !o && setSelectedItem(null)}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-5xl w-[95vw] max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{selectedItem?.name}</DialogTitle>
           </DialogHeader>
