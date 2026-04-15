@@ -539,6 +539,39 @@ export type Database = {
         }
         Relationships: []
       }
+      zabbix_contatos: {
+        Row: {
+          atualizado_em: string | null
+          criado_em: string | null
+          id: number
+          prefixo: string
+          primeiro_contato_nome: string | null
+          primeiro_contato_telefone: string | null
+          responsavel_nome: string | null
+          responsavel_telefone: string | null
+        }
+        Insert: {
+          atualizado_em?: string | null
+          criado_em?: string | null
+          id?: number
+          prefixo: string
+          primeiro_contato_nome?: string | null
+          primeiro_contato_telefone?: string | null
+          responsavel_nome?: string | null
+          responsavel_telefone?: string | null
+        }
+        Update: {
+          atualizado_em?: string | null
+          criado_em?: string | null
+          id?: number
+          prefixo?: string
+          primeiro_contato_nome?: string | null
+          primeiro_contato_telefone?: string | null
+          responsavel_nome?: string | null
+          responsavel_telefone?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
