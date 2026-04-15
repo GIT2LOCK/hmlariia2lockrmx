@@ -131,7 +131,7 @@ serve(async (req) => {
           }
 
           // Build events map by objectid (triggerid), enrich acknowledges with user names
-          for (const ev of events) {
+          for (const ev of currentEvents) {
             const enrichedAcks = (ev.acknowledges || []).map((ack: any) => ({
               ...ack,
               user: userMap[ack.userid] || "Desconhecido",
