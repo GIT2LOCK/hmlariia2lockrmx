@@ -23,6 +23,8 @@ interface ZabbixProblem {
   triggerDescription: string;
   acknowledges?: { alias: string; message: string; clock: string; user?: string }[];
   tags?: { tag: string; value: string }[];
+  source?: string;
+  category?: string;
 }
 
 interface ZabbixMaintenance {
