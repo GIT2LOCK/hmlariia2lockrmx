@@ -305,7 +305,11 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Aggregate by opening date for last 7 days (field 15 = date)
+      // Fetch ALL tickets opened in last 7 days (any status) for chart
+      const chartTickets = await fetchAllTicketsOpenedInPeriod(GLPI_URL, glpiHeaders, 7)
+      console.log('Chart tickets (all statuses, 7d):', chartTickets.length)
+
+      // Aggregate by opening date for last 7 days
       const now = new Date()
       const last7Days: Record<string, number> = {}
       const last24Hours: Record<string, number> = {}
@@ -326,9 +330,9 @@ Deno.serve(async (req) => {
         last24Hours[key] = 0
       }
 
-      // Count tickets by date (field 15)
-      for (const ticket of allTickets) {
-        const dateStr = String(ticket['date'] ?? ticket['15'] ?? '')
+      // Count chart tickets by date (search API returns field '15' for date)
+      for (const ticket of chartTickets) {
+        const dateStr = String(ticket['15'] ?? ticket['date'] ?? '')
         if (!dateStr) continue
         const ticketDate = new Date(dateStr)
         const dateKey = ticketDate.toISOString().split('T')[0]
@@ -348,19 +352,16 @@ Deno.serve(async (req) => {
       // Per-entity last 7 days for line chart
       const last7DaysByEntity: Record<string, Record<string, number>> = {}
       for (const entityKey of ['1', '7', '8', 'indefinido']) {
-        last7DaysByEntity[entityKey] = { ...last7Days }
-      }
-      // Reset counts
-      for (const key of Object.keys(last7DaysByEntity)) {
-        for (const d of Object.keys(last7DaysByEntity[key])) {
-          last7DaysByEntity[key][d] = 0
+        last7DaysByEntity[entityKey] = {}
+        for (const d of Object.keys(last7Days)) {
+          last7DaysByEntity[entityKey][d] = 0
         }
       }
-      for (const ticket of allTickets) {
-        const dateStr = String(ticket['date'] ?? ticket['15'] ?? '')
+      for (const ticket of chartTickets) {
+        const dateStr = String(ticket['15'] ?? ticket['date'] ?? '')
         if (!dateStr) continue
         const dateKey = new Date(dateStr).toISOString().split('T')[0]
-        const entityKey = getEntityKey(String(ticket['entities_id'] ?? ticket['80'] ?? 'unknown'), entityMap)
+        const entityKey = getEntityKey(String(ticket['80'] ?? ticket['entities_id'] ?? 'unknown'), entityMap)
         if (last7DaysByEntity[entityKey] && last7DaysByEntity[entityKey][dateKey] !== undefined) {
           last7DaysByEntity[entityKey][dateKey]++
         }
