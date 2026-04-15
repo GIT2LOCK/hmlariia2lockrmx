@@ -169,6 +169,15 @@ export default function DashboardZabbix() {
 
   const totalProblems = problems.length;
 
+  const toggleHost = (key: string) => {
+    setExpandedHosts((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
   return (
     <div className="space-y-4">
       {/* Header */}
