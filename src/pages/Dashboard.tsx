@@ -267,6 +267,7 @@ const TvDonutCard = ({ title, items, total }: { title: string; items: DonutSlice
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { isTvView } = useUser();
   const [counts, setCounts] = useState({ empresas: 0, unidades: 0, operadoras: 0, links: 0 });
   const [search, setSearch] = useState("");
   const [results, setResults] = useState<any[]>([]);
@@ -276,6 +277,17 @@ const Dashboard = () => {
   const [sidebarHidden, setSidebarHidden] = useState(false);
   const [ticketLoading, setTicketLoading] = useState(false);
   const [ticketError, setTicketError] = useState<string | null>(null);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const [now, setNow] = useState(new Date());
+  const [secAgo, setSecAgo] = useState(0);
+
+  // Auto-enter TV mode for TV_VIEW users
+  useEffect(() => {
+    if (isTvView) {
+      setTvMode(true);
+      setSidebarHidden(true);
+    }
+  }, [isTvView]);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [now, setNow] = useState(new Date());
   const [secAgo, setSecAgo] = useState(0);
