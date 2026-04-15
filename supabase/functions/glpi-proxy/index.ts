@@ -49,35 +49,48 @@ async function fetchAllOpenTickets(
   headers: Record<string, string>
 ): Promise<Array<Record<string, unknown>>> {
   const allTickets: Array<Record<string, unknown>> = []
-  let start = 0
-  const batchSize = 500
-
-  while (true) {
-    const criteria: Record<string, string> = {
-      'criteria[0][field]': '12',
-      'criteria[0][searchtype]': 'notequals',
-      'criteria[0][value]': '5',
-      'criteria[1][link]': 'AND',
-      'criteria[1][field]': '12',
-      'criteria[1][searchtype]': 'notequals',
-      'criteria[1][value]': '6',
+  
+  // Fetch tickets with status NOT solved(5) and NOT closed(6)
+  // Using the simpler Ticket listing endpoint with expand_dropdowns for readable entity names
+  const statusesToFetch = [1, 2, 3, 4] // new, assigned, planned, pending
+  
+  for (const status of statusesToFetch) {
+    let start = 0
+    const batchSize = 999
+    
+    while (true) {
+      const url = `${glpiUrl}/Ticket?searchText[status]=${status}&range=${start}-${start + batchSize}&expand_dropdowns=true`
+      console.log('Fetching:', url)
+      
+      const res = await fetch(url, { headers })
+      
+      if (!res.ok) {
+        const body = await res.text()
+        console.error(`Ticket fetch error (status=${status}):`, res.status, body)
+        // If 401/400 range error, skip; if "no data", break
+        break
+      }
+      
+      const data = await res.json()
+      
+      if (Array.isArray(data)) {
+        allTickets.push(...data)
+        if (data.length < batchSize) break
+      } else if (data && typeof data === 'object') {
+        // Sometimes GLPI returns an object with numeric keys
+        const items = Object.values(data).filter(v => typeof v === 'object' && v !== null)
+        if (items.length > 0) {
+          allTickets.push(...items as Array<Record<string, unknown>>)
+        }
+        break
+      } else {
+        break
+      }
+      
+      start += batchSize + 1
     }
-
-    const result = await searchTickets(
-      glpiUrl, headers, criteria,
-      ['2', '80', '12', '15'], // id, entity, status, open date
-      `${start}-${start + batchSize - 1}`
-    )
-
-    if (result.data && Array.isArray(result.data)) {
-      allTickets.push(...result.data)
-      if (result.data.length < batchSize) break
-    } else {
-      break
-    }
-    start += batchSize
   }
-
+  
   return allTickets
 }
 
