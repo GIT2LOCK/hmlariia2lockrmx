@@ -146,14 +146,10 @@ All colors MUST be HSL.
 }
 
 /* TV Mode: hide sidebar completely */
-html[data-sidebar-hidden] [data-sidebar="sidebar"] {
+html[data-sidebar-hidden] .group.peer {
   display: none !important;
 }
-html[data-sidebar-hidden] [data-sidebar="sidebar"] + * {
-  /* Remove sidebar gap */
-}
-html[data-sidebar-hidden] .peer\/sidebar-wrapper {
-  width: 0 !important;
-  min-width: 0 !important;
-  flex: 0 !important;
+html[data-sidebar-hidden] .group\/sidebar-wrapper {
+  --sidebar-width: 0px !important;
+  --sidebar-width-icon: 0px !important;
 }
