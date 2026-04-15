@@ -170,7 +170,7 @@ export default function DashboardZabbix() {
           ) : totalProblems === 0 ? (
             <EmptyState icon={CheckCircle2} message="Nenhum problema ativo no momento." />
           ) : (
-            (["equipamentos", "links", "infraestrutura", "outros"] as Category[]).map((cat) => {
+            (["equipamentos", "links", "outros"] as Category[]).map((cat) => {
               const items = categorizedProblems[cat];
               if (items.length === 0) return null;
               const cfg = CATEGORY_CONFIG[cat];
