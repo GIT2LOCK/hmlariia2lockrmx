@@ -102,6 +102,11 @@ serve(async (req) => {
               triggerDescription: trigger?.description || p.name,
             };
           })
+          // Only keep "Indisponibilidade Equipamento" or "Indisponibilidade Link" problems
+          .filter((p: any) => {
+            const name = (p.triggerDescription || p.name || "").toLowerCase();
+            return name.includes("indisponibilidade");
+          })
           // Exclude problems where ALL hosts are in maintenance
           .filter((p: any) => {
             if (!p.hosts || p.hosts.length === 0) return true;
