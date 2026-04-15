@@ -63,10 +63,10 @@ serve(async (req) => {
         // excluding hosts in maintenance, only active hosts/triggers
         const triggers = await zabbixCall("trigger.get", {
           output: ["triggerid", "description", "priority", "lastchange", "value"],
-          filter: { value: 1, priority: 4 }, // value 1 = PROBLEM, priority 4 = High
-          monitored: true,        // only monitored (active) triggers
-          maintenance: false,     // exclude hosts in maintenance
-          skipDependent: true,    // skip dependent triggers
+          filter: { value: 1, priority: 4 },
+          monitored: true,
+          maintenance: false,
+          skipDependent: true,
           selectHosts: ["hostid", "host", "name"],
           selectGroups: ["groupid", "name"],
           sortfield: "lastchange",
@@ -82,21 +82,76 @@ serve(async (req) => {
           return true;
         });
 
+        // Fetch events with acknowledges for each trigger's objectids
+        const triggerIds = filteredTriggers.map((t: any) => t.triggerid);
+        let eventsMap: Record<string, any[]> = {};
+
+        if (triggerIds.length > 0) {
+          const events = await zabbixCall("event.get", {
+            output: ["eventid", "objectid", "clock", "acknowledged"],
+            objectids: triggerIds,
+            source: 0,  // triggers
+            object: 0,  // triggers
+            value: 1,   // PROBLEM
+            sortfield: "clock",
+            sortorder: "DESC",
+            selectAcknowledges: ["acknowledgeid", "userid", "clock", "message", "action"],
+          });
+
+          // Collect unique userids from acknowledges
+          const userIds = new Set<string>();
+          for (const ev of events) {
+            for (const ack of (ev.acknowledges || [])) {
+              if (ack.userid) userIds.add(ack.userid);
+            }
+          }
+
+          // Resolve userids to names
+          let userMap: Record<string, string> = {};
+          if (userIds.size > 0) {
+            const users = await zabbixCall("user.get", {
+              output: ["userid", "username", "name", "surname"],
+              userids: Array.from(userIds),
+            });
+            for (const u of users) {
+              const displayName = (u.name && u.surname) ? `${u.name} ${u.surname}`.trim() : u.username || u.alias || u.userid;
+              userMap[u.userid] = displayName || u.username;
+            }
+          }
+
+          // Build events map by objectid (triggerid), enrich acknowledges with user names
+          for (const ev of events) {
+            const enrichedAcks = (ev.acknowledges || []).map((ack: any) => ({
+              ...ack,
+              user: userMap[ack.userid] || "Desconhecido",
+            }));
+            if (!eventsMap[ev.objectid]) {
+              eventsMap[ev.objectid] = [];
+            }
+            eventsMap[ev.objectid].push(...enrichedAcks);
+          }
+        }
+
         // Map to problem-like format for frontend compatibility
-        result = filteredTriggers.map((t: any) => ({
-          eventid: t.triggerid,
-          objectid: t.triggerid,
-          name: t.description,
-          severity: t.priority,
-          clock: t.lastchange,
-          acknowledged: "0",
-          suppressed: "0",
-          hosts: t.hosts || [],
-          groups: t.groups || [],
-          triggerDescription: t.description,
-          tags: [],
-          acknowledges: [],
-        }));
+        result = filteredTriggers.map((t: any) => {
+          const acks = eventsMap[t.triggerid] || [];
+          // Sort by clock desc
+          acks.sort((a: any, b: any) => Number(b.clock) - Number(a.clock));
+          return {
+            eventid: t.triggerid,
+            objectid: t.triggerid,
+            name: t.description,
+            severity: t.priority,
+            clock: t.lastchange,
+            acknowledged: acks.length > 0 ? "1" : "0",
+            suppressed: "0",
+            hosts: t.hosts || [],
+            groups: t.groups || [],
+            triggerDescription: t.description,
+            tags: [],
+            acknowledges: acks,
+          };
+        });
 
         break;
       }
