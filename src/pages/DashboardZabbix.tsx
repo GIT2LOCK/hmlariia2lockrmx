@@ -65,9 +65,16 @@ const SEVERITY_CONFIG: Record<string, { label: string; bg: string; text: string 
 // Classify groups into categories - user should customize these keywords
 function classifyGroup(groupNames: string[]): Category {
   const joined = groupNames.join(" ").toLowerCase();
-  if (/equip|switch|router|roteador|firewall|ap |access.?point|mikrotik|ubiquiti|fortinet/i.test(joined)) return "equipamentos";
-  if (/link|internet|wan|mpls|banda.?larga|fibra|dedicado|4g|provedor/i.test(joined)) return "links";
-  if (/infra|servidor|server|storage|vmware|hyper|datacenter|dc |ups|nobreak|energia/i.test(joined)) return "infraestrutura";
+  // Equipamentos: switches, roteadores, firewalls, controllers, nobreaks, modems, call managers
+  if (/switch|roteador|firewall|controller.?wifi|nobreak|modem|call.?manager|vsat/i.test(joined)) return "equipamentos";
+  // Links: Internet group
+  if (/internet/i.test(joined)) return "links";
+  // Infraestrutura: servers, hypervisors, VMs, databases, storage, datacenter, zabbix, grafana, PI
+  if (/infra|servidor|server|linux|hypervisor|vmware|virtual.?machine|database|zabbix|grafana|data.?center|^pi$/i.test(joined)) return "infraestrutura";
+  // SUB_ groups and Polo groups → equipamentos (field sites)
+  if (/^sub_|^polo /i.test(joined)) return "equipamentos";
+  // PRX groups → infraestrutura
+  if (/^prx/i.test(joined)) return "infraestrutura";
   return "outros";
 }
 
