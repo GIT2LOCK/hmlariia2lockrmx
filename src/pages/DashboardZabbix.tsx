@@ -63,18 +63,13 @@ const SEVERITY_CONFIG: Record<string, { label: string; bg: string; text: string 
 };
 
 // Classify groups into categories - user should customize these keywords
-function classifyGroup(groupNames: string[]): Category {
-  const joined = groupNames.join(" ").toLowerCase();
-  // Equipamentos: switches, roteadores, firewalls, controllers, nobreaks, modems, call managers
-  if (/switch|roteador|firewall|controller.?wifi|nobreak|modem|call.?manager|vsat/i.test(joined)) return "equipamentos";
-  // Links: Internet group
-  if (/internet/i.test(joined)) return "links";
-  // Infraestrutura: servers, hypervisors, VMs, databases, storage, datacenter, zabbix, grafana, PI
-  if (/infra|servidor|server|linux|hypervisor|vmware|virtual.?machine|database|zabbix|grafana|data.?center|^pi$/i.test(joined)) return "infraestrutura";
-  // SUB_ groups and Polo groups → equipamentos (field sites)
-  if (/^sub_|^polo /i.test(joined)) return "equipamentos";
-  // PRX groups → infraestrutura
-  if (/^prx/i.test(joined)) return "infraestrutura";
+function classifyProblem(problem: ZabbixProblem): Category {
+  const name = problem.triggerDescription || problem.name || "";
+  const hostName = problem.hosts?.[0]?.name || problem.hosts?.[0]?.host || "";
+  
+  if (/indisponibilidade de equipamento/i.test(name)) return "equipamentos";
+  if (/indisponibilidade de link/i.test(name)) return "links";
+  if (/^TI-/i.test(hostName)) return "infraestrutura";
   return "outros";
 }
 
@@ -117,7 +112,7 @@ export default function DashboardZabbix() {
   // Classify problems
   const categorizedProblems = problems.reduce<Record<Category, ZabbixProblem[]>>(
     (acc, p) => {
-      const cat = classifyGroup(p.groups.map((g) => g.name));
+      const cat = classifyProblem(p);
       acc[cat].push(p);
       return acc;
     },
