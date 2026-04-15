@@ -49,7 +49,6 @@ const App = () => (
               <Route path="base-conhecimento" element={<BaseConhecimento />} />
               <Route path="perfil" element={<MeuPerfil />} />
             </Route>
-            <Route path="/tv-dashboard" element={<TVDashboard />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
