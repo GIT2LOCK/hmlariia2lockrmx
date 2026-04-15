@@ -241,86 +241,43 @@ export default function DashboardZabbix() {
                         </thead>
                         <tbody>
                           {groupByHost(items).map((group) => {
-                            const isSingle = group.problems.length === 1;
-                            const isExpanded = expandedHosts.has(`${cat}_${group.hostKey}`);
                             const prefix = extractPrefix(group.hostCode);
                             const contato = prefix ? contatos[prefix] : null;
-                            const totalAcks = group.allAcks.length;
+                            const highestSev = Math.max(...group.problems.map(p => Number(p.severity)));
+                            const sev = SEVERITY_CONFIG[String(highestSev)] || SEVERITY_CONFIG["0"];
+                            // Unique trigger names
+                            const uniqueTriggers = group.problems
+                              .map(p => p.triggerDescription || p.name)
+                              .filter((v, i, a) => a.indexOf(v) === i);
 
-                            if (isSingle) {
-                              // Single problem: render flat row
-                              const p = group.problems[0];
-                              const sev = SEVERITY_CONFIG[p.severity] || SEVERITY_CONFIG["0"];
-                              const acks = p.acknowledges || [];
-                              return (
-                                <tr key={p.eventid} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
-                                  <td className="px-4 py-2">
-                                    <Badge className={`${sev.bg} ${sev.text} text-xs`}>{sev.label}</Badge>
-                                  </td>
-                                  <td className="px-4 py-2 font-medium whitespace-nowrap">{group.hostName}</td>
-                                  <td className="px-4 py-2 max-w-md truncate">{p.triggerDescription || p.name}</td>
-                                  <td className="px-4 py-2 whitespace-nowrap text-muted-foreground">
-                                    <Clock className="h-3 w-3 inline mr-1" />{formatDuration(Number(p.clock))}
-                                  </td>
-                                  <td className="px-4 py-2">
-                                    <AcksPopover acks={acks} />
-                                  </td>
-                                  <td className="px-4 py-2">
-                                    <ContactButton contato={contato} />
-                                  </td>
-                                </tr>
-                              );
-                            }
-
-                            // Multiple problems: collapsible group
-                            const groupKey = `${cat}_${group.hostKey}`;
                             return (
-                              <React.Fragment key={groupKey}>
-                                <tr
-                                  className="border-b hover:bg-muted/30 transition-colors cursor-pointer"
-                                  onClick={() => toggleHost(groupKey)}
-                                >
-                                  <td className="px-4 py-2">
-                                    <Badge variant="destructive" className="text-xs">{group.problems.length} triggers</Badge>
-                                  </td>
-                                  <td className="px-4 py-2 font-medium whitespace-nowrap flex items-center gap-1">
-                                    {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                                    {group.hostName}
-                                  </td>
-                                  <td className="px-4 py-2 text-muted-foreground text-xs">
-                                    {group.problems.map(p => p.triggerDescription || p.name).filter((v, i, a) => a.indexOf(v) === i).join(", ")}
-                                  </td>
-                                  <td className="px-4 py-2 whitespace-nowrap text-muted-foreground">
-                                    <Clock className="h-3 w-3 inline mr-1" />{formatDuration(group.oldestClock)}
-                                  </td>
-                                  <td className="px-4 py-2">
-                                    <AcksPopover acks={group.allAcks} />
-                                  </td>
-                                  <td className="px-4 py-2">
-                                    <ContactButton contato={contato} />
-                                  </td>
-                                </tr>
-                                {isExpanded && group.problems.map((p) => {
-                                  const sev = SEVERITY_CONFIG[p.severity] || SEVERITY_CONFIG["0"];
-                                  const acks = p.acknowledges || [];
-                                  return (
-                                    <tr key={p.eventid} className="border-b last:border-0 bg-muted/20">
-                                      <td className="px-4 py-1.5 pl-8">
-                                        <Badge className={`${sev.bg} ${sev.text} text-xs`}>{sev.label}</Badge>
-                                      </td>
-                                      <td className="px-4 py-1.5 text-xs text-muted-foreground pl-8">↳</td>
-                                      <td className="px-4 py-1.5 text-xs">{p.triggerDescription || p.name}</td>
-                                      <td className="px-4 py-1.5 whitespace-nowrap text-xs text-muted-foreground">
-                                        <Clock className="h-3 w-3 inline mr-1" />{formatDuration(Number(p.clock))}
-                                      </td>
-                                      <td className="px-4 py-1.5">
-                                        <AcksPopover acks={acks} />
-                                      </td>
-                                      <td className="px-4 py-1.5"></td>
-                                    </tr>
-                                  );
-                                })}
-                              </React.Fragment>
+                              <tr key={group.hostKey} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+                                <td className="px-4 py-2">
+                                  <Badge className={`${sev.bg} ${sev.text} text-xs`}>{sev.label}</Badge>
+                                </td>
+                                <td className="px-4 py-2 font-medium whitespace-nowrap">
+                                  {group.hostName}
+                                  {group.problems.length > 1 && (
+                                    <Badge variant="outline" className="ml-2 text-[10px] px-1.5 py-0">{group.problems.length}</Badge>
+                                  )}
+                                </td>
+                                <td className="px-4 py-2 max-w-md">
+                                  <div className="flex flex-wrap gap-1">
+                                    {uniqueTriggers.map((name, i) => (
+                                      <span key={i} className="text-xs bg-muted px-1.5 py-0.5 rounded">{name}</span>
+                                    ))}
+                                  </div>
+                                </td>
+                                <td className="px-4 py-2 whitespace-nowrap text-muted-foreground">
+                                  <Clock className="h-3 w-3 inline mr-1" />{formatDuration(group.oldestClock)}
+                                </td>
+                                <td className="px-4 py-2">
+                                  <AcksPopover acks={group.allAcks} />
+                                </td>
+                                <td className="px-4 py-2">
+                                  <ContactButton contato={contato} />
+                                </td>
+                              </tr>
                             );
                           })}
                         </tbody>
