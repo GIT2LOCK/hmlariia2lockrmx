@@ -412,12 +412,16 @@ const Dashboard = () => {
           <motion.div initial={{ opacity: 0, y: -24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7 }}
             className="flex items-center justify-between mb-3 flex-shrink-0">
             <div className="flex items-center gap-3">
-              <button onClick={() => { setTvMode(false); setSidebarHidden(false); }} className="p-2 rounded-xl transition-all hover:bg-white/5 hover:scale-110 active:scale-95">
-                <ArrowLeft className="h-5 w-5" style={{ color: C.dim }} />
-              </button>
-              <button onClick={() => setSidebarHidden(!sidebarHidden)} className="p-2 rounded-xl transition-all hover:bg-white/5 hover:scale-110 active:scale-95" title={sidebarHidden ? "Mostrar menu" : "Ocultar menu"}>
-                {sidebarHidden ? <Eye className="h-5 w-5" style={{ color: C.dim }} /> : <EyeOff className="h-5 w-5" style={{ color: C.dim }} />}
-              </button>
+              {!isTvView && (
+                <button onClick={() => { setTvMode(false); setSidebarHidden(false); }} className="p-2 rounded-xl transition-all hover:bg-white/5 hover:scale-110 active:scale-95">
+                  <ArrowLeft className="h-5 w-5" style={{ color: C.dim }} />
+                </button>
+              )}
+              {!isTvView && (
+                <button onClick={() => setSidebarHidden(!sidebarHidden)} className="p-2 rounded-xl transition-all hover:bg-white/5 hover:scale-110 active:scale-95" title={sidebarHidden ? "Mostrar menu" : "Ocultar menu"}>
+                  {sidebarHidden ? <Eye className="h-5 w-5" style={{ color: C.dim }} /> : <EyeOff className="h-5 w-5" style={{ color: C.dim }} />}
+                </button>
+              )}
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-xl" style={{ background: "rgba(77,166,255,0.12)", boxShadow: "0 0 20px rgba(77,166,255,0.25), inset 0 0 12px rgba(77,166,255,0.08)" }}>
                   <Monitor className="h-6 w-6" style={{ color: C.cyan, filter: `drop-shadow(0 0 6px ${C.cyan})` }} />
