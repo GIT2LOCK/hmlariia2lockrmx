@@ -469,7 +469,7 @@ const Dashboard = () => {
               {/* By Entity */}
               <GlowCard delay={0.5} className="flex-1">
                 <div className="p-3 h-full flex flex-col">
-                  <p className="text-[11px] font-extrabold uppercase tracking-[0.15em] mb-1" style={{ color: C.textCyan }}>
+                  <p className="text-[11px] uppercase tracking-[0.15em] mb-1" style={{ color: C.textCyan }}>
                     Distribuição por Empresa
                   </p>
                   <div className="flex-1 min-h-0">
@@ -500,7 +500,7 @@ const Dashboard = () => {
                   </div>
                   <div className="flex flex-wrap gap-x-3 gap-y-1 justify-center">
                     {pieData.map(p => (
-                      <span key={p.name} className="flex items-center gap-1.5 text-[10px] font-semibold" style={{ color: C.dim }}>
+                      <span key={p.name} className="flex items-center gap-1.5 text-[10px] style={{ color: C.dim, fontWeight: 400 }}>
                         <span className="w-2.5 h-2.5 rounded-full" style={{ background: p.color, boxShadow: `0 0 5px ${p.color}60` }} />
                         {p.pct}% {p.name}
                       </span>
@@ -512,7 +512,7 @@ const Dashboard = () => {
               {/* By Status */}
               <GlowCard delay={0.6} className="flex-1">
                 <div className="p-3 h-full flex flex-col">
-                  <p className="text-[11px] font-extrabold uppercase tracking-[0.15em] mb-1" style={{ color: C.textCyan }}>
+                  <p className="text-[11px] uppercase tracking-[0.15em] mb-1" style={{ color: C.textCyan }}>
                     Distribuição por Status
                   </p>
                   <div className="flex-1 min-h-0">
@@ -534,7 +534,7 @@ const Dashboard = () => {
                   </div>
                   <div className="flex flex-wrap gap-x-3 gap-y-1 justify-center">
                     {statusPie.map(d => (
-                      <span key={d.name} className="flex items-center gap-1.5 text-[10px] font-semibold" style={{ color: C.dim }}>
+                      <span key={d.name} className="flex items-center gap-1.5 text-[10px] style={{ color: C.dim, fontWeight: 400 }}>
                         <span className="w-2.5 h-2.5 rounded-full" style={{ background: d.color, boxShadow: `0 0 5px ${d.color}60` }} />
                         {d.name} {totalStatus > 0 ? Math.round((d.value / totalStatus) * 100) : 0}%
                       </span>
@@ -550,7 +550,7 @@ const Dashboard = () => {
             {/* 7-day Area Chart */}
             <GlowCard delay={0.7}>
               <div className="p-3 lg:p-4">
-                <p className="text-[11px] font-extrabold uppercase tracking-[0.15em] mb-2" style={{ color: C.textCyan }}>
+                <p className="text-[11px] uppercase tracking-[0.15em] mb-2" style={{ color: C.textCyan }}>
                   Últimos 7 Dias
                 </p>
                 <ResponsiveContainer width="100%" height={150}>
@@ -589,7 +589,7 @@ const Dashboard = () => {
             {/* 24h Bar chart */}
             <GlowCard delay={0.8}>
               <div className="p-3 lg:p-4">
-                <p className="text-[11px] font-extrabold uppercase tracking-[0.15em] mb-2" style={{ color: C.textCyan }}>
+                <p className="text-[11px] uppercase tracking-[0.15em] mb-2" style={{ color: C.textCyan }}>
                   Últimas 24 Horas
                 </p>
                 <ResponsiveContainer width="100%" height={150}>
@@ -642,7 +642,7 @@ const Dashboard = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+          <h1 className="text-2xl font-normal text-foreground">Dashboard</h1>
           <p className="text-muted-foreground">Visão geral do sistema de consulta técnica</p>
         </div>
         <Button onClick={() => setTvMode(true)} variant="outline" className="gap-2">
@@ -655,7 +655,7 @@ const Dashboard = () => {
             <CardContent className="p-6 flex items-center gap-4">
               <s.icon className={`h-10 w-10 ${s.color}`} />
               <div>
-                <p className="text-2xl font-bold">{s.value}</p>
+                <p className="text-2xl font-normal">{s.value}</p>
                 <p className="text-sm text-muted-foreground">{s.label}</p>
               </div>
             </CardContent>
