@@ -9,8 +9,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
-  PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Area, AreaChart,
+  ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid, Area, AreaChart,
   BarChart, Bar, Legend,
 } from "recharts";
 import { motion } from "framer-motion";
@@ -193,14 +192,76 @@ const PulseDot = ({ color }: { color: string }) => (
   </span>
 );
 
-/** Custom Recharts label for center of donut */
-const CenterLabel = ({ viewBox, value }: any) => {
-  const { cx, cy } = viewBox;
+type DonutSlice = { name: string; value: number; color: string; pct?: number };
+
+/** Stable donut card for TV View */
+const TvDonutCard = ({ title, items, total }: { title: string; items: DonutSlice[]; total: number }) => {
+  const gradient = useMemo(() => {
+    const active = items.filter((item) => item.value > 0);
+    const totalValue = active.reduce((sum, item) => sum + item.value, 0);
+
+    if (!active.length || totalValue <= 0) {
+      return `conic-gradient(from -90deg, rgba(77,166,255,0.12) 0% 100%)`;
+    }
+
+    let offset = 0;
+    const stops = active.map((item) => {
+      const start = offset;
+      offset += (item.value / totalValue) * 100;
+      return `${item.color} ${start}% ${offset}%`;
+    });
+
+    return `conic-gradient(from -90deg, ${stops.join(", ")})`;
+  }, [items]);
+
   return (
-    <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central">
-      <tspan x={cx} dy="-6" fill={C.white} fontSize="22" fontWeight="400" style={{ textShadow: `0 0 14px ${C.cyan}50` }}>{value}</tspan>
-      <tspan x={cx} dy="18" fill={C.dim} fontSize="10" fontWeight="400">TOTAL</tspan>
-    </text>
+    <div className="p-3 h-full flex flex-col">
+      <p className="text-[11px] uppercase tracking-[0.15em] mb-2" style={{ color: C.textCyan }}>
+        {title}
+      </p>
+      <div className="flex flex-1 items-center justify-center py-1">
+        <div className="relative h-[164px] w-[164px]">
+          <div
+            className="absolute inset-0 rounded-full"
+            style={{
+              background: gradient,
+              boxShadow: `0 0 18px rgba(77,166,255,0.10)`,
+            }}
+          />
+          <div
+            className="absolute inset-[16px] rounded-full"
+            style={{
+              background: "rgba(6,12,30,0.96)",
+              border: `1px solid ${C.border}`,
+              boxShadow: "inset 0 0 24px rgba(77,166,255,0.08)",
+            }}
+          />
+          <div
+            className="absolute inset-[29px] rounded-full"
+            style={{ border: `1px solid rgba(77,166,255,0.10)` }}
+          />
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <span
+              className="text-[30px] leading-none tabular-nums"
+              style={{ color: C.white, fontWeight: 400, textShadow: `0 0 12px ${C.cyan}40` }}
+            >
+              {total}
+            </span>
+            <span className="mt-1 text-[9px] tracking-[0.18em]" style={{ color: C.dim, fontWeight: 400 }}>
+              TOTAL
+            </span>
+          </div>
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-x-3 gap-y-1 justify-center">
+        {items.map((item) => (
+          <span key={item.name} className="flex items-center gap-1.5 text-[10px]" style={{ color: C.dim, fontWeight: 400 }}>
+            <span className="w-2.5 h-2.5 rounded-full" style={{ background: item.color, boxShadow: `0 0 5px ${item.color}60` }} />
+            {item.pct ?? 0}% {item.name}
+          </span>
+        ))}
+      </div>
+    </div>
   );
 };
 
@@ -411,7 +472,7 @@ const Dashboard = () => {
           </div>
 
           {/* ═══ MIDDLE: Table + Donuts ═══ */}
-          <div className="grid grid-cols-[1fr_320px] gap-3 mb-3 flex-1 min-h-0">
+          <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-3 mb-3 flex-1 min-h-0">
 
             {/* Status Grid */}
             <GlowCard delay={0.4}>
@@ -436,26 +497,26 @@ const Dashboard = () => {
                       initial={{ opacity: 0, x: -30 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: 0.5 + i * 0.12, ease: "easeOut" }}
-                      className="grid grid-cols-6 gap-0 rounded-xl transition-colors duration-200 hover:bg-[rgba(77,166,255,0.04)] flex-1 items-center"
+                      className="grid grid-cols-6 gap-0 rounded-xl min-h-[62px] transition-colors duration-200 hover:bg-[rgba(77,166,255,0.04)] items-center"
                       style={i < STATUS_ROWS.length - 1 ? { borderBottom: `1px solid rgba(77,166,255,0.06)` } : {}}>
                       <div className="px-3 py-2 flex items-center">
                         <div className="flex items-center gap-2">
-                          <span className="w-1 h-8 rounded-full" style={{ background: STATUS_COLORS[i], boxShadow: `0 0 8px ${STATUS_COLORS[i]}50` }} />
+                          <span className="w-1 h-7 rounded-full" style={{ background: STATUS_COLORS[i], boxShadow: `0 0 8px ${STATUS_COLORS[i]}50` }} />
                           <span className="text-sm" style={{ color: C.textCyan, fontWeight: 400 }}>{STATUS_LABELS[status]}</span>
                         </div>
                       </div>
                       <div className="px-3 py-2 flex items-center justify-center">
-                        <AnimNum value={rowTotal} className="text-4xl xl:text-5xl tabular-nums"
+                        <AnimNum value={rowTotal} className="text-3xl xl:text-4xl tabular-nums"
                           style={{ color: C.white, textShadow: `0 0 25px ${C.cyan}35`, fontWeight: 400 }} />
                       </div>
                       {ENTITIES.map(e => (
                         <div key={e.id} className="px-3 py-2 flex items-center justify-center">
-                          <AnimNum value={row[e.id] || 0} className="text-4xl xl:text-5xl tabular-nums"
+                          <AnimNum value={row[e.id] || 0} className="text-3xl xl:text-4xl tabular-nums"
                             style={{ color: C.white, fontWeight: 400 }} />
                         </div>
                       ))}
                       <div className="px-3 py-2 flex items-center justify-center">
-                        <AnimNum value={row["indefinido"] || 0} className="text-4xl xl:text-5xl tabular-nums"
+                        <AnimNum value={row["indefinido"] || 0} className="text-3xl xl:text-4xl tabular-nums"
                           style={{ color: C.white, fontWeight: 400 }} />
                       </div>
                     </motion.div>
@@ -466,81 +527,19 @@ const Dashboard = () => {
 
             {/* Donut Charts */}
             <div className="flex flex-col gap-3">
-              {/* By Entity */}
-              <GlowCard delay={0.5} className="flex-1">
-                <div className="p-3 h-full flex flex-col">
-                  <p className="text-[11px] uppercase tracking-[0.15em] mb-1" style={{ color: C.textCyan }}>
-                    Distribuição por Empresa
-                  </p>
-                  <div className="flex-1" style={{ minHeight: "160px" }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <defs>
-                          {pieData.map((d, i) => (
-                            <filter key={i} id={`pie-glow-${i}`}>
-                              <feGaussianBlur stdDeviation="3" result="blur" />
-                              <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-                            </filter>
-                          ))}
-                        </defs>
-                        <Pie data={pieData} cx="50%" cy="50%" innerRadius="50%" outerRadius="78%" dataKey="value"
-                          strokeWidth={3} stroke="rgba(6,12,30,0.95)" animationBegin={200} animationDuration={1200}
-                          label={false}>
-                          {pieData.map((d, i) => <Cell key={i} fill={d.color} style={{ filter: `drop-shadow(0 0 8px ${d.color}50)` }} />)}
-                        </Pie>
-                        <Tooltip formatter={(v: number, n: string) => [`${v} chamados`, n]} contentStyle={tooltipStyle} />
-                        <text x="50%" y="46%" textAnchor="middle" dominantBaseline="central" fill={C.white} fontSize="20" fontWeight="400" style={{ textShadow: `0 0 12px ${C.cyan}40` }}>
-                          {totalPie}
-                        </text>
-                        <text x="50%" y="58%" textAnchor="middle" dominantBaseline="central" fill={C.dim} fontSize="9" fontWeight="400" letterSpacing="0.1em">
-                          TOTAL
-                        </text>
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="flex flex-wrap gap-x-3 gap-y-1 justify-center">
-                    {pieData.map(p => (
-                      <span key={p.name} className="flex items-center gap-1.5 text-[10px]" style={{ color: C.dim, fontWeight: 400 }}>
-                        <span className="w-2.5 h-2.5 rounded-full" style={{ background: p.color, boxShadow: `0 0 5px ${p.color}60` }} />
-                        {p.pct}% {p.name}
-                      </span>
-                    ))}
-                  </div>
-                </div>
+              <GlowCard delay={0.5} className="min-h-[218px]">
+                <TvDonutCard title="Distribuição por Empresa" items={pieData} total={totalPie} />
               </GlowCard>
 
-              {/* By Status */}
-              <GlowCard delay={0.6} className="flex-1">
-                <div className="p-3 h-full flex flex-col">
-                  <p className="text-[11px] uppercase tracking-[0.15em] mb-1" style={{ color: C.textCyan }}>
-                    Distribuição por Status
-                  </p>
-                  <div className="flex-1" style={{ minHeight: "160px" }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie data={statusPie} cx="50%" cy="50%" innerRadius="50%" outerRadius="78%" dataKey="value"
-                          strokeWidth={3} stroke="rgba(6,12,30,0.95)" animationBegin={400} animationDuration={1200}>
-                          {statusPie.map((d, i) => <Cell key={i} fill={d.color} style={{ filter: `drop-shadow(0 0 8px ${d.color}50)` }} />)}
-                        </Pie>
-                        <Tooltip contentStyle={tooltipStyle} />
-                        <text x="50%" y="46%" textAnchor="middle" dominantBaseline="central" fill={C.white} fontSize="20" fontWeight="400" style={{ textShadow: `0 0 12px ${C.cyan}40` }}>
-                          {totalStatus}
-                        </text>
-                        <text x="50%" y="58%" textAnchor="middle" dominantBaseline="central" fill={C.dim} fontSize="9" fontWeight="400" letterSpacing="0.1em">
-                          TOTAL
-                        </text>
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="flex flex-wrap gap-x-3 gap-y-1 justify-center">
-                    {statusPie.map(d => (
-                      <span key={d.name} className="flex items-center gap-1.5 text-[10px]" style={{ color: C.dim, fontWeight: 400 }}>
-                        <span className="w-2.5 h-2.5 rounded-full" style={{ background: d.color, boxShadow: `0 0 5px ${d.color}60` }} />
-                        {d.name} {totalStatus > 0 ? Math.round((d.value / totalStatus) * 100) : 0}%
-                      </span>
-                    ))}
-                  </div>
-                </div>
+              <GlowCard delay={0.6} className="min-h-[218px]">
+                <TvDonutCard
+                  title="Distribuição por Status"
+                  items={statusPie.map((item) => ({
+                    ...item,
+                    pct: totalStatus > 0 ? Math.round((item.value / totalStatus) * 100) : 0,
+                  }))}
+                  total={totalStatus}
+                />
               </GlowCard>
             </div>
           </div>
