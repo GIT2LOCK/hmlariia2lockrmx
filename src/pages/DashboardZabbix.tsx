@@ -391,6 +391,42 @@ export default function DashboardZabbix() {
   );
 }
 
+// ── Acks Popover ────────────────────────────────────────────────────────
+function AcksPopover({ acks }: { acks: any[] }) {
+  if (acks.length === 0) {
+    return <span className="text-xs text-muted-foreground">—</span>;
+  }
+  const sorted = [...acks].sort((a, b) => Number(b.clock) - Number(a.clock));
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="sm" className="gap-1 h-7 px-2">
+          <MessageSquare className="h-4 w-4 text-blue-400" />
+          <span className="text-xs">{acks.length}</span>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-96 p-0" align="end">
+        <div className="px-3 py-2 border-b bg-muted/40">
+          <p className="text-sm font-medium">Updates ({acks.length})</p>
+        </div>
+        <ScrollArea className="max-h-64">
+          <div className="divide-y">
+            {sorted.map((ack: any, idx: number) => (
+              <div key={ack.acknowledgeid || idx} className="px-3 py-2 text-sm">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="font-medium text-xs">{ack.user || "—"}</span>
+                  <span className="text-xs text-muted-foreground">{formatTimestamp(ack.clock)}</span>
+                </div>
+                <p className="text-muted-foreground text-xs">{ack.message || "—"}</p>
+              </div>
+            ))}
+          </div>
+        </ScrollArea>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 // ── Contact Button ──────────────────────────────────────────────────────
 function ContactButton({ contato }: { contato: ZabbixContato | null }) {
   if (!contato) {
