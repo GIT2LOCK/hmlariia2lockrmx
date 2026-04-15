@@ -144,3 +144,12 @@ All colors MUST be HSL.
     scrollbar-color: hsl(var(--foreground) / 0.15) transparent;
   }
 }
+
+/* TV Mode: hide sidebar completely */
+html[data-sidebar-hidden] .group.peer {
+  display: none !important;
+}
+html[data-sidebar-hidden] .group\/sidebar-wrapper {
+  --sidebar-width: 0px !important;
+  --sidebar-width-icon: 0px !important;
+}

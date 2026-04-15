@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Building2, MapPin, Radio, Wifi, Search, Monitor,
-  RefreshCw, ArrowLeft, HelpCircle, Cloud, Home, PawPrint, Activity
+  RefreshCw, ArrowLeft, HelpCircle, Cloud, Home, PawPrint, Activity,
+  EyeOff, Eye,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -275,6 +276,7 @@ const Dashboard = () => {
   const [searching, setSearching] = useState(false);
   const [tvMode, setTvMode] = useState(false);
   const [ticketData, setTicketData] = useState<TicketData | null>(null);
+  const [sidebarHidden, setSidebarHidden] = useState(false);
   const [ticketLoading, setTicketLoading] = useState(false);
   const [ticketError, setTicketError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
@@ -287,6 +289,16 @@ const Dashboard = () => {
     const t = setInterval(() => { setNow(new Date()); setSecAgo(p => p + 1); }, 1000);
     return () => clearInterval(t);
   }, [tvMode]);
+
+  // Hide sidebar in TV mode
+  useEffect(() => {
+    if (sidebarHidden) {
+      document.documentElement.setAttribute("data-sidebar-hidden", "true");
+    } else {
+      document.documentElement.removeAttribute("data-sidebar-hidden");
+    }
+    return () => document.documentElement.removeAttribute("data-sidebar-hidden");
+  }, [sidebarHidden]);
 
   // Supabase counts
   useEffect(() => {
@@ -393,8 +405,11 @@ const Dashboard = () => {
           <motion.div initial={{ opacity: 0, y: -24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7 }}
             className="flex items-center justify-between mb-3 flex-shrink-0">
             <div className="flex items-center gap-3">
-              <button onClick={() => setTvMode(false)} className="p-2 rounded-xl transition-all hover:bg-white/5 hover:scale-110 active:scale-95">
+              <button onClick={() => { setTvMode(false); setSidebarHidden(false); }} className="p-2 rounded-xl transition-all hover:bg-white/5 hover:scale-110 active:scale-95">
                 <ArrowLeft className="h-5 w-5" style={{ color: C.dim }} />
+              </button>
+              <button onClick={() => setSidebarHidden(!sidebarHidden)} className="p-2 rounded-xl transition-all hover:bg-white/5 hover:scale-110 active:scale-95" title={sidebarHidden ? "Mostrar menu" : "Ocultar menu"}>
+                {sidebarHidden ? <Eye className="h-5 w-5" style={{ color: C.dim }} /> : <EyeOff className="h-5 w-5" style={{ color: C.dim }} />}
               </button>
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-xl" style={{ background: "rgba(77,166,255,0.12)", boxShadow: "0 0 20px rgba(77,166,255,0.25), inset 0 0 12px rgba(77,166,255,0.08)" }}>
@@ -471,7 +486,7 @@ const Dashboard = () => {
           </div>
 
           {/* ═══ MIDDLE: Table + Donuts ═══ */}
-          <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-3 mb-3 flex-shrink-0">
+          <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-3 mb-3 flex-1 min-h-0">
 
             {/* Status Grid */}
             <GlowCard delay={0.4}>
@@ -496,7 +511,7 @@ const Dashboard = () => {
                       initial={{ opacity: 0, x: -30 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: 0.5 + i * 0.12, ease: "easeOut" }}
-                      className="grid grid-cols-6 gap-0 rounded-xl min-h-[62px] transition-colors duration-200 hover:bg-[rgba(77,166,255,0.04)] items-center"
+                      className="grid grid-cols-6 gap-0 rounded-xl flex-1 transition-colors duration-200 hover:bg-[rgba(77,166,255,0.04)] items-center"
                       style={i < STATUS_ROWS.length - 1 ? { borderBottom: `1px solid rgba(77,166,255,0.06)` } : {}}>
                       <div className="px-3 py-2 flex items-center">
                         <div className="flex items-center gap-2">
@@ -505,17 +520,17 @@ const Dashboard = () => {
                         </div>
                       </div>
                       <div className="px-3 py-2 flex items-center justify-center">
-                        <AnimNum value={rowTotal} className="text-3xl xl:text-4xl tabular-nums"
+                        <AnimNum value={rowTotal} className="text-4xl xl:text-5xl tabular-nums"
                           style={{ color: C.white, textShadow: `0 0 25px ${C.cyan}35`, fontWeight: 400 }} />
                       </div>
                       {ENTITIES.map(e => (
                         <div key={e.id} className="px-3 py-2 flex items-center justify-center">
-                          <AnimNum value={row[e.id] || 0} className="text-3xl xl:text-4xl tabular-nums"
+                          <AnimNum value={row[e.id] || 0} className="text-4xl xl:text-5xl tabular-nums"
                             style={{ color: C.white, fontWeight: 400 }} />
                         </div>
                       ))}
                       <div className="px-3 py-2 flex items-center justify-center">
-                        <AnimNum value={row["indefinido"] || 0} className="text-3xl xl:text-4xl tabular-nums"
+                        <AnimNum value={row["indefinido"] || 0} className="text-4xl xl:text-5xl tabular-nums"
                           style={{ color: C.white, fontWeight: 400 }} />
                       </div>
                     </motion.div>
@@ -544,7 +559,7 @@ const Dashboard = () => {
           </div>
 
           {/* ═══ BOTTOM: 7-day Area Chart (full width) ═══ */}
-          <GlowCard delay={0.7} className="flex-shrink-0 mb-2">
+          <GlowCard delay={0.7} className="flex-shrink-0">
             <div className="p-3 lg:p-4">
               <p className="text-[11px] uppercase tracking-[0.15em] mb-2" style={{ color: C.textCyan }}>
                 Últimos 7 Dias
@@ -584,7 +599,7 @@ const Dashboard = () => {
 
           {/* ═══ FOOTER ═══ */}
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.2 }}
-            className="flex items-center justify-center gap-4 pt-2 flex-shrink-0">
+            className="flex items-center justify-center gap-4 pt-1 flex-shrink-0">
             <div className="h-[1px] flex-1" style={{ background: "linear-gradient(90deg, transparent, rgba(77,166,255,0.25), transparent)" }} />
             <div className="flex items-center gap-2.5">
               <PulseDot color={C.cyan} />
