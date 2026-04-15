@@ -29,16 +29,16 @@ interface TicketData {
 
 // ─── Constants ───
 const ENTITIES = [
-  { id: "8", name: "GoodStorage", icon: Cloud },
-  { id: "1", name: "Brava", icon: Home },
+  { id: "8", name: "GoodStorage", icon: Home },
+  { id: "1", name: "Brava", icon: Cloud },
   { id: "7", name: "PetCare", icon: PawPrint },
 ];
 const REFRESH_INTERVAL = 30_000;
 
 const ENTITY_COLORS: Record<string, string> = {
-  "8": "#4da6ff",
+  "8": "#ff9f43",
   "7": "#3dd9b4",
-  "1": "#ff9f43",
+  "1": "#4da6ff",
   indefinido: "#7c8ca1",
 };
 
