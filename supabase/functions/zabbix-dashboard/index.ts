@@ -59,61 +59,45 @@ serve(async (req) => {
       }
 
       case "problems": {
-        // Get hosts currently in maintenance
-        const hostsInMaintenance = await zabbixCall("host.get", {
-          output: ["hostid"],
-          filter: { maintenance_status: 1 },
-        });
-        const maintenanceHostIds = new Set(hostsInMaintenance.map((h: any) => h.hostid));
-
-        // Get active problems - severity 4 (High) only, not suppressed
-        const problems = await zabbixCall("problem.get", {
-          output: ["eventid", "objectid", "name", "severity", "clock", "acknowledged", "suppressed"],
-          recent: false,
-          severities: [4], // 4 = High only
-          sortfield: ["eventid"],
+        // Get triggers currently in PROBLEM state (value=1), severity High (4),
+        // excluding hosts in maintenance, only active hosts/triggers
+        const triggers = await zabbixCall("trigger.get", {
+          output: ["triggerid", "description", "priority", "lastchange", "value"],
+          filter: { value: 1, priority: 4 }, // value 1 = PROBLEM, priority 4 = High
+          monitored: true,        // only monitored (active) triggers
+          maintenance: false,     // exclude hosts in maintenance
+          skipDependent: true,    // skip dependent triggers
+          selectHosts: ["hostid", "host", "name"],
+          selectGroups: ["groupid", "name"],
+          sortfield: "lastchange",
           sortorder: "DESC",
-          suppressed: false,
-          selectAcknowledges: ["acknowledgeid", "userid", "message", "clock"],
-          selectTags: "extend",
         });
 
-        // Get trigger details for host info
-        const triggerIds = [...new Set(problems.map((p: any) => p.objectid))];
-        let triggers: any[] = [];
-        if (triggerIds.length > 0) {
-          triggers = await zabbixCall("trigger.get", {
-            triggerids: triggerIds,
-            output: ["triggerid", "description", "priority"],
-            selectHosts: ["hostid", "host", "name"],
-            selectGroups: ["groupid", "name"],
-          });
-        }
+        // Filter: only "Indisponibilidade" triggers, exclude "Infraestrutura" group
+        const filteredTriggers = triggers.filter((t: any) => {
+          const desc = (t.description || "").toLowerCase();
+          if (!desc.includes("indisponibilidade")) return false;
+          const groupNames = (t.groups || []).map((g: any) => g.name.toLowerCase());
+          if (groupNames.includes("infraestrutura")) return false;
+          return true;
+        });
 
-        const triggerMap = new Map(triggers.map((t: any) => [t.triggerid, t]));
+        // Map to problem-like format for frontend compatibility
+        result = filteredTriggers.map((t: any) => ({
+          eventid: t.triggerid,
+          objectid: t.triggerid,
+          name: t.description,
+          severity: t.priority,
+          clock: t.lastchange,
+          acknowledged: "0",
+          suppressed: "0",
+          hosts: t.hosts || [],
+          groups: t.groups || [],
+          triggerDescription: t.description,
+          tags: [],
+          acknowledges: [],
+        }));
 
-        const enrichedProblems = problems
-          .map((p: any) => {
-            const trigger = triggerMap.get(p.objectid);
-            return {
-              ...p,
-              hosts: trigger?.hosts || [],
-              groups: trigger?.groups || [],
-              triggerDescription: trigger?.description || p.name,
-            };
-          })
-          // Exclude problems where ALL hosts are in maintenance
-          .filter((p: any) => {
-            if (!p.hosts || p.hosts.length === 0) return true;
-            return !p.hosts.every((h: any) => maintenanceHostIds.has(h.hostid));
-          })
-          // Exclude problems from "Infraestrutura" host group
-          .filter((p: any) => {
-            const groupNames = (p.groups || []).map((g: any) => g.name.toLowerCase());
-            return !groupNames.includes("infraestrutura");
-          });
-
-        result = enrichedProblems;
         break;
       }
 
