@@ -482,18 +482,17 @@ const Dashboard = () => {
             ))}
           </div>
 
-          {/* ═══ MIDDLE: Table + Donuts + Chart ═══ */}
-          <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-3 flex-1 min-h-0">
-
-            {/* Left column: Status Grid + 7-day chart */}
-            <div className="grid grid-rows-[auto_minmax(220px,1fr)] gap-3 min-h-0">
-              <GlowCard delay={0.4}>
+            {/* ═══ MIDDLE: Table + Donuts + Chart ═══ */}
+            <div className="grid grid-cols-[minmax(0,1fr)_320px] grid-rows-[auto_minmax(240px,1fr)] gap-3 flex-1 min-h-0 items-stretch">
+              <GlowCard delay={0.4} className="min-h-0">
                 <div className="p-3 flex flex-col">
                   <div className="grid grid-cols-6 gap-0" style={{ borderBottom: `1px solid ${C.grid}` }}>
                     {["Grupo", "Total", ...ENTITIES.map(e => e.name), "Indef."].map((label, i) => (
                       <div key={label} className={`px-3 py-2 ${i === 0 ? "text-left" : "text-center"}`}>
-                        <span className="text-[11px] uppercase tracking-[0.12em]"
-                          style={{ color: i === 0 || i === 1 ? C.textCyan : i <= 4 ? ENTITY_COLORS[ENTITIES[i - 2]?.id] || C.dim : ENTITY_COLORS["indefinido"], fontWeight: 400 }}>
+                        <span
+                          className="text-[11px] uppercase tracking-[0.12em]"
+                          style={{ color: i === 0 || i === 1 ? C.textCyan : i <= 4 ? ENTITY_COLORS[ENTITIES[i - 2]?.id] || C.dim : ENTITY_COLORS["indefinido"], fontWeight: 400 }}
+                        >
                           {label}
                         </span>
                       </div>
@@ -503,12 +502,14 @@ const Dashboard = () => {
                     const row = ticketData?.byStatusEntity?.[status] || {};
                     const rowTotal = Object.values(row).reduce((s, v) => s + v, 0);
                     return (
-                      <motion.div key={status}
+                      <motion.div
+                        key={status}
                         initial={{ opacity: 0, x: -30 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: 0.5 + i * 0.12, ease: "easeOut" }}
                         className="grid grid-cols-6 gap-0 rounded-xl transition-colors duration-200 hover:bg-[rgba(77,166,255,0.04)] items-center"
-                        style={i < STATUS_ROWS.length - 1 ? { borderBottom: `1px solid rgba(77,166,255,0.06)` } : {}}>
+                        style={i < STATUS_ROWS.length - 1 ? { borderBottom: `1px solid rgba(77,166,255,0.06)` } : {}}
+                      >
                         <div className="px-3 py-3 flex items-center">
                           <div className="flex items-center gap-2">
                             <span className="w-1 h-7 rounded-full" style={{ background: STATUS_COLORS[i], boxShadow: `0 0 8px ${STATUS_COLORS[i]}50` }} />
@@ -516,18 +517,15 @@ const Dashboard = () => {
                           </div>
                         </div>
                         <div className="px-3 py-3 flex items-center justify-center">
-                          <AnimNum value={rowTotal} className="text-4xl xl:text-5xl tabular-nums"
-                            style={{ color: C.white, textShadow: `0 0 25px ${C.cyan}35`, fontWeight: 400 }} />
+                          <AnimNum value={rowTotal} className="text-4xl xl:text-5xl tabular-nums" style={{ color: C.white, textShadow: `0 0 25px ${C.cyan}35`, fontWeight: 400 }} />
                         </div>
                         {ENTITIES.map(e => (
                           <div key={e.id} className="px-3 py-3 flex items-center justify-center">
-                            <AnimNum value={row[e.id] || 0} className="text-4xl xl:text-5xl tabular-nums"
-                              style={{ color: C.white, fontWeight: 400 }} />
+                            <AnimNum value={row[e.id] || 0} className="text-4xl xl:text-5xl tabular-nums" style={{ color: C.white, fontWeight: 400 }} />
                           </div>
                         ))}
                         <div className="px-3 py-3 flex items-center justify-center">
-                          <AnimNum value={row["indefinido"] || 0} className="text-4xl xl:text-5xl tabular-nums"
-                            style={{ color: C.white, fontWeight: 400 }} />
+                          <AnimNum value={row["indefinido"] || 0} className="text-4xl xl:text-5xl tabular-nums" style={{ color: C.white, fontWeight: 400 }} />
                         </div>
                       </motion.div>
                     );
@@ -535,14 +533,18 @@ const Dashboard = () => {
                 </div>
               </GlowCard>
 
-              <GlowCard delay={0.7} className="min-h-[220px] h-full" contentClassName="h-full flex flex-col">
+              <GlowCard delay={0.5} className="h-full min-h-0" contentClassName="h-full">
+                <TvDonutCard title="Distribuição por Empresa" items={pieData} total={totalPie} />
+              </GlowCard>
+
+              <GlowCard delay={0.7} className="h-full min-h-[240px]" contentClassName="h-full flex flex-col">
                 <div className="p-3 lg:p-4 h-full flex flex-col">
                   <p className="text-[11px] uppercase tracking-[0.15em] mb-2 flex-shrink-0" style={{ color: C.textCyan }}>
                     Últimos 7 Dias
                   </p>
                   <div className="flex-1 min-h-[180px]">
                     <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={lineData} margin={{ top: 8, right: 8, left: -12, bottom: 8 }}>
+                      <AreaChart data={lineData} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
                         <defs>
                           {Object.entries(ENTITY_COLORS).map(([id, color]) => (
                             <linearGradient key={id} id={`area-${id}`} x1="0" y1="0" x2="0" y2="1">
@@ -555,34 +557,30 @@ const Dashboard = () => {
                         <XAxis dataKey="name" tick={{ fontSize: 11, fill: C.dim, fontWeight: 600 }} axisLine={{ stroke: C.grid }} tickLine={false} />
                         <YAxis tick={{ fontSize: 11, fill: C.dim }} allowDecimals={false} axisLine={{ stroke: C.grid }} tickLine={false} />
                         <Tooltip contentStyle={tooltipStyle} />
-                        <Legend verticalAlign="bottom" align="center" iconSize={8} wrapperStyle={{ fontSize: "10px", color: C.dim, fontWeight: 600, paddingTop: "12px" }} />
-                        <Area type="monotone" dataKey="GoodStorage" stroke={ENTITY_COLORS["8"]} strokeWidth={2.5} fill="url(#area-8)"
-                          dot={{ r: 4, fill: ENTITY_COLORS["8"], strokeWidth: 0 }}
-                          activeDot={{ r: 7, fill: ENTITY_COLORS["8"], stroke: ENTITY_COLORS["8"], strokeWidth: 3, strokeOpacity: 0.3 }}
-                          animationDuration={1800} animationBegin={600} />
-                        <Area type="monotone" dataKey="Brava" stroke={ENTITY_COLORS["1"]} strokeWidth={2.5} fill="url(#area-1)"
-                          dot={{ r: 4, fill: ENTITY_COLORS["1"], strokeWidth: 0 }}
-                          animationDuration={1800} animationBegin={800} />
-                        <Area type="monotone" dataKey="PetCare" stroke={ENTITY_COLORS["7"]} strokeWidth={2.5} fill="url(#area-7)"
-                          dot={{ r: 4, fill: ENTITY_COLORS["7"], strokeWidth: 0 }}
-                          animationDuration={1800} animationBegin={1000} />
-                        <Area type="monotone" dataKey="Indefinido" stroke={ENTITY_COLORS["indefinido"]} strokeWidth={2} fill="url(#area-indefinido)"
-                          dot={{ r: 3, fill: ENTITY_COLORS["indefinido"], strokeWidth: 0 }}
-                          strokeDasharray="5 5" animationDuration={1800} animationBegin={1200} />
+                        <Area type="monotone" dataKey="GoodStorage" stroke={ENTITY_COLORS["8"]} strokeWidth={2.5} fill="url(#area-8)" dot={{ r: 4, fill: ENTITY_COLORS["8"], strokeWidth: 0 }} activeDot={{ r: 7, fill: ENTITY_COLORS["8"], stroke: ENTITY_COLORS["8"], strokeWidth: 3, strokeOpacity: 0.3 }} animationDuration={1800} animationBegin={600} />
+                        <Area type="monotone" dataKey="Brava" stroke={ENTITY_COLORS["1"]} strokeWidth={2.5} fill="url(#area-1)" dot={{ r: 4, fill: ENTITY_COLORS["1"], strokeWidth: 0 }} animationDuration={1800} animationBegin={800} />
+                        <Area type="monotone" dataKey="PetCare" stroke={ENTITY_COLORS["7"]} strokeWidth={2.5} fill="url(#area-7)" dot={{ r: 4, fill: ENTITY_COLORS["7"], strokeWidth: 0 }} animationDuration={1800} animationBegin={1000} />
+                        <Area type="monotone" dataKey="Indefinido" stroke={ENTITY_COLORS["indefinido"]} strokeWidth={2} fill="url(#area-indefinido)" dot={{ r: 3, fill: ENTITY_COLORS["indefinido"], strokeWidth: 0 }} strokeDasharray="5 5" animationDuration={1800} animationBegin={1200} />
                       </AreaChart>
                     </ResponsiveContainer>
                   </div>
+                  <div className="mt-2 flex flex-wrap justify-center gap-x-3 gap-y-1 flex-shrink-0">
+                    {[
+                      { label: "GoodStorage", color: ENTITY_COLORS["8"] },
+                      { label: "Brava", color: ENTITY_COLORS["1"] },
+                      { label: "PetCare", color: ENTITY_COLORS["7"] },
+                      { label: "Indefinido", color: ENTITY_COLORS["indefinido"] },
+                    ].map((item) => (
+                      <span key={item.label} className="flex items-center gap-1.5 text-[10px]" style={{ color: C.dim, fontWeight: 400 }}>
+                        <span className="w-2 h-2 rounded-full" style={{ background: item.color, boxShadow: `0 0 5px ${item.color}60` }} />
+                        {item.label}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </GlowCard>
-            </div>
 
-            {/* Donut Charts */}
-            <div className="grid grid-rows-[auto_minmax(220px,1fr)] gap-3 min-h-0">
-              <GlowCard delay={0.5} className="min-h-0 h-full">
-                <TvDonutCard title="Distribuição por Empresa" items={pieData} total={totalPie} />
-              </GlowCard>
-
-              <GlowCard delay={0.6} className="min-h-0 h-full">
+              <GlowCard delay={0.6} className="h-full min-h-[240px]" contentClassName="h-full">
                 <TvDonutCard
                   title="Distribuição por Status"
                   items={statusPie.map((item) => ({
@@ -593,7 +591,6 @@ const Dashboard = () => {
                 />
               </GlowCard>
             </div>
-          </div>
 
           {/* ═══ FOOTER ═══ */}
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.2 }}
