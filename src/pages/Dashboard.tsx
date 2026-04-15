@@ -180,7 +180,7 @@ const MiniDonut = ({ pct, color, size = 52 }: { pct: number; color: string; size
         transition={{ duration: 1.2, delay: 0.4, ease: "easeOut" }}
         style={{ filter: `drop-shadow(0 0 6px ${color}70)` }} />
       <text x={size / 2} y={size / 2} textAnchor="middle" dominantBaseline="central"
-        fill={color} fontSize={size * 0.2} fontWeight="800">{Math.round(pct)}%</text>
+        fill={color} fontSize={size * 0.2} fontWeight="400">{Math.round(pct)}%</text>
     </svg>
   );
 };
@@ -198,8 +198,8 @@ const CenterLabel = ({ viewBox, value }: any) => {
   const { cx, cy } = viewBox;
   return (
     <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central">
-      <tspan x={cx} dy="-6" fill={C.white} fontSize="22" fontWeight="900" style={{ textShadow: `0 0 14px ${C.cyan}50` }}>{value}</tspan>
-      <tspan x={cx} dy="18" fill={C.dim} fontSize="10" fontWeight="600">TOTAL</tspan>
+      <tspan x={cx} dy="-6" fill={C.white} fontSize="22" fontWeight="400" style={{ textShadow: `0 0 14px ${C.cyan}50` }}>{value}</tspan>
+      <tspan x={cx} dy="18" fill={C.dim} fontSize="10" fontWeight="400">TOTAL</tspan>
     </text>
   );
 };
@@ -421,7 +421,7 @@ const Dashboard = () => {
                   {["Grupo", "Total", ...ENTITIES.map(e => e.name), "Indef."].map((label, i) => (
                     <div key={label} className={`px-3 py-2 ${i === 0 ? "text-left" : "text-center"}`}>
                       <span className="text-[11px] uppercase tracking-[0.12em]"
-                        style={{ color: i === 0 || i === 1 ? C.textCyan : i <= 4 ? ENTITY_COLORS[ENTITIES[i - 2]?.id] || C.dim : ENTITY_COLORS["indefinido"], fontWeight: 500 }}>
+                        style={{ color: i === 0 || i === 1 ? C.textCyan : i <= 4 ? ENTITY_COLORS[ENTITIES[i - 2]?.id] || C.dim : ENTITY_COLORS["indefinido"], fontWeight: 400 }}>
                         {label}
                       </span>
                     </div>
@@ -489,10 +489,10 @@ const Dashboard = () => {
                           {pieData.map((d, i) => <Cell key={i} fill={d.color} style={{ filter: `drop-shadow(0 0 8px ${d.color}50)` }} />)}
                         </Pie>
                         <Tooltip formatter={(v: number, n: string) => [`${v} chamados`, n]} contentStyle={tooltipStyle} />
-                        <text x="50%" y="46%" textAnchor="middle" dominantBaseline="central" fill={C.white} fontSize="20" fontWeight="900" style={{ textShadow: `0 0 12px ${C.cyan}40` }}>
+                        <text x="50%" y="46%" textAnchor="middle" dominantBaseline="central" fill={C.white} fontSize="20" fontWeight="400" style={{ textShadow: `0 0 12px ${C.cyan}40` }}>
                           {totalPie}
                         </text>
-                        <text x="50%" y="58%" textAnchor="middle" dominantBaseline="central" fill={C.dim} fontSize="9" fontWeight="700" letterSpacing="0.1em">
+                        <text x="50%" y="58%" textAnchor="middle" dominantBaseline="central" fill={C.dim} fontSize="9" fontWeight="400" letterSpacing="0.1em">
                           TOTAL
                         </text>
                       </PieChart>
@@ -523,10 +523,10 @@ const Dashboard = () => {
                           {statusPie.map((d, i) => <Cell key={i} fill={d.color} style={{ filter: `drop-shadow(0 0 8px ${d.color}50)` }} />)}
                         </Pie>
                         <Tooltip contentStyle={tooltipStyle} />
-                        <text x="50%" y="46%" textAnchor="middle" dominantBaseline="central" fill={C.white} fontSize="20" fontWeight="900" style={{ textShadow: `0 0 12px ${C.cyan}40` }}>
+                        <text x="50%" y="46%" textAnchor="middle" dominantBaseline="central" fill={C.white} fontSize="20" fontWeight="400" style={{ textShadow: `0 0 12px ${C.cyan}40` }}>
                           {totalStatus}
                         </text>
-                        <text x="50%" y="58%" textAnchor="middle" dominantBaseline="central" fill={C.dim} fontSize="9" fontWeight="700" letterSpacing="0.1em">
+                        <text x="50%" y="58%" textAnchor="middle" dominantBaseline="central" fill={C.dim} fontSize="9" fontWeight="400" letterSpacing="0.1em">
                           TOTAL
                         </text>
                       </PieChart>
