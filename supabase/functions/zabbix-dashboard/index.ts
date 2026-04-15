@@ -26,12 +26,14 @@ serve(async (req) => {
     const zabbixCall = async (method: string, params: Record<string, unknown>) => {
       const res = await fetch(ZABBIX_API_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${ZABBIX_API_TOKEN}`,
+        },
         body: JSON.stringify({
           jsonrpc: "2.0",
           method,
           params,
-          auth: ZABBIX_API_TOKEN,
           id: 1,
         }),
       });
@@ -45,6 +47,17 @@ serve(async (req) => {
     let result: unknown;
 
     switch (action) {
+      case "version": {
+        // No auth required - used to check API connectivity
+        const vRes = await fetch(ZABBIX_API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ jsonrpc: "2.0", method: "apiinfo.version", params: [], id: 1 }),
+        });
+        result = await vRes.json();
+        break;
+      }
+
       case "problems": {
         // Get active problems with host and group info
         const problems = await zabbixCall("problem.get", {
