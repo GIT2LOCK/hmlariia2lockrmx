@@ -472,7 +472,7 @@ const Dashboard = () => {
                   <p className="text-[11px] uppercase tracking-[0.15em] mb-1" style={{ color: C.textCyan }}>
                     Distribuição por Empresa
                   </p>
-                  <div className="flex-1 min-h-0">
+                  <div className="flex-1" style={{ minHeight: "160px" }}>
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <defs>
@@ -515,7 +515,7 @@ const Dashboard = () => {
                   <p className="text-[11px] uppercase tracking-[0.15em] mb-1" style={{ color: C.textCyan }}>
                     Distribuição por Status
                   </p>
-                  <div className="flex-1 min-h-0">
+                  <div className="flex-1" style={{ minHeight: "160px" }}>
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie data={statusPie} cx="50%" cy="50%" innerRadius="50%" outerRadius="78%" dataKey="value"
