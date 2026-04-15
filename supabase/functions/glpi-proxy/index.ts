@@ -62,12 +62,25 @@ async function fetchAllOpenTickets(
       const url = `${glpiUrl}/Ticket?searchText[status]=${status}&range=${start}-${start + batchSize}`
       console.log('Fetching:', url)
       
-      const res = await fetch(url, { headers })
+      let res: Response | null = null
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          res = await fetch(url, { headers })
+          break
+        } catch (err) {
+          console.error(`Fetch attempt ${attempt + 1} failed for status=${status}:`, err)
+          if (attempt < 2) await new Promise(r => setTimeout(r, 1000 * (attempt + 1)))
+        }
+      }
+      
+      if (!res) {
+        console.error(`All retries failed for status=${status}, skipping`)
+        break
+      }
       
       if (!res.ok) {
         const body = await res.text()
         console.error(`Ticket fetch error (status=${status}):`, res.status, body)
-        // If 401/400 range error, skip; if "no data", break
         break
       }
       
