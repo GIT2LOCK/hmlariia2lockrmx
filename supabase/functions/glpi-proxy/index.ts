@@ -197,11 +197,15 @@ Deno.serve(async (req) => {
 
     if (action === 'ticket-counts') {
       // Change to all entities
-      await fetch(`${GLPI_URL}/changeActiveEntities`, {
-        method: 'POST',
-        headers: glpiHeaders,
-        body: JSON.stringify({ entities_id: 'all', is_recursive: true }),
-      })
+      try {
+        await fetchWithRetry(`${GLPI_URL}/changeActiveEntities`, {
+          method: 'POST',
+          headers: glpiHeaders,
+          body: JSON.stringify({ entities_id: 'all', is_recursive: true }),
+        })
+      } catch (err) {
+        console.error('changeActiveEntities failed, continuing:', err)
+      }
 
       const allTickets = await fetchAllOpenTickets(GLPI_URL, glpiHeaders)
       const entityMap = await buildEntityMap(GLPI_URL, glpiHeaders)
