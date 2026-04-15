@@ -91,7 +91,11 @@ async function fetchAllOpenTickets(
     }
   }
   
-  return allTickets
+  // Filter out tickets with "vConnector" in the title/name
+  return allTickets.filter(t => {
+    const name = String(t['name'] ?? t['title'] ?? '').toLowerCase()
+    return !name.includes('vconnector')
+  })
 }
 
 // GLPI statuses: 1=new, 2=assigned, 3=planned, 4=pending, 5=solved, 6=closed
