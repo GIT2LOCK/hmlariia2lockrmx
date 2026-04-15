@@ -111,7 +111,7 @@ serve(async (req) => {
 
           // Collect unique userids from acknowledges
           const userIds = new Set<string>();
-          for (const ev of events) {
+          for (const ev of currentEvents) {
             for (const ack of (ev.acknowledges || [])) {
               if (ack.userid) userIds.add(ack.userid);
             }
