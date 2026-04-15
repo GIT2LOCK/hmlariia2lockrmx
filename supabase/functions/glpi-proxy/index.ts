@@ -8,8 +8,21 @@ interface GlpiSearchResult {
   data?: Array<Record<string, unknown>>;
 }
 
+async function fetchWithRetry(url: string, opts: RequestInit, retries = 3): Promise<Response> {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await fetch(url, opts)
+    } catch (err) {
+      console.error(`fetchWithRetry attempt ${i + 1} failed for ${url}:`, err)
+      if (i < retries - 1) await new Promise(r => setTimeout(r, 1000 * (i + 1)))
+      else throw err
+    }
+  }
+  throw new Error('fetchWithRetry: unreachable')
+}
+
 async function initSession(glpiUrl: string, appToken: string, userToken: string): Promise<string> {
-  const res = await fetch(`${glpiUrl}/initSession`, {
+  const res = await fetchWithRetry(`${glpiUrl}/initSession`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
@@ -62,12 +75,17 @@ async function fetchAllOpenTickets(
       const url = `${glpiUrl}/Ticket?searchText[status]=${status}&range=${start}-${start + batchSize}`
       console.log('Fetching:', url)
       
-      const res = await fetch(url, { headers })
+      let res: Response
+      try {
+        res = await fetchWithRetry(url, { headers })
+      } catch (err) {
+        console.error(`All retries failed for status=${status}, skipping:`, err)
+        break
+      }
       
       if (!res.ok) {
         const body = await res.text()
         console.error(`Ticket fetch error (status=${status}):`, res.status, body)
-        // If 401/400 range error, skip; if "no data", break
         break
       }
       
@@ -179,11 +197,15 @@ Deno.serve(async (req) => {
 
     if (action === 'ticket-counts') {
       // Change to all entities
-      await fetch(`${GLPI_URL}/changeActiveEntities`, {
-        method: 'POST',
-        headers: glpiHeaders,
-        body: JSON.stringify({ entities_id: 'all', is_recursive: true }),
-      })
+      try {
+        await fetchWithRetry(`${GLPI_URL}/changeActiveEntities`, {
+          method: 'POST',
+          headers: glpiHeaders,
+          body: JSON.stringify({ entities_id: 'all', is_recursive: true }),
+        })
+      } catch (err) {
+        console.error('changeActiveEntities failed, continuing:', err)
+      }
 
       const allTickets = await fetchAllOpenTickets(GLPI_URL, glpiHeaders)
       const entityMap = await buildEntityMap(GLPI_URL, glpiHeaders)
