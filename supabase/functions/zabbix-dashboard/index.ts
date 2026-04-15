@@ -26,12 +26,14 @@ serve(async (req) => {
     const zabbixCall = async (method: string, params: Record<string, unknown>) => {
       const res = await fetch(ZABBIX_API_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${ZABBIX_API_TOKEN}`,
+        },
         body: JSON.stringify({
           jsonrpc: "2.0",
           method,
           params,
-          auth: ZABBIX_API_TOKEN,
           id: 1,
         }),
       });
