@@ -119,6 +119,69 @@ async function fetchAllOpenTickets(
   })
 }
 
+// Fetch ALL tickets opened in last N days (any status, for charts)
+async function fetchAllTicketsOpenedInPeriod(
+  glpiUrl: string,
+  headers: Record<string, string>,
+  days: number
+): Promise<Array<Record<string, unknown>>> {
+  const allTickets: Array<Record<string, unknown>> = []
+  const since = new Date()
+  since.setDate(since.getDate() - days)
+  const sinceStr = since.toISOString().split('T')[0]
+  
+  let start = 0
+  const batchSize = 999
+  
+  while (true) {
+    const params = new URLSearchParams({
+      'criteria[0][field]': '15',
+      'criteria[0][searchtype]': 'morethan',
+      'criteria[0][value]': sinceStr,
+      'forcedisplay[0]': '1',
+      'forcedisplay[1]': '15',
+      'forcedisplay[2]': '12',
+      'forcedisplay[3]': '80',
+      'range': `${start}-${start + batchSize}`,
+    })
+    
+    let res: Response
+    try {
+      res = await fetchWithRetry(`${glpiUrl}/search/Ticket?${params}`, { headers })
+    } catch (err) {
+      console.error('Chart tickets fetch failed:', err)
+      break
+    }
+    
+    if (!res.ok) break
+    
+    const json = await res.json()
+    const data = json.data
+    
+    if (Array.isArray(data) && data.length > 0) {
+      allTickets.push(...data)
+      if (data.length < batchSize) break
+    } else {
+      break
+    }
+    
+    start += batchSize + 1
+  }
+  
+  console.log(`Fetched ${allTickets.length} total tickets for chart (last ${days} days)`)
+  if (allTickets.length > 0) {
+    console.log('Chart ticket sample keys:', JSON.stringify(Object.keys(allTickets[0])))
+  }
+  
+  return allTickets.filter(t => {
+    const name = String(t['1'] ?? t['name'] ?? '').toLowerCase()
+    if (name.includes('vconnector')) return false
+    if (name.startsWith('[problem]')) return false
+    if (name.startsWith('[resolved]')) return false
+    return true
+  })
+}
+
 // GLPI statuses: 1=new, 2=assigned, 3=planned, 4=pending, 5=solved, 6=closed
 function mapStatus(status: number | string): string {
   const s = Number(status)
