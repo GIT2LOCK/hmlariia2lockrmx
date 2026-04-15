@@ -214,7 +214,7 @@ const TvDonutCard = ({ title, items, total }: { title: string; items: DonutSlice
 
   return (
     <div className="p-3 h-full flex flex-col">
-      <p className="text-[11px] uppercase tracking-[0.15em] mb-2" style={{ color: C.textCyan }}>
+      <p className="text-[11px] uppercase tracking-[0.15em] mb-2" style={{ color: C.textCyan, fontWeight: 700 }}>
         {title}
       </p>
       <div className="flex flex-1 items-center justify-center py-1">
@@ -245,7 +245,7 @@ const TvDonutCard = ({ title, items, total }: { title: string; items: DonutSlice
             >
               {total}
             </span>
-            <span className="mt-1 text-[9px] tracking-[0.18em]" style={{ color: C.dim, fontWeight: 400 }}>
+            <span className="mt-1 text-[9px] tracking-[0.18em]" style={{ color: C.dim, fontWeight: 700 }}>
               TOTAL
             </span>
           </div>
@@ -255,7 +255,7 @@ const TvDonutCard = ({ title, items, total }: { title: string; items: DonutSlice
         {items.map((item) => (
           <span key={item.name} className="flex items-center gap-1.5 text-[10px]" style={{ color: C.dim, fontWeight: 400 }}>
             <span className="w-2.5 h-2.5 rounded-full" style={{ background: item.color, boxShadow: `0 0 5px ${item.color}60` }} />
-            {item.pct ?? 0}% {item.name}
+            <span style={{ fontWeight: 700 }}>{item.pct ?? 0}% {item.name}</span>
           </span>
         ))}
       </div>
@@ -473,7 +473,7 @@ const Dashboard = () => {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1.5">
                       <k.icon className="h-4 w-4 flex-shrink-0" style={{ color: k.color, filter: `drop-shadow(0 0 5px ${k.color}60)` }} />
-                      <span className="text-[11px] uppercase tracking-[0.15em] truncate" style={{ color: k.color, fontWeight: 400 }}>
+                      <span className="text-[11px] uppercase tracking-[0.15em] truncate" style={{ color: k.color, fontWeight: 700 }}>
                         {k.name}
                       </span>
                     </div>
@@ -505,7 +505,7 @@ const Dashboard = () => {
                       <div key={label} className={`px-3 py-2 ${i === 0 ? "text-left" : "text-center"}`}>
                         <span
                           className="text-[11px] uppercase tracking-[0.12em]"
-                          style={{ color: i === 0 || i === 1 ? C.textCyan : i <= 4 ? ENTITY_COLORS[ENTITIES[i - 2]?.id] || C.dim : ENTITY_COLORS["indefinido"], fontWeight: 400 }}
+                          style={{ color: i === 0 || i === 1 ? C.textCyan : i <= 4 ? ENTITY_COLORS[ENTITIES[i - 2]?.id] || C.dim : ENTITY_COLORS["indefinido"], fontWeight: 700 }}
                         >
                           {label}
                         </span>
@@ -527,7 +527,7 @@ const Dashboard = () => {
                         <div className="px-3 py-3 flex items-center">
                           <div className="flex items-center gap-2">
                             <span className="w-1 h-7 rounded-full" style={{ background: STATUS_COLORS[i], boxShadow: `0 0 8px ${STATUS_COLORS[i]}50` }} />
-                            <span className="text-sm" style={{ color: C.textCyan, fontWeight: 400 }}>{STATUS_LABELS[status]}</span>
+                            <span className="text-sm" style={{ color: C.textCyan, fontWeight: 700 }}>{STATUS_LABELS[status]}</span>
                           </div>
                         </div>
                         <div className="px-3 py-3 flex items-center justify-center">
@@ -553,7 +553,7 @@ const Dashboard = () => {
 
               <GlowCard delay={0.7} className="h-full min-h-[240px]" contentClassName="h-full flex flex-col">
                 <div className="p-3 lg:p-4 h-full flex flex-col">
-                  <p className="text-[11px] uppercase tracking-[0.15em] mb-2 flex-shrink-0" style={{ color: C.textCyan }}>
+                  <p className="text-[11px] uppercase tracking-[0.15em] mb-2 flex-shrink-0" style={{ color: C.textCyan, fontWeight: 700 }}>
                     Últimos 7 Dias
                   </p>
                   <div className="flex-1 min-h-[180px]">
@@ -587,7 +587,7 @@ const Dashboard = () => {
                     ].map((item) => (
                       <span key={item.label} className="flex items-center gap-1.5 text-[10px]" style={{ color: C.dim, fontWeight: 400 }}>
                         <span className="w-2 h-2 rounded-full" style={{ background: item.color, boxShadow: `0 0 5px ${item.color}60` }} />
-                        {item.label}
+                        <span style={{ fontWeight: 700 }}>{item.label}</span>
                       </span>
                     ))}
                   </div>
