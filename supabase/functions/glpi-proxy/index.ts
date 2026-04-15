@@ -3,6 +3,100 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+interface GlpiSearchResult {
+  totalcount: number;
+  data?: Array<Record<string, unknown>>;
+}
+
+async function initSession(glpiUrl: string, appToken: string, userToken: string): Promise<string> {
+  const res = await fetch(`${glpiUrl}/initSession`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      'App-Token': appToken,
+      'Authorization': `user_token ${userToken}`,
+    },
+  })
+  if (!res.ok) {
+    const errBody = await res.text()
+    throw new Error(`initSession failed: ${res.status} ${errBody}`)
+  }
+  const { session_token } = await res.json()
+  return session_token
+}
+
+async function searchTickets(
+  glpiUrl: string,
+  headers: Record<string, string>,
+  criteria: Record<string, string>,
+  forcedisplay: string[],
+  range = '0-499'
+): Promise<GlpiSearchResult> {
+  const params = new URLSearchParams({ ...criteria, range })
+  forcedisplay.forEach((f, i) => params.set(`forcedisplay[${i}]`, f))
+  
+  const res = await fetch(`${glpiUrl}/search/Ticket?${params}`, { headers })
+  if (!res.ok) {
+    const body = await res.text()
+    console.error('Search error:', res.status, body)
+    return { totalcount: 0, data: [] }
+  }
+  return await res.json()
+}
+
+async function fetchAllOpenTickets(
+  glpiUrl: string,
+  headers: Record<string, string>
+): Promise<Array<Record<string, unknown>>> {
+  const allTickets: Array<Record<string, unknown>> = []
+  let start = 0
+  const batchSize = 500
+
+  while (true) {
+    const criteria: Record<string, string> = {
+      'criteria[0][field]': '12',
+      'criteria[0][searchtype]': 'notequals',
+      'criteria[0][value]': '5',
+      'criteria[1][link]': 'AND',
+      'criteria[1][field]': '12',
+      'criteria[1][searchtype]': 'notequals',
+      'criteria[1][value]': '6',
+    }
+
+    const result = await searchTickets(
+      glpiUrl, headers, criteria,
+      ['2', '80', '12', '15'], // id, entity, status, open date
+      `${start}-${start + batchSize - 1}`
+    )
+
+    if (result.data && Array.isArray(result.data)) {
+      allTickets.push(...result.data)
+      if (result.data.length < batchSize) break
+    } else {
+      break
+    }
+    start += batchSize
+  }
+
+  return allTickets
+}
+
+// GLPI statuses: 1=new, 2=assigned, 3=planned, 4=pending, 5=solved, 6=closed
+function mapStatus(status: number | string): string {
+  const s = Number(status)
+  if (s === 1) return 'novo'
+  if (s === 2 || s === 3) return 'em_andamento'
+  if (s === 4) return 'pendente'
+  return 'outro'
+}
+
+const KNOWN_ENTITIES: Record<string, string> = { '8': 'GoodStorage', '7': 'PetCare', '1': 'Brava' }
+const KNOWN_IDS = new Set(['1', '7', '8'])
+
+function getEntityKey(entityId: string): string {
+  return KNOWN_IDS.has(entityId) ? entityId : 'indefinido'
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -19,126 +113,140 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Init session
-    const initRes = await fetch(`${GLPI_URL}/initSession`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'App-Token': APP_TOKEN,
-        'Authorization': `user_token ${USER_TOKEN}`,
-      },
-    })
-
-    if (!initRes.ok) {
-      const errBody = await initRes.text()
-      console.error('GLPI initSession failed:', initRes.status, errBody)
-      return new Response(JSON.stringify({ error: 'Failed to authenticate with GLPI', details: errBody }), {
-        status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      })
-    }
-
-    const { session_token } = await initRes.json()
-
-    const url = new URL(req.url)
-    const action = url.searchParams.get('action') || 'list'
-    const search = url.searchParams.get('search') || ''
-    const itemId = url.searchParams.get('id') || ''
-    const page = parseInt(url.searchParams.get('page') || '1')
-    const perPage = 20
+    const sessionToken = await initSession(GLPI_URL, APP_TOKEN, USER_TOKEN)
 
     const glpiHeaders = {
       'Content-Type': 'application/json',
       'App-Token': APP_TOKEN,
-      'Session-Token': session_token,
+      'Session-Token': sessionToken,
     }
+
+    const url = new URL(req.url)
+    const action = url.searchParams.get('action') || 'list'
 
     let result: unknown
 
     if (action === 'ticket-counts') {
-      // Change active entity to "all" so we see all entities
-      const entityRes = await fetch(`${GLPI_URL}/changeActiveEntities`, {
+      // Change to all entities
+      await fetch(`${GLPI_URL}/changeActiveEntities`, {
         method: 'POST',
         headers: glpiHeaders,
         body: JSON.stringify({ entities_id: 'all', is_recursive: true }),
       })
-      console.log('changeActiveEntities status:', entityRes.status)
-      const entityBody = await entityRes.text()
-      console.log('changeActiveEntities response:', entityBody)
 
-      // Search for open tickets (status not equals 5 AND status not equals 6)
-      // GLPI statuses: 1=new, 2=assigned, 3=planned, 4=pending, 5=solved, 6=closed
-      // forcedisplay: 2=id, 80=entity, 12=status
-      const allTickets: Array<Record<string, unknown>> = []
-      let start = 0
-      const batchSize = 200
-      let totalCount = -1
-
-      while (totalCount === -1 || start < totalCount) {
-        const searchParams = new URLSearchParams({
-          'criteria[0][field]': '12',
-          'criteria[0][searchtype]': 'notequals',
-          'criteria[0][value]': '5',
-          'criteria[1][link]': 'AND',
-          'criteria[1][field]': '12',
-          'criteria[1][searchtype]': 'notequals',
-          'criteria[1][value]': '6',
-          'forcedisplay[0]': '2',
-          'forcedisplay[1]': '80',
-          'forcedisplay[2]': '12',
-          'range': `${start}-${start + batchSize - 1}`,
-        })
-
-        const searchUrl = `${GLPI_URL}/search/Ticket?${searchParams}`
-        console.log('Fetching tickets, range:', `${start}-${start + batchSize - 1}`)
-        const res = await fetch(searchUrl, { headers: glpiHeaders })
-        
-        if (!res.ok) {
-          const errBody = await res.text()
-          console.error('GLPI ticket search error:', res.status, errBody)
-          throw new Error(`GLPI ticket search returned ${res.status}`)
-        }
-
-        const searchResult = await res.json()
-        console.log('Search result totalcount:', searchResult.totalcount, 'data length:', searchResult.data?.length || 0)
-        
-        if (start === 0 && searchResult.data?.length > 0) {
-          console.log('Sample ticket:', JSON.stringify(searchResult.data[0]))
-        }
-
-        if (totalCount === -1) {
-          totalCount = searchResult.totalcount || 0
-        }
-
-        if (searchResult.data && Array.isArray(searchResult.data)) {
-          allTickets.push(...searchResult.data)
-        } else {
-          break
-        }
-
-        start += batchSize
-        if (searchResult.data.length < batchSize) break
+      const allTickets = await fetchAllOpenTickets(GLPI_URL, glpiHeaders)
+      console.log('Fetched open tickets:', allTickets.length)
+      if (allTickets.length > 0) {
+        console.log('Sample ticket keys:', JSON.stringify(Object.keys(allTickets[0])))
+        console.log('Sample ticket:', JSON.stringify(allTickets[0]))
       }
 
-      // Count by entity ID (field 80 = entity)
-      const entityCounts: Record<string, number> = {}
+      // Aggregate by entity
+      const byEntity: Record<string, number> = {}
+      // Aggregate by status per entity: { novo: { '8': 2, '7': 1 }, em_andamento: {...} }
+      const byStatusEntity: Record<string, Record<string, number>> = {
+        novo: {},
+        em_andamento: {},
+        pendente: {},
+      }
+
+      // For pie chart: total per entity
+      const entityTotals: Record<string, number> = {}
+
       for (const ticket of allTickets) {
-        const entityVal = String(ticket['80'] ?? 'unknown')
-        entityCounts[entityVal] = (entityCounts[entityVal] || 0) + 1
+        const rawEntity = String(ticket['80'] ?? 'unknown')
+        const entityKey = getEntityKey(rawEntity)
+        const status = mapStatus(ticket['12'] as number)
+
+        byEntity[rawEntity] = (byEntity[rawEntity] || 0) + 1
+        entityTotals[entityKey] = (entityTotals[entityKey] || 0) + 1
+
+        if (byStatusEntity[status]) {
+          byStatusEntity[status][entityKey] = (byStatusEntity[status][entityKey] || 0) + 1
+        }
       }
 
-      console.log('Ticket counts by entity:', JSON.stringify(entityCounts))
-      console.log('Total open tickets:', totalCount, 'Fetched:', allTickets.length)
+      // Aggregate by opening date for last 7 days (field 15 = date)
+      const now = new Date()
+      const last7Days: Record<string, number> = {}
+      const last24Hours: Record<string, number> = {}
+      
+      // Initialize last 7 days
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(now)
+        d.setDate(d.getDate() - i)
+        const key = d.toISOString().split('T')[0]
+        last7Days[key] = 0
+      }
+
+      // Initialize last 24 hours
+      for (let i = 23; i >= 0; i--) {
+        const h = new Date(now)
+        h.setHours(h.getHours() - i, 0, 0, 0)
+        const key = `${String(h.getHours()).padStart(2, '0')}:00`
+        last24Hours[key] = 0
+      }
+
+      // Count tickets by date (field 15)
+      for (const ticket of allTickets) {
+        const dateStr = String(ticket['15'] ?? '')
+        if (!dateStr) continue
+        const ticketDate = new Date(dateStr)
+        const dateKey = ticketDate.toISOString().split('T')[0]
+        if (last7Days[dateKey] !== undefined) {
+          last7Days[dateKey]++
+        }
+        
+        const diffHours = (now.getTime() - ticketDate.getTime()) / (1000 * 60 * 60)
+        if (diffHours <= 24) {
+          const hourKey = `${String(ticketDate.getHours()).padStart(2, '0')}:00`
+          if (last24Hours[hourKey] !== undefined) {
+            last24Hours[hourKey]++
+          }
+        }
+      }
+
+      // Per-entity last 7 days for line chart
+      const last7DaysByEntity: Record<string, Record<string, number>> = {}
+      for (const entityKey of [...Object.keys(KNOWN_ENTITIES), 'indefinido']) {
+        const key = KNOWN_IDS.has(entityKey) ? entityKey : 'indefinido'
+        last7DaysByEntity[key] = { ...last7Days }
+      }
+      // Reset counts
+      for (const key of Object.keys(last7DaysByEntity)) {
+        for (const d of Object.keys(last7DaysByEntity[key])) {
+          last7DaysByEntity[key][d] = 0
+        }
+      }
+      for (const ticket of allTickets) {
+        const dateStr = String(ticket['15'] ?? '')
+        if (!dateStr) continue
+        const dateKey = new Date(dateStr).toISOString().split('T')[0]
+        const entityKey = getEntityKey(String(ticket['80'] ?? 'unknown'))
+        if (last7DaysByEntity[entityKey] && last7DaysByEntity[entityKey][dateKey] !== undefined) {
+          last7DaysByEntity[entityKey][dateKey]++
+        }
+      }
 
       result = {
         totalOpen: allTickets.length,
-        byEntity: entityCounts,
+        byEntity,
+        entityTotals,
+        byStatusEntity,
+        last7Days,
+        last7DaysByEntity,
+        last24Hours,
         fetchedAt: new Date().toISOString(),
       }
-    } else if (action === 'get' && itemId) {
+    } else if (action === 'get') {
+      const itemId = url.searchParams.get('id') || ''
       const res = await fetch(`${GLPI_URL}/KnowbaseItem/${itemId}`, { headers: glpiHeaders })
       if (!res.ok) throw new Error(`GLPI returned ${res.status}`)
       result = await res.json()
-    } else if (action === 'search' && search) {
+    } else if (action === 'search') {
+      const search = url.searchParams.get('search') || ''
+      const page = parseInt(url.searchParams.get('page') || '1')
+      const perPage = 20
       const searchParams = new URLSearchParams({
         'criteria[0][field]': '6',
         'criteria[0][searchtype]': 'contains',
@@ -157,6 +265,8 @@ Deno.serve(async (req) => {
       if (!res.ok) throw new Error(`GLPI search returned ${res.status}`)
       result = await res.json()
     } else {
+      const page = parseInt(url.searchParams.get('page') || '1')
+      const perPage = 20
       const listUrl = `${GLPI_URL}/KnowbaseItem?range=${(page - 1) * perPage}-${page * perPage - 1}&order=DESC&sort=id`
       const res = await fetch(listUrl, { headers: glpiHeaders })
       if (!res.ok) {
