@@ -255,9 +255,8 @@ Deno.serve(async (req) => {
 
       // Per-entity last 7 days for line chart
       const last7DaysByEntity: Record<string, Record<string, number>> = {}
-      for (const entityKey of [...Object.keys(KNOWN_ENTITIES), 'indefinido']) {
-        const key = KNOWN_IDS.has(entityKey) ? entityKey : 'indefinido'
-        last7DaysByEntity[key] = { ...last7Days }
+      for (const entityKey of ['1', '7', '8', 'indefinido']) {
+        last7DaysByEntity[entityKey] = { ...last7Days }
       }
       // Reset counts
       for (const key of Object.keys(last7DaysByEntity)) {
