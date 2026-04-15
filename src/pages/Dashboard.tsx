@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
-import { Building2, MapPin, Radio, Wifi, Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Building2, MapPin, Radio, Wifi, Search, Monitor } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const Dashboard = () => {
@@ -53,9 +54,19 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-muted-foreground">Visão geral do sistema de consulta técnica</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+          <p className="text-muted-foreground">Visão geral do sistema de consulta técnica</p>
+        </div>
+        <Button
+          onClick={() => window.open("/tv-dashboard", "_blank")}
+          variant="outline"
+          className="gap-2"
+        >
+          <Monitor className="h-4 w-4" />
+          TV View
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
