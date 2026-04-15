@@ -168,7 +168,7 @@ Deno.serve(async (req) => {
 
       for (const ticket of allTickets) {
         // Direct API returns 'entities_id' (or entity name if expand_dropdowns), 'status', 'date'
-        const rawEntity = String(ticket['entities_id'] ?? ticket['80'] ?? 'unknown')
+        const rawEntity = String(ticket['entities_id'] ?? ticket['entities_id'] ?? ticket['80'] ?? 'unknown')
         const entityKey = getEntityKey(rawEntity)
         const status = mapStatus((ticket['status'] ?? ticket['12']) as number)
 
@@ -203,7 +203,7 @@ Deno.serve(async (req) => {
 
       // Count tickets by date (field 15)
       for (const ticket of allTickets) {
-        const dateStr = String(ticket['15'] ?? '')
+        const dateStr = String(ticket['date'] ?? ticket['15'] ?? '')
         if (!dateStr) continue
         const ticketDate = new Date(dateStr)
         const dateKey = ticketDate.toISOString().split('T')[0]
@@ -233,10 +233,10 @@ Deno.serve(async (req) => {
         }
       }
       for (const ticket of allTickets) {
-        const dateStr = String(ticket['15'] ?? '')
+        const dateStr = String(ticket['date'] ?? ticket['15'] ?? '')
         if (!dateStr) continue
         const dateKey = new Date(dateStr).toISOString().split('T')[0]
-        const entityKey = getEntityKey(String(ticket['80'] ?? 'unknown'))
+        const entityKey = getEntityKey(String(ticket['entities_id'] ?? ticket['80'] ?? 'unknown'))
         if (last7DaysByEntity[entityKey] && last7DaysByEntity[entityKey][dateKey] !== undefined) {
           last7DaysByEntity[entityKey][dateKey]++
         }
