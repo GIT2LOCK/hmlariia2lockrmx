@@ -67,8 +67,8 @@ function classifyProblem(problem: ZabbixProblem): Category {
   const name = problem.triggerDescription || problem.name || "";
   const hostName = problem.hosts?.[0]?.name || problem.hosts?.[0]?.host || "";
   
-  if (/indisponibilidade de equipamento/i.test(name)) return "equipamentos";
-  if (/indisponibilidade de link/i.test(name)) return "links";
+  if (/indisponibilidade.*equipamento/i.test(name)) return "equipamentos";
+  if (/indisponibilidade.*link/i.test(name)) return "links";
   if (/^TI-/i.test(hostName)) return "infraestrutura";
   return "outros";
 }
