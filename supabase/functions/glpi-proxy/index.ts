@@ -59,7 +59,7 @@ async function fetchAllOpenTickets(
     const batchSize = 999
     
     while (true) {
-      const url = `${glpiUrl}/Ticket?searchText[status]=${status}&range=${start}-${start + batchSize}&expand_dropdowns=true`
+      const url = `${glpiUrl}/Ticket?searchText[status]=${status}&range=${start}-${start + batchSize}`
       console.log('Fetching:', url)
       
       const res = await fetch(url, { headers })
@@ -107,7 +107,15 @@ const KNOWN_ENTITIES: Record<string, string> = { '8': 'GoodStorage', '7': 'PetCa
 const KNOWN_IDS = new Set(['1', '7', '8'])
 
 function getEntityKey(entityId: string): string {
-  return KNOWN_IDS.has(entityId) ? entityId : 'indefinido'
+  // If it's a numeric ID, check directly
+  if (KNOWN_IDS.has(entityId)) return entityId
+  // If it's an expanded name string, try to match by keywords
+  const upper = entityId.toUpperCase()
+  if (upper.includes('GOODSTORAGE') || upper.includes('GS ')) return '8'
+  if (upper.includes('PETCARE') || upper.includes('PET ') || upper.includes('TECSA')) return '7'
+  if (upper.includes('BRAVA') || upper.includes('POLO ')) return '1'
+  if (upper.includes('2LOCK') && !upper.includes('GOODSTORAGE') && !upper.includes('BRAVA') && !upper.includes('PETCARE')) return 'indefinido'
+  return 'indefinido'
 }
 
 Deno.serve(async (req) => {
