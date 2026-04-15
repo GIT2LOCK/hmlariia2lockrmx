@@ -104,17 +104,41 @@ function mapStatus(status: number | string): string {
 }
 
 const KNOWN_ENTITIES: Record<string, string> = { '8': 'GoodStorage', '7': 'PetCare', '1': 'Brava' }
-const KNOWN_IDS = new Set(['1', '7', '8'])
 
-function getEntityKey(entityId: string): string {
-  // If it's a numeric ID, check directly
-  if (KNOWN_IDS.has(entityId)) return entityId
-  // If it's an expanded name string, try to match by keywords
-  const upper = entityId.toUpperCase()
-  if (upper.includes('GOODSTORAGE') || upper.includes('GS ')) return '8'
-  if (upper.includes('PETCARE') || upper.includes('PET ') || upper.includes('TECSA')) return '7'
-  if (upper.includes('BRAVA') || upper.includes('POLO ')) return '1'
-  if (upper.includes('2LOCK') && !upper.includes('GOODSTORAGE') && !upper.includes('BRAVA') && !upper.includes('PETCARE')) return 'indefinido'
+// Build entity-to-group mapping by fetching GLPI entity tree with expanded names
+async function buildEntityMap(glpiUrl: string, headers: Record<string, string>): Promise<Record<string, string>> {
+  const map: Record<string, string> = {}
+  try {
+    const res = await fetch(`${glpiUrl}/Entity?range=0-999&expand_dropdowns=true`, { headers })
+    if (!res.ok) {
+      console.error('Entity fetch failed:', res.status)
+      return map
+    }
+    const entities = await res.json()
+    const list = Array.isArray(entities) ? entities : Object.values(entities).filter(v => typeof v === 'object' && v !== null)
+    
+    for (const entity of list as Array<Record<string, unknown>>) {
+      const id = String(entity['id'] ?? '')
+      const completename = String(entity['completename'] ?? entity['name'] ?? '').toUpperCase()
+      
+      if (completename.includes('GOODSTORAGE') || completename.includes('GS ')) {
+        map[id] = '8'
+      } else if (completename.includes('PETCARE') || completename.includes('PET ') || completename.includes('TECSA')) {
+        map[id] = '7'
+      } else if (completename.includes('BRAVA') || completename.includes('POLO ')) {
+        map[id] = '1'
+      }
+      // else: not mapped, will be 'indefinido'
+    }
+    console.log('Entity map built:', JSON.stringify(map))
+  } catch (e) {
+    console.error('Failed to build entity map:', e)
+  }
+  return map
+}
+
+function getEntityKey(entityId: string, entityMap: Record<string, string>): string {
+  if (entityMap[entityId]) return entityMap[entityId]
   return 'indefinido'
 }
 
