@@ -106,6 +106,11 @@ serve(async (req) => {
           .filter((p: any) => {
             if (!p.hosts || p.hosts.length === 0) return true;
             return !p.hosts.every((h: any) => maintenanceHostIds.has(h.hostid));
+          })
+          // Exclude problems from "Infraestrutura" host group
+          .filter((p: any) => {
+            const groupNames = (p.groups || []).map((g: any) => g.name.toLowerCase());
+            return !groupNames.includes("infraestrutura");
           });
 
         result = enrichedProblems;
