@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Building2, MapPin, Radio, Wifi, Search, Monitor,
-  RefreshCw, ArrowLeft, Clock, HelpCircle
+  RefreshCw, ArrowLeft, HelpCircle
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -34,10 +34,10 @@ const KNOWN_IDS = new Set(["1", "7", "8"]);
 const REFRESH_INTERVAL = 30_000;
 
 const ENTITY_COLORS: Record<string, string> = {
-  "8": "hsl(215, 85%, 55%)",
-  "7": "hsl(160, 65%, 45%)",
-  "1": "hsl(25, 85%, 55%)",
-  "indefinido": "hsl(220, 15%, 50%)",
+  "8": "#4da6ff",
+  "7": "#3dd9b4",
+  "1": "#ff9f43",
+  "indefinido": "#7c8ca1",
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -45,6 +45,27 @@ const STATUS_LABELS: Record<string, string> = {
   em_andamento: "Em Andamento",
   pendente: "Pendente",
 };
+
+// Glow card wrapper for TV mode
+const GlowCard = ({ children, className = "", highlight = false }: { children: React.ReactNode; className?: string; highlight?: boolean }) => (
+  <div
+    className={`relative rounded-xl overflow-hidden ${className}`}
+    style={{
+      background: "linear-gradient(135deg, rgba(20, 30, 60, 0.9), rgba(10, 18, 40, 0.95))",
+      border: "1px solid rgba(77, 166, 255, 0.25)",
+      boxShadow: highlight
+        ? "0 0 20px rgba(77, 166, 255, 0.15), inset 0 0 30px rgba(77, 166, 255, 0.05), 0 0 60px rgba(77, 166, 255, 0.08)"
+        : "0 0 15px rgba(77, 166, 255, 0.08), inset 0 0 20px rgba(77, 166, 255, 0.03)",
+    }}
+  >
+    {/* Top glow line */}
+    <div
+      className="absolute top-0 left-[10%] right-[10%] h-[1px]"
+      style={{ background: "linear-gradient(90deg, transparent, rgba(77, 166, 255, 0.6), transparent)" }}
+    />
+    {children}
+  </div>
+);
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -124,26 +145,19 @@ const Dashboard = () => {
     return () => clearInterval(interval);
   }, [tvMode, fetchTickets]);
 
-  // Computed data
-  const entityTotals = useMemo(() => {
-    if (!ticketData?.entityTotals) return {};
-    return ticketData.entityTotals;
-  }, [ticketData]);
+  const entityTotals = useMemo(() => ticketData?.entityTotals || {}, [ticketData]);
 
   const pieData = useMemo(() => {
-    const totals = entityTotals;
-    const total = Object.values(totals).reduce((s, v) => s + v, 0) || 1;
+    const total = Object.values(entityTotals).reduce((s, v) => s + v, 0) || 1;
     return [
       ...ENTITIES.map((e) => ({
-        name: e.name,
-        value: totals[e.id] || 0,
-        pct: Math.round(((totals[e.id] || 0) / total) * 100),
+        name: e.name, value: entityTotals[e.id] || 0,
+        pct: Math.round(((entityTotals[e.id] || 0) / total) * 100),
         color: ENTITY_COLORS[e.id],
       })),
       {
-        name: "Indefinido",
-        value: totals["indefinido"] || 0,
-        pct: Math.round(((totals["indefinido"] || 0) / total) * 100),
+        name: "Indefinido", value: entityTotals["indefinido"] || 0,
+        pct: Math.round(((entityTotals["indefinido"] || 0) / total) * 100),
         color: ENTITY_COLORS["indefinido"],
       },
     ];
@@ -152,12 +166,11 @@ const Dashboard = () => {
   const lineChartData = useMemo(() => {
     if (!ticketData?.last7Days) return [];
     const dayNames = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
-    return Object.entries(ticketData.last7Days).map(([date, count]) => {
+    return Object.entries(ticketData.last7Days).map(([date]) => {
       const d = new Date(date + "T12:00:00");
       const byEntity = ticketData.last7DaysByEntity || {};
       return {
         name: dayNames[d.getDay()],
-        total: count,
         GoodStorage: byEntity["8"]?.[date] || 0,
         Brava: byEntity["1"]?.[date] || 0,
         PetCare: byEntity["7"]?.[date] || 0,
@@ -169,8 +182,7 @@ const Dashboard = () => {
   const barChartData = useMemo(() => {
     if (!ticketData?.last24Hours) return [];
     return Object.entries(ticketData.last24Hours).map(([hour, count]) => ({
-      name: hour,
-      chamados: count,
+      name: hour, chamados: count,
     }));
   }, [ticketData]);
 
@@ -186,218 +198,228 @@ const Dashboard = () => {
   // ── TV MODE ──
   if (tvMode) {
     const statusRows = ["novo", "em_andamento", "pendente"];
+    const tvBg = "radial-gradient(ellipse at 50% 0%, rgba(30, 58, 110, 0.3) 0%, rgba(5, 10, 25, 1) 70%)";
+    const textCyan = "#7ec8e3";
+    const textWhite = "#e8f0ff";
+    const textDim = "#5a7a9a";
+    const accentCyan = "#4da6ff";
+    const gridStroke = "rgba(77, 166, 255, 0.12)";
+
+    const tooltipStyle = {
+      background: "rgba(10, 18, 40, 0.95)",
+      border: "1px solid rgba(77, 166, 255, 0.3)",
+      borderRadius: "8px",
+      fontSize: "12px",
+      color: textWhite,
+    };
 
     return (
-      <div className="space-y-4">
+      <div
+        className="-m-4 md:-m-6 p-4 md:p-5 min-h-[calc(100vh-56px)] lg:min-h-screen space-y-4"
+        style={{ background: tvBg }}
+      >
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => setTvMode(false)}>
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-              <Monitor className="h-5 w-5" />
-              Painel de Chamados
-            </h1>
+            <button
+              onClick={() => setTvMode(false)}
+              className="p-2 rounded-lg transition-colors hover:bg-white/5"
+            >
+              <ArrowLeft className="h-5 w-5" style={{ color: textDim }} />
+            </button>
+            <div className="flex items-center gap-2">
+              <Monitor className="h-5 w-5" style={{ color: accentCyan }} />
+              <h1 className="text-lg font-bold" style={{ color: textWhite }}>
+                Painel de Chamados
+              </h1>
+            </div>
           </div>
           <div className="flex items-center gap-4">
-            {ticketError && <span className="text-sm text-destructive">{ticketError}</span>}
-            <div className="flex items-center gap-1.5 text-muted-foreground">
-              <Clock className="h-4 w-4" />
-              <span className="font-mono text-sm font-semibold text-foreground tabular-nums">
-                {now.toLocaleTimeString("pt-BR")}
+            {ticketError && (
+              <span className="text-xs px-2 py-1 rounded" style={{ color: "#ff6b6b", background: "rgba(255,107,107,0.1)" }}>
+                {ticketError}
               </span>
-            </div>
-            <Button variant="outline" size="sm" onClick={fetchTickets} disabled={ticketLoading} className="gap-1.5">
-              <RefreshCw className={`h-3.5 w-3.5 ${ticketLoading ? "animate-spin" : ""}`} />
-              Atualizar
-            </Button>
+            )}
+            <span className="font-mono text-sm font-semibold tabular-nums" style={{ color: textCyan }}>
+              {now.toLocaleTimeString("pt-BR")}
+            </span>
+            <button
+              onClick={fetchTickets}
+              disabled={ticketLoading}
+              className="p-2 rounded-lg transition-colors hover:bg-white/5"
+              style={{ color: textDim }}
+            >
+              <RefreshCw className={`h-4 w-4 ${ticketLoading ? "animate-spin" : ""}`} />
+            </button>
           </div>
         </div>
 
-        {/* Top cards */}
+        {/* Top cards row */}
         <div className="grid grid-cols-5 gap-3">
-          {/* Total card */}
-          <Card className="border-primary/30">
-            <CardContent className="p-4 flex flex-col items-center justify-center text-center h-full">
-              <div className="flex items-center gap-2 mb-1">
-                <Monitor className="h-4 w-4 text-primary" />
-                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+          {/* Total */}
+          <GlowCard highlight>
+            <div className="p-4 flex flex-col items-center justify-center text-center min-h-[100px]">
+              <div className="flex items-center gap-2 mb-2">
+                <Monitor className="h-4 w-4" style={{ color: accentCyan }} />
+                <span className="text-xs font-bold uppercase tracking-wider" style={{ color: textCyan }}>
                   Chamados Total
                 </span>
               </div>
-              <span className="text-4xl font-black text-foreground tabular-nums">
+              <span className="text-5xl font-black tabular-nums" style={{ color: textWhite, textShadow: `0 0 30px ${accentCyan}40` }}>
                 {ticketData?.totalOpen ?? "—"}
               </span>
               {ticketData && ticketData.totalOpen > 0 && (
-                <div className="flex gap-2 mt-1 text-[10px] text-muted-foreground">
+                <div className="flex gap-2 mt-2">
                   {pieData.filter(p => p.value > 0).map(p => (
-                    <span key={p.name} className="flex items-center gap-0.5">
+                    <span key={p.name} className="flex items-center gap-1 text-[10px]" style={{ color: textDim }}>
                       <span className="w-1.5 h-1.5 rounded-full" style={{ background: p.color }} />
                       {p.pct}%
                     </span>
                   ))}
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </GlowCard>
 
           {/* Entity cards */}
           {ENTITIES.map((entity) => (
-            <Card key={entity.id}>
-              <CardContent className="p-4 flex flex-col items-center justify-center text-center h-full">
-                <div className="flex items-center gap-2 mb-1">
+            <GlowCard key={entity.id}>
+              <div className="p-4 flex flex-col items-center justify-center text-center min-h-[100px]">
+                <div className="flex items-center gap-2 mb-2">
                   <entity.icon className="h-4 w-4" style={{ color: ENTITY_COLORS[entity.id] }} />
-                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                  <span className="text-xs font-bold uppercase tracking-wider" style={{ color: ENTITY_COLORS[entity.id] }}>
                     {entity.name}
                   </span>
                 </div>
-                <span className="text-4xl font-black text-foreground tabular-nums">
+                <span className="text-5xl font-black tabular-nums" style={{ color: textWhite, textShadow: `0 0 25px ${ENTITY_COLORS[entity.id]}40` }}>
                   {ticketLoading && !ticketData ? "—" : getCount(entity.id)}
                 </span>
-              </CardContent>
-            </Card>
+              </div>
+            </GlowCard>
           ))}
 
           {/* Indefinido */}
-          <Card>
-            <CardContent className="p-4 flex flex-col items-center justify-center text-center h-full">
-              <div className="flex items-center gap-2 mb-1">
+          <GlowCard>
+            <div className="p-4 flex flex-col items-center justify-center text-center min-h-[100px]">
+              <div className="flex items-center gap-2 mb-2">
                 <HelpCircle className="h-4 w-4" style={{ color: ENTITY_COLORS["indefinido"] }} />
-                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                <span className="text-xs font-bold uppercase tracking-wider" style={{ color: ENTITY_COLORS["indefinido"] }}>
                   Indefinido
                 </span>
               </div>
-              <span className="text-4xl font-black text-foreground tabular-nums">
+              <span className="text-5xl font-black tabular-nums" style={{ color: textWhite, textShadow: `0 0 25px ${ENTITY_COLORS["indefinido"]}40` }}>
                 {ticketLoading && !ticketData ? "—" : getCount("indefinido")}
               </span>
-            </CardContent>
-          </Card>
+            </div>
+          </GlowCard>
         </div>
 
-        {/* Middle: Table + Pie */}
-        <div className="grid grid-cols-[1fr_300px] gap-3">
+        {/* Middle row: Table + Pie charts */}
+        <div className="grid grid-cols-[1fr_280px] gap-3">
           {/* Status table */}
-          <Card>
-            <CardContent className="p-0">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left p-3 text-xs font-bold text-muted-foreground uppercase tracking-wider">Grupo</th>
-                    <th className="text-center p-3 text-xs font-bold text-muted-foreground uppercase tracking-wider">Total</th>
-                    {ENTITIES.map((e) => (
-                      <th key={e.id} className="text-center p-3 text-xs font-bold uppercase tracking-wider" style={{ color: ENTITY_COLORS[e.id] }}>
-                        {e.name}
-                      </th>
-                    ))}
-                    <th className="text-center p-3 text-xs font-bold uppercase tracking-wider" style={{ color: ENTITY_COLORS["indefinido"] }}>
-                      Indef.
+          <GlowCard>
+            <table className="w-full">
+              <thead>
+                <tr style={{ borderBottom: "1px solid rgba(77, 166, 255, 0.15)" }}>
+                  <th className="text-left p-3 text-xs font-bold uppercase tracking-wider" style={{ color: textCyan }}>Grupo</th>
+                  <th className="text-center p-3 text-xs font-bold uppercase tracking-wider" style={{ color: textCyan }}>Chamados Total</th>
+                  {ENTITIES.map((e) => (
+                    <th key={e.id} className="text-center p-3 text-xs font-bold uppercase tracking-wider" style={{ color: ENTITY_COLORS[e.id] }}>
+                      {e.name}
                     </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {statusRows.map((status, i) => {
-                    const row = ticketData?.byStatusEntity?.[status] || {};
-                    const total = Object.values(row).reduce((s, v) => s + v, 0);
-                    return (
-                      <tr key={status} className={i < statusRows.length - 1 ? "border-b" : ""}>
-                        <td className="p-3 text-sm font-semibold text-foreground">{STATUS_LABELS[status]}</td>
-                        <td className="p-3 text-center text-2xl font-black text-foreground tabular-nums">{total}</td>
-                        {ENTITIES.map((e) => (
-                          <td key={e.id} className="p-3 text-center text-2xl font-black text-foreground tabular-nums">
-                            {row[e.id] || 0}
-                          </td>
-                        ))}
-                        <td className="p-3 text-center text-2xl font-black text-foreground tabular-nums">
-                          {row["indefinido"] || 0}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </CardContent>
-          </Card>
-
-          {/* Pie charts */}
-          <div className="space-y-3">
-            <Card>
-              <CardHeader className="p-3 pb-0">
-                <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                  Distribuição por Empresa
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-2">
-                <ResponsiveContainer width="100%" height={140}>
-                  <PieChart>
-                    <Pie
-                      data={pieData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={35}
-                      outerRadius={55}
-                      dataKey="value"
-                      strokeWidth={2}
-                      stroke="hsl(var(--card))"
+                  ))}
+                  <th className="text-center p-3 text-xs font-bold uppercase tracking-wider" style={{ color: ENTITY_COLORS["indefinido"] }}>
+                    Indef.
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {statusRows.map((status, i) => {
+                  const row = ticketData?.byStatusEntity?.[status] || {};
+                  const total = Object.values(row).reduce((s, v) => s + v, 0);
+                  return (
+                    <tr
+                      key={status}
+                      style={i < statusRows.length - 1 ? { borderBottom: "1px solid rgba(77, 166, 255, 0.1)" } : {}}
                     >
-                      {pieData.map((entry, i) => (
-                        <Cell key={i} fill={entry.color} />
+                      <td className="p-3 text-sm font-bold" style={{ color: textCyan }}>{STATUS_LABELS[status]}</td>
+                      <td className="p-3 text-center">
+                        <span className="text-3xl font-black tabular-nums" style={{ color: textWhite, textShadow: `0 0 15px ${accentCyan}30` }}>
+                          {total}
+                        </span>
+                      </td>
+                      {ENTITIES.map((e) => (
+                        <td key={e.id} className="p-3 text-center">
+                          <span className="text-3xl font-black tabular-nums" style={{ color: textWhite }}>
+                            {row[e.id] || 0}
+                          </span>
+                        </td>
                       ))}
+                      <td className="p-3 text-center">
+                        <span className="text-3xl font-black tabular-nums" style={{ color: textWhite }}>
+                          {row["indefinido"] || 0}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </GlowCard>
+
+          {/* Pie charts column */}
+          <div className="space-y-3">
+            {/* Distribution pie */}
+            <GlowCard>
+              <div className="p-3">
+                <p className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: textCyan }}>
+                  Por Empresa
+                </p>
+                <ResponsiveContainer width="100%" height={120}>
+                  <PieChart>
+                    <Pie data={pieData} cx="50%" cy="50%" innerRadius={30} outerRadius={48} dataKey="value" strokeWidth={2} stroke="rgba(10,18,40,0.8)">
+                      {pieData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                     </Pie>
-                    <Tooltip
-                      formatter={(value: number, name: string) => [`${value} chamados`, name]}
-                      contentStyle={{
-                        background: "hsl(var(--card))",
-                        border: "1px solid hsl(var(--border))",
-                        borderRadius: "8px",
-                        fontSize: "12px",
-                      }}
-                    />
+                    <Tooltip formatter={(v: number, n: string) => [`${v}`, n]} contentStyle={tooltipStyle} />
                   </PieChart>
                 </ResponsiveContainer>
-                <div className="flex flex-wrap gap-2 justify-center px-2">
+                <div className="flex flex-wrap gap-x-3 gap-y-1 justify-center">
                   {pieData.map((p) => (
-                    <span key={p.name} className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                    <span key={p.name} className="flex items-center gap-1 text-[10px]" style={{ color: textDim }}>
                       <span className="w-2 h-2 rounded-full" style={{ background: p.color }} />
-                      {p.name} {p.pct}%
+                      {p.pct}% {p.name}
                     </span>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </GlowCard>
 
             {/* Status pie */}
-            <Card>
-              <CardHeader className="p-3 pb-0">
-                <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+            <GlowCard>
+              <div className="p-3">
+                <p className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: textCyan }}>
                   Por Status
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-2">
+                </p>
                 {(() => {
-                  const statusColors = ["hsl(200, 70%, 55%)", "hsl(215, 85%, 55%)", "hsl(235, 60%, 55%)"];
+                  const statusColors = ["#5bc0de", accentCyan, "#3366cc"];
                   const statusData = statusRows.map((s, i) => {
                     const row = ticketData?.byStatusEntity?.[s] || {};
-                    return {
-                      name: STATUS_LABELS[s],
-                      value: Object.values(row).reduce((sum, v) => sum + v, 0),
-                      color: statusColors[i],
-                    };
+                    return { name: STATUS_LABELS[s], value: Object.values(row).reduce((sum, v) => sum + v, 0), color: statusColors[i] };
                   });
                   const total = statusData.reduce((s, d) => s + d.value, 0) || 1;
                   return (
                     <>
                       <ResponsiveContainer width="100%" height={100}>
                         <PieChart>
-                          <Pie data={statusData} cx="50%" cy="50%" innerRadius={25} outerRadius={40} dataKey="value" strokeWidth={2} stroke="hsl(var(--card))">
+                          <Pie data={statusData} cx="50%" cy="50%" innerRadius={25} outerRadius={40} dataKey="value" strokeWidth={2} stroke="rgba(10,18,40,0.8)">
                             {statusData.map((e, i) => <Cell key={i} fill={e.color} />)}
                           </Pie>
-                          <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "12px" }} />
+                          <Tooltip contentStyle={tooltipStyle} />
                         </PieChart>
                       </ResponsiveContainer>
-                      <div className="flex flex-wrap gap-2 justify-center">
+                      <div className="flex flex-wrap gap-x-3 gap-y-1 justify-center">
                         {statusData.map((d) => (
-                          <span key={d.name} className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                          <span key={d.name} className="flex items-center gap-1 text-[10px]" style={{ color: textDim }}>
                             <span className="w-2 h-2 rounded-full" style={{ background: d.color }} />
                             {d.name} {Math.round((d.value / total) * 100)}%
                           </span>
@@ -406,68 +428,68 @@ const Dashboard = () => {
                     </>
                   );
                 })()}
-              </CardContent>
-            </Card>
+              </div>
+            </GlowCard>
           </div>
         </div>
 
-        {/* Bottom: Line chart + Bar chart */}
-        <div className="grid grid-cols-2 gap-3">
-          {/* Line chart - last 7 days */}
-          <Card>
-            <CardHeader className="p-3 pb-0">
-              <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+        {/* Bottom row: Line chart + Bar chart */}
+        <div className="grid grid-cols-[1fr_1fr] gap-3">
+          {/* Line chart - 7 days */}
+          <GlowCard>
+            <div className="p-3">
+              <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: textCyan }}>
                 Últimos 7 Dias
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-2">
-              <ResponsiveContainer width="100%" height={160}>
+              </p>
+              <ResponsiveContainer width="100%" height={150}>
                 <LineChart data={lineChartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />
-                  <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} allowDecimals={false} />
-                  <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "12px" }} />
-                  <Legend iconSize={8} wrapperStyle={{ fontSize: "10px" }} />
-                  <Line type="monotone" dataKey="GoodStorage" stroke={ENTITY_COLORS["8"]} strokeWidth={2} dot={{ r: 3 }} />
-                  <Line type="monotone" dataKey="Brava" stroke={ENTITY_COLORS["1"]} strokeWidth={2} dot={{ r: 3 }} />
-                  <Line type="monotone" dataKey="PetCare" stroke={ENTITY_COLORS["7"]} strokeWidth={2} dot={{ r: 3 }} />
-                  <Line type="monotone" dataKey="Indefinido" stroke={ENTITY_COLORS["indefinido"]} strokeWidth={2} dot={{ r: 3 }} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
+                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: textDim }} axisLine={{ stroke: gridStroke }} tickLine={{ stroke: gridStroke }} />
+                  <YAxis tick={{ fontSize: 11, fill: textDim }} allowDecimals={false} axisLine={{ stroke: gridStroke }} tickLine={{ stroke: gridStroke }} />
+                  <Tooltip contentStyle={tooltipStyle} />
+                  <Legend iconSize={8} wrapperStyle={{ fontSize: "10px", color: textDim }} />
+                  <Line type="monotone" dataKey="GoodStorage" stroke={ENTITY_COLORS["8"]} strokeWidth={2} dot={{ r: 3, fill: ENTITY_COLORS["8"], strokeWidth: 0 }} activeDot={{ r: 5, fill: ENTITY_COLORS["8"] }} />
+                  <Line type="monotone" dataKey="Brava" stroke={ENTITY_COLORS["1"]} strokeWidth={2} dot={{ r: 3, fill: ENTITY_COLORS["1"], strokeWidth: 0 }} />
+                  <Line type="monotone" dataKey="PetCare" stroke={ENTITY_COLORS["7"]} strokeWidth={2} dot={{ r: 3, fill: ENTITY_COLORS["7"], strokeWidth: 0 }} />
+                  <Line type="monotone" dataKey="Indefinido" stroke={ENTITY_COLORS["indefinido"]} strokeWidth={2} dot={{ r: 3, fill: ENTITY_COLORS["indefinido"], strokeWidth: 0 }} />
                 </LineChart>
               </ResponsiveContainer>
-            </CardContent>
-          </Card>
+            </div>
+          </GlowCard>
 
-          {/* Bar chart - last 24 hours */}
-          <Card>
-            <CardHeader className="p-3 pb-0">
-              <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+          {/* Bar chart - 24 hours */}
+          <GlowCard>
+            <div className="p-3">
+              <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: textCyan }}>
                 Últimas 24 Horas
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-2">
-              <ResponsiveContainer width="100%" height={160}>
+              </p>
+              <ResponsiveContainer width="100%" height={150}>
                 <BarChart data={barChartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis
-                    dataKey="name"
-                    tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }}
-                    interval={2}
-                  />
-                  <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} allowDecimals={false} />
-                  <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "12px" }} />
-                  <Bar dataKey="chamados" fill="hsl(var(--primary))" radius={[3, 3, 0, 0]} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
+                  <XAxis dataKey="name" tick={{ fontSize: 8, fill: textDim }} interval={2} axisLine={{ stroke: gridStroke }} tickLine={{ stroke: gridStroke }} />
+                  <YAxis tick={{ fontSize: 11, fill: textDim }} allowDecimals={false} axisLine={{ stroke: gridStroke }} tickLine={{ stroke: gridStroke }} />
+                  <Tooltip contentStyle={tooltipStyle} />
+                  <Bar dataKey="chamados" radius={[3, 3, 0, 0]}>
+                    {barChartData.map((_, i) => (
+                      <Cell key={i} fill={accentCyan} fillOpacity={0.7} />
+                    ))}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
-            </CardContent>
-          </Card>
+            </div>
+          </GlowCard>
         </div>
 
-        {/* Footer */}
-        {lastUpdate && (
-          <p className="text-center text-xs text-muted-foreground">
-            Última atualização: {lastUpdate.toLocaleTimeString("pt-BR")} · Atualização automática a cada 30s
-          </p>
-        )}
+        {/* Footer glow line */}
+        <div className="flex items-center justify-center gap-4 pt-1">
+          <div className="h-[1px] flex-1" style={{ background: "linear-gradient(90deg, transparent, rgba(77,166,255,0.3), transparent)" }} />
+          {lastUpdate && (
+            <span className="text-[10px] whitespace-nowrap" style={{ color: textDim }}>
+              Atualizado: {lastUpdate.toLocaleTimeString("pt-BR")} · Auto-refresh 30s
+            </span>
+          )}
+          <div className="h-[1px] flex-1" style={{ background: "linear-gradient(90deg, transparent, rgba(77,166,255,0.3), transparent)" }} />
+        </div>
       </div>
     );
   }
