@@ -81,6 +81,35 @@ function extractPrefix(hostname: string): string | null {
   return match ? match[1] : null;
 }
 
+// ── Host grouping ───────────────────────────────────────────────────────
+interface HostGroup {
+  hostKey: string;
+  hostName: string;
+  hostCode: string;
+  problems: ZabbixProblem[];
+  oldestClock: number;
+  allAcks: any[];
+}
+
+function groupByHost(items: ZabbixProblem[]): HostGroup[] {
+  const map = new Map<string, HostGroup>();
+  for (const p of items) {
+    const hostName = p.hosts?.[0]?.name || p.hosts?.[0]?.host || "—";
+    const hostCode = p.hosts?.[0]?.host || p.hosts?.[0]?.name || "";
+    const key = hostCode || hostName;
+    if (!map.has(key)) {
+      map.set(key, { hostKey: key, hostName, hostCode, problems: [], oldestClock: Infinity, allAcks: [] });
+    }
+    const g = map.get(key)!;
+    g.problems.push(p);
+    const clock = Number(p.clock);
+    if (clock < g.oldestClock) g.oldestClock = clock;
+    g.allAcks.push(...(p.acknowledges || []));
+  }
+  // Sort groups by oldest clock (longest down first)
+  return Array.from(map.values()).sort((a, b) => a.oldestClock - b.oldestClock);
+}
+
 // ── Component ───────────────────────────────────────────────────────────
 export default function DashboardZabbix() {
   const [problems, setProblems] = useState<ZabbixProblem[]>([]);
@@ -88,6 +117,7 @@ export default function DashboardZabbix() {
   const [contatos, setContatos] = useState<Record<string, ZabbixContato>>({});
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  const [expandedHosts, setExpandedHosts] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
   const fetchData = useCallback(async () => {
