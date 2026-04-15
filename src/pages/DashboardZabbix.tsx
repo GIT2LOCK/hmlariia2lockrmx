@@ -4,8 +4,11 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertTriangle, Server, Wifi, HardDrive, Wrench, RefreshCw, CheckCircle2, Clock, ShieldAlert, ShieldCheck, XCircle } from "lucide-react";
+import { AlertTriangle, Server, Wifi, HardDrive, Wrench, RefreshCw, CheckCircle2, Clock, ShieldCheck, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 
 // ── Types ──────────────────────────────────────────────────────────────
@@ -193,7 +196,7 @@ export default function DashboardZabbix() {
                             <th className="px-4 py-2 text-left font-medium text-muted-foreground">Host</th>
                             <th className="px-4 py-2 text-left font-medium text-muted-foreground">Problema</th>
                             <th className="px-4 py-2 text-left font-medium text-muted-foreground">Duração</th>
-                            <th className="px-4 py-2 text-left font-medium text-muted-foreground">Ack</th>
+                            <th className="px-4 py-2 text-left font-medium text-muted-foreground">Updates</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -201,6 +204,7 @@ export default function DashboardZabbix() {
                             const sev = SEVERITY_CONFIG[p.severity] || SEVERITY_CONFIG["0"];
                             const hostName = p.hosts?.[0]?.name || p.hosts?.[0]?.host || "—";
                             const duration = formatDuration(Number(p.clock));
+                            const acks = p.acknowledges || [];
                             return (
                               <tr key={p.eventid} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
                                 <td className="px-4 py-2">
@@ -212,10 +216,37 @@ export default function DashboardZabbix() {
                                   <Clock className="h-3 w-3 inline mr-1" />{duration}
                                 </td>
                                 <td className="px-4 py-2">
-                                  {p.acknowledged === "1" ? (
-                                    <ShieldCheck className="h-4 w-4 text-green-500" />
+                                  {acks.length > 0 ? (
+                                    <Popover>
+                                      <PopoverTrigger asChild>
+                                        <Button variant="ghost" size="sm" className="gap-1 h-7 px-2">
+                                          <MessageSquare className="h-4 w-4 text-blue-400" />
+                                          <span className="text-xs">{acks.length}</span>
+                                        </Button>
+                                      </PopoverTrigger>
+                                      <PopoverContent className="w-96 p-0" align="end">
+                                        <div className="px-3 py-2 border-b bg-muted/40">
+                                          <p className="text-sm font-medium">Updates ({acks.length})</p>
+                                        </div>
+                                        <ScrollArea className="max-h-64">
+                                          <div className="divide-y">
+                                            {acks.map((ack: any, idx: number) => (
+                                              <div key={ack.acknowledgeid || idx} className="px-3 py-2 text-sm">
+                                                <div className="flex items-center justify-between mb-1">
+                                                  <span className="font-medium text-xs">{ack.user || "—"}</span>
+                                                  <span className="text-xs text-muted-foreground">
+                                                    {formatTimestamp(ack.clock)}
+                                                  </span>
+                                                </div>
+                                                <p className="text-muted-foreground text-xs">{ack.message || "—"}</p>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </ScrollArea>
+                                      </PopoverContent>
+                                    </Popover>
                                   ) : (
-                                    <XCircle className="h-4 w-4 text-red-400" />
+                                    <span className="text-xs text-muted-foreground">—</span>
                                   )}
                                 </td>
                               </tr>
