@@ -501,7 +501,7 @@ const Dashboard = () => {
               <GlowCard delay={0.4} className="min-h-0">
                 <div className="p-3 flex flex-col">
                   <div className="grid grid-cols-6 gap-0" style={{ borderBottom: `1px solid ${C.grid}` }}>
-                    {["Grupo", "Total", ...ENTITIES.map(e => e.name), "Indef."].map((label, i) => (
+                    {["Grupo", "Total", ...ENTITIES.map(e => e.name), "Indefinido"].map((label, i) => (
                       <div key={label} className={`px-3 py-2 ${i === 0 ? "text-left" : "text-center"}`}>
                         <span
                           className="text-[11px] uppercase tracking-[0.12em]"
@@ -587,7 +587,7 @@ const Dashboard = () => {
                     ].map((item) => (
                       <span key={item.label} className="flex items-center gap-1.5 text-[10px]" style={{ color: C.dim, fontWeight: 400 }}>
                         <span className="w-2 h-2 rounded-full" style={{ background: item.color, boxShadow: `0 0 5px ${item.color}60` }} />
-                        <span style={{ fontWeight: 700 }}>{item.label}</span>
+                        <span className="text-sm font-extrabold" style={{ fontWeight: 700 }}>{item.label}</span>
                       </span>
                     ))}
                   </div>
