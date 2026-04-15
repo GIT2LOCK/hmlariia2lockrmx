@@ -23,28 +23,21 @@ serve(async (req) => {
   try {
     const { action } = await req.json();
 
-    console.log("Zabbix URL:", ZABBIX_API_URL);
-    console.log("Token length:", ZABBIX_API_TOKEN.length, "Token prefix:", ZABBIX_API_TOKEN.substring(0, 8));
-
     const zabbixCall = async (method: string, params: Record<string, unknown>) => {
-      const body = JSON.stringify({
-        jsonrpc: "2.0",
-        method,
-        params,
-        auth: ZABBIX_API_TOKEN,
-        id: 1,
-      });
-      console.log("Calling Zabbix method:", method);
       const res = await fetch(ZABBIX_API_URL, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json-rpc",
+          "Content-Type": "application/json",
           "Authorization": `Bearer ${ZABBIX_API_TOKEN}`,
         },
-        body,
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          method,
+          params,
+          id: 1,
+        }),
       });
       const data = await res.json();
-      console.log("Zabbix response for", method, ":", JSON.stringify(data).substring(0, 500));
       if (data.error) {
         throw new Error(`Zabbix API error: ${JSON.stringify(data.error)}`);
       }
