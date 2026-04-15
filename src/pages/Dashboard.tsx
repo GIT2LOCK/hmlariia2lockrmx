@@ -13,6 +13,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid, Area, AreaChart, Legend,
 } from "recharts";
 import { motion } from "framer-motion";
+import { useUser } from "@/contexts/UserContext";
 
 // ─── Types ───
 interface TicketData {
@@ -288,9 +289,6 @@ const Dashboard = () => {
       setSidebarHidden(true);
     }
   }, [isTvView]);
-  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
-  const [now, setNow] = useState(new Date());
-  const [secAgo, setSecAgo] = useState(0);
 
   // Clock
   useEffect(() => {
