@@ -91,10 +91,12 @@ async function fetchAllOpenTickets(
     }
   }
   
-  // Filter out tickets with "vConnector" in the title/name
+  // Filter out tickets with "vConnector" or starting with "[Problem]"
   return allTickets.filter(t => {
     const name = String(t['name'] ?? t['title'] ?? '').toLowerCase()
-    return !name.includes('vconnector')
+    if (name.includes('vconnector')) return false
+    if (name.startsWith('[problem]')) return false
+    return true
   })
 }
 
