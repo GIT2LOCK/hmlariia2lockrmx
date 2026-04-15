@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertTriangle, Server, Wifi, Wrench, RefreshCw, CheckCircle2, Clock, ShieldCheck, MessageSquare, Phone } from "lucide-react";
+import { AlertTriangle, Server, Wifi, Wrench, RefreshCw, CheckCircle2, Clock, ShieldCheck, MessageSquare, Phone, ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -81,6 +81,35 @@ function extractPrefix(hostname: string): string | null {
   return match ? match[1] : null;
 }
 
+// ── Host grouping ───────────────────────────────────────────────────────
+interface HostGroup {
+  hostKey: string;
+  hostName: string;
+  hostCode: string;
+  problems: ZabbixProblem[];
+  oldestClock: number;
+  allAcks: any[];
+}
+
+function groupByHost(items: ZabbixProblem[]): HostGroup[] {
+  const map = new Map<string, HostGroup>();
+  for (const p of items) {
+    const hostName = p.hosts?.[0]?.name || p.hosts?.[0]?.host || "—";
+    const hostCode = p.hosts?.[0]?.host || p.hosts?.[0]?.name || "";
+    const key = hostCode || hostName;
+    if (!map.has(key)) {
+      map.set(key, { hostKey: key, hostName, hostCode, problems: [], oldestClock: Infinity, allAcks: [] });
+    }
+    const g = map.get(key)!;
+    g.problems.push(p);
+    const clock = Number(p.clock);
+    if (clock < g.oldestClock) g.oldestClock = clock;
+    g.allAcks.push(...(p.acknowledges || []));
+  }
+  // Sort groups by oldest clock (longest down first)
+  return Array.from(map.values()).sort((a, b) => a.oldestClock - b.oldestClock);
+}
+
 // ── Component ───────────────────────────────────────────────────────────
 export default function DashboardZabbix() {
   const [problems, setProblems] = useState<ZabbixProblem[]>([]);
@@ -88,6 +117,7 @@ export default function DashboardZabbix() {
   const [contatos, setContatos] = useState<Record<string, ZabbixContato>>({});
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  const [expandedHosts, setExpandedHosts] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
   const fetchData = useCallback(async () => {
@@ -138,6 +168,15 @@ export default function DashboardZabbix() {
   );
 
   const totalProblems = problems.length;
+
+  const toggleHost = (key: string) => {
+    setExpandedHosts((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
   return (
     <div className="space-y-4">
@@ -210,60 +249,87 @@ export default function DashboardZabbix() {
                           </tr>
                         </thead>
                         <tbody>
-                          {items.map((p) => {
-                            const sev = SEVERITY_CONFIG[p.severity] || SEVERITY_CONFIG["0"];
-                            const hostName = p.hosts?.[0]?.name || p.hosts?.[0]?.host || "—";
-                            const hostCode = p.hosts?.[0]?.host || p.hosts?.[0]?.name || "";
-                            const prefix = extractPrefix(hostCode);
+                          {groupByHost(items).map((group) => {
+                            const isSingle = group.problems.length === 1;
+                            const isExpanded = expandedHosts.has(`${cat}_${group.hostKey}`);
+                            const prefix = extractPrefix(group.hostCode);
                             const contato = prefix ? contatos[prefix] : null;
-                            const duration = formatDuration(Number(p.clock));
-                            const acks = p.acknowledges || [];
+                            const totalAcks = group.allAcks.length;
+
+                            if (isSingle) {
+                              // Single problem: render flat row
+                              const p = group.problems[0];
+                              const sev = SEVERITY_CONFIG[p.severity] || SEVERITY_CONFIG["0"];
+                              const acks = p.acknowledges || [];
+                              return (
+                                <tr key={p.eventid} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+                                  <td className="px-4 py-2">
+                                    <Badge className={`${sev.bg} ${sev.text} text-xs`}>{sev.label}</Badge>
+                                  </td>
+                                  <td className="px-4 py-2 font-medium whitespace-nowrap">{group.hostName}</td>
+                                  <td className="px-4 py-2 max-w-md truncate">{p.triggerDescription || p.name}</td>
+                                  <td className="px-4 py-2 whitespace-nowrap text-muted-foreground">
+                                    <Clock className="h-3 w-3 inline mr-1" />{formatDuration(Number(p.clock))}
+                                  </td>
+                                  <td className="px-4 py-2">
+                                    <AcksPopover acks={acks} />
+                                  </td>
+                                  <td className="px-4 py-2">
+                                    <ContactButton contato={contato} />
+                                  </td>
+                                </tr>
+                              );
+                            }
+
+                            // Multiple problems: collapsible group
+                            const groupKey = `${cat}_${group.hostKey}`;
                             return (
-                              <tr key={p.eventid} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
-                                <td className="px-4 py-2">
-                                  <Badge className={`${sev.bg} ${sev.text} text-xs`}>{sev.label}</Badge>
-                                </td>
-                                <td className="px-4 py-2 font-medium whitespace-nowrap">{hostName}</td>
-                                <td className="px-4 py-2 max-w-md truncate">{p.triggerDescription || p.name}</td>
-                                <td className="px-4 py-2 whitespace-nowrap text-muted-foreground">
-                                  <Clock className="h-3 w-3 inline mr-1" />{duration}
-                                </td>
-                                <td className="px-4 py-2">
-                                  {acks.length > 0 ? (
-                                    <Popover>
-                                      <PopoverTrigger asChild>
-                                        <Button variant="ghost" size="sm" className="gap-1 h-7 px-2">
-                                          <MessageSquare className="h-4 w-4 text-blue-400" />
-                                          <span className="text-xs">{acks.length}</span>
-                                        </Button>
-                                      </PopoverTrigger>
-                                      <PopoverContent className="w-96 p-0" align="end">
-                                        <div className="px-3 py-2 border-b bg-muted/40">
-                                          <p className="text-sm font-medium">Updates ({acks.length})</p>
-                                        </div>
-                                        <ScrollArea className="max-h-64">
-                                          <div className="divide-y">
-                                            {acks.map((ack: any, idx: number) => (
-                                              <div key={ack.acknowledgeid || idx} className="px-3 py-2 text-sm">
-                                                <div className="flex items-center justify-between mb-1">
-                                                  <span className="font-medium text-xs">{ack.user || "—"}</span>
-                                                  <span className="text-xs text-muted-foreground">{formatTimestamp(ack.clock)}</span>
-                                                </div>
-                                                <p className="text-muted-foreground text-xs">{ack.message || "—"}</p>
-                                              </div>
-                                            ))}
-                                          </div>
-                                        </ScrollArea>
-                                      </PopoverContent>
-                                    </Popover>
-                                  ) : (
-                                    <span className="text-xs text-muted-foreground">—</span>
-                                  )}
-                                </td>
-                                <td className="px-4 py-2">
-                                  <ContactButton contato={contato} />
-                                </td>
-                              </tr>
+                              <React.Fragment key={groupKey}>
+                                <tr
+                                  className="border-b hover:bg-muted/30 transition-colors cursor-pointer"
+                                  onClick={() => toggleHost(groupKey)}
+                                >
+                                  <td className="px-4 py-2">
+                                    <Badge variant="destructive" className="text-xs">{group.problems.length} triggers</Badge>
+                                  </td>
+                                  <td className="px-4 py-2 font-medium whitespace-nowrap flex items-center gap-1">
+                                    {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                                    {group.hostName}
+                                  </td>
+                                  <td className="px-4 py-2 text-muted-foreground text-xs">
+                                    {group.problems.map(p => p.triggerDescription || p.name).filter((v, i, a) => a.indexOf(v) === i).join(", ")}
+                                  </td>
+                                  <td className="px-4 py-2 whitespace-nowrap text-muted-foreground">
+                                    <Clock className="h-3 w-3 inline mr-1" />{formatDuration(group.oldestClock)}
+                                  </td>
+                                  <td className="px-4 py-2">
+                                    <AcksPopover acks={group.allAcks} />
+                                  </td>
+                                  <td className="px-4 py-2">
+                                    <ContactButton contato={contato} />
+                                  </td>
+                                </tr>
+                                {isExpanded && group.problems.map((p) => {
+                                  const sev = SEVERITY_CONFIG[p.severity] || SEVERITY_CONFIG["0"];
+                                  const acks = p.acknowledges || [];
+                                  return (
+                                    <tr key={p.eventid} className="border-b last:border-0 bg-muted/20">
+                                      <td className="px-4 py-1.5 pl-8">
+                                        <Badge className={`${sev.bg} ${sev.text} text-xs`}>{sev.label}</Badge>
+                                      </td>
+                                      <td className="px-4 py-1.5 text-xs text-muted-foreground pl-8">↳</td>
+                                      <td className="px-4 py-1.5 text-xs">{p.triggerDescription || p.name}</td>
+                                      <td className="px-4 py-1.5 whitespace-nowrap text-xs text-muted-foreground">
+                                        <Clock className="h-3 w-3 inline mr-1" />{formatDuration(Number(p.clock))}
+                                      </td>
+                                      <td className="px-4 py-1.5">
+                                        <AcksPopover acks={acks} />
+                                      </td>
+                                      <td className="px-4 py-1.5"></td>
+                                    </tr>
+                                  );
+                                })}
+                              </React.Fragment>
                             );
                           })}
                         </tbody>
@@ -322,6 +388,42 @@ export default function DashboardZabbix() {
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+// ── Acks Popover ────────────────────────────────────────────────────────
+function AcksPopover({ acks }: { acks: any[] }) {
+  if (acks.length === 0) {
+    return <span className="text-xs text-muted-foreground">—</span>;
+  }
+  const sorted = [...acks].sort((a, b) => Number(b.clock) - Number(a.clock));
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="sm" className="gap-1 h-7 px-2">
+          <MessageSquare className="h-4 w-4 text-blue-400" />
+          <span className="text-xs">{acks.length}</span>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-96 p-0" align="end">
+        <div className="px-3 py-2 border-b bg-muted/40">
+          <p className="text-sm font-medium">Updates ({acks.length})</p>
+        </div>
+        <ScrollArea className="max-h-64">
+          <div className="divide-y">
+            {sorted.map((ack: any, idx: number) => (
+              <div key={ack.acknowledgeid || idx} className="px-3 py-2 text-sm">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="font-medium text-xs">{ack.user || "—"}</span>
+                  <span className="text-xs text-muted-foreground">{formatTimestamp(ack.clock)}</span>
+                </div>
+                <p className="text-muted-foreground text-xs">{ack.message || "—"}</p>
+              </div>
+            ))}
+          </div>
+        </ScrollArea>
+      </PopoverContent>
+    </Popover>
   );
 }
 
