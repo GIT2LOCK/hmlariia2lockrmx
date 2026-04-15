@@ -55,18 +55,19 @@ Deno.serve(async (req) => {
     let result: unknown
 
     if (action === 'ticket-counts') {
-      // Fetch open tickets (status != 5 solved, != 6 closed) with entity info
-      // GLPI Ticket search options: 12 = status, 80 = entity
-      // We need to get ALL open tickets to count by entity
-      // First, change active entity to "all" so we see all entities
-      await fetch(`${GLPI_URL}/changeActiveEntities`, {
+      // Change active entity to "all" so we see all entities
+      const entityRes = await fetch(`${GLPI_URL}/changeActiveEntities`, {
         method: 'POST',
         headers: glpiHeaders,
         body: JSON.stringify({ entities_id: 'all', is_recursive: true }),
       })
+      console.log('changeActiveEntities status:', entityRes.status)
+      const entityBody = await entityRes.text()
+      console.log('changeActiveEntities response:', entityBody)
 
       // Search for open tickets (status not equals 5 AND status not equals 6)
-      // forcedisplay: 2=id, 80=entity
+      // GLPI statuses: 1=new, 2=assigned, 3=planned, 4=pending, 5=solved, 6=closed
+      // forcedisplay: 2=id, 80=entity, 12=status
       const allTickets: Array<Record<string, unknown>> = []
       let start = 0
       const batchSize = 200
@@ -83,10 +84,14 @@ Deno.serve(async (req) => {
           'criteria[1][value]': '6',
           'forcedisplay[0]': '2',
           'forcedisplay[1]': '80',
+          'forcedisplay[2]': '12',
           'range': `${start}-${start + batchSize - 1}`,
         })
 
-        const res = await fetch(`${GLPI_URL}/search/Ticket?${searchParams}`, { headers: glpiHeaders })
+        const searchUrl = `${GLPI_URL}/search/Ticket?${searchParams}`
+        console.log('Fetching tickets, range:', `${start}-${start + batchSize - 1}`)
+        const res = await fetch(searchUrl, { headers: glpiHeaders })
+        
         if (!res.ok) {
           const errBody = await res.text()
           console.error('GLPI ticket search error:', res.status, errBody)
@@ -94,6 +99,12 @@ Deno.serve(async (req) => {
         }
 
         const searchResult = await res.json()
+        console.log('Search result totalcount:', searchResult.totalcount, 'data length:', searchResult.data?.length || 0)
+        
+        if (start === 0 && searchResult.data?.length > 0) {
+          console.log('Sample ticket:', JSON.stringify(searchResult.data[0]))
+        }
+
         if (totalCount === -1) {
           totalCount = searchResult.totalcount || 0
         }
@@ -111,7 +122,6 @@ Deno.serve(async (req) => {
       // Count by entity ID (field 80 = entity)
       const entityCounts: Record<string, number> = {}
       for (const ticket of allTickets) {
-        // field 80 is entity - could be id or name depending on expand_dropdowns
         const entityVal = String(ticket['80'] ?? 'unknown')
         entityCounts[entityVal] = (entityCounts[entityVal] || 0) + 1
       }
@@ -125,15 +135,10 @@ Deno.serve(async (req) => {
         fetchedAt: new Date().toISOString(),
       }
     } else if (action === 'get' && itemId) {
-      // Get single article
       const res = await fetch(`${GLPI_URL}/KnowbaseItem/${itemId}`, { headers: glpiHeaders })
-      if (!res.ok) {
-        throw new Error(`GLPI returned ${res.status}`)
-      }
-      const articleData = await res.json()
-      result = articleData
+      if (!res.ok) throw new Error(`GLPI returned ${res.status}`)
+      result = await res.json()
     } else if (action === 'search' && search) {
-      // Search articles
       const searchParams = new URLSearchParams({
         'criteria[0][field]': '6',
         'criteria[0][searchtype]': 'contains',
@@ -149,17 +154,13 @@ Deno.serve(async (req) => {
         'forcedisplay[3]': '3',
       })
       const res = await fetch(`${GLPI_URL}/search/KnowbaseItem?${searchParams}`, { headers: glpiHeaders })
-      if (!res.ok) {
-        throw new Error(`GLPI search returned ${res.status}`)
-      }
+      if (!res.ok) throw new Error(`GLPI search returned ${res.status}`)
       result = await res.json()
     } else {
-      // List articles
       const listUrl = `${GLPI_URL}/KnowbaseItem?range=${(page - 1) * perPage}-${page * perPage - 1}&order=DESC&sort=id`
       const res = await fetch(listUrl, { headers: glpiHeaders })
       if (!res.ok) {
         const errBody = await res.text()
-        console.error('GLPI list error:', res.status, errBody)
         throw new Error(`GLPI list returned ${res.status}: ${errBody}`)
       }
       result = await res.json()
