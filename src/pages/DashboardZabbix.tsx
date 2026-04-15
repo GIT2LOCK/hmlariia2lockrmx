@@ -67,8 +67,8 @@ function classifyProblem(problem: ZabbixProblem): Category {
   const name = problem.triggerDescription || problem.name || "";
   const hostName = problem.hosts?.[0]?.name || problem.hosts?.[0]?.host || "";
   
-  if (/indisponibilidade de equipamento/i.test(name)) return "equipamentos";
-  if (/indisponibilidade de link/i.test(name)) return "links";
+  if (/indisponibilidade.*equipamento/i.test(name)) return "equipamentos";
+  if (/indisponibilidade.*link/i.test(name)) return "links";
   if (/^TI-/i.test(hostName)) return "infraestrutura";
   return "outros";
 }
@@ -147,11 +147,10 @@ export default function DashboardZabbix() {
       </div>
 
       {/* KPI row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <KpiCard label="Problemas (Alta+)" value={totalProblems} icon={AlertTriangle} color="text-red-500" loading={loading} />
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        <KpiCard label="Problemas (High)" value={totalProblems} icon={AlertTriangle} color="text-red-500" loading={loading} />
         <KpiCard label="Manutenções Ativas" value={maintenances.length} icon={Wrench} color="text-yellow-500" loading={loading} />
-        <KpiCard label="Alta" value={severityCounts["4"] || 0} icon={ShieldAlert} color="text-red-500" loading={loading} />
-        <KpiCard label="Desastre" value={severityCounts["5"] || 0} icon={ShieldAlert} color="text-red-900" loading={loading} />
+        <KpiCard label="Em Manutenção (excluídos)" value={0} icon={ShieldCheck} color="text-green-500" loading={loading} />
       </div>
 
       {/* Tabs */}
