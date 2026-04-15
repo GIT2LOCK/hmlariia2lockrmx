@@ -324,7 +324,7 @@ const Dashboard = () => {
     const totalStatus = statusPie.reduce((s, d) => s + d.value, 0);
 
     return (
-      <div className="-m-4 md:-m-6 min-h-[calc(100vh-56px)] lg:min-h-screen overflow-hidden relative" style={{ background: C.pageBg }}>
+      <div className="-m-4 md:-m-6 min-h-[calc(100vh-56px)] lg:min-h-screen overflow-hidden relative" style={{ background: C.pageBg, fontFamily: "'Roboto', sans-serif" }}>
         <Particles />
 
         <div className="relative z-10 p-4 lg:p-5 flex flex-col h-[calc(100vh-56px)] lg:h-screen">
@@ -341,12 +341,12 @@ const Dashboard = () => {
                   <Monitor className="h-6 w-6" style={{ color: C.cyan, filter: `drop-shadow(0 0 6px ${C.cyan})` }} />
                 </div>
                 <div>
-                  <h1 className="text-xl font-extrabold tracking-wide" style={{ color: C.white, textShadow: `0 0 20px ${C.cyan}20` }}>
+                  <h1 className="text-xl tracking-wide" style={{ color: C.white, textShadow: `0 0 20px ${C.cyan}20`, fontWeight: 400 }}>
                     Painel de Chamados
                   </h1>
                   <div className="flex items-center gap-2 text-[11px]" style={{ color: C.dim }}>
                     <PulseDot color="#3dd9b4" />
-                    <span className="font-medium">Monitoramento em tempo real</span>
+                    <span style={{ fontWeight: 400 }}>Monitoramento em tempo real</span>
                   </div>
                 </div>
               </div>
@@ -363,10 +363,10 @@ const Dashboard = () => {
               <div className="flex items-center gap-3 px-4 py-2 rounded-xl"
                 style={{ background: "rgba(77,166,255,0.05)", border: `1px solid ${C.border}`, boxShadow: "0 0 15px rgba(77,166,255,0.06)" }}>
                 <div className="flex flex-col items-end">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.dim }}>
+                  <span className="text-[10px] uppercase tracking-wider" style={{ color: C.dim, fontWeight: 400 }}>
                     {secAgo < 5 ? "● Atualizado agora" : `Atualizado há ${secAgo}s`}
                   </span>
-                  <span className="font-mono text-lg font-black tabular-nums tracking-widest" style={{ color: C.textCyan, textShadow: `0 0 14px ${C.cyan}50` }}>
+                  <span className="font-mono text-lg tabular-nums tracking-widest" style={{ color: C.textCyan, textShadow: `0 0 14px ${C.cyan}50`, fontWeight: 400 }}>
                     {now.toLocaleTimeString("pt-BR")}
                   </span>
                 </div>
@@ -387,17 +387,17 @@ const Dashboard = () => {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1.5">
                       <k.icon className="h-4 w-4 flex-shrink-0" style={{ color: k.color, filter: `drop-shadow(0 0 5px ${k.color}60)` }} />
-                      <span className="text-[11px] font-extrabold uppercase tracking-[0.15em] truncate" style={{ color: k.color }}>
+                      <span className="text-[11px] uppercase tracking-[0.15em] truncate" style={{ color: k.color, fontWeight: 400 }}>
                         {k.name}
                       </span>
                     </div>
                     <AnimNum value={k.val}
-                      className="text-5xl xl:text-6xl font-black tabular-nums block leading-none"
-                      style={{ color: C.white, textShadow: `0 0 35px ${k.color}45, 0 0 70px ${k.color}15` }} />
+                      className="text-5xl xl:text-6xl tabular-nums block leading-none"
+                      style={{ color: C.white, textShadow: `0 0 35px ${k.color}45, 0 0 70px ${k.color}15`, fontWeight: 400 }} />
                     {k.id === "total" && pieData.filter(p => p.value > 0).length > 0 && (
                       <div className="flex gap-2 mt-2">
                         {pieData.filter(p => p.value > 0).map(p => (
-                          <span key={p.name} className="flex items-center gap-1 text-[10px] font-semibold" style={{ color: C.dim }}>
+                          <span key={p.name} className="flex items-center gap-1 text-[10px]" style={{ color: C.dim, fontWeight: 400 }}>
                             <span className="w-2 h-2 rounded-full" style={{ background: p.color, boxShadow: `0 0 5px ${p.color}` }} />
                             {p.pct}%
                           </span>
