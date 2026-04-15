@@ -10,11 +10,12 @@ import {
 import { useNavigate } from "react-router-dom";
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
-  LineChart, Line, XAxis, YAxis, CartesianGrid,
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Area, AreaChart,
   BarChart, Bar, Legend,
 } from "recharts";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 
+// ─── Types ───
 interface TicketData {
   totalOpen: number;
   byEntity: Record<string, number>;
@@ -26,19 +27,19 @@ interface TicketData {
   fetchedAt: string;
 }
 
+// ─── Constants ───
 const ENTITIES = [
   { id: "8", name: "GoodStorage", icon: Cloud },
   { id: "1", name: "Brava", icon: Home },
   { id: "7", name: "PetCare", icon: PawPrint },
 ];
-const KNOWN_IDS = new Set(["1", "7", "8"]);
 const REFRESH_INTERVAL = 30_000;
 
 const ENTITY_COLORS: Record<string, string> = {
   "8": "#4da6ff",
   "7": "#3dd9b4",
   "1": "#ff9f43",
-  "indefinido": "#7c8ca1",
+  indefinido: "#7c8ca1",
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -46,204 +47,190 @@ const STATUS_LABELS: Record<string, string> = {
   em_andamento: "Em Andamento",
   pendente: "Pendente",
 };
-
 const STATUS_COLORS = ["#5bc0de", "#4da6ff", "#3366cc"];
+const STATUS_ROWS = ["novo", "em_andamento", "pendente"] as const;
 
-// ─── Animated Counter ───
-const AnimatedNumber = ({ value, className, style }: { value: number; className?: string; style?: React.CSSProperties }) => {
+// ─── Palette shortcuts ───
+const C = {
+  cyan: "#4da6ff",
+  textCyan: "#7ec8e3",
+  white: "#e8f0ff",
+  dim: "#5a7a9a",
+  grid: "rgba(77,166,255,0.10)",
+  border: "rgba(77,166,255,0.22)",
+  borderHi: "rgba(77,166,255,0.50)",
+  glowSm: "0 0 18px rgba(77,166,255,0.12), inset 0 1px 0 rgba(77,166,255,0.10)",
+  glowLg: "0 0 40px rgba(77,166,255,0.22), inset 0 1px 0 rgba(77,166,255,0.18), 0 0 100px rgba(77,166,255,0.06)",
+  cardBg: "linear-gradient(145deg, rgba(12,22,50,0.88) 0%, rgba(6,12,30,0.94) 100%)",
+  pageBg: "radial-gradient(ellipse at 50% -10%, rgba(18,40,90,0.45) 0%, rgba(4,6,16,1) 65%)",
+};
+
+const tooltipStyle: React.CSSProperties = {
+  background: "rgba(8,14,35,0.96)",
+  border: `1px solid ${C.border}`,
+  borderRadius: "10px",
+  fontSize: "12px",
+  color: C.white,
+  backdropFilter: "blur(12px)",
+  boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+};
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// SUB-COMPONENTS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+/** Animated count-up number */
+const AnimNum = ({ value, className, style }: { value: number; className?: string; style?: React.CSSProperties }) => {
   const [display, setDisplay] = useState(0);
   const prev = useRef(0);
-
   useEffect(() => {
-    const from = prev.current;
-    const to = value;
-    if (from === to) return;
-    const duration = 800;
-    const start = performance.now();
-    const step = (ts: number) => {
-      const progress = Math.min((ts - start) / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      setDisplay(Math.round(from + (to - from) * eased));
-      if (progress < 1) requestAnimationFrame(step);
+    const from = prev.current, to = value;
+    if (from === to) { setDisplay(to); return; }
+    const dur = 900, t0 = performance.now();
+    const step = (t: number) => {
+      const p = Math.min((t - t0) / dur, 1);
+      setDisplay(Math.round(from + (to - from) * (1 - Math.pow(1 - p, 3))));
+      if (p < 1) requestAnimationFrame(step);
     };
     requestAnimationFrame(step);
     prev.current = to;
   }, [value]);
-
   return <span className={className} style={style}>{display}</span>;
 };
 
-// ─── Particle Background ───
-const ParticleCanvas = () => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
+/** Particle canvas background */
+const Particles = () => {
+  const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    let animId: number;
-    const particles: { x: number; y: number; vx: number; vy: number; r: number; a: number }[] = [];
-
-    const resize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    };
-    resize();
-    window.addEventListener("resize", resize);
-
-    for (let i = 0; i < 80; i++) {
-      particles.push({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        vx: (Math.random() - 0.5) * 0.3,
-        vy: (Math.random() - 0.5) * 0.3,
-        r: Math.random() * 1.5 + 0.5,
-        a: Math.random() * 0.5 + 0.1,
-      });
-    }
-
+    const c = ref.current; if (!c) return;
+    const ctx = c.getContext("2d"); if (!ctx) return;
+    let id: number;
+    const pts: { x: number; y: number; vx: number; vy: number; r: number; a: number }[] = [];
+    const resize = () => { c.width = window.innerWidth; c.height = window.innerHeight; };
+    resize(); window.addEventListener("resize", resize);
+    for (let i = 0; i < 90; i++) pts.push({
+      x: Math.random() * c.width, y: Math.random() * c.height,
+      vx: (Math.random() - 0.5) * 0.25, vy: (Math.random() - 0.5) * 0.25,
+      r: Math.random() * 1.8 + 0.4, a: Math.random() * 0.4 + 0.08,
+    });
     const draw = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      particles.forEach((p) => {
-        p.x += p.vx;
-        p.y += p.vy;
-        if (p.x < 0) p.x = canvas.width;
-        if (p.x > canvas.width) p.x = 0;
-        if (p.y < 0) p.y = canvas.height;
-        if (p.y > canvas.height) p.y = 0;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(77, 166, 255, ${p.a})`;
-        ctx.fill();
+      ctx.clearRect(0, 0, c.width, c.height);
+      pts.forEach(p => {
+        p.x += p.vx; p.y += p.vy;
+        if (p.x < 0) p.x = c.width; if (p.x > c.width) p.x = 0;
+        if (p.y < 0) p.y = c.height; if (p.y > c.height) p.y = 0;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(77,166,255,${p.a})`; ctx.fill();
       });
-
-      // Connect nearby particles
-      for (let i = 0; i < particles.length; i++) {
-        for (let j = i + 1; j < particles.length; j++) {
-          const dx = particles[i].x - particles[j].x;
-          const dy = particles[i].y - particles[j].y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < 120) {
-            ctx.beginPath();
-            ctx.moveTo(particles[i].x, particles[i].y);
-            ctx.lineTo(particles[j].x, particles[j].y);
-            ctx.strokeStyle = `rgba(77, 166, 255, ${0.06 * (1 - dist / 120)})`;
-            ctx.stroke();
-          }
-        }
+      for (let i = 0; i < pts.length; i++) for (let j = i + 1; j < pts.length; j++) {
+        const d = Math.hypot(pts[i].x - pts[j].x, pts[i].y - pts[j].y);
+        if (d < 130) { ctx.beginPath(); ctx.moveTo(pts[i].x, pts[i].y); ctx.lineTo(pts[j].x, pts[j].y);
+          ctx.strokeStyle = `rgba(77,166,255,${0.055 * (1 - d / 130)})`; ctx.stroke(); }
       }
-      animId = requestAnimationFrame(draw);
+      id = requestAnimationFrame(draw);
     };
     draw();
-    return () => {
-      cancelAnimationFrame(animId);
-      window.removeEventListener("resize", resize);
-    };
+    return () => { cancelAnimationFrame(id); window.removeEventListener("resize", resize); };
   }, []);
-
-  return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none" style={{ zIndex: 0 }} />;
+  return <canvas ref={ref} className="fixed inset-0 pointer-events-none" style={{ zIndex: 0 }} />;
 };
 
-// ─── Glow Card ───
-const GlowCard = ({ children, className = "", highlight = false, delay = 0 }: {
-  children: React.ReactNode; className?: string; highlight?: boolean; delay?: number;
+/** Glassmorphism card with glow */
+const GlowCard = ({ children, className = "", hi = false, delay = 0 }: {
+  children: React.ReactNode; className?: string; hi?: boolean; delay?: number;
 }) => (
   <motion.div
-    initial={{ opacity: 0, y: 20, scale: 0.97 }}
+    initial={{ opacity: 0, y: 24, scale: 0.96 }}
     animate={{ opacity: 1, y: 0, scale: 1 }}
-    transition={{ duration: 0.5, delay, ease: [0.22, 1, 0.36, 1] }}
-    whileHover={{ scale: 1.02, transition: { duration: 0.2 } }}
-    className={`relative rounded-xl overflow-hidden group ${className}`}
+    transition={{ duration: 0.55, delay, ease: [0.22, 1, 0.36, 1] }}
+    whileHover={{ scale: 1.025, transition: { duration: 0.18 } }}
+    className={`relative rounded-2xl overflow-hidden group ${className}`}
     style={{
-      background: "linear-gradient(135deg, rgba(15, 25, 55, 0.85), rgba(8, 14, 35, 0.92))",
-      backdropFilter: "blur(12px)",
-      border: highlight
-        ? "1px solid rgba(77, 166, 255, 0.45)"
-        : "1px solid rgba(77, 166, 255, 0.2)",
-      boxShadow: highlight
-        ? "0 0 30px rgba(77, 166, 255, 0.2), inset 0 1px 0 rgba(77, 166, 255, 0.15), 0 0 80px rgba(77, 166, 255, 0.06)"
-        : "0 0 20px rgba(77, 166, 255, 0.08), inset 0 1px 0 rgba(77, 166, 255, 0.08)",
+      background: C.cardBg,
+      backdropFilter: "blur(16px)",
+      border: `1px solid ${hi ? C.borderHi : C.border}`,
+      boxShadow: hi ? C.glowLg : C.glowSm,
     }}
   >
-    {/* Top glow line */}
-    <div
-      className="absolute top-0 left-[5%] right-[5%] h-[1px]"
-      style={{ background: highlight
-        ? "linear-gradient(90deg, transparent, rgba(77, 166, 255, 0.8), transparent)"
-        : "linear-gradient(90deg, transparent, rgba(77, 166, 255, 0.4), transparent)" }}
-    />
-    {/* Hover glow overlay */}
+    {/* top edge glow */}
+    <div className="absolute top-0 left-[8%] right-[8%] h-[1px]"
+      style={{ background: `linear-gradient(90deg, transparent, rgba(77,166,255,${hi ? 0.9 : 0.45}), transparent)` }} />
+    {/* shine sweep */}
+    <div className="absolute inset-0 pointer-events-none overflow-hidden">
+      <div className="absolute -top-[50%] -left-[50%] w-[200%] h-[200%] opacity-[0.04] group-hover:opacity-[0.08] transition-opacity duration-700"
+        style={{ background: "conic-gradient(from 180deg at 50% 50%, transparent 0deg, rgba(77,166,255,0.8) 60deg, transparent 120deg)" }} />
+    </div>
+    {/* hover radial glow */}
     <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
-      style={{ background: "radial-gradient(ellipse at center, rgba(77, 166, 255, 0.05) 0%, transparent 70%)" }}
-    />
+      style={{ background: "radial-gradient(ellipse at 50% 40%, rgba(77,166,255,0.06) 0%, transparent 65%)" }} />
     <div className="relative z-10">{children}</div>
   </motion.div>
 );
 
-// ─── Mini Donut for KPI cards ───
-const MiniDonut = ({ value, total, color }: { value: number; total: number; color: string }) => {
-  const pct = total > 0 ? (value / total) * 100 : 0;
-  const r = 16;
-  const circumference = 2 * Math.PI * r;
-  const dashLength = (pct / 100) * circumference;
-
+/** Mini donut inside KPI card */
+const MiniDonut = ({ pct, color, size = 52 }: { pct: number; color: string; size?: number }) => {
+  const r = size * 0.34, circ = 2 * Math.PI * r, dash = (pct / 100) * circ;
   return (
-    <svg width="44" height="44" viewBox="0 0 44 44" className="flex-shrink-0">
-      <circle cx="22" cy="22" r={r} fill="none" stroke="rgba(77, 166, 255, 0.1)" strokeWidth="4" />
-      <motion.circle
-        cx="22" cy="22" r={r} fill="none" stroke={color} strokeWidth="4"
-        strokeLinecap="round"
-        strokeDasharray={`${dashLength} ${circumference - dashLength}`}
-        strokeDashoffset={circumference / 4}
-        initial={{ strokeDasharray: `0 ${circumference}` }}
-        animate={{ strokeDasharray: `${dashLength} ${circumference - dashLength}` }}
-        transition={{ duration: 1, delay: 0.3, ease: "easeOut" }}
-        style={{ filter: `drop-shadow(0 0 4px ${color}60)` }}
-      />
-      <text x="22" y="22" textAnchor="middle" dominantBaseline="central"
-        fill={color} fontSize="9" fontWeight="bold">
-        {Math.round(pct)}%
-      </text>
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="flex-shrink-0">
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(77,166,255,0.08)" strokeWidth="5" />
+      <motion.circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth="5"
+        strokeLinecap="round" strokeDasharray={`${dash} ${circ - dash}`} strokeDashoffset={circ / 4}
+        initial={{ strokeDasharray: `0 ${circ}` }}
+        animate={{ strokeDasharray: `${dash} ${circ - dash}` }}
+        transition={{ duration: 1.2, delay: 0.4, ease: "easeOut" }}
+        style={{ filter: `drop-shadow(0 0 6px ${color}70)` }} />
+      <text x={size / 2} y={size / 2} textAnchor="middle" dominantBaseline="central"
+        fill={color} fontSize={size * 0.2} fontWeight="800">{Math.round(pct)}%</text>
     </svg>
   );
 };
 
-// ─── Pulse Dot ───
+/** Pulsing dot indicator */
 const PulseDot = ({ color }: { color: string }) => (
-  <span className="relative flex h-2 w-2">
-    <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-50" style={{ backgroundColor: color }} />
-    <span className="relative inline-flex rounded-full h-2 w-2" style={{ backgroundColor: color }} />
+  <span className="relative flex h-2.5 w-2.5">
+    <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-40" style={{ backgroundColor: color }} />
+    <span className="relative inline-flex rounded-full h-2.5 w-2.5" style={{ backgroundColor: color, boxShadow: `0 0 6px ${color}` }} />
   </span>
 );
 
+/** Custom Recharts label for center of donut */
+const CenterLabel = ({ viewBox, value }: any) => {
+  const { cx, cy } = viewBox;
+  return (
+    <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central">
+      <tspan x={cx} dy="-6" fill={C.white} fontSize="22" fontWeight="900" style={{ textShadow: `0 0 14px ${C.cyan}50` }}>{value}</tspan>
+      <tspan x={cx} dy="18" fill={C.dim} fontSize="10" fontWeight="600">TOTAL</tspan>
+    </text>
+  );
+};
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// MAIN COMPONENT
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 const Dashboard = () => {
   const navigate = useNavigate();
   const [counts, setCounts] = useState({ empresas: 0, unidades: 0, operadoras: 0, links: 0 });
   const [search, setSearch] = useState("");
   const [results, setResults] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
-
   const [tvMode, setTvMode] = useState(false);
   const [ticketData, setTicketData] = useState<TicketData | null>(null);
   const [ticketLoading, setTicketLoading] = useState(false);
   const [ticketError, setTicketError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [now, setNow] = useState(new Date());
-  const [secondsAgo, setSecondsAgo] = useState(0);
+  const [secAgo, setSecAgo] = useState(0);
 
+  // Clock
   useEffect(() => {
     if (!tvMode) return;
-    const t = setInterval(() => {
-      setNow(new Date());
-      setSecondsAgo(prev => prev + 1);
-    }, 1000);
+    const t = setInterval(() => { setNow(new Date()); setSecAgo(p => p + 1); }, 1000);
     return () => clearInterval(t);
   }, [tvMode]);
 
+  // Supabase counts
   useEffect(() => {
-    const loadCounts = async () => {
+    (async () => {
       const [e, u, o, l] = await Promise.all([
         supabase.from("empresas").select("id", { count: "exact", head: true }),
         supabase.from("unidades").select("id", { count: "exact", head: true }),
@@ -251,168 +238,115 @@ const Dashboard = () => {
         supabase.from("links_internet").select("id", { count: "exact", head: true }),
       ]);
       setCounts({ empresas: e.count || 0, unidades: u.count || 0, operadoras: o.count || 0, links: l.count || 0 });
-    };
-    loadCounts();
+    })();
   }, []);
 
+  // Search
   useEffect(() => {
     if (!search.trim()) { setResults([]); return; }
-    const timer = setTimeout(async () => {
+    const t = setTimeout(async () => {
       setSearching(true);
       const term = `%${search}%`;
-      const { data } = await supabase
-        .from("unidades")
+      const { data } = await supabase.from("unidades")
         .select("id, nome_unidade, cidade, estado, empresas(nome_fantasia)")
         .or(`nome_unidade.ilike.${term},cidade.ilike.${term},codigo_unidade.ilike.${term},logradouro.ilike.${term}`)
         .limit(10);
-      setResults(data || []);
-      setSearching(false);
+      setResults(data || []); setSearching(false);
     }, 400);
-    return () => clearTimeout(timer);
+    return () => clearTimeout(t);
   }, [search]);
 
+  // Fetch tickets
   const fetchTickets = useCallback(async () => {
     try {
-      setTicketError(null);
-      setTicketLoading(true);
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-      const res = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/glpi-proxy?action=ticket-counts`,
-        { headers: { apikey: anonKey, "Content-Type": "application/json" } }
-      );
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const result: TicketData = await res.json();
-      setTicketData(result);
-      setLastUpdate(new Date());
-      setSecondsAgo(0);
+      setTicketError(null); setTicketLoading(true);
+      const pid = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const r = await fetch(`https://${pid}.supabase.co/functions/v1/glpi-proxy?action=ticket-counts`,
+        { headers: { apikey: key, "Content-Type": "application/json" } });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      setTicketData(await r.json()); setLastUpdate(new Date()); setSecAgo(0);
     } catch (err) {
       console.error("TV fetch error:", err);
-      setTicketError(err instanceof Error ? err.message : "Erro ao buscar dados");
-    } finally {
-      setTicketLoading(false);
-    }
+      setTicketError(err instanceof Error ? err.message : "Erro");
+    } finally { setTicketLoading(false); }
   }, []);
 
   useEffect(() => {
     if (!tvMode) return;
     fetchTickets();
-    const interval = setInterval(fetchTickets, REFRESH_INTERVAL);
-    return () => clearInterval(interval);
+    const iv = setInterval(fetchTickets, REFRESH_INTERVAL);
+    return () => clearInterval(iv);
   }, [tvMode, fetchTickets]);
 
-  const entityTotals = useMemo(() => ticketData?.entityTotals || {}, [ticketData]);
+  // Derived data
+  const totals = useMemo(() => ticketData?.entityTotals || {}, [ticketData]);
   const totalOpen = ticketData?.totalOpen ?? 0;
+  const getC = (id: string) => totals[id] || 0;
 
   const pieData = useMemo(() => {
-    const total = Object.values(entityTotals).reduce((s, v) => s + v, 0) || 1;
+    const t = Object.values(totals).reduce((s, v) => s + v, 0) || 1;
     return [
-      ...ENTITIES.map((e) => ({
-        name: e.name, value: entityTotals[e.id] || 0,
-        pct: Math.round(((entityTotals[e.id] || 0) / total) * 100),
-        color: ENTITY_COLORS[e.id],
-      })),
-      {
-        name: "Indefinido", value: entityTotals["indefinido"] || 0,
-        pct: Math.round(((entityTotals["indefinido"] || 0) / total) * 100),
-        color: ENTITY_COLORS["indefinido"],
-      },
+      ...ENTITIES.map(e => ({ name: e.name, value: totals[e.id] || 0, pct: Math.round(((totals[e.id] || 0) / t) * 100), color: ENTITY_COLORS[e.id] })),
+      { name: "Indefinido", value: totals["indefinido"] || 0, pct: Math.round(((totals["indefinido"] || 0) / t) * 100), color: ENTITY_COLORS["indefinido"] },
     ];
-  }, [entityTotals]);
+  }, [totals]);
 
-  const statusPieData = useMemo(() => {
-    const statusRows = ["novo", "em_andamento", "pendente"];
-    return statusRows.map((s, i) => {
-      const row = ticketData?.byStatusEntity?.[s] || {};
-      return { name: STATUS_LABELS[s], value: Object.values(row).reduce((sum, v) => sum + v, 0), color: STATUS_COLORS[i] };
-    });
-  }, [ticketData]);
+  const statusPie = useMemo(() => STATUS_ROWS.map((s, i) => {
+    const row = ticketData?.byStatusEntity?.[s] || {};
+    return { name: STATUS_LABELS[s], value: Object.values(row).reduce((a, b) => a + b, 0), color: STATUS_COLORS[i] };
+  }), [ticketData]);
 
-  const lineChartData = useMemo(() => {
+  const lineData = useMemo(() => {
     if (!ticketData?.last7Days) return [];
-    const dayNames = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+    const dn = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
     return Object.entries(ticketData.last7Days).map(([date]) => {
       const d = new Date(date + "T12:00:00");
-      const byEntity = ticketData.last7DaysByEntity || {};
-      return {
-        name: dayNames[d.getDay()],
-        GoodStorage: byEntity["8"]?.[date] || 0,
-        Brava: byEntity["1"]?.[date] || 0,
-        PetCare: byEntity["7"]?.[date] || 0,
-        Indefinido: byEntity["indefinido"]?.[date] || 0,
-      };
+      const be = ticketData.last7DaysByEntity || {};
+      return { name: dn[d.getDay()], GoodStorage: be["8"]?.[date] || 0, Brava: be["1"]?.[date] || 0, PetCare: be["7"]?.[date] || 0, Indefinido: be["indefinido"]?.[date] || 0 };
     });
   }, [ticketData]);
 
-  const barChartData = useMemo(() => {
+  const barData = useMemo(() => {
     if (!ticketData?.last24Hours) return [];
-    return Object.entries(ticketData.last24Hours).map(([hour, count]) => ({
-      name: hour, chamados: count,
-    }));
+    return Object.entries(ticketData.last24Hours).map(([h, c]) => ({ name: h, chamados: c }));
   }, [ticketData]);
 
-  const getCount = (id: string) => ticketData?.entityTotals?.[id] || 0;
-
-  const stats = [
-    { label: "Empresas", value: counts.empresas, icon: Building2, color: "text-primary" },
-    { label: "Unidades", value: counts.unidades, icon: MapPin, color: "text-secondary" },
-    { label: "Operadoras", value: counts.operadoras, icon: Radio, color: "text-accent" },
-    { label: "Links de Internet", value: counts.links, icon: Wifi, color: "text-destructive" },
-  ];
-
-  // ── TV MODE ──
+  // ━━━ TV MODE ━━━
   if (tvMode) {
-    const statusRows = ["novo", "em_andamento", "pendente"];
-    const textCyan = "#7ec8e3";
-    const textWhite = "#e8f0ff";
-    const textDim = "#5a7a9a";
-    const accentCyan = "#4da6ff";
-    const gridStroke = "rgba(77, 166, 255, 0.12)";
-
-    const tooltipStyle: React.CSSProperties = {
-      background: "rgba(10, 18, 40, 0.95)",
-      border: "1px solid rgba(77, 166, 255, 0.3)",
-      borderRadius: "8px",
-      fontSize: "12px",
-      color: textWhite,
-      backdropFilter: "blur(8px)",
-    };
-
-    const kpiCards = [
-      { id: "total", name: "Chamados Total", value: totalOpen, icon: Activity, color: accentCyan, highlight: true },
-      ...ENTITIES.map(e => ({ id: e.id, name: e.name, value: getCount(e.id), icon: e.icon, color: ENTITY_COLORS[e.id], highlight: false })),
-      { id: "indefinido", name: "Indefinido", value: getCount("indefinido"), icon: HelpCircle, color: ENTITY_COLORS["indefinido"], highlight: false },
+    const kpis = [
+      { id: "total", name: "Chamados Total", val: totalOpen, icon: Activity, color: C.cyan, hi: true },
+      ...ENTITIES.map(e => ({ id: e.id, name: e.name, val: getC(e.id), icon: e.icon, color: ENTITY_COLORS[e.id], hi: false })),
+      { id: "indef", name: "Indefinido", val: getC("indefinido"), icon: HelpCircle, color: ENTITY_COLORS["indefinido"], hi: false },
     ];
 
+    const totalPie = pieData.reduce((s, d) => s + d.value, 0);
+    const totalStatus = statusPie.reduce((s, d) => s + d.value, 0);
+
     return (
-      <div className="-m-4 md:-m-6 min-h-[calc(100vh-56px)] lg:min-h-screen overflow-hidden relative"
-        style={{ background: "radial-gradient(ellipse at 50% 0%, rgba(20, 40, 80, 0.4) 0%, rgba(5, 8, 20, 1) 70%)" }}>
+      <div className="-m-4 md:-m-6 min-h-[calc(100vh-56px)] lg:min-h-screen overflow-hidden relative" style={{ background: C.pageBg }}>
+        <Particles />
 
-        <ParticleCanvas />
+        <div className="relative z-10 p-4 lg:p-5 flex flex-col h-[calc(100vh-56px)] lg:h-screen">
 
-        <div className="relative z-10 p-4 md:p-5 flex flex-col h-[calc(100vh-56px)] lg:h-screen">
-          {/* ── Header ── */}
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="flex items-center justify-between mb-4"
-          >
+          {/* ═══ HEADER ═══ */}
+          <motion.div initial={{ opacity: 0, y: -24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7 }}
+            className="flex items-center justify-between mb-3 flex-shrink-0">
             <div className="flex items-center gap-3">
-              <button onClick={() => setTvMode(false)} className="p-2 rounded-lg transition-all hover:bg-white/5 hover:scale-110">
-                <ArrowLeft className="h-5 w-5" style={{ color: textDim }} />
+              <button onClick={() => setTvMode(false)} className="p-2 rounded-xl transition-all hover:bg-white/5 hover:scale-110 active:scale-95">
+                <ArrowLeft className="h-5 w-5" style={{ color: C.dim }} />
               </button>
-              <div className="flex items-center gap-2.5">
-                <div className="p-1.5 rounded-lg" style={{ background: "rgba(77, 166, 255, 0.15)", boxShadow: "0 0 15px rgba(77, 166, 255, 0.2)" }}>
-                  <Monitor className="h-5 w-5" style={{ color: accentCyan }} />
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl" style={{ background: "rgba(77,166,255,0.12)", boxShadow: "0 0 20px rgba(77,166,255,0.25), inset 0 0 12px rgba(77,166,255,0.08)" }}>
+                  <Monitor className="h-6 w-6" style={{ color: C.cyan, filter: `drop-shadow(0 0 6px ${C.cyan})` }} />
                 </div>
                 <div>
-                  <h1 className="text-lg font-bold tracking-wide" style={{ color: textWhite }}>
+                  <h1 className="text-xl font-extrabold tracking-wide" style={{ color: C.white, textShadow: `0 0 20px ${C.cyan}20` }}>
                     Painel de Chamados
                   </h1>
-                  <div className="flex items-center gap-2 text-[10px]" style={{ color: textDim }}>
+                  <div className="flex items-center gap-2 text-[11px]" style={{ color: C.dim }}>
                     <PulseDot color="#3dd9b4" />
-                    <span>Monitoramento em tempo real</span>
+                    <span className="font-medium">Monitoramento em tempo real</span>
                   </div>
                 </div>
               </div>
@@ -420,53 +354,51 @@ const Dashboard = () => {
 
             <div className="flex items-center gap-4">
               {ticketError && (
-                <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                  className="text-xs px-3 py-1 rounded-full" style={{ color: "#ff6b6b", background: "rgba(255,107,107,0.12)", border: "1px solid rgba(255,107,107,0.2)" }}>
-                  {ticketError}
+                <motion.span initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+                  className="text-xs px-3 py-1.5 rounded-full font-medium"
+                  style={{ color: "#ff6b6b", background: "rgba(255,107,107,0.10)", border: "1px solid rgba(255,107,107,0.25)" }}>
+                  ⚠ {ticketError}
                 </motion.span>
               )}
-              <div className="flex items-center gap-3 px-3 py-1.5 rounded-lg" style={{ background: "rgba(77, 166, 255, 0.06)", border: "1px solid rgba(77, 166, 255, 0.15)" }}>
-                <span className="text-xs" style={{ color: textDim }}>
-                  {secondsAgo < 5 ? "Agora" : `${secondsAgo}s atrás`}
-                </span>
-                <span className="font-mono text-base font-bold tabular-nums tracking-wider" style={{ color: textCyan, textShadow: `0 0 10px ${accentCyan}40` }}>
-                  {now.toLocaleTimeString("pt-BR")}
-                </span>
+              <div className="flex items-center gap-3 px-4 py-2 rounded-xl"
+                style={{ background: "rgba(77,166,255,0.05)", border: `1px solid ${C.border}`, boxShadow: "0 0 15px rgba(77,166,255,0.06)" }}>
+                <div className="flex flex-col items-end">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.dim }}>
+                    {secAgo < 5 ? "● Atualizado agora" : `Atualizado há ${secAgo}s`}
+                  </span>
+                  <span className="font-mono text-lg font-black tabular-nums tracking-widest" style={{ color: C.textCyan, textShadow: `0 0 14px ${C.cyan}50` }}>
+                    {now.toLocaleTimeString("pt-BR")}
+                  </span>
+                </div>
                 <button onClick={fetchTickets} disabled={ticketLoading}
-                  className="p-1.5 rounded-md transition-all hover:bg-white/5" style={{ color: textDim }}>
+                  className="p-2 rounded-lg transition-all hover:bg-white/8 hover:scale-110" style={{ color: C.dim }}>
                   <RefreshCw className={`h-4 w-4 ${ticketLoading ? "animate-spin" : ""}`} />
                 </button>
               </div>
             </div>
           </motion.div>
 
-          {/* ── KPI Cards ── */}
-          <div className="grid grid-cols-5 gap-3 mb-4">
-            {kpiCards.map((card, i) => (
-              <GlowCard key={card.id} highlight={card.highlight} delay={i * 0.08}>
-                <div className="p-4 flex items-center gap-3 min-h-[100px]">
-                  {card.id === "total" && (
-                    <MiniDonut value={totalOpen} total={Math.max(totalOpen, 1)} color={accentCyan} />
-                  )}
-                  {card.id !== "total" && (
-                    <MiniDonut value={card.value} total={Math.max(totalOpen, 1)} color={card.color} />
-                  )}
+          {/* ═══ KPI CARDS ═══ */}
+          <div className="grid grid-cols-5 gap-3 mb-3 flex-shrink-0">
+            {kpis.map((k, i) => (
+              <GlowCard key={k.id} hi={k.hi} delay={i * 0.07}>
+                <div className="p-4 lg:p-5 flex items-center gap-4 min-h-[110px]">
+                  <MiniDonut pct={k.id === "total" ? 100 : (totalOpen > 0 ? (k.val / totalOpen) * 100 : 0)} color={k.color} size={58} />
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <card.icon className="h-3.5 w-3.5 flex-shrink-0" style={{ color: card.color, filter: `drop-shadow(0 0 4px ${card.color}50)` }} />
-                      <span className="text-[10px] font-bold uppercase tracking-widest truncate" style={{ color: card.color }}>
-                        {card.name}
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <k.icon className="h-4 w-4 flex-shrink-0" style={{ color: k.color, filter: `drop-shadow(0 0 5px ${k.color}60)` }} />
+                      <span className="text-[11px] font-extrabold uppercase tracking-[0.15em] truncate" style={{ color: k.color }}>
+                        {k.name}
                       </span>
                     </div>
-                    <AnimatedNumber value={card.value}
-                      className="text-4xl xl:text-5xl font-black tabular-nums block"
-                      style={{ color: textWhite, textShadow: `0 0 30px ${card.color}40, 0 0 60px ${card.color}15` }}
-                    />
-                    {card.id === "total" && pieData.filter(p => p.value > 0).length > 0 && (
-                      <div className="flex gap-2 mt-1.5">
+                    <AnimNum value={k.val}
+                      className="text-5xl xl:text-6xl font-black tabular-nums block leading-none"
+                      style={{ color: C.white, textShadow: `0 0 35px ${k.color}45, 0 0 70px ${k.color}15` }} />
+                    {k.id === "total" && pieData.filter(p => p.value > 0).length > 0 && (
+                      <div className="flex gap-2 mt-2">
                         {pieData.filter(p => p.value > 0).map(p => (
-                          <span key={p.name} className="flex items-center gap-1 text-[9px]" style={{ color: textDim }}>
-                            <span className="w-1.5 h-1.5 rounded-full" style={{ background: p.color, boxShadow: `0 0 4px ${p.color}` }} />
+                          <span key={p.name} className="flex items-center gap-1 text-[10px] font-semibold" style={{ color: C.dim }}>
+                            <span className="w-2 h-2 rounded-full" style={{ background: p.color, boxShadow: `0 0 5px ${p.color}` }} />
                             {p.pct}%
                           </span>
                         ))}
@@ -478,99 +410,98 @@ const Dashboard = () => {
             ))}
           </div>
 
-          {/* ── Middle Row: Table + Pie charts ── */}
-          <div className="grid grid-cols-[1fr_300px] gap-3 mb-4 flex-1 min-h-0">
-            {/* Status Table */}
+          {/* ═══ MIDDLE: Table + Donuts ═══ */}
+          <div className="grid grid-cols-[1fr_320px] gap-3 mb-3 flex-1 min-h-0">
+
+            {/* Status Grid */}
             <GlowCard delay={0.4}>
-              <div className="p-1 h-full">
-                <table className="w-full h-full">
-                  <thead>
-                    <tr>
-                      <th className="text-left p-3 text-xs font-bold uppercase tracking-widest" style={{ color: textCyan, borderBottom: "1px solid rgba(77, 166, 255, 0.15)" }}>
-                        Grupo
-                      </th>
-                      <th className="text-center p-3 text-xs font-bold uppercase tracking-widest" style={{ color: textCyan, borderBottom: "1px solid rgba(77, 166, 255, 0.15)" }}>
-                        Chamados Total
-                      </th>
-                      {ENTITIES.map((e) => (
-                        <th key={e.id} className="text-center p-3 text-xs font-bold uppercase tracking-widest" style={{ color: ENTITY_COLORS[e.id], borderBottom: "1px solid rgba(77, 166, 255, 0.15)" }}>
-                          {e.name}
-                        </th>
+              <div className="p-2 h-full flex flex-col">
+                {/* Header row */}
+                <div className="grid grid-cols-6 gap-1 mb-1" style={{ borderBottom: `1px solid ${C.grid}` }}>
+                  {["Grupo", "Total", ...ENTITIES.map(e => e.name), "Indef."].map((label, i) => (
+                    <div key={label} className={`p-3 ${i === 0 ? "text-left" : "text-center"}`}>
+                      <span className="text-[11px] font-extrabold uppercase tracking-[0.12em]"
+                        style={{ color: i === 0 || i === 1 ? C.textCyan : i <= 4 ? ENTITY_COLORS[ENTITIES[i - 2]?.id] || C.dim : ENTITY_COLORS["indefinido"] }}>
+                        {label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                {/* Data rows */}
+                {STATUS_ROWS.map((status, i) => {
+                  const row = ticketData?.byStatusEntity?.[status] || {};
+                  const rowTotal = Object.values(row).reduce((s, v) => s + v, 0);
+                  return (
+                    <motion.div key={status}
+                      initial={{ opacity: 0, x: -30 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.5 + i * 0.12, ease: "easeOut" }}
+                      className="grid grid-cols-6 gap-1 rounded-xl transition-colors duration-200 hover:bg-[rgba(77,166,255,0.04)] flex-1"
+                      style={i < STATUS_ROWS.length - 1 ? { borderBottom: `1px solid rgba(77,166,255,0.06)` } : {}}>
+                      <div className="p-3 flex items-center">
+                        <div className="flex items-center gap-2">
+                          <span className="w-1 h-8 rounded-full" style={{ background: STATUS_COLORS[i], boxShadow: `0 0 8px ${STATUS_COLORS[i]}50` }} />
+                          <span className="text-sm font-bold" style={{ color: C.textCyan }}>{STATUS_LABELS[status]}</span>
+                        </div>
+                      </div>
+                      <div className="p-3 flex items-center justify-center">
+                        <AnimNum value={rowTotal} className="text-4xl xl:text-5xl font-black tabular-nums"
+                          style={{ color: C.white, textShadow: `0 0 25px ${C.cyan}35` }} />
+                      </div>
+                      {ENTITIES.map(e => (
+                        <div key={e.id} className="p-3 flex items-center justify-center">
+                          <AnimNum value={row[e.id] || 0} className="text-4xl xl:text-5xl font-black tabular-nums"
+                            style={{ color: C.white }} />
+                        </div>
                       ))}
-                      <th className="text-center p-3 text-xs font-bold uppercase tracking-widest" style={{ color: ENTITY_COLORS["indefinido"], borderBottom: "1px solid rgba(77, 166, 255, 0.15)" }}>
-                        Indef.
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {statusRows.map((status, i) => {
-                      const row = ticketData?.byStatusEntity?.[status] || {};
-                      const total = Object.values(row).reduce((s, v) => s + v, 0);
-                      return (
-                        <motion.tr
-                          key={status}
-                          initial={{ opacity: 0, x: -20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: 0.5 + i * 0.1 }}
-                          className="group/row transition-colors"
-                          style={i < statusRows.length - 1 ? { borderBottom: "1px solid rgba(77, 166, 255, 0.08)" } : {}}
-                          onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(77, 166, 255, 0.04)")}
-                          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                        >
-                          <td className="p-3">
-                            <span className="text-sm font-bold" style={{ color: textCyan }}>{STATUS_LABELS[status]}</span>
-                          </td>
-                          <td className="p-3 text-center">
-                            <AnimatedNumber value={total}
-                              className="text-3xl xl:text-4xl font-black tabular-nums"
-                              style={{ color: textWhite, textShadow: `0 0 20px ${accentCyan}30` }}
-                            />
-                          </td>
-                          {ENTITIES.map((e) => (
-                            <td key={e.id} className="p-3 text-center">
-                              <AnimatedNumber value={row[e.id] || 0}
-                                className="text-3xl xl:text-4xl font-black tabular-nums"
-                                style={{ color: textWhite }}
-                              />
-                            </td>
-                          ))}
-                          <td className="p-3 text-center">
-                            <AnimatedNumber value={row["indefinido"] || 0}
-                              className="text-3xl xl:text-4xl font-black tabular-nums"
-                              style={{ color: textWhite }}
-                            />
-                          </td>
-                        </motion.tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                      <div className="p-3 flex items-center justify-center">
+                        <AnimNum value={row["indefinido"] || 0} className="text-4xl xl:text-5xl font-black tabular-nums"
+                          style={{ color: C.white }} />
+                      </div>
+                    </motion.div>
+                  );
+                })}
               </div>
             </GlowCard>
 
-            {/* Pie Charts Column */}
+            {/* Donut Charts */}
             <div className="flex flex-col gap-3">
-              {/* Entity Pie */}
+              {/* By Entity */}
               <GlowCard delay={0.5} className="flex-1">
                 <div className="p-3 h-full flex flex-col">
-                  <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: textCyan }}>
-                    Por Empresa
+                  <p className="text-[11px] font-extrabold uppercase tracking-[0.15em] mb-1" style={{ color: C.textCyan }}>
+                    Distribuição por Empresa
                   </p>
                   <div className="flex-1 min-h-0">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
-                        <Pie data={pieData} cx="50%" cy="50%" innerRadius="45%" outerRadius="70%" dataKey="value"
-                          strokeWidth={2} stroke="rgba(8, 14, 35, 0.9)" animationBegin={300} animationDuration={1000}>
-                          {pieData.map((entry, i) => <Cell key={i} fill={entry.color} style={{ filter: `drop-shadow(0 0 6px ${entry.color}40)` }} />)}
+                        <defs>
+                          {pieData.map((d, i) => (
+                            <filter key={i} id={`pie-glow-${i}`}>
+                              <feGaussianBlur stdDeviation="3" result="blur" />
+                              <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+                            </filter>
+                          ))}
+                        </defs>
+                        <Pie data={pieData} cx="50%" cy="50%" innerRadius="50%" outerRadius="78%" dataKey="value"
+                          strokeWidth={3} stroke="rgba(6,12,30,0.95)" animationBegin={200} animationDuration={1200}
+                          label={false}>
+                          {pieData.map((d, i) => <Cell key={i} fill={d.color} style={{ filter: `drop-shadow(0 0 8px ${d.color}50)` }} />)}
                         </Pie>
-                        <Tooltip formatter={(v: number, n: string) => [`${v}`, n]} contentStyle={tooltipStyle} />
+                        <Tooltip formatter={(v: number, n: string) => [`${v} chamados`, n]} contentStyle={tooltipStyle} />
+                        <text x="50%" y="46%" textAnchor="middle" dominantBaseline="central" fill={C.white} fontSize="20" fontWeight="900" style={{ textShadow: `0 0 12px ${C.cyan}40` }}>
+                          {totalPie}
+                        </text>
+                        <text x="50%" y="58%" textAnchor="middle" dominantBaseline="central" fill={C.dim} fontSize="9" fontWeight="700" letterSpacing="0.1em">
+                          TOTAL
+                        </text>
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
-                  <div className="flex flex-wrap gap-x-3 gap-y-1 justify-center mt-1">
-                    {pieData.map((p) => (
-                      <span key={p.name} className="flex items-center gap-1.5 text-[10px]" style={{ color: textDim }}>
-                        <span className="w-2 h-2 rounded-full" style={{ background: p.color, boxShadow: `0 0 4px ${p.color}60` }} />
+                  <div className="flex flex-wrap gap-x-3 gap-y-1 justify-center">
+                    {pieData.map(p => (
+                      <span key={p.name} className="flex items-center gap-1.5 text-[10px] font-semibold" style={{ color: C.dim }}>
+                        <span className="w-2.5 h-2.5 rounded-full" style={{ background: p.color, boxShadow: `0 0 5px ${p.color}60` }} />
                         {p.pct}% {p.name}
                       </span>
                     ))}
@@ -578,102 +509,103 @@ const Dashboard = () => {
                 </div>
               </GlowCard>
 
-              {/* Status Pie */}
+              {/* By Status */}
               <GlowCard delay={0.6} className="flex-1">
                 <div className="p-3 h-full flex flex-col">
-                  <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: textCyan }}>
-                    Por Status
+                  <p className="text-[11px] font-extrabold uppercase tracking-[0.15em] mb-1" style={{ color: C.textCyan }}>
+                    Distribuição por Status
                   </p>
                   <div className="flex-1 min-h-0">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
-                        <Pie data={statusPieData} cx="50%" cy="50%" innerRadius="45%" outerRadius="70%" dataKey="value"
-                          strokeWidth={2} stroke="rgba(8, 14, 35, 0.9)" animationBegin={500} animationDuration={1000}>
-                          {statusPieData.map((e, i) => <Cell key={i} fill={e.color} style={{ filter: `drop-shadow(0 0 6px ${e.color}40)` }} />)}
+                        <Pie data={statusPie} cx="50%" cy="50%" innerRadius="50%" outerRadius="78%" dataKey="value"
+                          strokeWidth={3} stroke="rgba(6,12,30,0.95)" animationBegin={400} animationDuration={1200}>
+                          {statusPie.map((d, i) => <Cell key={i} fill={d.color} style={{ filter: `drop-shadow(0 0 8px ${d.color}50)` }} />)}
                         </Pie>
                         <Tooltip contentStyle={tooltipStyle} />
+                        <text x="50%" y="46%" textAnchor="middle" dominantBaseline="central" fill={C.white} fontSize="20" fontWeight="900" style={{ textShadow: `0 0 12px ${C.cyan}40` }}>
+                          {totalStatus}
+                        </text>
+                        <text x="50%" y="58%" textAnchor="middle" dominantBaseline="central" fill={C.dim} fontSize="9" fontWeight="700" letterSpacing="0.1em">
+                          TOTAL
+                        </text>
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
-                  <div className="flex flex-wrap gap-x-3 gap-y-1 justify-center mt-1">
-                    {statusPieData.map((d) => {
-                      const total = statusPieData.reduce((s, x) => s + x.value, 0) || 1;
-                      return (
-                        <span key={d.name} className="flex items-center gap-1.5 text-[10px]" style={{ color: textDim }}>
-                          <span className="w-2 h-2 rounded-full" style={{ background: d.color, boxShadow: `0 0 4px ${d.color}60` }} />
-                          {d.name} {Math.round((d.value / total) * 100)}%
-                        </span>
-                      );
-                    })}
+                  <div className="flex flex-wrap gap-x-3 gap-y-1 justify-center">
+                    {statusPie.map(d => (
+                      <span key={d.name} className="flex items-center gap-1.5 text-[10px] font-semibold" style={{ color: C.dim }}>
+                        <span className="w-2.5 h-2.5 rounded-full" style={{ background: d.color, boxShadow: `0 0 5px ${d.color}60` }} />
+                        {d.name} {totalStatus > 0 ? Math.round((d.value / totalStatus) * 100) : 0}%
+                      </span>
+                    ))}
                   </div>
                 </div>
               </GlowCard>
             </div>
           </div>
 
-          {/* ── Bottom Row: Line + Bar chart ── */}
-          <div className="grid grid-cols-2 gap-3 mb-2">
-            {/* 7-day Line chart */}
+          {/* ═══ BOTTOM: Area + Bar ═══ */}
+          <div className="grid grid-cols-2 gap-3 flex-shrink-0">
+            {/* 7-day Area Chart */}
             <GlowCard delay={0.7}>
-              <div className="p-3">
-                <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: textCyan }}>
+              <div className="p-3 lg:p-4">
+                <p className="text-[11px] font-extrabold uppercase tracking-[0.15em] mb-2" style={{ color: C.textCyan }}>
                   Últimos 7 Dias
                 </p>
-                <ResponsiveContainer width="100%" height={140}>
-                  <LineChart data={lineChartData}>
+                <ResponsiveContainer width="100%" height={150}>
+                  <AreaChart data={lineData}>
                     <defs>
                       {Object.entries(ENTITY_COLORS).map(([id, color]) => (
-                        <filter key={id} id={`glow-${id}`}>
-                          <feGaussianBlur stdDeviation="2" result="coloredBlur" />
-                          <feMerge><feMergeNode in="coloredBlur" /><feMergeNode in="SourceGraphic" /></feMerge>
-                        </filter>
+                        <linearGradient key={id} id={`area-${id}`} x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor={color} stopOpacity={0.25} />
+                          <stop offset="100%" stopColor={color} stopOpacity={0.02} />
+                        </linearGradient>
                       ))}
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
-                    <XAxis dataKey="name" tick={{ fontSize: 11, fill: textDim }} axisLine={{ stroke: gridStroke }} tickLine={false} />
-                    <YAxis tick={{ fontSize: 11, fill: textDim }} allowDecimals={false} axisLine={{ stroke: gridStroke }} tickLine={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke={C.grid} />
+                    <XAxis dataKey="name" tick={{ fontSize: 11, fill: C.dim, fontWeight: 600 }} axisLine={{ stroke: C.grid }} tickLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: C.dim }} allowDecimals={false} axisLine={{ stroke: C.grid }} tickLine={false} />
                     <Tooltip contentStyle={tooltipStyle} />
-                    <Legend iconSize={8} wrapperStyle={{ fontSize: "10px", color: textDim }} />
-                    <Line type="monotone" dataKey="GoodStorage" stroke={ENTITY_COLORS["8"]} strokeWidth={2.5}
-                      dot={{ r: 4, fill: ENTITY_COLORS["8"], strokeWidth: 0, filter: "url(#glow-8)" }}
-                      activeDot={{ r: 6, fill: ENTITY_COLORS["8"], stroke: ENTITY_COLORS["8"], strokeWidth: 2, strokeOpacity: 0.3 }}
-                      animationDuration={1500} animationBegin={600} />
-                    <Line type="monotone" dataKey="Brava" stroke={ENTITY_COLORS["1"]} strokeWidth={2.5}
+                    <Legend iconSize={8} wrapperStyle={{ fontSize: "10px", color: C.dim, fontWeight: 600 }} />
+                    <Area type="monotone" dataKey="GoodStorage" stroke={ENTITY_COLORS["8"]} strokeWidth={2.5} fill="url(#area-8)"
+                      dot={{ r: 4, fill: ENTITY_COLORS["8"], strokeWidth: 0 }}
+                      activeDot={{ r: 7, fill: ENTITY_COLORS["8"], stroke: ENTITY_COLORS["8"], strokeWidth: 3, strokeOpacity: 0.3 }}
+                      animationDuration={1800} animationBegin={600} />
+                    <Area type="monotone" dataKey="Brava" stroke={ENTITY_COLORS["1"]} strokeWidth={2.5} fill="url(#area-1)"
                       dot={{ r: 4, fill: ENTITY_COLORS["1"], strokeWidth: 0 }}
-                      animationDuration={1500} animationBegin={800} />
-                    <Line type="monotone" dataKey="PetCare" stroke={ENTITY_COLORS["7"]} strokeWidth={2.5}
+                      animationDuration={1800} animationBegin={800} />
+                    <Area type="monotone" dataKey="PetCare" stroke={ENTITY_COLORS["7"]} strokeWidth={2.5} fill="url(#area-7)"
                       dot={{ r: 4, fill: ENTITY_COLORS["7"], strokeWidth: 0 }}
-                      animationDuration={1500} animationBegin={1000} />
-                    <Line type="monotone" dataKey="Indefinido" stroke={ENTITY_COLORS["indefinido"]} strokeWidth={2}
+                      animationDuration={1800} animationBegin={1000} />
+                    <Area type="monotone" dataKey="Indefinido" stroke={ENTITY_COLORS["indefinido"]} strokeWidth={2} fill="url(#area-indefinido)"
                       dot={{ r: 3, fill: ENTITY_COLORS["indefinido"], strokeWidth: 0 }}
-                      strokeDasharray="5 5" animationDuration={1500} animationBegin={1200} />
-                  </LineChart>
+                      strokeDasharray="5 5" animationDuration={1800} animationBegin={1200} />
+                  </AreaChart>
                 </ResponsiveContainer>
               </div>
             </GlowCard>
 
             {/* 24h Bar chart */}
             <GlowCard delay={0.8}>
-              <div className="p-3">
-                <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: textCyan }}>
+              <div className="p-3 lg:p-4">
+                <p className="text-[11px] font-extrabold uppercase tracking-[0.15em] mb-2" style={{ color: C.textCyan }}>
                   Últimas 24 Horas
                 </p>
-                <ResponsiveContainer width="100%" height={140}>
-                  <BarChart data={barChartData}>
+                <ResponsiveContainer width="100%" height={150}>
+                  <BarChart data={barData}>
                     <defs>
-                      <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={accentCyan} stopOpacity={0.9} />
-                        <stop offset="100%" stopColor={accentCyan} stopOpacity={0.3} />
+                      <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={C.cyan} stopOpacity={0.95} />
+                        <stop offset="100%" stopColor={C.cyan} stopOpacity={0.2} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
-                    <XAxis dataKey="name" tick={{ fontSize: 8, fill: textDim }} interval={2} axisLine={{ stroke: gridStroke }} tickLine={false} />
-                    <YAxis tick={{ fontSize: 11, fill: textDim }} allowDecimals={false} axisLine={{ stroke: gridStroke }} tickLine={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke={C.grid} />
+                    <XAxis dataKey="name" tick={{ fontSize: 9, fill: C.dim, fontWeight: 600 }} interval={2} axisLine={{ stroke: C.grid }} tickLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: C.dim }} allowDecimals={false} axisLine={{ stroke: C.grid }} tickLine={false} />
                     <Tooltip contentStyle={tooltipStyle} />
-                    <Bar dataKey="chamados" radius={[4, 4, 0, 0]} animationDuration={1200} animationBegin={800}>
-                      {barChartData.map((_, i) => (
-                        <Cell key={i} fill="url(#barGradient)" />
-                      ))}
+                    <Bar dataKey="chamados" radius={[5, 5, 0, 0]} animationDuration={1400} animationBegin={900}>
+                      {barData.map((_, i) => <Cell key={i} fill="url(#barGrad)" />)}
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
@@ -681,28 +613,31 @@ const Dashboard = () => {
             </GlowCard>
           </div>
 
-          {/* ── Footer ── */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 1 }}
-            className="flex items-center justify-center gap-4 pt-1"
-          >
-            <div className="h-[1px] flex-1" style={{ background: "linear-gradient(90deg, transparent, rgba(77,166,255,0.3), transparent)" }} />
-            <div className="flex items-center gap-2">
-              <PulseDot color={accentCyan} />
-              <span className="text-[10px] whitespace-nowrap" style={{ color: textDim }}>
-                Auto-refresh 30s {lastUpdate && `· Última atualização: ${lastUpdate.toLocaleTimeString("pt-BR")}`}
+          {/* ═══ FOOTER ═══ */}
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.2 }}
+            className="flex items-center justify-center gap-4 pt-2 flex-shrink-0">
+            <div className="h-[1px] flex-1" style={{ background: "linear-gradient(90deg, transparent, rgba(77,166,255,0.25), transparent)" }} />
+            <div className="flex items-center gap-2.5">
+              <PulseDot color={C.cyan} />
+              <span className="text-[10px] font-semibold whitespace-nowrap" style={{ color: C.dim }}>
+                Auto-refresh 30s{lastUpdate ? ` · ${lastUpdate.toLocaleTimeString("pt-BR")}` : ""}
               </span>
             </div>
-            <div className="h-[1px] flex-1" style={{ background: "linear-gradient(90deg, transparent, rgba(77,166,255,0.3), transparent)" }} />
+            <div className="h-[1px] flex-1" style={{ background: "linear-gradient(90deg, transparent, rgba(77,166,255,0.25), transparent)" }} />
           </motion.div>
         </div>
       </div>
     );
   }
 
-  // ── NORMAL DASHBOARD ──
+  // ━━━ NORMAL DASHBOARD ━━━
+  const stats = [
+    { label: "Empresas", value: counts.empresas, icon: Building2, color: "text-primary" },
+    { label: "Unidades", value: counts.unidades, icon: MapPin, color: "text-secondary" },
+    { label: "Operadoras", value: counts.operadoras, icon: Radio, color: "text-accent" },
+    { label: "Links de Internet", value: counts.links, icon: Wifi, color: "text-destructive" },
+  ];
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -711,13 +646,11 @@ const Dashboard = () => {
           <p className="text-muted-foreground">Visão geral do sistema de consulta técnica</p>
         </div>
         <Button onClick={() => setTvMode(true)} variant="outline" className="gap-2">
-          <Monitor className="h-4 w-4" />
-          TV View
+          <Monitor className="h-4 w-4" /> TV View
         </Button>
       </div>
-
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((s) => (
+        {stats.map(s => (
           <Card key={s.label}>
             <CardContent className="p-6 flex items-center gap-4">
               <s.icon className={`h-10 w-10 ${s.color}`} />
@@ -729,33 +662,22 @@ const Dashboard = () => {
           </Card>
         ))}
       </div>
-
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Search className="h-5 w-5" />
-            Busca Rápida de Unidades
+            <Search className="h-5 w-5" /> Busca Rápida de Unidades
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Input
-            placeholder="Buscar por nome, cidade, código ou logradouro..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+          <Input placeholder="Buscar por nome, cidade, código ou logradouro..." value={search} onChange={e => setSearch(e.target.value)} />
           {results.length > 0 && (
             <div className="border rounded-md divide-y">
               {results.map((r: any) => (
-                <div
-                  key={r.id}
-                  className="p-3 hover:bg-muted/50 cursor-pointer flex justify-between items-center"
-                  onClick={() => navigate(`/dashboard/unidades/${r.id}`)}
-                >
+                <div key={r.id} className="p-3 hover:bg-muted/50 cursor-pointer flex justify-between items-center"
+                  onClick={() => navigate(`/dashboard/unidades/${r.id}`)}>
                   <div>
                     <p className="font-medium">{r.nome_unidade}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {r.empresas?.nome_fantasia} • {r.cidade}/{r.estado}
-                    </p>
+                    <p className="text-sm text-muted-foreground">{r.empresas?.nome_fantasia} • {r.cidade}/{r.estado}</p>
                   </div>
                   <MapPin className="h-4 w-4 text-muted-foreground" />
                 </div>
