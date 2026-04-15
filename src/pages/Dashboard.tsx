@@ -143,7 +143,7 @@ const GlowCard = ({ children, className = "", hi = false, delay = 0 }: {
     animate={{ opacity: 1, y: 0, scale: 1 }}
     transition={{ duration: 0.55, delay, ease: [0.22, 1, 0.36, 1] }}
     whileHover={{ scale: 1.025, transition: { duration: 0.18 } }}
-    className={`relative rounded-2xl overflow-hidden group ${className}`}
+    className={`relative rounded-2xl overflow-hidden group h-full ${className}`}
     style={{
       background: C.cardBg,
       backdropFilter: "blur(16px)",
@@ -162,7 +162,7 @@ const GlowCard = ({ children, className = "", hi = false, delay = 0 }: {
     {/* hover radial glow */}
     <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
       style={{ background: "radial-gradient(ellipse at 50% 40%, rgba(77,166,255,0.06) 0%, transparent 65%)" }} />
-    <div className="relative z-10">{children}</div>
+    <div className="relative z-10 h-full flex flex-col">{children}</div>
   </motion.div>
 );
 
