@@ -1,25 +1,10 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { Building2, MapPin, Radio, Wifi, Search, Monitor, RefreshCw, ArrowLeft } from "lucide-react";
+import { Building2, MapPin, Radio, Wifi, Search, Monitor } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-
-interface TicketCounts {
-  totalOpen: number;
-  byEntity: Record<string, number>;
-  fetchedAt: string;
-}
-
-const ENTITIES = [
-  { id: "8", name: "GOODSTORAGE" },
-  { id: "7", name: "PETCARE" },
-  { id: "1", name: "BRAVA" },
-];
-
-const KNOWN_IDS = new Set(["1", "7", "8"]);
-const REFRESH_INTERVAL = 60_000;
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -27,13 +12,6 @@ const Dashboard = () => {
   const [search, setSearch] = useState("");
   const [results, setResults] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
-
-  // TV View state
-  const [tvMode, setTvMode] = useState(false);
-  const [ticketData, setTicketData] = useState<TicketCounts | null>(null);
-  const [ticketLoading, setTicketLoading] = useState(false);
-  const [ticketError, setTicketError] = useState<string | null>(null);
-  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
   useEffect(() => {
     const loadCounts = async () => {
@@ -67,49 +45,6 @@ const Dashboard = () => {
     return () => clearTimeout(timer);
   }, [search]);
 
-  // Ticket fetching
-  const fetchTickets = useCallback(async () => {
-    try {
-      setTicketError(null);
-      setTicketLoading(true);
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-      const res = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/glpi-proxy?action=ticket-counts`,
-        { headers: { 'apikey': anonKey, 'Content-Type': 'application/json' } }
-      );
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const result: TicketCounts = await res.json();
-      setTicketData(result);
-      setLastUpdate(new Date());
-    } catch (err) {
-      console.error("Failed to fetch ticket counts:", err);
-      setTicketError(err instanceof Error ? err.message : "Erro ao buscar dados");
-    } finally {
-      setTicketLoading(false);
-    }
-  }, []);
-
-  // Auto-refresh when TV mode is on
-  useEffect(() => {
-    if (!tvMode) return;
-    fetchTickets();
-    const interval = setInterval(fetchTickets, REFRESH_INTERVAL);
-    return () => clearInterval(interval);
-  }, [tvMode, fetchTickets]);
-
-  const getEntityCount = (entityId: string): number => {
-    if (!ticketData?.byEntity) return 0;
-    return ticketData.byEntity[entityId] || 0;
-  };
-
-  const getUnidentifiedCount = (): number => {
-    if (!ticketData?.byEntity) return 0;
-    return Object.entries(ticketData.byEntity)
-      .filter(([id]) => !KNOWN_IDS.has(id))
-      .reduce((sum, [, count]) => sum + count, 0);
-  };
-
   const stats = [
     { label: "Empresas", value: counts.empresas, icon: Building2, color: "text-primary" },
     { label: "Unidades", value: counts.unidades, icon: MapPin, color: "text-secondary" },
@@ -117,78 +52,6 @@ const Dashboard = () => {
     { label: "Links de Internet", value: counts.links, icon: Wifi, color: "text-destructive" },
   ];
 
-  // TV Mode view
-  if (tvMode) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => setTvMode(false)}>
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <div>
-              <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-                <Monitor className="h-6 w-6" />
-                Chamados em Aberto
-              </h1>
-              <p className="text-muted-foreground">Atualização automática a cada 60 segundos</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            {lastUpdate && (
-              <span className="text-sm text-muted-foreground">
-                Atualizado: {lastUpdate.toLocaleTimeString("pt-BR")}
-              </span>
-            )}
-            <Button variant="outline" size="icon" onClick={fetchTickets} disabled={ticketLoading}>
-              <RefreshCw className={`h-4 w-4 ${ticketLoading ? "animate-spin" : ""}`} />
-            </Button>
-          </div>
-        </div>
-
-        {ticketError && (
-          <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4 text-destructive text-center">
-            {ticketError}
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {ENTITIES.map((entity) => (
-            <Card key={entity.id} className="border-border">
-              <CardContent className="p-6 flex flex-col items-center justify-center text-center min-h-[200px]">
-                <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-                  {entity.name}
-                </p>
-                <p className="text-7xl font-black text-foreground leading-none">
-                  {ticketLoading && !ticketData ? "—" : getEntityCount(entity.id)}
-                </p>
-              </CardContent>
-            </Card>
-          ))}
-
-          <Card className="border-border">
-            <CardContent className="p-6 flex flex-col items-center justify-center text-center min-h-[200px]">
-              <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-                Não Identificado
-              </p>
-              <p className="text-7xl font-black text-foreground leading-none">
-                {ticketLoading && !ticketData ? "—" : getUnidentifiedCount()}
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="text-center text-muted-foreground text-sm">
-          Total em aberto:{" "}
-          <span className="font-bold text-foreground text-lg">
-            {ticketData?.totalOpen ?? "—"}
-          </span>
-        </div>
-      </div>
-    );
-  }
-
-  // Normal Dashboard view
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -196,7 +59,11 @@ const Dashboard = () => {
           <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
           <p className="text-muted-foreground">Visão geral do sistema de consulta técnica</p>
         </div>
-        <Button onClick={() => setTvMode(true)} variant="outline" className="gap-2">
+        <Button
+          onClick={() => window.open("/tv-dashboard", "_blank")}
+          variant="outline"
+          className="gap-2"
+        >
           <Monitor className="h-4 w-4" />
           TV View
         </Button>
