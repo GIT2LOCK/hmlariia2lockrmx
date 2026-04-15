@@ -41,7 +41,7 @@ const menuItems = [
   { title: "Pessoas", url: "/dashboard/pessoas", icon: Contact },
   { title: "Responsáveis", url: "/dashboard/responsaveis", icon: UserCheck },
   { title: "Base de Conhecimento", url: "/dashboard/base-conhecimento", icon: BookOpen },
-  { title: "Monitoramento", url: "/dashboard/zabbix", icon: Activity },
+  { title: "Montioramento", url: "/dashboard/zabbix", icon: Activity },
 ];
 
 export function AppSidebar() {
