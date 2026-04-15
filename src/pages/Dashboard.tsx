@@ -544,8 +544,8 @@ const Dashboard = () => {
                   <p className="text-[11px] uppercase tracking-[0.15em] mb-2 flex-shrink-0" style={{ color: C.textCyan }}>
                     Últimos 7 Dias
                   </p>
-                  <div className="flex-1 min-h-0">
-                    <ResponsiveContainer width="100%" height="100%">
+                  <div className="flex-1 min-h-[120px]">
+                    <ResponsiveContainer width="100%" height="100%" minHeight={120}>
                       <AreaChart data={lineData}>
                         <defs>
                           {Object.entries(ENTITY_COLORS).map(([id, color]) => (
