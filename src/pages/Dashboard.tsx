@@ -539,45 +539,47 @@ const Dashboard = () => {
               </GlowCard>
 
               {/* 7-day chart fills remaining space */}
-              <GlowCard delay={0.7} className="flex-1 min-h-0">
-                <div className="p-3 lg:p-4 h-full flex flex-col">
-                  <p className="text-[11px] uppercase tracking-[0.15em] mb-2 flex-shrink-0" style={{ color: C.textCyan }}>
-                    Últimos 7 Dias
-                  </p>
-                  <div className="flex-1 min-h-[120px]">
-                    <ResponsiveContainer width="100%" height="100%" minHeight={120}>
-                      <AreaChart data={lineData}>
-                        <defs>
-                          {Object.entries(ENTITY_COLORS).map(([id, color]) => (
-                            <linearGradient key={id} id={`area-${id}`} x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor={color} stopOpacity={0.25} />
-                              <stop offset="100%" stopColor={color} stopOpacity={0.02} />
-                            </linearGradient>
-                          ))}
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke={C.grid} />
-                        <XAxis dataKey="name" tick={{ fontSize: 11, fill: C.dim, fontWeight: 600 }} axisLine={{ stroke: C.grid }} tickLine={false} />
-                        <YAxis tick={{ fontSize: 11, fill: C.dim }} allowDecimals={false} axisLine={{ stroke: C.grid }} tickLine={false} />
-                        <Tooltip contentStyle={tooltipStyle} />
-                        <Legend iconSize={8} wrapperStyle={{ fontSize: "10px", color: C.dim, fontWeight: 600 }} />
-                        <Area type="monotone" dataKey="GoodStorage" stroke={ENTITY_COLORS["8"]} strokeWidth={2.5} fill="url(#area-8)"
-                          dot={{ r: 4, fill: ENTITY_COLORS["8"], strokeWidth: 0 }}
-                          activeDot={{ r: 7, fill: ENTITY_COLORS["8"], stroke: ENTITY_COLORS["8"], strokeWidth: 3, strokeOpacity: 0.3 }}
-                          animationDuration={1800} animationBegin={600} />
-                        <Area type="monotone" dataKey="Brava" stroke={ENTITY_COLORS["1"]} strokeWidth={2.5} fill="url(#area-1)"
-                          dot={{ r: 4, fill: ENTITY_COLORS["1"], strokeWidth: 0 }}
-                          animationDuration={1800} animationBegin={800} />
-                        <Area type="monotone" dataKey="PetCare" stroke={ENTITY_COLORS["7"]} strokeWidth={2.5} fill="url(#area-7)"
-                          dot={{ r: 4, fill: ENTITY_COLORS["7"], strokeWidth: 0 }}
-                          animationDuration={1800} animationBegin={1000} />
-                        <Area type="monotone" dataKey="Indefinido" stroke={ENTITY_COLORS["indefinido"]} strokeWidth={2} fill="url(#area-indefinido)"
-                          dot={{ r: 3, fill: ENTITY_COLORS["indefinido"], strokeWidth: 0 }}
-                          strokeDasharray="5 5" animationDuration={1800} animationBegin={1200} />
-                      </AreaChart>
-                    </ResponsiveContainer>
+              <div className="flex-1 min-h-0 relative">
+                <GlowCard delay={0.7} className="absolute inset-0">
+                  <div className="p-3 lg:p-4 h-full flex flex-col">
+                    <p className="text-[11px] uppercase tracking-[0.15em] mb-2 flex-shrink-0" style={{ color: C.textCyan }}>
+                      Últimos 7 Dias
+                    </p>
+                    <div className="flex-1 min-h-0">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={lineData}>
+                          <defs>
+                            {Object.entries(ENTITY_COLORS).map(([id, color]) => (
+                              <linearGradient key={id} id={`area-${id}`} x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor={color} stopOpacity={0.25} />
+                                <stop offset="100%" stopColor={color} stopOpacity={0.02} />
+                              </linearGradient>
+                            ))}
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke={C.grid} />
+                          <XAxis dataKey="name" tick={{ fontSize: 11, fill: C.dim, fontWeight: 600 }} axisLine={{ stroke: C.grid }} tickLine={false} />
+                          <YAxis tick={{ fontSize: 11, fill: C.dim }} allowDecimals={false} axisLine={{ stroke: C.grid }} tickLine={false} />
+                          <Tooltip contentStyle={tooltipStyle} />
+                          <Legend iconSize={8} wrapperStyle={{ fontSize: "10px", color: C.dim, fontWeight: 600 }} />
+                          <Area type="monotone" dataKey="GoodStorage" stroke={ENTITY_COLORS["8"]} strokeWidth={2.5} fill="url(#area-8)"
+                            dot={{ r: 4, fill: ENTITY_COLORS["8"], strokeWidth: 0 }}
+                            activeDot={{ r: 7, fill: ENTITY_COLORS["8"], stroke: ENTITY_COLORS["8"], strokeWidth: 3, strokeOpacity: 0.3 }}
+                            animationDuration={1800} animationBegin={600} />
+                          <Area type="monotone" dataKey="Brava" stroke={ENTITY_COLORS["1"]} strokeWidth={2.5} fill="url(#area-1)"
+                            dot={{ r: 4, fill: ENTITY_COLORS["1"], strokeWidth: 0 }}
+                            animationDuration={1800} animationBegin={800} />
+                          <Area type="monotone" dataKey="PetCare" stroke={ENTITY_COLORS["7"]} strokeWidth={2.5} fill="url(#area-7)"
+                            dot={{ r: 4, fill: ENTITY_COLORS["7"], strokeWidth: 0 }}
+                            animationDuration={1800} animationBegin={1000} />
+                          <Area type="monotone" dataKey="Indefinido" stroke={ENTITY_COLORS["indefinido"]} strokeWidth={2} fill="url(#area-indefinido)"
+                            dot={{ r: 3, fill: ENTITY_COLORS["indefinido"], strokeWidth: 0 }}
+                            strokeDasharray="5 5" animationDuration={1800} animationBegin={1200} />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
                   </div>
-                </div>
-              </GlowCard>
+                </GlowCard>
+              </div>
             </div>
 
             {/* Donut Charts */}
