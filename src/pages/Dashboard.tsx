@@ -324,7 +324,7 @@ const Dashboard = () => {
     const totalStatus = statusPie.reduce((s, d) => s + d.value, 0);
 
     return (
-      <div className="-m-4 md:-m-6 min-h-[calc(100vh-56px)] lg:min-h-screen overflow-hidden relative" style={{ background: C.pageBg, fontFamily: "'Roboto', sans-serif" }}>
+      <div className="-m-4 md:-m-6 min-h-[calc(100vh-56px)] lg:min-h-screen overflow-hidden relative" style={{ background: C.pageBg, fontFamily: "'Poppins', sans-serif" }}>
         <Particles />
 
         <div className="relative z-10 p-4 lg:p-5 flex flex-col h-[calc(100vh-56px)] lg:h-screen">
