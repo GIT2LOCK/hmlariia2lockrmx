@@ -179,8 +179,20 @@ async function fetchAllTicketsOpenedInPeriod(
     if (name.includes('vconnector')) return false
     if (name.startsWith('[problem]')) return false
     if (name.startsWith('[resolved]')) return false
+    // Also filter by ticket name field 2 if present
+    const name2 = String(t['name'] ?? '').toLowerCase()
+    if (name2.includes('vconnector') || name2.startsWith('[problem]') || name2.startsWith('[resolved]')) return false
     return true
   })
+}
+
+// Map entity name from search API to entity key
+function getEntityKeyFromName(entityName: string): string {
+  const upper = entityName.toUpperCase()
+  if (upper.includes('GOODSTORAGE') || upper.includes('GS ') || upper.includes('GS-')) return '8'
+  if (upper.includes('PETCARE') || upper.includes('PET ') || upper.includes('TECSA')) return '7'
+  if (upper.includes('BRAVA') || upper.includes('POLO ')) return '1'
+  return 'indefinido'
 }
 
 // GLPI statuses: 1=new, 2=assigned, 3=planned, 4=pending, 5=solved, 6=closed
