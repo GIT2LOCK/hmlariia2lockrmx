@@ -65,6 +65,7 @@ serve(async (req) => {
         break;
       }
 
+      case "problems": {
         // Get active problems with host and group info
         const problems = await zabbixCall("problem.get", {
           output: ["eventid", "objectid", "name", "severity", "clock", "acknowledged", "suppressed"],
