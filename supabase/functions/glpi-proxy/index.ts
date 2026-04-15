@@ -180,6 +180,7 @@ Deno.serve(async (req) => {
       })
 
       const allTickets = await fetchAllOpenTickets(GLPI_URL, glpiHeaders)
+      const entityMap = await buildEntityMap(GLPI_URL, glpiHeaders)
       console.log('Fetched open tickets:', allTickets.length)
       if (allTickets.length > 0) {
         console.log('Sample ticket keys:', JSON.stringify(Object.keys(allTickets[0])))
