@@ -202,7 +202,7 @@ Deno.serve(async (req) => {
       for (const ticket of allTickets) {
         // Direct API returns 'entities_id' (or entity name if expand_dropdowns), 'status', 'date'
         const rawEntity = String(ticket['entities_id'] ?? ticket['entities_id'] ?? ticket['80'] ?? 'unknown')
-        const entityKey = getEntityKey(rawEntity)
+        const entityKey = getEntityKey(rawEntity, entityMap)
         const status = mapStatus((ticket['status'] ?? ticket['12']) as number)
 
         byEntity[rawEntity] = (byEntity[rawEntity] || 0) + 1
@@ -269,7 +269,7 @@ Deno.serve(async (req) => {
         const dateStr = String(ticket['date'] ?? ticket['15'] ?? '')
         if (!dateStr) continue
         const dateKey = new Date(dateStr).toISOString().split('T')[0]
-        const entityKey = getEntityKey(String(ticket['entities_id'] ?? ticket['80'] ?? 'unknown'))
+        const entityKey = getEntityKey(String(ticket['entities_id'] ?? ticket['80'] ?? 'unknown'), entityMap)
         if (last7DaysByEntity[entityKey] && last7DaysByEntity[entityKey][dateKey] !== undefined) {
           last7DaysByEntity[entityKey][dateKey]++
         }
