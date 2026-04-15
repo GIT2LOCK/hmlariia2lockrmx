@@ -180,7 +180,7 @@ const MiniDonut = ({ pct, color, size = 52 }: { pct: number; color: string; size
         transition={{ duration: 1.2, delay: 0.4, ease: "easeOut" }}
         style={{ filter: `drop-shadow(0 0 6px ${color}70)` }} />
       <text x={size / 2} y={size / 2} textAnchor="middle" dominantBaseline="central"
-        fill={color} fontSize={size * 0.2} fontWeight="800">{Math.round(pct)}%</text>
+        fill={color} fontSize={size * 0.2} fontWeight="400">{Math.round(pct)}%</text>
     </svg>
   );
 };
@@ -198,8 +198,8 @@ const CenterLabel = ({ viewBox, value }: any) => {
   const { cx, cy } = viewBox;
   return (
     <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central">
-      <tspan x={cx} dy="-6" fill={C.white} fontSize="22" fontWeight="900" style={{ textShadow: `0 0 14px ${C.cyan}50` }}>{value}</tspan>
-      <tspan x={cx} dy="18" fill={C.dim} fontSize="10" fontWeight="600">TOTAL</tspan>
+      <tspan x={cx} dy="-6" fill={C.white} fontSize="22" fontWeight="400" style={{ textShadow: `0 0 14px ${C.cyan}50` }}>{value}</tspan>
+      <tspan x={cx} dy="18" fill={C.dim} fontSize="10" fontWeight="400">TOTAL</tspan>
     </text>
   );
 };
@@ -324,7 +324,7 @@ const Dashboard = () => {
     const totalStatus = statusPie.reduce((s, d) => s + d.value, 0);
 
     return (
-      <div className="-m-4 md:-m-6 min-h-[calc(100vh-56px)] lg:min-h-screen overflow-hidden relative" style={{ background: C.pageBg }}>
+      <div className="-m-4 md:-m-6 min-h-[calc(100vh-56px)] lg:min-h-screen overflow-hidden relative" style={{ background: C.pageBg, fontFamily: "'Roboto', sans-serif" }}>
         <Particles />
 
         <div className="relative z-10 p-4 lg:p-5 flex flex-col h-[calc(100vh-56px)] lg:h-screen">
@@ -341,12 +341,12 @@ const Dashboard = () => {
                   <Monitor className="h-6 w-6" style={{ color: C.cyan, filter: `drop-shadow(0 0 6px ${C.cyan})` }} />
                 </div>
                 <div>
-                  <h1 className="text-xl font-extrabold tracking-wide" style={{ color: C.white, textShadow: `0 0 20px ${C.cyan}20` }}>
+                  <h1 className="text-xl tracking-wide" style={{ color: C.white, textShadow: `0 0 20px ${C.cyan}20`, fontWeight: 400 }}>
                     Painel de Chamados
                   </h1>
                   <div className="flex items-center gap-2 text-[11px]" style={{ color: C.dim }}>
                     <PulseDot color="#3dd9b4" />
-                    <span className="font-medium">Monitoramento em tempo real</span>
+                    <span style={{ fontWeight: 400 }}>Monitoramento em tempo real</span>
                   </div>
                 </div>
               </div>
@@ -363,10 +363,10 @@ const Dashboard = () => {
               <div className="flex items-center gap-3 px-4 py-2 rounded-xl"
                 style={{ background: "rgba(77,166,255,0.05)", border: `1px solid ${C.border}`, boxShadow: "0 0 15px rgba(77,166,255,0.06)" }}>
                 <div className="flex flex-col items-end">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.dim }}>
+                  <span className="text-[10px] uppercase tracking-wider" style={{ color: C.dim, fontWeight: 400 }}>
                     {secAgo < 5 ? "● Atualizado agora" : `Atualizado há ${secAgo}s`}
                   </span>
-                  <span className="font-mono text-lg font-black tabular-nums tracking-widest" style={{ color: C.textCyan, textShadow: `0 0 14px ${C.cyan}50` }}>
+                  <span className="font-mono text-lg tabular-nums tracking-widest" style={{ color: C.textCyan, textShadow: `0 0 14px ${C.cyan}50`, fontWeight: 400 }}>
                     {now.toLocaleTimeString("pt-BR")}
                   </span>
                 </div>
@@ -387,17 +387,17 @@ const Dashboard = () => {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1.5">
                       <k.icon className="h-4 w-4 flex-shrink-0" style={{ color: k.color, filter: `drop-shadow(0 0 5px ${k.color}60)` }} />
-                      <span className="text-[11px] font-extrabold uppercase tracking-[0.15em] truncate" style={{ color: k.color }}>
+                      <span className="text-[11px] uppercase tracking-[0.15em] truncate" style={{ color: k.color, fontWeight: 400 }}>
                         {k.name}
                       </span>
                     </div>
                     <AnimNum value={k.val}
-                      className="text-5xl xl:text-6xl font-black tabular-nums block leading-none"
-                      style={{ color: C.white, textShadow: `0 0 35px ${k.color}45, 0 0 70px ${k.color}15` }} />
+                      className="text-5xl xl:text-6xl tabular-nums block leading-none"
+                      style={{ color: C.white, textShadow: `0 0 35px ${k.color}45, 0 0 70px ${k.color}15`, fontWeight: 400 }} />
                     {k.id === "total" && pieData.filter(p => p.value > 0).length > 0 && (
                       <div className="flex gap-2 mt-2">
                         {pieData.filter(p => p.value > 0).map(p => (
-                          <span key={p.name} className="flex items-center gap-1 text-[10px] font-semibold" style={{ color: C.dim }}>
+                          <span key={p.name} className="flex items-center gap-1 text-[10px]" style={{ color: C.dim, fontWeight: 400 }}>
                             <span className="w-2 h-2 rounded-full" style={{ background: p.color, boxShadow: `0 0 5px ${p.color}` }} />
                             {p.pct}%
                           </span>
@@ -415,13 +415,13 @@ const Dashboard = () => {
 
             {/* Status Grid */}
             <GlowCard delay={0.4}>
-              <div className="p-2 h-full flex flex-col">
+              <div className="p-3 h-full flex flex-col">
                 {/* Header row */}
-                <div className="grid grid-cols-6 gap-1 mb-1" style={{ borderBottom: `1px solid ${C.grid}` }}>
+                <div className="grid grid-cols-6 gap-0" style={{ borderBottom: `1px solid ${C.grid}` }}>
                   {["Grupo", "Total", ...ENTITIES.map(e => e.name), "Indef."].map((label, i) => (
-                    <div key={label} className={`p-3 ${i === 0 ? "text-left" : "text-center"}`}>
-                      <span className="text-[11px] font-extrabold uppercase tracking-[0.12em]"
-                        style={{ color: i === 0 || i === 1 ? C.textCyan : i <= 4 ? ENTITY_COLORS[ENTITIES[i - 2]?.id] || C.dim : ENTITY_COLORS["indefinido"] }}>
+                    <div key={label} className={`px-3 py-2 ${i === 0 ? "text-left" : "text-center"}`}>
+                      <span className="text-[11px] uppercase tracking-[0.12em]"
+                        style={{ color: i === 0 || i === 1 ? C.textCyan : i <= 4 ? ENTITY_COLORS[ENTITIES[i - 2]?.id] || C.dim : ENTITY_COLORS["indefinido"], fontWeight: 400 }}>
                         {label}
                       </span>
                     </div>
@@ -436,27 +436,27 @@ const Dashboard = () => {
                       initial={{ opacity: 0, x: -30 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: 0.5 + i * 0.12, ease: "easeOut" }}
-                      className="grid grid-cols-6 gap-1 rounded-xl transition-colors duration-200 hover:bg-[rgba(77,166,255,0.04)] flex-1"
+                      className="grid grid-cols-6 gap-0 rounded-xl transition-colors duration-200 hover:bg-[rgba(77,166,255,0.04)] flex-1 items-center"
                       style={i < STATUS_ROWS.length - 1 ? { borderBottom: `1px solid rgba(77,166,255,0.06)` } : {}}>
-                      <div className="p-3 flex items-center">
+                      <div className="px-3 py-2 flex items-center">
                         <div className="flex items-center gap-2">
                           <span className="w-1 h-8 rounded-full" style={{ background: STATUS_COLORS[i], boxShadow: `0 0 8px ${STATUS_COLORS[i]}50` }} />
-                          <span className="text-sm font-bold" style={{ color: C.textCyan }}>{STATUS_LABELS[status]}</span>
+                          <span className="text-sm" style={{ color: C.textCyan, fontWeight: 400 }}>{STATUS_LABELS[status]}</span>
                         </div>
                       </div>
-                      <div className="p-3 flex items-center justify-center">
-                        <AnimNum value={rowTotal} className="text-4xl xl:text-5xl font-black tabular-nums"
-                          style={{ color: C.white, textShadow: `0 0 25px ${C.cyan}35` }} />
+                      <div className="px-3 py-2 flex items-center justify-center">
+                        <AnimNum value={rowTotal} className="text-4xl xl:text-5xl tabular-nums"
+                          style={{ color: C.white, textShadow: `0 0 25px ${C.cyan}35`, fontWeight: 400 }} />
                       </div>
                       {ENTITIES.map(e => (
-                        <div key={e.id} className="p-3 flex items-center justify-center">
-                          <AnimNum value={row[e.id] || 0} className="text-4xl xl:text-5xl font-black tabular-nums"
-                            style={{ color: C.white }} />
+                        <div key={e.id} className="px-3 py-2 flex items-center justify-center">
+                          <AnimNum value={row[e.id] || 0} className="text-4xl xl:text-5xl tabular-nums"
+                            style={{ color: C.white, fontWeight: 400 }} />
                         </div>
                       ))}
-                      <div className="p-3 flex items-center justify-center">
-                        <AnimNum value={row["indefinido"] || 0} className="text-4xl xl:text-5xl font-black tabular-nums"
-                          style={{ color: C.white }} />
+                      <div className="px-3 py-2 flex items-center justify-center">
+                        <AnimNum value={row["indefinido"] || 0} className="text-4xl xl:text-5xl tabular-nums"
+                          style={{ color: C.white, fontWeight: 400 }} />
                       </div>
                     </motion.div>
                   );
@@ -469,7 +469,7 @@ const Dashboard = () => {
               {/* By Entity */}
               <GlowCard delay={0.5} className="flex-1">
                 <div className="p-3 h-full flex flex-col">
-                  <p className="text-[11px] font-extrabold uppercase tracking-[0.15em] mb-1" style={{ color: C.textCyan }}>
+                  <p className="text-[11px] uppercase tracking-[0.15em] mb-1" style={{ color: C.textCyan }}>
                     Distribuição por Empresa
                   </p>
                   <div className="flex-1 min-h-0">
@@ -489,10 +489,10 @@ const Dashboard = () => {
                           {pieData.map((d, i) => <Cell key={i} fill={d.color} style={{ filter: `drop-shadow(0 0 8px ${d.color}50)` }} />)}
                         </Pie>
                         <Tooltip formatter={(v: number, n: string) => [`${v} chamados`, n]} contentStyle={tooltipStyle} />
-                        <text x="50%" y="46%" textAnchor="middle" dominantBaseline="central" fill={C.white} fontSize="20" fontWeight="900" style={{ textShadow: `0 0 12px ${C.cyan}40` }}>
+                        <text x="50%" y="46%" textAnchor="middle" dominantBaseline="central" fill={C.white} fontSize="20" fontWeight="400" style={{ textShadow: `0 0 12px ${C.cyan}40` }}>
                           {totalPie}
                         </text>
-                        <text x="50%" y="58%" textAnchor="middle" dominantBaseline="central" fill={C.dim} fontSize="9" fontWeight="700" letterSpacing="0.1em">
+                        <text x="50%" y="58%" textAnchor="middle" dominantBaseline="central" fill={C.dim} fontSize="9" fontWeight="400" letterSpacing="0.1em">
                           TOTAL
                         </text>
                       </PieChart>
@@ -500,7 +500,7 @@ const Dashboard = () => {
                   </div>
                   <div className="flex flex-wrap gap-x-3 gap-y-1 justify-center">
                     {pieData.map(p => (
-                      <span key={p.name} className="flex items-center gap-1.5 text-[10px] font-semibold" style={{ color: C.dim }}>
+                      <span key={p.name} className="flex items-center gap-1.5 text-[10px] style={{ color: C.dim, fontWeight: 400 }}>
                         <span className="w-2.5 h-2.5 rounded-full" style={{ background: p.color, boxShadow: `0 0 5px ${p.color}60` }} />
                         {p.pct}% {p.name}
                       </span>
@@ -512,7 +512,7 @@ const Dashboard = () => {
               {/* By Status */}
               <GlowCard delay={0.6} className="flex-1">
                 <div className="p-3 h-full flex flex-col">
-                  <p className="text-[11px] font-extrabold uppercase tracking-[0.15em] mb-1" style={{ color: C.textCyan }}>
+                  <p className="text-[11px] uppercase tracking-[0.15em] mb-1" style={{ color: C.textCyan }}>
                     Distribuição por Status
                   </p>
                   <div className="flex-1 min-h-0">
@@ -523,10 +523,10 @@ const Dashboard = () => {
                           {statusPie.map((d, i) => <Cell key={i} fill={d.color} style={{ filter: `drop-shadow(0 0 8px ${d.color}50)` }} />)}
                         </Pie>
                         <Tooltip contentStyle={tooltipStyle} />
-                        <text x="50%" y="46%" textAnchor="middle" dominantBaseline="central" fill={C.white} fontSize="20" fontWeight="900" style={{ textShadow: `0 0 12px ${C.cyan}40` }}>
+                        <text x="50%" y="46%" textAnchor="middle" dominantBaseline="central" fill={C.white} fontSize="20" fontWeight="400" style={{ textShadow: `0 0 12px ${C.cyan}40` }}>
                           {totalStatus}
                         </text>
-                        <text x="50%" y="58%" textAnchor="middle" dominantBaseline="central" fill={C.dim} fontSize="9" fontWeight="700" letterSpacing="0.1em">
+                        <text x="50%" y="58%" textAnchor="middle" dominantBaseline="central" fill={C.dim} fontSize="9" fontWeight="400" letterSpacing="0.1em">
                           TOTAL
                         </text>
                       </PieChart>
@@ -534,7 +534,7 @@ const Dashboard = () => {
                   </div>
                   <div className="flex flex-wrap gap-x-3 gap-y-1 justify-center">
                     {statusPie.map(d => (
-                      <span key={d.name} className="flex items-center gap-1.5 text-[10px] font-semibold" style={{ color: C.dim }}>
+                      <span key={d.name} className="flex items-center gap-1.5 text-[10px] style={{ color: C.dim, fontWeight: 400 }}>
                         <span className="w-2.5 h-2.5 rounded-full" style={{ background: d.color, boxShadow: `0 0 5px ${d.color}60` }} />
                         {d.name} {totalStatus > 0 ? Math.round((d.value / totalStatus) * 100) : 0}%
                       </span>
@@ -550,7 +550,7 @@ const Dashboard = () => {
             {/* 7-day Area Chart */}
             <GlowCard delay={0.7}>
               <div className="p-3 lg:p-4">
-                <p className="text-[11px] font-extrabold uppercase tracking-[0.15em] mb-2" style={{ color: C.textCyan }}>
+                <p className="text-[11px] uppercase tracking-[0.15em] mb-2" style={{ color: C.textCyan }}>
                   Últimos 7 Dias
                 </p>
                 <ResponsiveContainer width="100%" height={150}>
@@ -589,7 +589,7 @@ const Dashboard = () => {
             {/* 24h Bar chart */}
             <GlowCard delay={0.8}>
               <div className="p-3 lg:p-4">
-                <p className="text-[11px] font-extrabold uppercase tracking-[0.15em] mb-2" style={{ color: C.textCyan }}>
+                <p className="text-[11px] uppercase tracking-[0.15em] mb-2" style={{ color: C.textCyan }}>
                   Últimas 24 Horas
                 </p>
                 <ResponsiveContainer width="100%" height={150}>
@@ -642,7 +642,7 @@ const Dashboard = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+          <h1 className="text-2xl font-normal text-foreground">Dashboard</h1>
           <p className="text-muted-foreground">Visão geral do sistema de consulta técnica</p>
         </div>
         <Button onClick={() => setTvMode(true)} variant="outline" className="gap-2">
@@ -655,7 +655,7 @@ const Dashboard = () => {
             <CardContent className="p-6 flex items-center gap-4">
               <s.icon className={`h-10 w-10 ${s.color}`} />
               <div>
-                <p className="text-2xl font-bold">{s.value}</p>
+                <p className="text-2xl font-normal">{s.value}</p>
                 <p className="text-sm text-muted-foreground">{s.label}</p>
               </div>
             </CardContent>
