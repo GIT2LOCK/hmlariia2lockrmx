@@ -8,8 +8,21 @@ interface GlpiSearchResult {
   data?: Array<Record<string, unknown>>;
 }
 
+async function fetchWithRetry(url: string, opts: RequestInit, retries = 3): Promise<Response> {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await fetch(url, opts)
+    } catch (err) {
+      console.error(`fetchWithRetry attempt ${i + 1} failed for ${url}:`, err)
+      if (i < retries - 1) await new Promise(r => setTimeout(r, 1000 * (i + 1)))
+      else throw err
+    }
+  }
+  throw new Error('fetchWithRetry: unreachable')
+}
+
 async function initSession(glpiUrl: string, appToken: string, userToken: string): Promise<string> {
-  const res = await fetch(`${glpiUrl}/initSession`, {
+  const res = await fetchWithRetry(`${glpiUrl}/initSession`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
@@ -62,19 +75,11 @@ async function fetchAllOpenTickets(
       const url = `${glpiUrl}/Ticket?searchText[status]=${status}&range=${start}-${start + batchSize}`
       console.log('Fetching:', url)
       
-      let res: Response | null = null
-      for (let attempt = 0; attempt < 3; attempt++) {
-        try {
-          res = await fetch(url, { headers })
-          break
-        } catch (err) {
-          console.error(`Fetch attempt ${attempt + 1} failed for status=${status}:`, err)
-          if (attempt < 2) await new Promise(r => setTimeout(r, 1000 * (attempt + 1)))
-        }
-      }
-      
-      if (!res) {
-        console.error(`All retries failed for status=${status}, skipping`)
+      let res: Response
+      try {
+        res = await fetchWithRetry(url, { headers })
+      } catch (err) {
+        console.error(`All retries failed for status=${status}, skipping:`, err)
         break
       }
       
