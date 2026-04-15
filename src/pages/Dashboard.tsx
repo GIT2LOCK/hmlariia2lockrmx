@@ -415,13 +415,13 @@ const Dashboard = () => {
 
             {/* Status Grid */}
             <GlowCard delay={0.4}>
-              <div className="p-2 h-full flex flex-col">
+              <div className="p-3 h-full flex flex-col">
                 {/* Header row */}
-                <div className="grid grid-cols-6 gap-1 mb-1" style={{ borderBottom: `1px solid ${C.grid}` }}>
+                <div className="grid grid-cols-6 gap-0" style={{ borderBottom: `1px solid ${C.grid}` }}>
                   {["Grupo", "Total", ...ENTITIES.map(e => e.name), "Indef."].map((label, i) => (
-                    <div key={label} className={`p-3 ${i === 0 ? "text-left" : "text-center"}`}>
-                      <span className="text-[11px] font-extrabold uppercase tracking-[0.12em]"
-                        style={{ color: i === 0 || i === 1 ? C.textCyan : i <= 4 ? ENTITY_COLORS[ENTITIES[i - 2]?.id] || C.dim : ENTITY_COLORS["indefinido"] }}>
+                    <div key={label} className={`px-3 py-2 ${i === 0 ? "text-left" : "text-center"}`}>
+                      <span className="text-[11px] uppercase tracking-[0.12em]"
+                        style={{ color: i === 0 || i === 1 ? C.textCyan : i <= 4 ? ENTITY_COLORS[ENTITIES[i - 2]?.id] || C.dim : ENTITY_COLORS["indefinido"], fontWeight: 500 }}>
                         {label}
                       </span>
                     </div>
@@ -436,27 +436,27 @@ const Dashboard = () => {
                       initial={{ opacity: 0, x: -30 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: 0.5 + i * 0.12, ease: "easeOut" }}
-                      className="grid grid-cols-6 gap-1 rounded-xl transition-colors duration-200 hover:bg-[rgba(77,166,255,0.04)] flex-1"
+                      className="grid grid-cols-6 gap-0 rounded-xl transition-colors duration-200 hover:bg-[rgba(77,166,255,0.04)] flex-1 items-center"
                       style={i < STATUS_ROWS.length - 1 ? { borderBottom: `1px solid rgba(77,166,255,0.06)` } : {}}>
-                      <div className="p-3 flex items-center">
+                      <div className="px-3 py-2 flex items-center">
                         <div className="flex items-center gap-2">
                           <span className="w-1 h-8 rounded-full" style={{ background: STATUS_COLORS[i], boxShadow: `0 0 8px ${STATUS_COLORS[i]}50` }} />
-                          <span className="text-sm font-bold" style={{ color: C.textCyan }}>{STATUS_LABELS[status]}</span>
+                          <span className="text-sm" style={{ color: C.textCyan, fontWeight: 400 }}>{STATUS_LABELS[status]}</span>
                         </div>
                       </div>
-                      <div className="p-3 flex items-center justify-center">
-                        <AnimNum value={rowTotal} className="text-4xl xl:text-5xl font-black tabular-nums"
-                          style={{ color: C.white, textShadow: `0 0 25px ${C.cyan}35` }} />
+                      <div className="px-3 py-2 flex items-center justify-center">
+                        <AnimNum value={rowTotal} className="text-4xl xl:text-5xl tabular-nums"
+                          style={{ color: C.white, textShadow: `0 0 25px ${C.cyan}35`, fontWeight: 400 }} />
                       </div>
                       {ENTITIES.map(e => (
-                        <div key={e.id} className="p-3 flex items-center justify-center">
-                          <AnimNum value={row[e.id] || 0} className="text-4xl xl:text-5xl font-black tabular-nums"
-                            style={{ color: C.white }} />
+                        <div key={e.id} className="px-3 py-2 flex items-center justify-center">
+                          <AnimNum value={row[e.id] || 0} className="text-4xl xl:text-5xl tabular-nums"
+                            style={{ color: C.white, fontWeight: 400 }} />
                         </div>
                       ))}
-                      <div className="p-3 flex items-center justify-center">
-                        <AnimNum value={row["indefinido"] || 0} className="text-4xl xl:text-5xl font-black tabular-nums"
-                          style={{ color: C.white }} />
+                      <div className="px-3 py-2 flex items-center justify-center">
+                        <AnimNum value={row["indefinido"] || 0} className="text-4xl xl:text-5xl tabular-nums"
+                          style={{ color: C.white, fontWeight: 400 }} />
                       </div>
                     </motion.div>
                   );
