@@ -619,7 +619,7 @@ const Dashboard = () => {
             <div className="h-[1px] flex-1" style={{ background: "linear-gradient(90deg, transparent, rgba(77,166,255,0.25), transparent)" }} />
             <div className="flex items-center gap-2.5">
               <PulseDot color={C.cyan} />
-              <span className="text-[10px] font-semibold whitespace-nowrap" style={{ color: C.dim }}>
+              <span className="text-[10px] whitespace-nowrap" style={{ color: C.dim, fontWeight: 400 }}>
                 Auto-refresh 30s{lastUpdate ? ` · ${lastUpdate.toLocaleTimeString("pt-BR")}` : ""}
               </span>
             </div>
