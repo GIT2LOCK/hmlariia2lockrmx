@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Building2, MapPin, Radio, Wifi, Search, Monitor,
-  RefreshCw, ArrowLeft, HelpCircle, Cloud, Home, PawPrint, Activity
+  RefreshCw, ArrowLeft, HelpCircle, Cloud, Home, PawPrint, Activity,
+  EyeOff, Eye,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
