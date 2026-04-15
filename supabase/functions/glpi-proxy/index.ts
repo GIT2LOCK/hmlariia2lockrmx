@@ -49,35 +49,48 @@ async function fetchAllOpenTickets(
   headers: Record<string, string>
 ): Promise<Array<Record<string, unknown>>> {
   const allTickets: Array<Record<string, unknown>> = []
-  let start = 0
-  const batchSize = 500
-
-  while (true) {
-    const criteria: Record<string, string> = {
-      'criteria[0][field]': '12',
-      'criteria[0][searchtype]': 'notequals',
-      'criteria[0][value]': '5',
-      'criteria[1][link]': 'AND',
-      'criteria[1][field]': '12',
-      'criteria[1][searchtype]': 'notequals',
-      'criteria[1][value]': '6',
+  
+  // Fetch tickets with status NOT solved(5) and NOT closed(6)
+  // Using the simpler Ticket listing endpoint with expand_dropdowns for readable entity names
+  const statusesToFetch = [1, 2, 3, 4] // new, assigned, planned, pending
+  
+  for (const status of statusesToFetch) {
+    let start = 0
+    const batchSize = 999
+    
+    while (true) {
+      const url = `${glpiUrl}/Ticket?searchText[status]=${status}&range=${start}-${start + batchSize}`
+      console.log('Fetching:', url)
+      
+      const res = await fetch(url, { headers })
+      
+      if (!res.ok) {
+        const body = await res.text()
+        console.error(`Ticket fetch error (status=${status}):`, res.status, body)
+        // If 401/400 range error, skip; if "no data", break
+        break
+      }
+      
+      const data = await res.json()
+      
+      if (Array.isArray(data)) {
+        allTickets.push(...data)
+        if (data.length < batchSize) break
+      } else if (data && typeof data === 'object') {
+        // Sometimes GLPI returns an object with numeric keys
+        const items = Object.values(data).filter(v => typeof v === 'object' && v !== null)
+        if (items.length > 0) {
+          allTickets.push(...items as Array<Record<string, unknown>>)
+        }
+        break
+      } else {
+        break
+      }
+      
+      start += batchSize + 1
     }
-
-    const result = await searchTickets(
-      glpiUrl, headers, criteria,
-      ['2', '80', '12', '15'], // id, entity, status, open date
-      `${start}-${start + batchSize - 1}`
-    )
-
-    if (result.data && Array.isArray(result.data)) {
-      allTickets.push(...result.data)
-      if (result.data.length < batchSize) break
-    } else {
-      break
-    }
-    start += batchSize
   }
-
+  
   return allTickets
 }
 
@@ -91,10 +104,42 @@ function mapStatus(status: number | string): string {
 }
 
 const KNOWN_ENTITIES: Record<string, string> = { '8': 'GoodStorage', '7': 'PetCare', '1': 'Brava' }
-const KNOWN_IDS = new Set(['1', '7', '8'])
 
-function getEntityKey(entityId: string): string {
-  return KNOWN_IDS.has(entityId) ? entityId : 'indefinido'
+// Build entity-to-group mapping by fetching GLPI entity tree with expanded names
+async function buildEntityMap(glpiUrl: string, headers: Record<string, string>): Promise<Record<string, string>> {
+  const map: Record<string, string> = {}
+  try {
+    const res = await fetch(`${glpiUrl}/Entity?range=0-999&expand_dropdowns=true`, { headers })
+    if (!res.ok) {
+      console.error('Entity fetch failed:', res.status)
+      return map
+    }
+    const entities = await res.json()
+    const list = Array.isArray(entities) ? entities : Object.values(entities).filter(v => typeof v === 'object' && v !== null)
+    
+    for (const entity of list as Array<Record<string, unknown>>) {
+      const id = String(entity['id'] ?? '')
+      const completename = String(entity['completename'] ?? entity['name'] ?? '').toUpperCase()
+      
+      if (completename.includes('GOODSTORAGE') || completename.includes('GS ')) {
+        map[id] = '8'
+      } else if (completename.includes('PETCARE') || completename.includes('PET ') || completename.includes('TECSA')) {
+        map[id] = '7'
+      } else if (completename.includes('BRAVA') || completename.includes('POLO ')) {
+        map[id] = '1'
+      }
+      // else: not mapped, will be 'indefinido'
+    }
+    console.log('Entity map built:', JSON.stringify(map))
+  } catch (e) {
+    console.error('Failed to build entity map:', e)
+  }
+  return map
+}
+
+function getEntityKey(entityId: string, entityMap: Record<string, string>): string {
+  if (entityMap[entityId]) return entityMap[entityId]
+  return 'indefinido'
 }
 
 Deno.serve(async (req) => {
@@ -135,6 +180,7 @@ Deno.serve(async (req) => {
       })
 
       const allTickets = await fetchAllOpenTickets(GLPI_URL, glpiHeaders)
+      const entityMap = await buildEntityMap(GLPI_URL, glpiHeaders)
       console.log('Fetched open tickets:', allTickets.length)
       if (allTickets.length > 0) {
         console.log('Sample ticket keys:', JSON.stringify(Object.keys(allTickets[0])))
@@ -154,9 +200,10 @@ Deno.serve(async (req) => {
       const entityTotals: Record<string, number> = {}
 
       for (const ticket of allTickets) {
-        const rawEntity = String(ticket['80'] ?? 'unknown')
-        const entityKey = getEntityKey(rawEntity)
-        const status = mapStatus(ticket['12'] as number)
+        // Direct API returns 'entities_id' (or entity name if expand_dropdowns), 'status', 'date'
+        const rawEntity = String(ticket['entities_id'] ?? ticket['entities_id'] ?? ticket['80'] ?? 'unknown')
+        const entityKey = getEntityKey(rawEntity, entityMap)
+        const status = mapStatus((ticket['status'] ?? ticket['12']) as number)
 
         byEntity[rawEntity] = (byEntity[rawEntity] || 0) + 1
         entityTotals[entityKey] = (entityTotals[entityKey] || 0) + 1
@@ -189,7 +236,7 @@ Deno.serve(async (req) => {
 
       // Count tickets by date (field 15)
       for (const ticket of allTickets) {
-        const dateStr = String(ticket['15'] ?? '')
+        const dateStr = String(ticket['date'] ?? ticket['15'] ?? '')
         if (!dateStr) continue
         const ticketDate = new Date(dateStr)
         const dateKey = ticketDate.toISOString().split('T')[0]
@@ -208,9 +255,8 @@ Deno.serve(async (req) => {
 
       // Per-entity last 7 days for line chart
       const last7DaysByEntity: Record<string, Record<string, number>> = {}
-      for (const entityKey of [...Object.keys(KNOWN_ENTITIES), 'indefinido']) {
-        const key = KNOWN_IDS.has(entityKey) ? entityKey : 'indefinido'
-        last7DaysByEntity[key] = { ...last7Days }
+      for (const entityKey of ['1', '7', '8', 'indefinido']) {
+        last7DaysByEntity[entityKey] = { ...last7Days }
       }
       // Reset counts
       for (const key of Object.keys(last7DaysByEntity)) {
@@ -219,10 +265,10 @@ Deno.serve(async (req) => {
         }
       }
       for (const ticket of allTickets) {
-        const dateStr = String(ticket['15'] ?? '')
+        const dateStr = String(ticket['date'] ?? ticket['15'] ?? '')
         if (!dateStr) continue
         const dateKey = new Date(dateStr).toISOString().split('T')[0]
-        const entityKey = getEntityKey(String(ticket['80'] ?? 'unknown'))
+        const entityKey = getEntityKey(String(ticket['entities_id'] ?? ticket['80'] ?? 'unknown'), entityMap)
         if (last7DaysByEntity[entityKey] && last7DaysByEntity[entityKey][dateKey] !== undefined) {
           last7DaysByEntity[entityKey][dateKey]++
         }
