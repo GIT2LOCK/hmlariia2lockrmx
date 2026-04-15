@@ -374,7 +374,7 @@ Deno.serve(async (req) => {
         const dateStr = String(ticket['15'] ?? ticket['date'] ?? '')
         if (!dateStr) continue
         const dateKey = new Date(dateStr).toISOString().split('T')[0]
-        const entityKey = getEntityKey(String(ticket['80'] ?? ticket['entities_id'] ?? 'unknown'), entityMap)
+        const entityKey = getEntityKeyFromName(String(ticket['80'] ?? ''))
         if (last7DaysByEntity[entityKey] && last7DaysByEntity[entityKey][dateKey] !== undefined) {
           last7DaysByEntity[entityKey][dateKey]++
         }
