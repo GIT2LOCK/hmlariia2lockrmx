@@ -9,8 +9,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
-  Cell, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid, Area, AreaChart,
-  BarChart, Bar, Legend,
+  ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid, Area, AreaChart, Legend,
 } from "recharts";
 import { motion } from "framer-motion";
 
@@ -472,11 +471,11 @@ const Dashboard = () => {
           </div>
 
           {/* ═══ MIDDLE: Table + Donuts ═══ */}
-          <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-3 mb-3 flex-1 min-h-0">
+          <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-3 mb-3 flex-shrink-0">
 
             {/* Status Grid */}
             <GlowCard delay={0.4}>
-              <div className="p-3 h-full flex flex-col">
+              <div className="p-3 flex flex-col">
                 {/* Header row */}
                 <div className="grid grid-cols-6 gap-0" style={{ borderBottom: `1px solid ${C.grid}` }}>
                   {["Grupo", "Total", ...ENTITIES.map(e => e.name), "Indef."].map((label, i) => (
@@ -544,73 +543,44 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* ═══ BOTTOM: Area + Bar ═══ */}
-          <div className="grid grid-cols-2 gap-3 flex-shrink-0">
-            {/* 7-day Area Chart */}
-            <GlowCard delay={0.7}>
-              <div className="p-3 lg:p-4">
-                <p className="text-[11px] uppercase tracking-[0.15em] mb-2" style={{ color: C.textCyan }}>
-                  Últimos 7 Dias
-                </p>
-                <ResponsiveContainer width="100%" height={150}>
-                  <AreaChart data={lineData}>
-                    <defs>
-                      {Object.entries(ENTITY_COLORS).map(([id, color]) => (
-                        <linearGradient key={id} id={`area-${id}`} x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor={color} stopOpacity={0.25} />
-                          <stop offset="100%" stopColor={color} stopOpacity={0.02} />
-                        </linearGradient>
-                      ))}
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke={C.grid} />
-                    <XAxis dataKey="name" tick={{ fontSize: 11, fill: C.dim, fontWeight: 600 }} axisLine={{ stroke: C.grid }} tickLine={false} />
-                    <YAxis tick={{ fontSize: 11, fill: C.dim }} allowDecimals={false} axisLine={{ stroke: C.grid }} tickLine={false} />
-                    <Tooltip contentStyle={tooltipStyle} />
-                    <Legend iconSize={8} wrapperStyle={{ fontSize: "10px", color: C.dim, fontWeight: 600 }} />
-                    <Area type="monotone" dataKey="GoodStorage" stroke={ENTITY_COLORS["8"]} strokeWidth={2.5} fill="url(#area-8)"
-                      dot={{ r: 4, fill: ENTITY_COLORS["8"], strokeWidth: 0 }}
-                      activeDot={{ r: 7, fill: ENTITY_COLORS["8"], stroke: ENTITY_COLORS["8"], strokeWidth: 3, strokeOpacity: 0.3 }}
-                      animationDuration={1800} animationBegin={600} />
-                    <Area type="monotone" dataKey="Brava" stroke={ENTITY_COLORS["1"]} strokeWidth={2.5} fill="url(#area-1)"
-                      dot={{ r: 4, fill: ENTITY_COLORS["1"], strokeWidth: 0 }}
-                      animationDuration={1800} animationBegin={800} />
-                    <Area type="monotone" dataKey="PetCare" stroke={ENTITY_COLORS["7"]} strokeWidth={2.5} fill="url(#area-7)"
-                      dot={{ r: 4, fill: ENTITY_COLORS["7"], strokeWidth: 0 }}
-                      animationDuration={1800} animationBegin={1000} />
-                    <Area type="monotone" dataKey="Indefinido" stroke={ENTITY_COLORS["indefinido"]} strokeWidth={2} fill="url(#area-indefinido)"
-                      dot={{ r: 3, fill: ENTITY_COLORS["indefinido"], strokeWidth: 0 }}
-                      strokeDasharray="5 5" animationDuration={1800} animationBegin={1200} />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </GlowCard>
-
-            {/* 24h Bar chart */}
-            <GlowCard delay={0.8}>
-              <div className="p-3 lg:p-4">
-                <p className="text-[11px] uppercase tracking-[0.15em] mb-2" style={{ color: C.textCyan }}>
-                  Últimas 24 Horas
-                </p>
-                <ResponsiveContainer width="100%" height={150}>
-                  <BarChart data={barData}>
-                    <defs>
-                      <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={C.cyan} stopOpacity={0.95} />
-                        <stop offset="100%" stopColor={C.cyan} stopOpacity={0.2} />
+          {/* ═══ BOTTOM: 7-day Area Chart (full width) ═══ */}
+          <GlowCard delay={0.7} className="flex-shrink-0 mb-2">
+            <div className="p-3 lg:p-4">
+              <p className="text-[11px] uppercase tracking-[0.15em] mb-2" style={{ color: C.textCyan }}>
+                Últimos 7 Dias
+              </p>
+              <ResponsiveContainer width="100%" height={150}>
+                <AreaChart data={lineData}>
+                  <defs>
+                    {Object.entries(ENTITY_COLORS).map(([id, color]) => (
+                      <linearGradient key={id} id={`area-${id}`} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={color} stopOpacity={0.25} />
+                        <stop offset="100%" stopColor={color} stopOpacity={0.02} />
                       </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke={C.grid} />
-                    <XAxis dataKey="name" tick={{ fontSize: 9, fill: C.dim, fontWeight: 600 }} interval={2} axisLine={{ stroke: C.grid }} tickLine={false} />
-                    <YAxis tick={{ fontSize: 11, fill: C.dim }} allowDecimals={false} axisLine={{ stroke: C.grid }} tickLine={false} />
-                    <Tooltip contentStyle={tooltipStyle} />
-                    <Bar dataKey="chamados" radius={[5, 5, 0, 0]} animationDuration={1400} animationBegin={900}>
-                      {barData.map((_, i) => <Cell key={i} fill="url(#barGrad)" />)}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </GlowCard>
-          </div>
+                    ))}
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke={C.grid} />
+                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: C.dim, fontWeight: 600 }} axisLine={{ stroke: C.grid }} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: C.dim }} allowDecimals={false} axisLine={{ stroke: C.grid }} tickLine={false} />
+                  <Tooltip contentStyle={tooltipStyle} />
+                  <Legend iconSize={8} wrapperStyle={{ fontSize: "10px", color: C.dim, fontWeight: 600 }} />
+                  <Area type="monotone" dataKey="GoodStorage" stroke={ENTITY_COLORS["8"]} strokeWidth={2.5} fill="url(#area-8)"
+                    dot={{ r: 4, fill: ENTITY_COLORS["8"], strokeWidth: 0 }}
+                    activeDot={{ r: 7, fill: ENTITY_COLORS["8"], stroke: ENTITY_COLORS["8"], strokeWidth: 3, strokeOpacity: 0.3 }}
+                    animationDuration={1800} animationBegin={600} />
+                  <Area type="monotone" dataKey="Brava" stroke={ENTITY_COLORS["1"]} strokeWidth={2.5} fill="url(#area-1)"
+                    dot={{ r: 4, fill: ENTITY_COLORS["1"], strokeWidth: 0 }}
+                    animationDuration={1800} animationBegin={800} />
+                  <Area type="monotone" dataKey="PetCare" stroke={ENTITY_COLORS["7"]} strokeWidth={2.5} fill="url(#area-7)"
+                    dot={{ r: 4, fill: ENTITY_COLORS["7"], strokeWidth: 0 }}
+                    animationDuration={1800} animationBegin={1000} />
+                  <Area type="monotone" dataKey="Indefinido" stroke={ENTITY_COLORS["indefinido"]} strokeWidth={2} fill="url(#area-indefinido)"
+                    dot={{ r: 3, fill: ENTITY_COLORS["indefinido"], strokeWidth: 0 }}
+                    strokeDasharray="5 5" animationDuration={1800} animationBegin={1200} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </GlowCard>
 
           {/* ═══ FOOTER ═══ */}
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.2 }}
