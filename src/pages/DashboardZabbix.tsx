@@ -152,14 +152,11 @@ export default function DashboardZabbix() {
       </div>
 
       {/* KPI row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-        <KpiCard label="Problemas Ativos" value={totalProblems} icon={AlertTriangle} color="text-red-500" loading={loading} />
-        <KpiCard label="Manutenções" value={maintenances.length} icon={Wrench} color="text-yellow-500" loading={loading} />
-        {Object.entries(SEVERITY_CONFIG)
-          .filter(([k]) => Number(k) >= 2)
-          .map(([sev, cfg]) => (
-            <KpiCard key={sev} label={cfg.label} value={severityCounts[sev] || 0} icon={ShieldAlert} color="text-orange-400" loading={loading} />
-          ))}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <KpiCard label="Problemas (Alta+)" value={totalProblems} icon={AlertTriangle} color="text-red-500" loading={loading} />
+        <KpiCard label="Manutenções Ativas" value={maintenances.length} icon={Wrench} color="text-yellow-500" loading={loading} />
+        <KpiCard label="Alta" value={severityCounts["4"] || 0} icon={ShieldAlert} color="text-red-500" loading={loading} />
+        <KpiCard label="Desastre" value={severityCounts["5"] || 0} icon={ShieldAlert} color="text-red-900" loading={loading} />
       </div>
 
       {/* Tabs */}
