@@ -135,15 +135,15 @@ const Particles = () => {
 };
 
 /** Glassmorphism card with glow */
-const GlowCard = ({ children, className = "", hi = false, delay = 0 }: {
-  children: React.ReactNode; className?: string; hi?: boolean; delay?: number;
+const GlowCard = ({ children, className = "", hi = false, delay = 0, contentClassName = "" }: {
+  children: React.ReactNode; className?: string; hi?: boolean; delay?: number; contentClassName?: string;
 }) => (
   <motion.div
     initial={{ opacity: 0, y: 24, scale: 0.96 }}
     animate={{ opacity: 1, y: 0, scale: 1 }}
     transition={{ duration: 0.55, delay, ease: [0.22, 1, 0.36, 1] }}
     whileHover={{ scale: 1.025, transition: { duration: 0.18 } }}
-    className={`relative rounded-2xl overflow-hidden group h-full ${className}`}
+    className={`relative rounded-2xl overflow-hidden group ${className}`}
     style={{
       background: C.cardBg,
       backdropFilter: "blur(16px)",
@@ -151,18 +151,15 @@ const GlowCard = ({ children, className = "", hi = false, delay = 0 }: {
       boxShadow: hi ? C.glowLg : C.glowSm,
     }}
   >
-    {/* top edge glow */}
     <div className="absolute top-0 left-[8%] right-[8%] h-[1px]"
       style={{ background: `linear-gradient(90deg, transparent, rgba(77,166,255,${hi ? 0.9 : 0.45}), transparent)` }} />
-    {/* shine sweep */}
     <div className="absolute inset-0 pointer-events-none overflow-hidden">
       <div className="absolute -top-[50%] -left-[50%] w-[200%] h-[200%] opacity-[0.04] group-hover:opacity-[0.08] transition-opacity duration-700"
         style={{ background: "conic-gradient(from 180deg at 50% 50%, transparent 0deg, rgba(77,166,255,0.8) 60deg, transparent 120deg)" }} />
     </div>
-    {/* hover radial glow */}
     <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
       style={{ background: "radial-gradient(ellipse at 50% 40%, rgba(77,166,255,0.06) 0%, transparent 65%)" }} />
-    <div className="relative z-10 h-full flex flex-col">{children}</div>
+    <div className={`relative z-10 ${contentClassName}`}>{children}</div>
   </motion.div>
 );
 
@@ -489,8 +486,8 @@ const Dashboard = () => {
           <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-3 flex-1 min-h-0">
 
             {/* Left column: Status Grid + 7-day chart */}
-            <div className="flex flex-col gap-3 min-h-0">
-              <GlowCard delay={0.4} className="flex-shrink-0">
+            <div className="grid grid-rows-[auto_minmax(220px,1fr)] gap-3 min-h-0">
+              <GlowCard delay={0.4}>
                 <div className="p-3 flex flex-col">
                   <div className="grid grid-cols-6 gap-0" style={{ borderBottom: `1px solid ${C.grid}` }}>
                     {["Grupo", "Total", ...ENTITIES.map(e => e.name), "Indef."].map((label, i) => (
@@ -538,57 +535,54 @@ const Dashboard = () => {
                 </div>
               </GlowCard>
 
-              {/* 7-day chart fills remaining space */}
-              <div className="flex-1 min-h-0 relative">
-                <GlowCard delay={0.7} className="absolute inset-0">
-                  <div className="p-3 lg:p-4 h-full flex flex-col">
-                    <p className="text-[11px] uppercase tracking-[0.15em] mb-2 flex-shrink-0" style={{ color: C.textCyan }}>
-                      Últimos 7 Dias
-                    </p>
-                    <div className="flex-1 min-h-0">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={lineData}>
-                          <defs>
-                            {Object.entries(ENTITY_COLORS).map(([id, color]) => (
-                              <linearGradient key={id} id={`area-${id}`} x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor={color} stopOpacity={0.25} />
-                                <stop offset="100%" stopColor={color} stopOpacity={0.02} />
-                              </linearGradient>
-                            ))}
-                          </defs>
-                          <CartesianGrid strokeDasharray="3 3" stroke={C.grid} />
-                          <XAxis dataKey="name" tick={{ fontSize: 11, fill: C.dim, fontWeight: 600 }} axisLine={{ stroke: C.grid }} tickLine={false} />
-                          <YAxis tick={{ fontSize: 11, fill: C.dim }} allowDecimals={false} axisLine={{ stroke: C.grid }} tickLine={false} />
-                          <Tooltip contentStyle={tooltipStyle} />
-                          <Legend iconSize={8} wrapperStyle={{ fontSize: "10px", color: C.dim, fontWeight: 600 }} />
-                          <Area type="monotone" dataKey="GoodStorage" stroke={ENTITY_COLORS["8"]} strokeWidth={2.5} fill="url(#area-8)"
-                            dot={{ r: 4, fill: ENTITY_COLORS["8"], strokeWidth: 0 }}
-                            activeDot={{ r: 7, fill: ENTITY_COLORS["8"], stroke: ENTITY_COLORS["8"], strokeWidth: 3, strokeOpacity: 0.3 }}
-                            animationDuration={1800} animationBegin={600} />
-                          <Area type="monotone" dataKey="Brava" stroke={ENTITY_COLORS["1"]} strokeWidth={2.5} fill="url(#area-1)"
-                            dot={{ r: 4, fill: ENTITY_COLORS["1"], strokeWidth: 0 }}
-                            animationDuration={1800} animationBegin={800} />
-                          <Area type="monotone" dataKey="PetCare" stroke={ENTITY_COLORS["7"]} strokeWidth={2.5} fill="url(#area-7)"
-                            dot={{ r: 4, fill: ENTITY_COLORS["7"], strokeWidth: 0 }}
-                            animationDuration={1800} animationBegin={1000} />
-                          <Area type="monotone" dataKey="Indefinido" stroke={ENTITY_COLORS["indefinido"]} strokeWidth={2} fill="url(#area-indefinido)"
-                            dot={{ r: 3, fill: ENTITY_COLORS["indefinido"], strokeWidth: 0 }}
-                            strokeDasharray="5 5" animationDuration={1800} animationBegin={1200} />
-                        </AreaChart>
-                      </ResponsiveContainer>
-                    </div>
+              <GlowCard delay={0.7} className="min-h-[220px] h-full" contentClassName="h-full flex flex-col">
+                <div className="p-3 lg:p-4 h-full flex flex-col">
+                  <p className="text-[11px] uppercase tracking-[0.15em] mb-2 flex-shrink-0" style={{ color: C.textCyan }}>
+                    Últimos 7 Dias
+                  </p>
+                  <div className="flex-1 min-h-[180px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={lineData} margin={{ top: 8, right: 8, left: -12, bottom: 8 }}>
+                        <defs>
+                          {Object.entries(ENTITY_COLORS).map(([id, color]) => (
+                            <linearGradient key={id} id={`area-${id}`} x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor={color} stopOpacity={0.25} />
+                              <stop offset="100%" stopColor={color} stopOpacity={0.02} />
+                            </linearGradient>
+                          ))}
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke={C.grid} />
+                        <XAxis dataKey="name" tick={{ fontSize: 11, fill: C.dim, fontWeight: 600 }} axisLine={{ stroke: C.grid }} tickLine={false} />
+                        <YAxis tick={{ fontSize: 11, fill: C.dim }} allowDecimals={false} axisLine={{ stroke: C.grid }} tickLine={false} />
+                        <Tooltip contentStyle={tooltipStyle} />
+                        <Legend verticalAlign="bottom" align="center" iconSize={8} wrapperStyle={{ fontSize: "10px", color: C.dim, fontWeight: 600, paddingTop: "12px" }} />
+                        <Area type="monotone" dataKey="GoodStorage" stroke={ENTITY_COLORS["8"]} strokeWidth={2.5} fill="url(#area-8)"
+                          dot={{ r: 4, fill: ENTITY_COLORS["8"], strokeWidth: 0 }}
+                          activeDot={{ r: 7, fill: ENTITY_COLORS["8"], stroke: ENTITY_COLORS["8"], strokeWidth: 3, strokeOpacity: 0.3 }}
+                          animationDuration={1800} animationBegin={600} />
+                        <Area type="monotone" dataKey="Brava" stroke={ENTITY_COLORS["1"]} strokeWidth={2.5} fill="url(#area-1)"
+                          dot={{ r: 4, fill: ENTITY_COLORS["1"], strokeWidth: 0 }}
+                          animationDuration={1800} animationBegin={800} />
+                        <Area type="monotone" dataKey="PetCare" stroke={ENTITY_COLORS["7"]} strokeWidth={2.5} fill="url(#area-7)"
+                          dot={{ r: 4, fill: ENTITY_COLORS["7"], strokeWidth: 0 }}
+                          animationDuration={1800} animationBegin={1000} />
+                        <Area type="monotone" dataKey="Indefinido" stroke={ENTITY_COLORS["indefinido"]} strokeWidth={2} fill="url(#area-indefinido)"
+                          dot={{ r: 3, fill: ENTITY_COLORS["indefinido"], strokeWidth: 0 }}
+                          strokeDasharray="5 5" animationDuration={1800} animationBegin={1200} />
+                      </AreaChart>
+                    </ResponsiveContainer>
                   </div>
-                </GlowCard>
-              </div>
+                </div>
+              </GlowCard>
             </div>
 
             {/* Donut Charts */}
-            <div className="flex flex-col gap-3">
-              <GlowCard delay={0.5} className="flex-1">
+            <div className="grid grid-rows-2 gap-3 min-h-0">
+              <GlowCard delay={0.5} className="min-h-0 h-full">
                 <TvDonutCard title="Distribuição por Empresa" items={pieData} total={totalPie} />
               </GlowCard>
 
-              <GlowCard delay={0.6} className="flex-1">
+              <GlowCard delay={0.6} className="min-h-0 h-full">
                 <TvDonutCard
                   title="Distribuição por Status"
                   items={statusPie.map((item) => ({
