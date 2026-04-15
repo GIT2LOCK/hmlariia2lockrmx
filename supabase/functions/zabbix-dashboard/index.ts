@@ -54,7 +54,17 @@ serve(async (req) => {
     let result: unknown;
 
     switch (action) {
-      case "problems": {
+      case "version": {
+        // No auth required - used to check API connectivity
+        const vRes = await fetch(ZABBIX_API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ jsonrpc: "2.0", method: "apiinfo.version", params: [], id: 1 }),
+        });
+        result = await vRes.json();
+        break;
+      }
+
         // Get active problems with host and group info
         const problems = await zabbixCall("problem.get", {
           output: ["eventid", "objectid", "name", "severity", "clock", "acknowledged", "suppressed"],
