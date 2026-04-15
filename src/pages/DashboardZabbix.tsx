@@ -117,7 +117,7 @@ export default function DashboardZabbix() {
   const [contatos, setContatos] = useState<Record<string, ZabbixContato>>({});
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
-  const [expandedHosts, setExpandedHosts] = useState<Set<string>>(new Set());
+  const { toast } = useToast();
   const { toast } = useToast();
 
   const fetchData = useCallback(async () => {
