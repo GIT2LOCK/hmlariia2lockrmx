@@ -16,6 +16,7 @@ import Usuarios from "./pages/Usuarios";
 import Pessoas from "./pages/Pessoas";
 import Responsaveis from "./pages/Responsaveis";
 import BaseConhecimento from "./pages/BaseConhecimento";
+import DashboardZabbix from "./pages/DashboardZabbix";
 import { UserProvider } from "./contexts/UserContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
@@ -47,6 +48,7 @@ const App = () => (
               <Route path="responsaveis" element={<Responsaveis />} />
               <Route path="usuarios" element={<Usuarios />} />
               <Route path="base-conhecimento" element={<BaseConhecimento />} />
+              <Route path="zabbix" element={<DashboardZabbix />} />
               <Route path="perfil" element={<MeuPerfil />} />
             </Route>
             <Route path="*" element={<NotFound />} />
