@@ -87,6 +87,12 @@ serve(async (req) => {
         let eventsMap: Record<string, any[]> = {};
 
         if (triggerIds.length > 0) {
+          // Build a map of triggerid -> lastchange to filter only the current problem event
+          const lastchangeMap: Record<string, string> = {};
+          for (const t of filteredTriggers) {
+            lastchangeMap[t.triggerid] = t.lastchange;
+          }
+
           const events = await zabbixCall("event.get", {
             output: ["eventid", "objectid", "clock", "acknowledged"],
             objectids: triggerIds,
@@ -96,6 +102,11 @@ serve(async (req) => {
             sortfield: "clock",
             sortorder: "DESC",
             selectAcknowledges: ["acknowledgeid", "userid", "clock", "message", "action"],
+          });
+
+          // Keep only events whose clock matches the trigger's lastchange (current problem)
+          const currentEvents = events.filter((ev: any) => {
+            return ev.clock === lastchangeMap[ev.objectid];
           });
 
           // Collect unique userids from acknowledges
