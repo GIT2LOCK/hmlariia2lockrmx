@@ -500,7 +500,7 @@ const Dashboard = () => {
                   </div>
                   <div className="flex flex-wrap gap-x-3 gap-y-1 justify-center">
                     {pieData.map(p => (
-                      <span key={p.name} className="flex items-center gap-1.5 text-[10px] style={{ color: C.dim, fontWeight: 400 }}>
+                      <span key={p.name} className="flex items-center gap-1.5 text-[10px]" style={{ color: C.dim, fontWeight: 400 }}>
                         <span className="w-2.5 h-2.5 rounded-full" style={{ background: p.color, boxShadow: `0 0 5px ${p.color}60` }} />
                         {p.pct}% {p.name}
                       </span>
@@ -534,7 +534,7 @@ const Dashboard = () => {
                   </div>
                   <div className="flex flex-wrap gap-x-3 gap-y-1 justify-center">
                     {statusPie.map(d => (
-                      <span key={d.name} className="flex items-center gap-1.5 text-[10px] style={{ color: C.dim, fontWeight: 400 }}>
+                      <span key={d.name} className="flex items-center gap-1.5 text-[10px]" style={{ color: C.dim, fontWeight: 400 }}>
                         <span className="w-2.5 h-2.5 rounded-full" style={{ background: d.color, boxShadow: `0 0 5px ${d.color}60` }} />
                         {d.name} {totalStatus > 0 ? Math.round((d.value / totalStatus) * 100) : 0}%
                       </span>
