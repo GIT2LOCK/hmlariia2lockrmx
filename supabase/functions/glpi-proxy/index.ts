@@ -169,10 +169,6 @@ async function fetchAllTicketsOpenedInPeriod(
   }
   
   console.log(`Fetched ${allTickets.length} total tickets for chart (last ${days} days)`)
-  if (allTickets.length > 0) {
-    console.log('Chart ticket sample keys:', JSON.stringify(Object.keys(allTickets[0])))
-    console.log('Chart ticket sample:', JSON.stringify(allTickets[0]))
-  }
   
   return allTickets.filter(t => {
     const name = String(t['1'] ?? t['name'] ?? '').toLowerCase()
