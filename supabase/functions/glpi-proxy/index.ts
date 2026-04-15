@@ -109,13 +109,86 @@ async function fetchAllOpenTickets(
     }
   }
   
-  // Filter out tickets with "vConnector" or starting with "[Problem]"
+  // Filter out tickets with "vConnector", starting with "[Problem]" or "[Resolved]"
   return allTickets.filter(t => {
     const name = String(t['name'] ?? t['title'] ?? '').toLowerCase()
     if (name.includes('vconnector')) return false
     if (name.startsWith('[problem]')) return false
+    if (name.startsWith('[resolved]')) return false
     return true
   })
+}
+
+// Fetch ALL tickets opened in last N days (any status, for charts)
+async function fetchAllTicketsOpenedInPeriod(
+  glpiUrl: string,
+  headers: Record<string, string>,
+  days: number
+): Promise<Array<Record<string, unknown>>> {
+  const allTickets: Array<Record<string, unknown>> = []
+  const since = new Date()
+  since.setDate(since.getDate() - days)
+  const sinceStr = since.toISOString().split('T')[0]
+  
+  let start = 0
+  const batchSize = 999
+  
+  while (true) {
+    const params = new URLSearchParams({
+      'criteria[0][field]': '15',
+      'criteria[0][searchtype]': 'morethan',
+      'criteria[0][value]': sinceStr,
+      'forcedisplay[0]': '1',
+      'forcedisplay[1]': '15',
+      'forcedisplay[2]': '12',
+      'forcedisplay[3]': '80',
+      'range': `${start}-${start + batchSize}`,
+    })
+    
+    let res: Response
+    try {
+      res = await fetchWithRetry(`${glpiUrl}/search/Ticket?${params}`, { headers })
+    } catch (err) {
+      console.error('Chart tickets fetch failed:', err)
+      break
+    }
+    
+    if (!res.ok) break
+    
+    const json = await res.json()
+    const data = json.data
+    
+    if (Array.isArray(data) && data.length > 0) {
+      allTickets.push(...data)
+      if (data.length < batchSize) break
+    } else {
+      break
+    }
+    
+    start += batchSize + 1
+  }
+  
+  console.log(`Fetched ${allTickets.length} total tickets for chart (last ${days} days)`)
+  
+  return allTickets.filter(t => {
+    const name = String(t['1'] ?? t['name'] ?? '').toLowerCase()
+    if (name.includes('vconnector')) return false
+    if (name.startsWith('[problem]')) return false
+    if (name.startsWith('[resolved]')) return false
+    // Also filter by ticket name field 2 if present
+    const name2 = String(t['name'] ?? '').toLowerCase()
+    if (name2.includes('vconnector') || name2.startsWith('[problem]') || name2.startsWith('[resolved]')) return false
+    return true
+  })
+}
+
+// Map entity name from search API to entity key
+function getEntityKeyFromName(entityName: string): string {
+  const upper = entityName.toUpperCase()
+  if (upper.includes('GOODSTORAGE') || upper.includes('GS ') || upper.includes('GS-')) return '8'
+  if (upper.includes('PETCARE') || upper.includes('PET ') || upper.includes('TECSA')) return '7'
+  if (upper.includes('BRAVA') || upper.includes('POLO ')) return '1'
+  return 'indefinido'
 }
 
 // GLPI statuses: 1=new, 2=assigned, 3=planned, 4=pending, 5=solved, 6=closed
@@ -241,7 +314,11 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Aggregate by opening date for last 7 days (field 15 = date)
+      // Fetch ALL tickets opened in last 7 days (any status) for chart
+      const chartTickets = await fetchAllTicketsOpenedInPeriod(GLPI_URL, glpiHeaders, 7)
+      console.log('Chart tickets (all statuses, 7d):', chartTickets.length)
+
+      // Aggregate by opening date for last 7 days
       const now = new Date()
       const last7Days: Record<string, number> = {}
       const last24Hours: Record<string, number> = {}
@@ -262,9 +339,9 @@ Deno.serve(async (req) => {
         last24Hours[key] = 0
       }
 
-      // Count tickets by date (field 15)
-      for (const ticket of allTickets) {
-        const dateStr = String(ticket['date'] ?? ticket['15'] ?? '')
+      // Count chart tickets by date (search API returns field '15' for date)
+      for (const ticket of chartTickets) {
+        const dateStr = String(ticket['15'] ?? ticket['date'] ?? '')
         if (!dateStr) continue
         const ticketDate = new Date(dateStr)
         const dateKey = ticketDate.toISOString().split('T')[0]
@@ -284,19 +361,16 @@ Deno.serve(async (req) => {
       // Per-entity last 7 days for line chart
       const last7DaysByEntity: Record<string, Record<string, number>> = {}
       for (const entityKey of ['1', '7', '8', 'indefinido']) {
-        last7DaysByEntity[entityKey] = { ...last7Days }
-      }
-      // Reset counts
-      for (const key of Object.keys(last7DaysByEntity)) {
-        for (const d of Object.keys(last7DaysByEntity[key])) {
-          last7DaysByEntity[key][d] = 0
+        last7DaysByEntity[entityKey] = {}
+        for (const d of Object.keys(last7Days)) {
+          last7DaysByEntity[entityKey][d] = 0
         }
       }
-      for (const ticket of allTickets) {
-        const dateStr = String(ticket['date'] ?? ticket['15'] ?? '')
+      for (const ticket of chartTickets) {
+        const dateStr = String(ticket['15'] ?? ticket['date'] ?? '')
         if (!dateStr) continue
         const dateKey = new Date(dateStr).toISOString().split('T')[0]
-        const entityKey = getEntityKey(String(ticket['entities_id'] ?? ticket['80'] ?? 'unknown'), entityMap)
+        const entityKey = getEntityKeyFromName(String(ticket['80'] ?? ''))
         if (last7DaysByEntity[entityKey] && last7DaysByEntity[entityKey][dateKey] !== undefined) {
           last7DaysByEntity[entityKey][dateKey]++
         }
