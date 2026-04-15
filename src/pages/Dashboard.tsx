@@ -577,7 +577,7 @@ const Dashboard = () => {
             </div>
 
             {/* Donut Charts */}
-            <div className="grid grid-rows-2 gap-3 min-h-0">
+            <div className="grid grid-rows-[auto_minmax(220px,1fr)] gap-3 min-h-0">
               <GlowCard delay={0.5} className="min-h-0 h-full">
                 <TvDonutCard title="Distribuição por Empresa" items={pieData} total={totalPie} />
               </GlowCard>
