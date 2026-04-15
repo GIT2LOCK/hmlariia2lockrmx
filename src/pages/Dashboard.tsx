@@ -3,23 +3,48 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { Building2, MapPin, Radio, Wifi, Search, Monitor, RefreshCw, ArrowLeft, Clock, TrendingUp } from "lucide-react";
+import {
+  Building2, MapPin, Radio, Wifi, Search, Monitor,
+  RefreshCw, ArrowLeft, Clock, HelpCircle
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import {
+  PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
+  LineChart, Line, XAxis, YAxis, CartesianGrid,
+  BarChart, Bar, Legend,
+} from "recharts";
 
-interface TicketCounts {
+interface TicketData {
   totalOpen: number;
   byEntity: Record<string, number>;
+  entityTotals: Record<string, number>;
+  byStatusEntity: Record<string, Record<string, number>>;
+  last7Days: Record<string, number>;
+  last7DaysByEntity: Record<string, Record<string, number>>;
+  last24Hours: Record<string, number>;
   fetchedAt: string;
 }
 
 const ENTITIES = [
-  { id: "8", name: "GOODSTORAGE" },
-  { id: "7", name: "PETCARE" },
-  { id: "1", name: "BRAVA" },
+  { id: "8", name: "GoodStorage", icon: Building2 },
+  { id: "1", name: "Brava", icon: MapPin },
+  { id: "7", name: "PetCare", icon: Radio },
 ];
 const KNOWN_IDS = new Set(["1", "7", "8"]);
 const REFRESH_INTERVAL = 30_000;
-const HISTORY_SIZE = 20;
+
+const ENTITY_COLORS: Record<string, string> = {
+  "8": "hsl(215, 85%, 55%)",
+  "7": "hsl(160, 65%, 45%)",
+  "1": "hsl(25, 85%, 55%)",
+  "indefinido": "hsl(220, 15%, 50%)",
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  novo: "Novo",
+  em_andamento: "Em Andamento",
+  pendente: "Pendente",
+};
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -28,23 +53,19 @@ const Dashboard = () => {
   const [results, setResults] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
 
-  // TV state
   const [tvMode, setTvMode] = useState(false);
-  const [ticketData, setTicketData] = useState<TicketCounts | null>(null);
+  const [ticketData, setTicketData] = useState<TicketData | null>(null);
   const [ticketLoading, setTicketLoading] = useState(false);
   const [ticketError, setTicketError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
-  const [history, setHistory] = useState<Array<{ time: string; counts: Record<string, number>; total: number }>>([]);
   const [now, setNow] = useState(new Date());
 
-  // Clock
   useEffect(() => {
     if (!tvMode) return;
     const t = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(t);
   }, [tvMode]);
 
-  // Load dashboard counts
   useEffect(() => {
     const loadCounts = async () => {
       const [e, u, o, l] = await Promise.all([
@@ -53,15 +74,11 @@ const Dashboard = () => {
         supabase.from("operadoras").select("id", { count: "exact", head: true }),
         supabase.from("links_internet").select("id", { count: "exact", head: true }),
       ]);
-      setCounts({
-        empresas: e.count || 0, unidades: u.count || 0,
-        operadoras: o.count || 0, links: l.count || 0,
-      });
+      setCounts({ empresas: e.count || 0, unidades: u.count || 0, operadoras: o.count || 0, links: l.count || 0 });
     };
     loadCounts();
   }, []);
 
-  // Search
   useEffect(() => {
     if (!search.trim()) { setResults([]); return; }
     const timer = setTimeout(async () => {
@@ -78,7 +95,6 @@ const Dashboard = () => {
     return () => clearTimeout(timer);
   }, [search]);
 
-  // Ticket fetching
   const fetchTickets = useCallback(async () => {
     try {
       setTicketError(null);
@@ -90,24 +106,9 @@ const Dashboard = () => {
         { headers: { apikey: anonKey, "Content-Type": "application/json" } }
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const result: TicketCounts = await res.json();
+      const result: TicketData = await res.json();
       setTicketData(result);
       setLastUpdate(new Date());
-
-      const unidentified = Object.entries(result.byEntity)
-        .filter(([id]) => !KNOWN_IDS.has(id))
-        .reduce((s, [, c]) => s + c, 0);
-      setHistory((prev) => {
-        const next = [
-          ...prev,
-          {
-            time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
-            counts: { ...Object.fromEntries(ENTITIES.map((e) => [e.id, result.byEntity[e.id] || 0])), other: unidentified },
-            total: result.totalOpen,
-          },
-        ];
-        return next.slice(-HISTORY_SIZE);
-      });
     } catch (err) {
       console.error("TV fetch error:", err);
       setTicketError(err instanceof Error ? err.message : "Erro ao buscar dados");
@@ -116,7 +117,6 @@ const Dashboard = () => {
     }
   }, []);
 
-  // Auto-refresh
   useEffect(() => {
     if (!tvMode) return;
     fetchTickets();
@@ -124,37 +124,57 @@ const Dashboard = () => {
     return () => clearInterval(interval);
   }, [tvMode, fetchTickets]);
 
-  const getCount = (id: string) => ticketData?.byEntity[id] || 0;
-  const unidentifiedCount = useMemo(() => {
-    if (!ticketData?.byEntity) return 0;
-    return Object.entries(ticketData.byEntity)
-      .filter(([id]) => !KNOWN_IDS.has(id))
-      .reduce((s, [, c]) => s + c, 0);
+  // Computed data
+  const entityTotals = useMemo(() => {
+    if (!ticketData?.entityTotals) return {};
+    return ticketData.entityTotals;
   }, [ticketData]);
 
-  const maxCount = useMemo(() => {
-    const all = [...ENTITIES.map((e) => getCount(e.id)), unidentifiedCount];
-    return Math.max(...all, 1);
-  }, [ticketData, unidentifiedCount]);
+  const pieData = useMemo(() => {
+    const totals = entityTotals;
+    const total = Object.values(totals).reduce((s, v) => s + v, 0) || 1;
+    return [
+      ...ENTITIES.map((e) => ({
+        name: e.name,
+        value: totals[e.id] || 0,
+        pct: Math.round(((totals[e.id] || 0) / total) * 100),
+        color: ENTITY_COLORS[e.id],
+      })),
+      {
+        name: "Indefinido",
+        value: totals["indefinido"] || 0,
+        pct: Math.round(((totals["indefinido"] || 0) / total) * 100),
+        color: ENTITY_COLORS["indefinido"],
+      },
+    ];
+  }, [entityTotals]);
 
-  const sparklinePath = useMemo(() => {
-    if (history.length < 2) return "";
-    const maxH = Math.max(...history.map((h) => h.total), 1);
-    const w = 100;
-    const h = 40;
-    return history
-      .map((point, i) => {
-        const x = (i / (history.length - 1)) * w;
-        const y = h - (point.total / maxH) * h;
-        return `${i === 0 ? "M" : "L"} ${x} ${y}`;
-      })
-      .join(" ");
-  }, [history]);
+  const lineChartData = useMemo(() => {
+    if (!ticketData?.last7Days) return [];
+    const dayNames = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+    return Object.entries(ticketData.last7Days).map(([date, count]) => {
+      const d = new Date(date + "T12:00:00");
+      const byEntity = ticketData.last7DaysByEntity || {};
+      return {
+        name: dayNames[d.getDay()],
+        total: count,
+        GoodStorage: byEntity["8"]?.[date] || 0,
+        Brava: byEntity["1"]?.[date] || 0,
+        PetCare: byEntity["7"]?.[date] || 0,
+        Indefinido: byEntity["indefinido"]?.[date] || 0,
+      };
+    });
+  }, [ticketData]);
 
-  const allCards = [
-    ...ENTITIES.map((e) => ({ id: e.id, name: e.name, count: getCount(e.id) })),
-    { id: "other", name: "Não Identificado", count: unidentifiedCount },
-  ];
+  const barChartData = useMemo(() => {
+    if (!ticketData?.last24Hours) return [];
+    return Object.entries(ticketData.last24Hours).map(([hour, count]) => ({
+      name: hour,
+      chamados: count,
+    }));
+  }, [ticketData]);
+
+  const getCount = (id: string) => ticketData?.entityTotals?.[id] || 0;
 
   const stats = [
     { label: "Empresas", value: counts.empresas, icon: Building2, color: "text-primary" },
@@ -165,144 +185,289 @@ const Dashboard = () => {
 
   // ── TV MODE ──
   if (tvMode) {
+    const statusRows = ["novo", "em_andamento", "pendente"];
+
     return (
-      <div className="space-y-6">
+      <div className="space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" onClick={() => setTvMode(false)}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <div>
-              <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-                <Monitor className="h-6 w-6" />
-                Chamados em Aberto
-              </h1>
-              <p className="text-muted-foreground text-sm">Atualização automática a cada 30 segundos</p>
-            </div>
+            <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
+              <Monitor className="h-5 w-5" />
+              Painel de Chamados
+            </h1>
           </div>
           <div className="flex items-center gap-4">
-            {ticketError && (
-              <span className="text-sm text-destructive">{ticketError}</span>
-            )}
+            {ticketError && <span className="text-sm text-destructive">{ticketError}</span>}
             <div className="flex items-center gap-1.5 text-muted-foreground">
               <Clock className="h-4 w-4" />
-              <span className="font-mono text-lg font-semibold text-foreground tabular-nums">
-                {now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+              <span className="font-mono text-sm font-semibold text-foreground tabular-nums">
+                {now.toLocaleTimeString("pt-BR")}
               </span>
             </div>
-            <Button variant="outline" size="icon" onClick={fetchTickets} disabled={ticketLoading}>
-              <RefreshCw className={`h-4 w-4 ${ticketLoading ? "animate-spin" : ""}`} />
+            <Button variant="outline" size="sm" onClick={fetchTickets} disabled={ticketLoading} className="gap-1.5">
+              <RefreshCw className={`h-3.5 w-3.5 ${ticketLoading ? "animate-spin" : ""}`} />
+              Atualizar
             </Button>
           </div>
         </div>
 
-        {/* Ticket cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {allCards.map((card) => {
-            const pct = maxCount > 0 ? (card.count / maxCount) * 100 : 0;
-            return (
-              <Card key={card.id} className="relative overflow-hidden">
-                <CardContent className="p-6 flex flex-col items-center justify-center text-center min-h-[220px]">
-                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4">
-                    {card.name}
-                  </p>
-                  <p className="text-7xl lg:text-8xl font-black text-foreground leading-none tabular-nums">
-                    {ticketLoading && !ticketData ? "—" : card.count}
-                  </p>
-                </CardContent>
-                {/* Bottom progress bar */}
-                <div className="absolute bottom-0 left-0 right-0 h-1 bg-muted">
-                  <div
-                    className="h-full bg-primary transition-all duration-1000 ease-out rounded-r-full"
-                    style={{ width: `${pct}%` }}
-                  />
+        {/* Top cards */}
+        <div className="grid grid-cols-5 gap-3">
+          {/* Total card */}
+          <Card className="border-primary/30">
+            <CardContent className="p-4 flex flex-col items-center justify-center text-center h-full">
+              <div className="flex items-center gap-2 mb-1">
+                <Monitor className="h-4 w-4 text-primary" />
+                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                  Chamados Total
+                </span>
+              </div>
+              <span className="text-4xl font-black text-foreground tabular-nums">
+                {ticketData?.totalOpen ?? "—"}
+              </span>
+              {ticketData && ticketData.totalOpen > 0 && (
+                <div className="flex gap-2 mt-1 text-[10px] text-muted-foreground">
+                  {pieData.filter(p => p.value > 0).map(p => (
+                    <span key={p.name} className="flex items-center gap-0.5">
+                      <span className="w-1.5 h-1.5 rounded-full" style={{ background: p.color }} />
+                      {p.pct}%
+                    </span>
+                  ))}
                 </div>
-              </Card>
-            );
-          })}
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Entity cards */}
+          {ENTITIES.map((entity) => (
+            <Card key={entity.id}>
+              <CardContent className="p-4 flex flex-col items-center justify-center text-center h-full">
+                <div className="flex items-center gap-2 mb-1">
+                  <entity.icon className="h-4 w-4" style={{ color: ENTITY_COLORS[entity.id] }} />
+                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                    {entity.name}
+                  </span>
+                </div>
+                <span className="text-4xl font-black text-foreground tabular-nums">
+                  {ticketLoading && !ticketData ? "—" : getCount(entity.id)}
+                </span>
+              </CardContent>
+            </Card>
+          ))}
+
+          {/* Indefinido */}
+          <Card>
+            <CardContent className="p-4 flex flex-col items-center justify-center text-center h-full">
+              <div className="flex items-center gap-2 mb-1">
+                <HelpCircle className="h-4 w-4" style={{ color: ENTITY_COLORS["indefinido"] }} />
+                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                  Indefinido
+                </span>
+              </div>
+              <span className="text-4xl font-black text-foreground tabular-nums">
+                {ticketLoading && !ticketData ? "—" : getCount("indefinido")}
+              </span>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Bottom: Total + Bar chart + Sparkline */}
-        <Card>
-          <CardContent className="p-6 flex flex-col lg:flex-row items-center justify-between gap-6">
-            {/* Total */}
-            <div className="text-center lg:text-left">
-              <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
-                Total em aberto
-              </p>
-              <p className="text-5xl font-black text-foreground tabular-nums">
-                {ticketData?.totalOpen ?? "—"}
-              </p>
-            </div>
+        {/* Middle: Table + Pie */}
+        <div className="grid grid-cols-[1fr_300px] gap-3">
+          {/* Status table */}
+          <Card>
+            <CardContent className="p-0">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left p-3 text-xs font-bold text-muted-foreground uppercase tracking-wider">Grupo</th>
+                    <th className="text-center p-3 text-xs font-bold text-muted-foreground uppercase tracking-wider">Total</th>
+                    {ENTITIES.map((e) => (
+                      <th key={e.id} className="text-center p-3 text-xs font-bold uppercase tracking-wider" style={{ color: ENTITY_COLORS[e.id] }}>
+                        {e.name}
+                      </th>
+                    ))}
+                    <th className="text-center p-3 text-xs font-bold uppercase tracking-wider" style={{ color: ENTITY_COLORS["indefinido"] }}>
+                      Indef.
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {statusRows.map((status, i) => {
+                    const row = ticketData?.byStatusEntity?.[status] || {};
+                    const total = Object.values(row).reduce((s, v) => s + v, 0);
+                    return (
+                      <tr key={status} className={i < statusRows.length - 1 ? "border-b" : ""}>
+                        <td className="p-3 text-sm font-semibold text-foreground">{STATUS_LABELS[status]}</td>
+                        <td className="p-3 text-center text-2xl font-black text-foreground tabular-nums">{total}</td>
+                        {ENTITIES.map((e) => (
+                          <td key={e.id} className="p-3 text-center text-2xl font-black text-foreground tabular-nums">
+                            {row[e.id] || 0}
+                          </td>
+                        ))}
+                        <td className="p-3 text-center text-2xl font-black text-foreground tabular-nums">
+                          {row["indefinido"] || 0}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
 
-            {/* Mini bar chart */}
-            <div className="flex items-end gap-3 h-16">
-              {allCards.map((card) => {
-                const h = maxCount > 0 ? Math.max((card.count / maxCount) * 64, 4) : 4;
-                return (
-                  <div key={card.id} className="flex flex-col items-center gap-1">
-                    <span className="text-xs font-bold text-foreground tabular-nums">{card.count}</span>
-                    <div
-                      className="w-10 rounded-t bg-primary transition-all duration-1000"
-                      style={{ height: `${h}px` }}
+          {/* Pie charts */}
+          <div className="space-y-3">
+            <Card>
+              <CardHeader className="p-3 pb-0">
+                <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                  Distribuição por Empresa
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-2">
+                <ResponsiveContainer width="100%" height={140}>
+                  <PieChart>
+                    <Pie
+                      data={pieData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={35}
+                      outerRadius={55}
+                      dataKey="value"
+                      strokeWidth={2}
+                      stroke="hsl(var(--card))"
+                    >
+                      {pieData.map((entry, i) => (
+                        <Cell key={i} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(value: number, name: string) => [`${value} chamados`, name]}
+                      contentStyle={{
+                        background: "hsl(var(--card))",
+                        border: "1px solid hsl(var(--border))",
+                        borderRadius: "8px",
+                        fontSize: "12px",
+                      }}
                     />
-                    <span className="text-[10px] font-semibold text-muted-foreground uppercase">
-                      {card.name.length > 6 ? card.name.slice(0, 5) + "." : card.name}
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="flex flex-wrap gap-2 justify-center px-2">
+                  {pieData.map((p) => (
+                    <span key={p.name} className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                      <span className="w-2 h-2 rounded-full" style={{ background: p.color }} />
+                      {p.name} {p.pct}%
                     </span>
-                  </div>
-                );
-              })}
-            </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
 
-            {/* Sparkline */}
-            <div className="flex items-center gap-3">
-              <div className="text-right">
-                <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1 justify-end">
-                  <TrendingUp className="h-3 w-3" />
-                  Histórico
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {history.length} leituras
-                </p>
-              </div>
-              <svg viewBox="0 0 100 40" className="w-40 lg:w-56 h-10" preserveAspectRatio="none">
-                {sparklinePath && (
-                  <>
-                    <defs>
-                      <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.25" />
-                        <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0" />
-                      </linearGradient>
-                    </defs>
-                    <path d={`${sparklinePath} L 100 40 L 0 40 Z`} fill="url(#sparkGrad)" />
-                    <path d={sparklinePath} fill="none" stroke="hsl(var(--primary))" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                    {history.length > 0 && (
-                      <circle
-                        cx={100}
-                        cy={40 - (history[history.length - 1].total / Math.max(...history.map((h) => h.total), 1)) * 40}
-                        r="2.5"
-                        fill="hsl(var(--primary))"
-                      >
-                        <animate attributeName="r" values="2.5;4;2.5" dur="2s" repeatCount="indefinite" />
-                      </circle>
-                    )}
-                  </>
-                )}
-              </svg>
-            </div>
+            {/* Status pie */}
+            <Card>
+              <CardHeader className="p-3 pb-0">
+                <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                  Por Status
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-2">
+                {(() => {
+                  const statusColors = ["hsl(200, 70%, 55%)", "hsl(215, 85%, 55%)", "hsl(235, 60%, 55%)"];
+                  const statusData = statusRows.map((s, i) => {
+                    const row = ticketData?.byStatusEntity?.[s] || {};
+                    return {
+                      name: STATUS_LABELS[s],
+                      value: Object.values(row).reduce((sum, v) => sum + v, 0),
+                      color: statusColors[i],
+                    };
+                  });
+                  const total = statusData.reduce((s, d) => s + d.value, 0) || 1;
+                  return (
+                    <>
+                      <ResponsiveContainer width="100%" height={100}>
+                        <PieChart>
+                          <Pie data={statusData} cx="50%" cy="50%" innerRadius={25} outerRadius={40} dataKey="value" strokeWidth={2} stroke="hsl(var(--card))">
+                            {statusData.map((e, i) => <Cell key={i} fill={e.color} />)}
+                          </Pie>
+                          <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "12px" }} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <div className="flex flex-wrap gap-2 justify-center">
+                        {statusData.map((d) => (
+                          <span key={d.name} className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                            <span className="w-2 h-2 rounded-full" style={{ background: d.color }} />
+                            {d.name} {Math.round((d.value / total) * 100)}%
+                          </span>
+                        ))}
+                      </div>
+                    </>
+                  );
+                })()}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
 
-            {/* Last update */}
-            {lastUpdate && (
-              <div className="text-center lg:text-right">
-                <p className="text-xs text-muted-foreground">Última atualização</p>
-                <p className="text-sm font-mono font-semibold text-foreground tabular-nums">
-                  {lastUpdate.toLocaleTimeString("pt-BR")}
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {/* Bottom: Line chart + Bar chart */}
+        <div className="grid grid-cols-2 gap-3">
+          {/* Line chart - last 7 days */}
+          <Card>
+            <CardHeader className="p-3 pb-0">
+              <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                Últimos 7 Dias
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-2">
+              <ResponsiveContainer width="100%" height={160}>
+                <LineChart data={lineChartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />
+                  <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} allowDecimals={false} />
+                  <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "12px" }} />
+                  <Legend iconSize={8} wrapperStyle={{ fontSize: "10px" }} />
+                  <Line type="monotone" dataKey="GoodStorage" stroke={ENTITY_COLORS["8"]} strokeWidth={2} dot={{ r: 3 }} />
+                  <Line type="monotone" dataKey="Brava" stroke={ENTITY_COLORS["1"]} strokeWidth={2} dot={{ r: 3 }} />
+                  <Line type="monotone" dataKey="PetCare" stroke={ENTITY_COLORS["7"]} strokeWidth={2} dot={{ r: 3 }} />
+                  <Line type="monotone" dataKey="Indefinido" stroke={ENTITY_COLORS["indefinido"]} strokeWidth={2} dot={{ r: 3 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          {/* Bar chart - last 24 hours */}
+          <Card>
+            <CardHeader className="p-3 pb-0">
+              <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                Últimas 24 Horas
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-2">
+              <ResponsiveContainer width="100%" height={160}>
+                <BarChart data={barChartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis
+                    dataKey="name"
+                    tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }}
+                    interval={2}
+                  />
+                  <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} allowDecimals={false} />
+                  <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "12px" }} />
+                  <Bar dataKey="chamados" fill="hsl(var(--primary))" radius={[3, 3, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Footer */}
+        {lastUpdate && (
+          <p className="text-center text-xs text-muted-foreground">
+            Última atualização: {lastUpdate.toLocaleTimeString("pt-BR")} · Atualização automática a cada 30s
+          </p>
+        )}
       </div>
     );
   }
