@@ -63,6 +63,7 @@ serve(async (req) => {
         const problems = await zabbixCall("problem.get", {
           output: ["eventid", "objectid", "name", "severity", "clock", "acknowledged", "suppressed"],
           recent: false,
+          severities: [4, 5], // 4 = Alta, 5 = Desastre
           sortfield: ["eventid"],
           sortorder: "DESC",
           suppressed: false,
@@ -107,13 +108,19 @@ serve(async (req) => {
       }
 
       case "maintenance": {
-        const maintenances = await zabbixCall("maintenance.get", {
+        const now = Math.floor(Date.now() / 1000);
+        const allMaintenances = await zabbixCall("maintenance.get", {
           output: ["maintenanceid", "name", "active_since", "active_till", "description"],
           selectHosts: ["hostid", "host", "name"],
           selectGroups: ["groupid", "name"],
           selectTimeperiods: "extend",
         });
-        result = maintenances;
+        // Filter: active (started and not ended) or approaching (not started yet)
+        result = allMaintenances.filter((m: any) => {
+          const since = Number(m.active_since);
+          const till = Number(m.active_till);
+          return till > now; // active or approaching (end time in the future)
+        });
         break;
       }
 
