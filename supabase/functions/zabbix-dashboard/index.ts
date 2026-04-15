@@ -59,11 +59,18 @@ serve(async (req) => {
       }
 
       case "problems": {
-        // Get active problems with host and group info
+        // Get hosts currently in maintenance
+        const hostsInMaintenance = await zabbixCall("host.get", {
+          output: ["hostid"],
+          filter: { maintenance_status: 1 },
+        });
+        const maintenanceHostIds = new Set(hostsInMaintenance.map((h: any) => h.hostid));
+
+        // Get active problems - severity 4 (High) only, not suppressed
         const problems = await zabbixCall("problem.get", {
           output: ["eventid", "objectid", "name", "severity", "clock", "acknowledged", "suppressed"],
           recent: false,
-          severities: [4, 5], // 4 = Alta, 5 = Desastre
+          severities: [4], // 4 = High only
           sortfield: ["eventid"],
           sortorder: "DESC",
           suppressed: false,
@@ -71,7 +78,7 @@ serve(async (req) => {
           selectTags: "extend",
         });
 
-        // Get trigger details for the problems to get host info
+        // Get trigger details for host info
         const triggerIds = [...new Set(problems.map((p: any) => p.objectid))];
         let triggers: any[] = [];
         if (triggerIds.length > 0) {
@@ -85,15 +92,21 @@ serve(async (req) => {
 
         const triggerMap = new Map(triggers.map((t: any) => [t.triggerid, t]));
 
-        const enrichedProblems = problems.map((p: any) => {
-          const trigger = triggerMap.get(p.objectid);
-          return {
-            ...p,
-            hosts: trigger?.hosts || [],
-            groups: trigger?.groups || [],
-            triggerDescription: trigger?.description || p.name,
-          };
-        });
+        const enrichedProblems = problems
+          .map((p: any) => {
+            const trigger = triggerMap.get(p.objectid);
+            return {
+              ...p,
+              hosts: trigger?.hosts || [],
+              groups: trigger?.groups || [],
+              triggerDescription: trigger?.description || p.name,
+            };
+          })
+          // Exclude problems where ALL hosts are in maintenance
+          .filter((p: any) => {
+            if (!p.hosts || p.hosts.length === 0) return true;
+            return !p.hosts.every((h: any) => maintenanceHostIds.has(h.hostid));
+          });
 
         result = enrichedProblems;
         break;
