@@ -64,6 +64,11 @@ const SEVERITY_CONFIG: Record<string, { label: string; bg: string; text: string 
 };
 
 function classifyProblem(problem: ZabbixProblem): Category {
+  // If the backend already classified it (Zabbix 2), use that
+  if (problem.category && (problem.category === "equipamentos" || problem.category === "links" || problem.category === "outros")) {
+    return problem.category as Category;
+  }
+  // Zabbix 1 classification
   const name = problem.triggerDescription || problem.name || "";
   if (/indisponibilidade.*equipamento/i.test(name)) return "equipamentos";
   if (/indisponibilidade.*link/i.test(name)) return "links";
