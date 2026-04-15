@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { getStoredUser, syncUserFromDatabase, AuthUser } from "@/services/authService";
 
-export type UserRole = "SUPERADMIN" | "ADMIN" | "USER" | "VIEWER";
+export type UserRole = "SUPERADMIN" | "ADMIN" | "USER" | "VIEWER" | "TV_VIEW";
 
 interface User {
   id: number;
@@ -25,6 +25,7 @@ interface UserContextType {
   canManageAdmins: boolean;
   hasFullAccess: boolean;
   isViewer: boolean;
+  isTvView: boolean;
 }
 
 const splitName = (fullName: string): { nome: string; sobrenome: string } => {
@@ -152,11 +153,12 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const canManageAdmins = user.role === "SUPERADMIN";
   const hasFullAccess = user.role === "SUPERADMIN";
   const isViewer = user.role === "VIEWER";
+  const isTvView = user.role === "TV_VIEW";
 
   return (
     <UserContext.Provider value={{ 
       user, isLoading, isAuthenticated, refreshUser, syncFromDatabase,
-      updateAvatar, canEdit, canManageUsers, canManageAdmins, hasFullAccess, isViewer
+      updateAvatar, canEdit, canManageUsers, canManageAdmins, hasFullAccess, isViewer, isTvView
     }}>
       {children}
     </UserContext.Provider>
@@ -169,7 +171,7 @@ export function useUser(): UserContextType {
     return {
       user: defaultUser, isLoading: true, isAuthenticated: false,
       refreshUser: async () => {}, syncFromDatabase: async () => {}, updateAvatar: () => {},
-      canEdit: false, canManageUsers: false, canManageAdmins: false, hasFullAccess: false, isViewer: true,
+      canEdit: false, canManageUsers: false, canManageAdmins: false, hasFullAccess: false, isViewer: true, isTvView: false,
     };
   }
   return context;
