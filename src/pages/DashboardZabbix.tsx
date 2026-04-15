@@ -4,23 +4,13 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertTriangle, Server, Wifi, HardDrive, Wrench, RefreshCw, CheckCircle2, Clock, ShieldCheck, MessageSquare } from "lucide-react";
+import { AlertTriangle, Server, Wifi, Wrench, RefreshCw, CheckCircle2, Clock, ShieldCheck, MessageSquare, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 // ── Types ──────────────────────────────────────────────────────────────
-interface ZabbixHost {
-  hostid: string;
-  host: string;
-  name: string;
-  status: string;
-  maintenance_status: string;
-  groups: { groupid: string; name: string }[];
-  interfaces?: { ip: string; dns: string; type: string }[];
-}
-
 interface ZabbixProblem {
   eventid: string;
   objectid: string;
@@ -31,7 +21,7 @@ interface ZabbixProblem {
   hosts: { hostid: string; host: string; name: string }[];
   groups: { groupid: string; name: string }[];
   triggerDescription: string;
-  acknowledges?: { alias: string; message: string; clock: string }[];
+  acknowledges?: { alias: string; message: string; clock: string; user?: string }[];
   tags?: { tag: string; value: string }[];
 }
 
@@ -45,13 +35,20 @@ interface ZabbixMaintenance {
   groups: { groupid: string; name: string }[];
 }
 
+interface ZabbixContato {
+  prefixo: string;
+  primeiro_contato_nome: string | null;
+  primeiro_contato_telefone: string | null;
+  responsavel_nome: string | null;
+  responsavel_telefone: string | null;
+}
+
 // ── Category mapping ────────────────────────────────────────────────────
-type Category = "equipamentos" | "links" | "infraestrutura" | "outros";
+type Category = "equipamentos" | "links" | "outros";
 
 const CATEGORY_CONFIG: Record<Category, { label: string; icon: React.ElementType; color: string }> = {
   equipamentos: { label: "EQUIPAMENTOS", icon: Server, color: "text-blue-400" },
   links: { label: "LINKS DE INTERNET", icon: Wifi, color: "text-green-400" },
-  infraestrutura: { label: "INFRAESTRUTURA", icon: HardDrive, color: "text-purple-400" },
   outros: { label: "OUTROS", icon: AlertTriangle, color: "text-gray-400" },
 };
 
@@ -64,21 +61,24 @@ const SEVERITY_CONFIG: Record<string, { label: string; bg: string; text: string 
   "5": { label: "Desastre", bg: "bg-red-900", text: "text-red-100" },
 };
 
-// Classify groups into categories - user should customize these keywords
 function classifyProblem(problem: ZabbixProblem): Category {
   const name = problem.triggerDescription || problem.name || "";
-  const hostName = problem.hosts?.[0]?.name || problem.hosts?.[0]?.host || "";
-  
   if (/indisponibilidade.*equipamento/i.test(name)) return "equipamentos";
   if (/indisponibilidade.*link/i.test(name)) return "links";
-  if (/^TI-/i.test(hostName)) return "infraestrutura";
   return "outros";
+}
+
+/** Extract numeric prefix from Zabbix hostname, e.g. "003BRV_VIVW1" → "003" */
+function extractPrefix(hostname: string): string | null {
+  const match = hostname.match(/^(\d{3})/);
+  return match ? match[1] : null;
 }
 
 // ── Component ───────────────────────────────────────────────────────────
 export default function DashboardZabbix() {
   const [problems, setProblems] = useState<ZabbixProblem[]>([]);
   const [maintenances, setMaintenances] = useState<ZabbixMaintenance[]>([]);
+  const [contatos, setContatos] = useState<Record<string, ZabbixContato>>({});
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const { toast } = useToast();
@@ -86,9 +86,10 @@ export default function DashboardZabbix() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [problemsRes, maintenanceRes] = await Promise.all([
+      const [problemsRes, maintenanceRes, contatosRes] = await Promise.all([
         supabase.functions.invoke("zabbix-dashboard", { body: { action: "problems" } }),
         supabase.functions.invoke("zabbix-dashboard", { body: { action: "maintenance" } }),
+        supabase.from("zabbix_contatos").select("prefixo, primeiro_contato_nome, primeiro_contato_telefone, responsavel_nome, responsavel_telefone"),
       ]);
 
       if (problemsRes.error) throw new Error(problemsRes.error.message);
@@ -96,6 +97,15 @@ export default function DashboardZabbix() {
 
       setProblems(Array.isArray(problemsRes.data) ? problemsRes.data : []);
       setMaintenances(Array.isArray(maintenanceRes.data) ? maintenanceRes.data : []);
+
+      // Build contatos map by prefix
+      const map: Record<string, ZabbixContato> = {};
+      if (contatosRes.data) {
+        for (const c of contatosRes.data as any[]) {
+          map[c.prefixo] = c;
+        }
+      }
+      setContatos(map);
       setLastRefresh(new Date());
     } catch (err: any) {
       console.error("Zabbix fetch error:", err);
@@ -107,25 +117,20 @@ export default function DashboardZabbix() {
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 60000); // auto-refresh 60s
+    const interval = setInterval(fetchData, 60000);
     return () => clearInterval(interval);
   }, [fetchData]);
 
-  // Classify problems
   const categorizedProblems = problems.reduce<Record<Category, ZabbixProblem[]>>(
     (acc, p) => {
       const cat = classifyProblem(p);
       acc[cat].push(p);
       return acc;
     },
-    { equipamentos: [], links: [], infraestrutura: [], outros: [] }
+    { equipamentos: [], links: [], outros: [] }
   );
 
   const totalProblems = problems.length;
-  const severityCounts = problems.reduce<Record<string, number>>((acc, p) => {
-    acc[p.severity] = (acc[p.severity] || 0) + 1;
-    return acc;
-  }, {});
 
   return (
     <div className="space-y-4">
@@ -136,9 +141,7 @@ export default function DashboardZabbix() {
           <p className="text-sm text-muted-foreground">
             Monitoramento em tempo real
             {lastRefresh && (
-              <span className="ml-2">
-                · Atualizado às {lastRefresh.toLocaleTimeString("pt-BR")}
-              </span>
+              <span className="ml-2">· Atualizado às {lastRefresh.toLocaleTimeString("pt-BR")}</span>
             )}
           </p>
         </div>
@@ -178,7 +181,7 @@ export default function DashboardZabbix() {
               const cfg = CATEGORY_CONFIG[cat];
               const Icon = cfg.icon;
               return (
-                <Card key={cat} className="border-l-4" style={{ borderLeftColor: `var(--${cat === "equipamentos" ? "blue" : cat === "links" ? "green" : cat === "infraestrutura" ? "purple" : "gray"}-500, #6b7280)` }}>
+                <Card key={cat} className="border-l-4" style={{ borderLeftColor: `var(--${cat === "equipamentos" ? "blue" : cat === "links" ? "green" : "gray"}-500, #6b7280)` }}>
                   <CardHeader className="pb-2">
                     <CardTitle className="text-base flex items-center gap-2">
                       <Icon className={`h-5 w-5 ${cfg.color}`} />
@@ -196,12 +199,16 @@ export default function DashboardZabbix() {
                             <th className="px-4 py-2 text-left font-medium text-muted-foreground">Problema</th>
                             <th className="px-4 py-2 text-left font-medium text-muted-foreground">Duração</th>
                             <th className="px-4 py-2 text-left font-medium text-muted-foreground">Updates</th>
+                            <th className="px-4 py-2 text-left font-medium text-muted-foreground">Contato</th>
                           </tr>
                         </thead>
                         <tbody>
                           {items.map((p) => {
                             const sev = SEVERITY_CONFIG[p.severity] || SEVERITY_CONFIG["0"];
                             const hostName = p.hosts?.[0]?.name || p.hosts?.[0]?.host || "—";
+                            const hostCode = p.hosts?.[0]?.host || p.hosts?.[0]?.name || "";
+                            const prefix = extractPrefix(hostCode);
+                            const contato = prefix ? contatos[prefix] : null;
                             const duration = formatDuration(Number(p.clock));
                             const acks = p.acknowledges || [];
                             return (
@@ -233,9 +240,7 @@ export default function DashboardZabbix() {
                                               <div key={ack.acknowledgeid || idx} className="px-3 py-2 text-sm">
                                                 <div className="flex items-center justify-between mb-1">
                                                   <span className="font-medium text-xs">{ack.user || "—"}</span>
-                                                  <span className="text-xs text-muted-foreground">
-                                                    {formatTimestamp(ack.clock)}
-                                                  </span>
+                                                  <span className="text-xs text-muted-foreground">{formatTimestamp(ack.clock)}</span>
                                                 </div>
                                                 <p className="text-muted-foreground text-xs">{ack.message || "—"}</p>
                                               </div>
@@ -247,6 +252,9 @@ export default function DashboardZabbix() {
                                   ) : (
                                     <span className="text-xs text-muted-foreground">—</span>
                                   )}
+                                </td>
+                                <td className="px-4 py-2">
+                                  <ContactButton contato={contato} />
                                 </td>
                               </tr>
                             );
@@ -310,6 +318,52 @@ export default function DashboardZabbix() {
   );
 }
 
+// ── Contact Button ──────────────────────────────────────────────────────
+function ContactButton({ contato }: { contato: ZabbixContato | null }) {
+  if (!contato) {
+    return <span className="text-xs text-muted-foreground">—</span>;
+  }
+
+  const hasPrimeiro = !!contato.primeiro_contato_nome;
+  const hasResponsavel = !!contato.responsavel_nome;
+
+  if (!hasPrimeiro && !hasResponsavel) {
+    return <span className="text-xs text-muted-foreground">—</span>;
+  }
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="sm" className="gap-1 h-7 px-2">
+          <Phone className="h-4 w-4 text-green-500" />
+          <span className="text-xs">Acionar</span>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80 p-0" align="end">
+        <div className="px-3 py-2 border-b bg-muted/40">
+          <p className="text-sm font-medium">Contatos do Local</p>
+        </div>
+        <div className="divide-y">
+          {hasPrimeiro && (
+            <div className="px-3 py-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase mb-1">Primeiro Contato</p>
+              <p className="text-sm font-medium">{contato.primeiro_contato_nome}</p>
+              <p className="text-sm text-muted-foreground">{contato.primeiro_contato_telefone}</p>
+            </div>
+          )}
+          {hasResponsavel && (
+            <div className="px-3 py-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase mb-1">Responsável</p>
+              <p className="text-sm font-medium">{contato.responsavel_nome}</p>
+              <p className="text-sm text-muted-foreground">{contato.responsavel_telefone}</p>
+            </div>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────────
 function formatDuration(epochSeconds: number): string {
   const now = Math.floor(Date.now() / 1000);
@@ -325,11 +379,7 @@ function formatDuration(epochSeconds: number): string {
 
 function formatTimestamp(epoch: string): string {
   return new Date(Number(epoch) * 1000).toLocaleString("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
+    day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit",
   });
 }
 
