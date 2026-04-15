@@ -167,9 +167,10 @@ Deno.serve(async (req) => {
       const entityTotals: Record<string, number> = {}
 
       for (const ticket of allTickets) {
-        const rawEntity = String(ticket['80'] ?? 'unknown')
+        // Direct API returns 'entities_id' (or entity name if expand_dropdowns), 'status', 'date'
+        const rawEntity = String(ticket['entities_id'] ?? ticket['80'] ?? 'unknown')
         const entityKey = getEntityKey(rawEntity)
-        const status = mapStatus(ticket['12'] as number)
+        const status = mapStatus((ticket['status'] ?? ticket['12']) as number)
 
         byEntity[rawEntity] = (byEntity[rawEntity] || 0) + 1
         entityTotals[entityKey] = (entityTotals[entityKey] || 0) + 1
