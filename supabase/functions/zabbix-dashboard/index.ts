@@ -66,7 +66,7 @@ serve(async (req) => {
           sortfield: ["eventid"],
           sortorder: "DESC",
           suppressed: false,
-          selectAcknowledges: ["alias", "message", "clock"],
+          selectAcknowledges: ["acknowledgeid", "userid", "message", "clock"],
           selectTags: "extend",
         });
 
