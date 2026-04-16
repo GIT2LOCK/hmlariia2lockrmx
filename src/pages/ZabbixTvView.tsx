@@ -322,6 +322,7 @@ export default function ZabbixTvView() {
   const [secAgo, setSecAgo] = useState(0);
   const [sidebarHidden, setSidebarHidden] = useState(true);
   const [expandedHosts, setExpandedHosts] = useState<Set<string>>(new Set());
+  const [showCtrl, setShowCtrl] = useState(true);
 
   // Hide sidebar
   useEffect(() => {
