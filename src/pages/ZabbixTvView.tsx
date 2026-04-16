@@ -573,7 +573,7 @@ export default function ZabbixTvView() {
                   </span>
                 </div>
                 <div className="flex-1 overflow-y-auto min-h-0 custom-scrollbar">
-                  <div className="grid grid-cols-[24px_1.2fr_2fr_140px_70px_90px] gap-2 px-3 py-2 sticky top-0" style={{ background: "rgba(6,12,30,0.95)", borderBottom: `1px solid ${C.grid}` }}>
+                  <div className="grid grid-cols-[20px_1fr_2.5fr_100px_60px_70px] gap-2 px-3 py-2 sticky top-0" style={{ background: "rgba(6,12,30,0.95)", borderBottom: `1px solid ${C.grid}` }}>
                     <span />
                     <span className="text-xs uppercase tracking-wider" style={{ color: C.dim, fontWeight: 700 }}>Host</span>
                     <span className="text-xs uppercase tracking-wider" style={{ color: C.dim, fontWeight: 700 }}>Problema</span>
@@ -609,7 +609,7 @@ export default function ZabbixTvView() {
                   </span>
                 </div>
                 <div className="flex-1 overflow-y-auto min-h-0 custom-scrollbar">
-                  <div className="grid grid-cols-[24px_1.2fr_2fr_140px_70px_90px] gap-2 px-3 py-2 sticky top-0" style={{ background: "rgba(6,12,30,0.95)", borderBottom: `1px solid ${C.grid}` }}>
+                  <div className="grid grid-cols-[20px_1fr_2.5fr_100px_60px_70px] gap-2 px-3 py-2 sticky top-0" style={{ background: "rgba(6,12,30,0.95)", borderBottom: `1px solid ${C.grid}` }}>
                     <span />
                     <span className="text-xs uppercase tracking-wider" style={{ color: C.dim, fontWeight: 700 }}>Host</span>
                     <span className="text-xs uppercase tracking-wider" style={{ color: C.dim, fontWeight: 700 }}>Problema</span>
