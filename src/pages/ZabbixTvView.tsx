@@ -632,45 +632,34 @@ export default function ZabbixTvView() {
             );
           })()}
 
-          {/* RIGHT SIDEBAR: Disk (top) + CPU (bottom, stretches to fill) */}
+          {/* RIGHT SIDEBAR: Proxies (top) + CPU (bottom, stretches to fill) */}
           {serverMetrics && (
             <div className="flex flex-col gap-3 min-h-0 row-span-2">
-              {/* Disk Space */}
-              <GlowCard delay={0.45} contentClassName="p-5 flex flex-col items-center" className="flex-shrink-0">
-                <div className="flex items-center gap-2 mb-3 self-start">
-                  <HardDrive className="h-6 w-6" style={{ color: C.cyan, filter: `drop-shadow(0 0 4px ${C.cyan}60)` }} />
-                  <span className="text-sm uppercase tracking-[0.12em]" style={{ color: C.cyan, fontWeight: 700 }}>Espaço em disco</span>
-                </div>
-                {(() => {
-                  const pct = serverMetrics.diskUsagePct ?? 0;
-                  const diskColor = pct > 80 ? C.red : pct > 60 ? C.orange : C.green;
-                  const size = 180;
-                  const r = size * 0.38;
-                  const circ = 2 * Math.PI * r;
-                  const dash = (pct / 100) * circ;
-                  return (
-                    <div className="relative flex items-center justify-center">
-                      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="font-extrabold">
-                        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(77,166,255,0.08)" strokeWidth="14" />
-                        <motion.circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={diskColor} strokeWidth="14"
-                          strokeLinecap="round" strokeDasharray={`${dash} ${circ - dash}`} strokeDashoffset={circ / 4}
-                          initial={{ strokeDasharray: `0 ${circ}` }}
-                          animate={{ strokeDasharray: `${dash} ${circ - dash}` }}
-                          transition={{ duration: 1.2, delay: 0.4, ease: "easeOut" }}
-                          style={{ filter: `drop-shadow(0 0 10px ${diskColor}60)` }} />
-                        <text x={size / 2} y={size / 2 - 10} textAnchor="middle" dominantBaseline="central"
-                          fill={C.white} fontSize="38" fontWeight="300" fontFamily="monospace">
-                          {pct.toFixed(1)}%
-                        </text>
-                        <text x={size / 2} y={size / 2 + 20} textAnchor="middle" dominantBaseline="central"
-                          fill={C.dim} fontSize="13" fontWeight="400">
-                          USADO
-                        </text>
-                      </svg>
-                    </div>
-                  );
-                })()}
-              </GlowCard>
+              {/* Proxies */}
+              {serverMetrics.proxies.length > 0 && (
+                <GlowCard delay={0.45} contentClassName="px-5 py-4 flex flex-col" className="flex-shrink-0">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Radio className="h-6 w-6" style={{ color: C.cyan, filter: `drop-shadow(0 0 4px ${C.cyan}60)` }} />
+                    <span className="text-sm uppercase tracking-[0.12em]" style={{ color: C.cyan, fontWeight: 700 }}>Proxies</span>
+                  </div>
+                  <div className="flex flex-col gap-3">
+                    {serverMetrics.proxies.map((px) => {
+                      const isUp = px.delaySec >= 0 && px.delaySec <= 30;
+                      const isWarning = px.delaySec > 30 && px.delaySec <= 120;
+                      const statusColor = isUp ? C.green : isWarning ? C.orange : C.red;
+                      return (
+                        <div key={px.proxyid} className="flex items-center gap-3 px-4 py-3 rounded-lg" style={{ background: "rgba(77,166,255,0.04)", border: `1px solid rgba(77,166,255,0.08)` }}>
+                          <PulseDot color={statusColor} />
+                          <span className="text-base font-mono truncate flex-1" style={{ color: C.textCyan, fontWeight: 600 }}>{px.name}</span>
+                          <span className="text-2xl font-mono tabular-nums" style={{ color: statusColor, fontWeight: 700, textShadow: `0 0 10px ${statusColor}40` }}>
+                            {px.delaySec >= 0 ? `${px.delaySec}s` : "—"}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </GlowCard>
+              )}
 
               {/* CPU Hosts - fills remaining vertical space */}
               <GlowCard delay={0.5} contentClassName="p-5 h-full flex flex-col" className="flex-1 min-h-0 flex flex-col">
@@ -707,33 +696,35 @@ export default function ZabbixTvView() {
               </GlowCard>
             </div>
           )}
-          {/* PROXIES - spans columns 1-2, below EQUIPAMENTOS and LINKS */}
-          {serverMetrics && serverMetrics.proxies.length > 0 && (
-            <GlowCard delay={0.55} className="flex-shrink-0 col-span-2" contentClassName="px-6 py-5">
-              <div className="flex items-center justify-center gap-8">
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <Radio className="h-7 w-7" style={{ color: C.cyan, filter: `drop-shadow(0 0 4px ${C.cyan}60)` }} />
-                  <span className="text-base uppercase tracking-[0.12em]" style={{ color: C.cyan, fontWeight: 700 }}>Proxies</span>
+          {/* DISK SPACE - spans columns 1-2, loading bar style */}
+          {serverMetrics && (() => {
+            const pct = serverMetrics.diskUsagePct ?? 0;
+            const diskColor = pct > 80 ? C.red : pct > 60 ? C.orange : C.green;
+            return (
+              <GlowCard delay={0.55} className="flex-shrink-0 col-span-2" contentClassName="px-6 py-4">
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <HardDrive className="h-7 w-7" style={{ color: C.cyan, filter: `drop-shadow(0 0 4px ${C.cyan}60)` }} />
+                    <span className="text-base uppercase tracking-[0.12em]" style={{ color: C.cyan, fontWeight: 700 }}>Espaço em disco</span>
+                  </div>
+                  <div className="flex-1 flex items-center gap-4">
+                    <div className="flex-1 h-8 rounded-full overflow-hidden relative" style={{ background: "rgba(77,166,255,0.08)", border: `1px solid rgba(77,166,255,0.12)` }}>
+                      <motion.div
+                        className="h-full rounded-full"
+                        initial={{ width: "0%" }}
+                        animate={{ width: `${pct}%` }}
+                        transition={{ duration: 1.2, delay: 0.4, ease: "easeOut" }}
+                        style={{ background: `linear-gradient(90deg, ${diskColor}cc, ${diskColor})`, boxShadow: `0 0 16px ${diskColor}50, inset 0 1px 0 rgba(255,255,255,0.15)` }}
+                      />
+                      <span className="absolute inset-0 flex items-center justify-center text-sm font-mono font-bold" style={{ color: C.white, textShadow: "0 1px 3px rgba(0,0,0,0.6)" }}>
+                        {pct.toFixed(1)}% USADO
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center gap-4 flex-1 justify-evenly">
-                  {serverMetrics.proxies.map((px) => {
-                    const isUp = px.delaySec >= 0 && px.delaySec <= 30;
-                    const isWarning = px.delaySec > 30 && px.delaySec <= 120;
-                    const statusColor = isUp ? C.green : isWarning ? C.orange : C.red;
-                    return (
-                      <div key={px.proxyid} className="flex items-center gap-4 px-6 py-4 rounded-lg flex-1 justify-center" style={{ background: "rgba(77,166,255,0.04)", border: `1px solid rgba(77,166,255,0.08)` }}>
-                        <PulseDot color={statusColor} />
-                        <span className="text-xl font-mono" style={{ color: C.textCyan, fontWeight: 600 }}>{px.name}</span>
-                        <span className="text-3xl font-mono tabular-nums" style={{ color: statusColor, fontWeight: 700, textShadow: `0 0 10px ${statusColor}40` }}>
-                          {px.delaySec >= 0 ? `${px.delaySec}s` : "—"}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </GlowCard>
-          )}
+              </GlowCard>
+            );
+          })()}
         </div>
 
         {/* "OUTROS" bar if any */}
