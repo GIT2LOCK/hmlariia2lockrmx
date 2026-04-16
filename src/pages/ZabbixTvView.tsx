@@ -440,6 +440,16 @@ export default function ZabbixTvView() {
             description: `${hostName} — ${p.triggerDescription || p.name}`,
             duration: 15000,
             position: "bottom-right",
+            style: {
+              minWidth: "480px",
+              padding: "20px 22px",
+              fontSize: "16px",
+              lineHeight: "1.4",
+            },
+            classNames: {
+              title: "text-lg font-bold",
+              description: "text-base",
+            },
           }
         );
       }
