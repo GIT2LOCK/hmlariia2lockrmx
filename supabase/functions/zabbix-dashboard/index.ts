@@ -324,13 +324,19 @@ serve(async (req) => {
         // 2) Top hosts by CPU utilization
         let cpuHosts: any[] = [];
         try {
-          // Get CPU utilization items (exact key match)
+          // Get CPU utilization items from monitored hosts only
           const cpuItems = await zabbix1("item.get", {
             output: ["itemid", "hostid", "lastvalue", "name", "key_"],
             filter: { key_: "system.cpu.util" },
-            selectHosts: ["hostid", "host", "name"],
-            limit: 20,
+            selectHosts: ["hostid", "host", "name", "status"],
+            monitored: true,
+            limit: 50,
           });
+          // Filter out template hosts (status != 0) and sort by CPU desc
+          const realCpuItems = cpuItems
+            .filter((i: any) => i.hosts?.[0]?.status === "0" && parseFloat(i.lastvalue) > 0)
+            .sort((a: any, b: any) => parseFloat(b.lastvalue) - parseFloat(a.lastvalue))
+            .slice(0, 10);
           // Also try to get load averages for these hosts
           const hostIds = cpuItems.map((i: any) => i.hostid);
           let loadItems: any[] = [];
