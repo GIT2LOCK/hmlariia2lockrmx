@@ -637,21 +637,21 @@ export default function ZabbixTvView() {
             <div className="flex flex-col gap-3 min-h-0 row-span-2">
               {/* Proxies */}
               {serverMetrics.proxies.length > 0 && (
-                <GlowCard delay={0.45} contentClassName="px-5 py-4 flex flex-col" className="flex-shrink-0">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Radio className="h-6 w-6" style={{ color: C.cyan, filter: `drop-shadow(0 0 4px ${C.cyan}60)` }} />
-                    <span className="text-sm uppercase tracking-[0.12em]" style={{ color: C.cyan, fontWeight: 700 }}>Proxies</span>
+                <GlowCard delay={0.45} contentClassName="px-4 py-2.5 flex flex-col" className="flex-shrink-0">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Radio className="h-5 w-5" style={{ color: C.cyan, filter: `drop-shadow(0 0 4px ${C.cyan}60)` }} />
+                    <span className="text-xs uppercase tracking-[0.12em]" style={{ color: C.cyan, fontWeight: 700 }}>Proxies</span>
                   </div>
-                  <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-2">
                     {serverMetrics.proxies.map((px) => {
                       const isUp = px.delaySec >= 0 && px.delaySec <= 30;
                       const isWarning = px.delaySec > 30 && px.delaySec <= 120;
                       const statusColor = isUp ? C.green : isWarning ? C.orange : C.red;
                       return (
-                        <div key={px.proxyid} className="flex items-center gap-3 px-4 py-3 rounded-lg" style={{ background: "rgba(77,166,255,0.04)", border: `1px solid rgba(77,166,255,0.08)` }}>
+                        <div key={px.proxyid} className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: "rgba(77,166,255,0.04)", border: `1px solid rgba(77,166,255,0.08)` }}>
                           <PulseDot color={statusColor} />
-                          <span className="text-base font-mono truncate flex-1" style={{ color: C.textCyan, fontWeight: 600 }}>{px.name}</span>
-                          <span className="text-2xl font-mono tabular-nums" style={{ color: statusColor, fontWeight: 700, textShadow: `0 0 10px ${statusColor}40` }}>
+                          <span className="text-sm font-mono truncate flex-1" style={{ color: C.textCyan, fontWeight: 600 }}>{px.name}</span>
+                          <span className="text-lg font-mono tabular-nums" style={{ color: statusColor, fontWeight: 700, textShadow: `0 0 10px ${statusColor}40` }}>
                             {px.delaySec >= 0 ? `${px.delaySec}s` : "—"}
                           </span>
                         </div>
