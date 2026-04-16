@@ -545,7 +545,7 @@ export default function ZabbixTvView() {
                 )}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
-                    {k.id !== "total" && <k.icon className="h-5 w-5 flex-shrink-0" style={{ color: k.color, filter: `drop-shadow(0 0 5px ${k.color}60)` }} />}
+                    <k.icon className="h-5 w-5 flex-shrink-0" style={{ color: k.color, filter: `drop-shadow(0 0 5px ${k.color}60)` }} />
                     <span className="text-xs uppercase tracking-[0.15em] truncate" style={{ color: k.color, fontWeight: 700 }}>
                       {k.label}
                     </span>
