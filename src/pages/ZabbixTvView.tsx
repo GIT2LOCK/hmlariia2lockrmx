@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useUser } from "@/contexts/UserContext";
 import {
   ArrowLeft, Eye, EyeOff, Monitor, RefreshCw, Server, Wifi,
-  AlertTriangle, Wrench, Activity,
+  AlertTriangle, Wrench, Activity, ChevronDown, ChevronRight,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
