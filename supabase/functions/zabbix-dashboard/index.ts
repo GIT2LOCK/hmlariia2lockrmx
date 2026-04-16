@@ -303,18 +303,26 @@ serve(async (req) => {
           }
         } catch { /* no disk item */ }
 
-        // 2) Top hosts by CPU utilization
+        // 2) Top hosts by CPU utilization (from "Zabbix servers" group)
         let cpuHosts: any[] = [];
         try {
-          // Get CPU utilization items from monitored hosts only
+          // First get the "Zabbix servers" host group ID
+          const groups = await zabbix1("hostgroup.get", {
+            output: ["groupid"],
+            filter: { name: "Zabbix servers" },
+          });
+          const groupIds = groups.map((g: any) => g.groupid);
+
+          // Get CPU utilization items from hosts in that group
           const cpuItems = await zabbix1("item.get", {
             output: ["itemid", "hostid", "lastvalue", "name", "key_"],
             filter: { key_: "system.cpu.util" },
+            groupids: groupIds.length > 0 ? groupIds : undefined,
             selectHosts: ["hostid", "host", "name", "status"],
             monitored: true,
             limit: 50,
           });
-          // Filter out template hosts (status != 0) and sort by CPU desc
+          // Filter and sort by CPU desc, top 10
           const realCpuItems = cpuItems
             .filter((i: any) => i.hosts?.[0]?.status === "0" && parseFloat(i.lastvalue) > 0)
             .sort((a: any, b: any) => parseFloat(b.lastvalue) - parseFloat(a.lastvalue))
