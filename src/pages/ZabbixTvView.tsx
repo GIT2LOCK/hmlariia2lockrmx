@@ -634,34 +634,34 @@ export default function ZabbixTvView() {
           {serverMetrics && (
             <div className="flex flex-col gap-3 min-h-0">
               {/* Disk Space - Large Donut */}
-              <GlowCard delay={0.45} contentClassName="p-4 flex flex-col items-center">
-                <div className="flex items-center gap-2 mb-2 self-start">
-                  <HardDrive className="h-4 w-4" style={{ color: C.cyan, filter: `drop-shadow(0 0 4px ${C.cyan}60)` }} />
-                  <span className="text-[10px] uppercase tracking-[0.12em]" style={{ color: C.cyan, fontWeight: 700 }}>Espaço em disco</span>
+              <GlowCard delay={0.45} contentClassName="p-5 flex flex-col items-center">
+                <div className="flex items-center gap-2 mb-3 self-start">
+                  <HardDrive className="h-5 w-5" style={{ color: C.cyan, filter: `drop-shadow(0 0 4px ${C.cyan}60)` }} />
+                  <span className="text-xs uppercase tracking-[0.12em]" style={{ color: C.cyan, fontWeight: 700 }}>Espaço em disco</span>
                 </div>
                 {(() => {
                   const pct = serverMetrics.diskUsagePct ?? 0;
                   const diskColor = pct > 80 ? C.red : pct > 60 ? C.orange : C.green;
-                  const size = 140;
+                  const size = 160;
                   const r = size * 0.38;
                   const circ = 2 * Math.PI * r;
                   const dash = (pct / 100) * circ;
                   return (
                     <div className="relative flex items-center justify-center">
                       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-                        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(77,166,255,0.08)" strokeWidth="10" />
-                        <motion.circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={diskColor} strokeWidth="10"
+                        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(77,166,255,0.08)" strokeWidth="12" />
+                        <motion.circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={diskColor} strokeWidth="12"
                           strokeLinecap="round" strokeDasharray={`${dash} ${circ - dash}`} strokeDashoffset={circ / 4}
                           initial={{ strokeDasharray: `0 ${circ}` }}
                           animate={{ strokeDasharray: `${dash} ${circ - dash}` }}
                           transition={{ duration: 1.2, delay: 0.4, ease: "easeOut" }}
                           style={{ filter: `drop-shadow(0 0 10px ${diskColor}60)` }} />
-                        <text x={size / 2} y={size / 2 - 8} textAnchor="middle" dominantBaseline="central"
-                          fill={C.white} fontSize="28" fontWeight="300" fontFamily="monospace">
+                        <text x={size / 2} y={size / 2 - 10} textAnchor="middle" dominantBaseline="central"
+                          fill={C.white} fontSize="34" fontWeight="300" fontFamily="monospace">
                           {pct.toFixed(1)}%
                         </text>
-                        <text x={size / 2} y={size / 2 + 16} textAnchor="middle" dominantBaseline="central"
-                          fill={C.dim} fontSize="10" fontWeight="400">
+                        <text x={size / 2} y={size / 2 + 18} textAnchor="middle" dominantBaseline="central"
+                          fill={C.dim} fontSize="12" fontWeight="400">
                           USADO
                         </text>
                       </svg>
@@ -670,26 +670,26 @@ export default function ZabbixTvView() {
                 })()}
               </GlowCard>
 
-              {/* CPU Table - Compact */}
-              <GlowCard delay={0.5} contentClassName="p-3" className="flex-1 min-h-0 flex flex-col">
-                <div className="flex items-center gap-2 mb-2">
-                  <Cpu className="h-4 w-4" style={{ color: C.cyan, filter: `drop-shadow(0 0 4px ${C.cyan}60)` }} />
-                  <span className="text-[10px] uppercase tracking-[0.12em]" style={{ color: C.cyan, fontWeight: 700 }}>CPU Hosts</span>
+              {/* CPU Table */}
+              <GlowCard delay={0.5} contentClassName="p-4" className="flex-1 min-h-0 flex flex-col">
+                <div className="flex items-center gap-2 mb-3">
+                  <Cpu className="h-5 w-5" style={{ color: C.cyan, filter: `drop-shadow(0 0 4px ${C.cyan}60)` }} />
+                  <span className="text-xs uppercase tracking-[0.12em]" style={{ color: C.cyan, fontWeight: 700 }}>CPU Hosts</span>
                 </div>
                 <div className="overflow-y-auto flex-1 min-h-0 custom-scrollbar">
                   {serverMetrics.cpuHosts.map((h, i) => {
                     const barPct = Math.min(h.cpuUtil, 100);
                     const barColor = h.cpuUtil > 80 ? C.red : h.cpuUtil > 50 ? C.orange : C.green;
                     return (
-                      <div key={h.hostid + i} className="flex flex-col gap-0.5 py-1.5" style={{ borderBottom: `1px solid rgba(77,166,255,0.04)` }}>
+                      <div key={h.hostid + i} className="flex flex-col gap-1 py-2" style={{ borderBottom: `1px solid rgba(77,166,255,0.06)` }}>
                         <div className="flex items-center justify-between">
-                          <span className="text-[11px] truncate" style={{ color: C.textCyan, fontWeight: 500 }}>{h.name}</span>
-                          <span className="text-[11px] font-mono tabular-nums ml-2 whitespace-nowrap" style={{ color: C.white }}>{h.cpuUtil.toFixed(1)}%</span>
+                          <span className="text-sm truncate" style={{ color: C.textCyan, fontWeight: 600 }}>{h.name}</span>
+                          <span className="text-sm font-mono tabular-nums ml-2 whitespace-nowrap" style={{ color: barColor, fontWeight: 700 }}>{h.cpuUtil.toFixed(1)}%</span>
                         </div>
-                        <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(77,166,255,0.08)" }}>
-                          <div className="h-full rounded-full transition-all" style={{ width: `${barPct}%`, background: barColor }} />
+                        <div className="h-2 rounded-full overflow-hidden" style={{ background: "rgba(77,166,255,0.08)" }}>
+                          <div className="h-full rounded-full transition-all" style={{ width: `${barPct}%`, background: barColor, boxShadow: `0 0 6px ${barColor}40` }} />
                         </div>
-                        <div className="flex gap-2 text-[9px] font-mono tabular-nums" style={{ color: C.dim }}>
+                        <div className="flex gap-3 text-[11px] font-mono tabular-nums" style={{ color: C.dim }}>
                           <span>1m: {h.load1m?.toFixed(2) ?? "—"}</span>
                           <span>5m: {h.load5m?.toFixed(2) ?? "—"}</span>
                           <span>15m: {h.load15m?.toFixed(2) ?? "—"}</span>
@@ -699,37 +699,37 @@ export default function ZabbixTvView() {
                     );
                   })}
                   {serverMetrics.cpuHosts.length === 0 && (
-                    <div className="py-3 text-center text-[10px]" style={{ color: C.dim }}>Sem dados</div>
+                    <div className="py-3 text-center text-sm" style={{ color: C.dim }}>Sem dados</div>
                   )}
                 </div>
               </GlowCard>
 
-              {/* Proxies - Compact */}
-              <GlowCard delay={0.55} contentClassName="p-3">
-                <div className="flex items-center gap-2 mb-2">
-                  <Radio className="h-4 w-4" style={{ color: C.cyan, filter: `drop-shadow(0 0 4px ${C.cyan}60)` }} />
-                  <span className="text-[10px] uppercase tracking-[0.12em]" style={{ color: C.cyan, fontWeight: 700 }}>Proxies</span>
+              {/* Proxies */}
+              <GlowCard delay={0.55} contentClassName="p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Radio className="h-5 w-5" style={{ color: C.cyan, filter: `drop-shadow(0 0 4px ${C.cyan}60)` }} />
+                  <span className="text-xs uppercase tracking-[0.12em]" style={{ color: C.cyan, fontWeight: 700 }}>Proxies</span>
                 </div>
-                <div className="flex flex-col gap-1.5">
+                <div className="flex flex-col gap-2">
                   {serverMetrics.proxies.map((px) => {
                     const isUp = px.delaySec >= 0 && px.delaySec <= 30;
                     const isWarning = px.delaySec > 30 && px.delaySec <= 120;
                     const statusColor = isUp ? C.green : isWarning ? C.orange : C.red;
                     return (
-                      <div key={px.proxyid} className="flex items-center justify-between px-2 py-1.5 rounded-lg" style={{ background: "rgba(77,166,255,0.04)", border: `1px solid rgba(77,166,255,0.08)` }}>
-                        <span className="text-[11px] font-mono" style={{ color: C.textCyan, fontWeight: 600 }}>{px.name}</span>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-lg font-mono tabular-nums" style={{ color: statusColor, fontWeight: 700, textShadow: `0 0 8px ${statusColor}40` }}>
+                      <div key={px.proxyid} className="flex items-center justify-between px-3 py-2 rounded-lg" style={{ background: "rgba(77,166,255,0.04)", border: `1px solid rgba(77,166,255,0.08)` }}>
+                        <span className="text-sm font-mono" style={{ color: C.textCyan, fontWeight: 600 }}>{px.name}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl font-mono tabular-nums" style={{ color: statusColor, fontWeight: 700, textShadow: `0 0 10px ${statusColor}40` }}>
                             {px.delaySec >= 0 ? `${px.delaySec}s` : "—"}
                           </span>
-                          {px.delaySec >= 0 && px.delaySec <= 5 && <span style={{ color: C.green, fontSize: "0.9rem" }}>↑</span>}
-                          {px.delaySec > 30 && <span style={{ color: C.red, fontSize: "0.9rem" }}>↓</span>}
+                          {px.delaySec >= 0 && px.delaySec <= 5 && <span style={{ color: C.green, fontSize: "1.1rem" }}>↑</span>}
+                          {px.delaySec > 30 && <span style={{ color: C.red, fontSize: "1.1rem" }}>↓</span>}
                         </div>
                       </div>
                     );
                   })}
                   {serverMetrics.proxies.length === 0 && (
-                    <div className="py-2 text-center text-[10px]" style={{ color: C.dim }}>Sem proxies</div>
+                    <div className="py-2 text-center text-sm" style={{ color: C.dim }}>Sem proxies</div>
                   )}
                 </div>
               </GlowCard>
