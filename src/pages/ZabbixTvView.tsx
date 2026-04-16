@@ -8,6 +8,7 @@ import {
   HardDrive, Cpu, Radio,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
 
 // ── Types ──
 interface ZabbixProblem {
