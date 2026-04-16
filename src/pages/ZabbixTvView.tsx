@@ -648,10 +648,10 @@ export default function ZabbixTvView() {
                       const isWarning = px.delaySec > 30 && px.delaySec <= 120;
                       const statusColor = isUp ? C.green : isWarning ? C.orange : C.red;
                       return (
-                        <div key={px.proxyid} className="flex items-center gap-3 px-4 py-3 rounded-lg" style={{ background: "rgba(77,166,255,0.04)", border: `1px solid rgba(77,166,255,0.08)` }}>
+                        <div key={px.proxyid} className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: "rgba(77,166,255,0.04)", border: `1px solid rgba(77,166,255,0.08)` }}>
                           <PulseDot color={statusColor} />
-                          <span className="text-base font-mono truncate flex-1" style={{ color: C.textCyan, fontWeight: 600 }}>{px.name}</span>
-                          <span className="text-2xl font-mono tabular-nums" style={{ color: statusColor, fontWeight: 700, textShadow: `0 0 10px ${statusColor}40` }}>
+                          <span className="text-sm font-mono truncate flex-1" style={{ color: C.textCyan, fontWeight: 600 }}>{px.name}</span>
+                          <span className="text-lg font-mono tabular-nums" style={{ color: statusColor, fontWeight: 700, textShadow: `0 0 10px ${statusColor}40` }}>
                             {px.delaySec >= 0 ? `${px.delaySec}s` : "—"}
                           </span>
                         </div>
