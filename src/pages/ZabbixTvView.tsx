@@ -367,12 +367,19 @@ export default function ZabbixTvView() {
   const categorized = useMemo(() => {
     const map: Record<Category, ZabbixProblem[]> = { equipamentos: [], links: [], outros: [] };
     for (const p of problems) map[classifyProblem(p)].push(p);
+    // Filter CTRL if toggle is off
+    if (!showCtrl) {
+      map.equipamentos = map.equipamentos.filter(p => {
+        const desc = (p.triggerDescription || p.name || "").toLowerCase();
+        return !desc.includes("ctrl");
+      });
+    }
     // Sort newest first
     for (const cat of Object.keys(map) as Category[]) {
       map[cat].sort((a, b) => Number(b.clock) - Number(a.clock));
     }
     return map;
-  }, [problems]);
+  }, [problems, showCtrl]);
 
   const totalProblems = problems.length;
   const totalMaintenances = maintenances.length;
@@ -438,6 +445,23 @@ export default function ZabbixTvView() {
           </div>
 
           <div className="flex items-center gap-4">
+            {/* CTRL Toggle */}
+            <button
+              onClick={() => setShowCtrl(prev => !prev)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs uppercase tracking-wider transition-all"
+              style={{
+                background: showCtrl ? "rgba(77,166,255,0.15)" : "rgba(255,255,255,0.05)",
+                border: `1px solid ${showCtrl ? C.borderHi : C.border}`,
+                color: showCtrl ? C.cyan : C.dim,
+                fontWeight: 700,
+              }}
+            >
+              <Server className="h-3.5 w-3.5" />
+              CTRL
+              <span className="text-[10px] font-normal" style={{ color: showCtrl ? C.green : C.dim }}>
+                {showCtrl ? "ON" : "OFF"}
+              </span>
+            </button>
             {error && (
               <motion.span initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
                 className="text-xs px-3 py-1.5 rounded-full"
