@@ -1,14 +1,18 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertTriangle, Server, Wifi, Wrench, RefreshCw, CheckCircle2, Clock, ShieldCheck, MessageSquare, Phone } from "lucide-react";
+import {
+  AlertTriangle, Server, Wifi, Wrench, RefreshCw, CheckCircle2, Clock,
+  ShieldCheck, MessageSquare, Phone, ChevronDown, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { ClearableSelect } from "@/components/ClearableSelect";
 
 // ── Types ──────────────────────────────────────────────────────────────
 interface ZabbixProblem {
@@ -64,18 +68,15 @@ const SEVERITY_CONFIG: Record<string, { label: string; bg: string; text: string 
 };
 
 function classifyProblem(problem: ZabbixProblem): Category {
-  // If the backend already classified it (Zabbix 2), use that
   if (problem.category && (problem.category === "equipamentos" || problem.category === "links" || problem.category === "outros")) {
     return problem.category as Category;
   }
-  // Zabbix 1 classification
   const name = problem.triggerDescription || problem.name || "";
   if (/indisponibilidade.*equipamento/i.test(name)) return "equipamentos";
   if (/indisponibilidade.*link/i.test(name)) return "links";
   return "outros";
 }
 
-/** Extract numeric prefix from Zabbix hostname, e.g. "003BRV_VIVW1" → "003" */
 function extractPrefix(hostname: string): string | null {
   const match = hostname.match(/^(\d{3})/);
   return match ? match[1] : null;
@@ -87,7 +88,9 @@ interface HostGroup {
   hostName: string;
   hostCode: string;
   problems: ZabbixProblem[];
+  newestClock: number;
   oldestClock: number;
+  highestSeverity: number;
   allAcks: any[];
 }
 
@@ -98,17 +101,53 @@ function groupByHost(items: ZabbixProblem[]): HostGroup[] {
     const hostCode = p.hosts?.[0]?.host || p.hosts?.[0]?.name || "";
     const key = hostCode || hostName;
     if (!map.has(key)) {
-      map.set(key, { hostKey: key, hostName, hostCode, problems: [], oldestClock: Infinity, allAcks: [] });
+      map.set(key, { hostKey: key, hostName, hostCode, problems: [], newestClock: 0, oldestClock: Infinity, highestSeverity: 0, allAcks: [] });
     }
     const g = map.get(key)!;
     g.problems.push(p);
     const clock = Number(p.clock);
+    if (clock > g.newestClock) g.newestClock = clock;
     if (clock < g.oldestClock) g.oldestClock = clock;
+    const sev = Number(p.severity);
+    if (sev > g.highestSeverity) g.highestSeverity = sev;
     g.allAcks.push(...(p.acknowledges || []));
   }
-  // Sort groups by oldest clock (longest down first)
-  return Array.from(map.values()).sort((a, b) => a.oldestClock - b.oldestClock);
+  return Array.from(map.values());
 }
+
+// ── Sort logic ──────────────────────────────────────────────────────────
+type SortField = "severity" | "host" | "problem" | "duration";
+type SortDir = "asc" | "desc";
+
+function sortGroups(groups: HostGroup[], field: SortField, dir: SortDir): HostGroup[] {
+  const sorted = [...groups];
+  sorted.sort((a, b) => {
+    let cmp = 0;
+    switch (field) {
+      case "severity":
+        cmp = a.highestSeverity - b.highestSeverity;
+        break;
+      case "host":
+        cmp = a.hostName.localeCompare(b.hostName);
+        break;
+      case "problem":
+        cmp = a.problems.length - b.problems.length;
+        break;
+      case "duration":
+        cmp = a.newestClock - b.newestClock;
+        break;
+    }
+    return dir === "asc" ? cmp : -cmp;
+  });
+  return sorted;
+}
+
+// ── Source filter options ────────────────────────────────────────────────
+const SOURCE_OPTIONS = [
+  { value: "todos", label: "Todos" },
+  { value: "z2", label: "2LOCK" },
+  { value: "z1", label: "BRAVA" },
+];
 
 // ── Component ───────────────────────────────────────────────────────────
 export default function DashboardZabbix() {
@@ -117,6 +156,10 @@ export default function DashboardZabbix() {
   const [contatos, setContatos] = useState<Record<string, ZabbixContato>>({});
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  const [sourceFilter, setSourceFilter] = useState("todos");
+  const [expandedHosts, setExpandedHosts] = useState<Set<string>>(new Set());
+  const [sortField, setSortField] = useState<SortField>("duration");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
   const { toast } = useToast();
 
   const fetchData = useCallback(async () => {
@@ -134,7 +177,6 @@ export default function DashboardZabbix() {
       setProblems(Array.isArray(problemsRes.data) ? problemsRes.data : []);
       setMaintenances(Array.isArray(maintenanceRes.data) ? maintenanceRes.data : []);
 
-      // Build contatos map by prefix
       const map: Record<string, ZabbixContato> = {};
       if (contatosRes.data) {
         for (const c of contatosRes.data as any[]) {
@@ -157,22 +199,53 @@ export default function DashboardZabbix() {
     return () => clearInterval(interval);
   }, [fetchData]);
 
-  const categorizedProblems = problems.reduce<Record<Category, ZabbixProblem[]>>(
-    (acc, p) => {
-      const cat = classifyProblem(p);
-      acc[cat].push(p);
-      return acc;
-    },
-    { equipamentos: [], links: [], outros: [] }
-  );
+  const filteredProblems = useMemo(() => {
+    if (sourceFilter === "todos") return problems;
+    return problems.filter(p => p.source === sourceFilter);
+  }, [problems, sourceFilter]);
 
-  const totalProblems = problems.length;
+  const categorizedProblems = useMemo(() => {
+    return filteredProblems.reduce<Record<Category, ZabbixProblem[]>>(
+      (acc, p) => {
+        const cat = classifyProblem(p);
+        acc[cat].push(p);
+        return acc;
+      },
+      { equipamentos: [], links: [], outros: [] }
+    );
+  }, [filteredProblems]);
 
+  const totalProblems = filteredProblems.length;
+
+  const toggleHost = (key: string) => {
+    setExpandedHosts(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDir(d => d === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDir("desc");
+    }
+  };
+
+  const SortIcon = ({ field }: { field: SortField }) => {
+    if (sortField !== field) return <ArrowUpDown className="h-3 w-3 ml-1 opacity-40" />;
+    return sortDir === "asc"
+      ? <ArrowUp className="h-3 w-3 ml-1" />
+      : <ArrowDown className="h-3 w-3 ml-1" />;
+  };
 
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h1 className="text-2xl font-bold">Monitoramento</h1>
           <p className="text-sm text-muted-foreground">
@@ -182,10 +255,20 @@ export default function DashboardZabbix() {
             )}
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={fetchData} disabled={loading}>
-          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-          Atualizar
-        </Button>
+        <div className="flex items-center gap-2">
+          <ClearableSelect
+            value={sourceFilter}
+            onValueChange={setSourceFilter}
+            options={SOURCE_OPTIONS}
+            placeholder="Origem"
+            defaultValue="todos"
+            className="w-40"
+          />
+          <Button variant="outline" size="sm" onClick={fetchData} disabled={loading}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+            Atualizar
+          </Button>
+        </div>
       </div>
 
       {/* KPI row */}
@@ -217,6 +300,8 @@ export default function DashboardZabbix() {
               if (items.length === 0) return null;
               const cfg = CATEGORY_CONFIG[cat];
               const Icon = cfg.icon;
+              const groups = sortGroups(groupByHost(items), sortField, sortDir);
+
               return (
                 <Card key={cat} className="border-l-4" style={{ borderLeftColor: `var(--${cat === "equipamentos" ? "blue" : cat === "links" ? "green" : "gray"}-500, #6b7280)` }}>
                   <CardHeader className="pb-2">
@@ -231,53 +316,57 @@ export default function DashboardZabbix() {
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="border-b bg-muted/40">
-                            <th className="px-4 py-2 text-left font-medium text-muted-foreground">Severidade</th>
-                            <th className="px-4 py-2 text-left font-medium text-muted-foreground">Host</th>
-                            <th className="px-4 py-2 text-left font-medium text-muted-foreground">Problema</th>
-                            <th className="px-4 py-2 text-left font-medium text-muted-foreground">Duração</th>
+                            <th className="px-4 py-2 text-left font-medium text-muted-foreground w-8"></th>
+                            <th
+                              className="px-4 py-2 text-left font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors"
+                              onClick={() => handleSort("severity")}
+                            >
+                              <span className="inline-flex items-center">Severidade <SortIcon field="severity" /></span>
+                            </th>
+                            <th
+                              className="px-4 py-2 text-left font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors"
+                              onClick={() => handleSort("host")}
+                            >
+                              <span className="inline-flex items-center">Host <SortIcon field="host" /></span>
+                            </th>
+                            <th
+                              className="px-4 py-2 text-left font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors"
+                              onClick={() => handleSort("problem")}
+                            >
+                              <span className="inline-flex items-center">Problema <SortIcon field="problem" /></span>
+                            </th>
+                            <th
+                              className="px-4 py-2 text-left font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors"
+                              onClick={() => handleSort("duration")}
+                            >
+                              <span className="inline-flex items-center">Duração <SortIcon field="duration" /></span>
+                            </th>
                             <th className="px-4 py-2 text-left font-medium text-muted-foreground">Updates</th>
                             <th className="px-4 py-2 text-left font-medium text-muted-foreground">Contato</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {groupByHost(items).map((group) => {
+                          {groups.map((group) => {
                             const prefix = extractPrefix(group.hostCode);
                             const contato = prefix ? contatos[prefix] : null;
-                            const highestSev = Math.max(...group.problems.map(p => Number(p.severity)));
-                            const sev = SEVERITY_CONFIG[String(highestSev)] || SEVERITY_CONFIG["0"];
-                            // Unique trigger names
+                            const sev = SEVERITY_CONFIG[String(group.highestSeverity)] || SEVERITY_CONFIG["0"];
+                            const isMulti = group.problems.length > 1;
+                            const isExpanded = expandedHosts.has(group.hostKey);
                             const uniqueTriggers = group.problems
                               .map(p => p.triggerDescription || p.name)
                               .filter((v, i, a) => a.indexOf(v) === i);
 
                             return (
-                              <tr key={group.hostKey} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
-                                <td className="px-4 py-2">
-                                  <Badge className={`${sev.bg} ${sev.text} text-xs`}>{sev.label}</Badge>
-                                </td>
-                                <td className="px-4 py-2 font-medium whitespace-nowrap">
-                                  {group.hostName}
-                                  {group.problems.length > 1 && (
-                                    <Badge variant="outline" className="ml-2 text-[10px] px-1.5 py-0">{group.problems.length}</Badge>
-                                  )}
-                                </td>
-                                <td className="px-4 py-2 max-w-md">
-                                  <div className="flex flex-wrap gap-1">
-                                    {uniqueTriggers.map((name, i) => (
-                                      <span key={i} className="text-xs bg-muted px-1.5 py-0.5 rounded">{name}</span>
-                                    ))}
-                                  </div>
-                                </td>
-                                <td className="px-4 py-2 whitespace-nowrap text-muted-foreground">
-                                  <Clock className="h-3 w-3 inline mr-1" />{formatDuration(group.oldestClock)}
-                                </td>
-                                <td className="px-4 py-2">
-                                  <AcksPopover acks={group.allAcks} />
-                                </td>
-                                <td className="px-4 py-2">
-                                  <ContactButton contato={contato} />
-                                </td>
-                              </tr>
+                              <GroupRows
+                                key={group.hostKey}
+                                group={group}
+                                sev={sev}
+                                isMulti={isMulti}
+                                isExpanded={isExpanded}
+                                uniqueTriggers={uniqueTriggers}
+                                contato={contato}
+                                onToggle={() => toggleHost(group.hostKey)}
+                              />
                             );
                           })}
                         </tbody>
@@ -339,6 +428,98 @@ export default function DashboardZabbix() {
   );
 }
 
+// ── GroupRows ────────────────────────────────────────────────────────────
+function GroupRows({
+  group, sev, isMulti, isExpanded, uniqueTriggers, contato, onToggle,
+}: {
+  group: HostGroup;
+  sev: { label: string; bg: string; text: string };
+  isMulti: boolean;
+  isExpanded: boolean;
+  uniqueTriggers: string[];
+  contato: ZabbixContato | null;
+  onToggle: () => void;
+}) {
+  // Sort sub-problems by newest first
+  const sortedProblems = [...group.problems].sort((a, b) => Number(b.clock) - Number(a.clock));
+
+  return (
+    <>
+      {/* Main summary row */}
+      <tr
+        className={`border-b last:border-0 hover:bg-muted/30 transition-colors ${isMulti ? "cursor-pointer" : ""}`}
+        onClick={isMulti ? onToggle : undefined}
+      >
+        <td className="px-2 py-2 text-center">
+          {isMulti && (
+            isExpanded
+              ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              : <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          )}
+        </td>
+        <td className="px-4 py-2">
+          <Badge className={`${sev.bg} ${sev.text} text-xs`}>{sev.label}</Badge>
+        </td>
+        <td className="px-4 py-2 font-medium whitespace-nowrap">
+          {group.hostName}
+          {isMulti && (
+            <Badge variant="outline" className="ml-2 text-[10px] px-1.5 py-0">{group.problems.length}</Badge>
+          )}
+        </td>
+        <td className="px-4 py-2 max-w-md">
+          {isMulti ? (
+            <div className="flex flex-wrap gap-1">
+              {uniqueTriggers.map((name, i) => (
+                <span key={i} className="text-xs bg-muted px-1.5 py-0.5 rounded">{name}</span>
+              ))}
+            </div>
+          ) : (
+            <span className="text-xs">{group.problems[0]?.triggerDescription || group.problems[0]?.name}</span>
+          )}
+        </td>
+        <td className="px-4 py-2 whitespace-nowrap text-muted-foreground">
+          <Clock className="h-3 w-3 inline mr-1" />
+          {isMulti
+            ? formatDuration(group.newestClock)
+            : formatDuration(Number(group.problems[0]?.clock))
+          }
+        </td>
+        <td className="px-4 py-2">
+          <AcksPopover acks={group.allAcks} />
+        </td>
+        <td className="px-4 py-2">
+          <ContactButton contato={contato} />
+        </td>
+      </tr>
+      {/* Expanded sub-rows */}
+      {isMulti && isExpanded && sortedProblems.map((p) => {
+        const pSev = SEVERITY_CONFIG[p.severity] || SEVERITY_CONFIG["0"];
+        return (
+          <tr key={p.eventid} className="border-b last:border-0 bg-muted/10">
+            <td className="px-2 py-1.5"></td>
+            <td className="px-4 py-1.5">
+              <Badge className={`${pSev.bg} ${pSev.text} text-[10px]`}>{pSev.label}</Badge>
+            </td>
+            <td className="px-4 py-1.5 text-xs text-muted-foreground pl-8">
+              ↳ {p.hosts?.[0]?.name || p.hosts?.[0]?.host}
+            </td>
+            <td className="px-4 py-1.5">
+              <span className="text-xs">{p.triggerDescription || p.name}</span>
+            </td>
+            <td className="px-4 py-1.5 whitespace-nowrap text-muted-foreground text-xs">
+              <Clock className="h-3 w-3 inline mr-1" />{formatDuration(Number(p.clock))}
+            </td>
+            <td className="px-4 py-1.5">
+              <AcksPopover acks={p.acknowledges || []} />
+            </td>
+            <td className="px-4 py-1.5"></td>
+          </tr>
+        );
+      })}
+    </>
+  );
+}
+
 // ── Acks Popover ────────────────────────────────────────────────────────
 function AcksPopover({ acks }: { acks: any[] }) {
   if (acks.length === 0) {
@@ -377,16 +558,10 @@ function AcksPopover({ acks }: { acks: any[] }) {
 
 // ── Contact Button ──────────────────────────────────────────────────────
 function ContactButton({ contato }: { contato: ZabbixContato | null }) {
-  if (!contato) {
-    return <span className="text-xs text-muted-foreground">—</span>;
-  }
-
+  if (!contato) return <span className="text-xs text-muted-foreground">—</span>;
   const hasPrimeiro = !!contato.primeiro_contato_nome;
   const hasResponsavel = !!contato.responsavel_nome;
-
-  if (!hasPrimeiro && !hasResponsavel) {
-    return <span className="text-xs text-muted-foreground">—</span>;
-  }
+  if (!hasPrimeiro && !hasResponsavel) return <span className="text-xs text-muted-foreground">—</span>;
 
   return (
     <Popover>
