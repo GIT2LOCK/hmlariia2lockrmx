@@ -381,13 +381,13 @@ export default function ZabbixTvView() {
     return map;
   }, [problems, showCtrl]);
 
-  const totalProblems = problems.length;
   const totalMaintenances = maintenances.length;
   const catCounts = useMemo(() => ({
     equipamentos: categorized.equipamentos.length,
     links: categorized.links.length,
     outros: categorized.outros.length,
   }), [categorized]);
+  const totalProblems = catCounts.equipamentos + catCounts.links + catCounts.outros;
 
   const kpis = [
     { id: "total", label: "Total Problemas", value: totalProblems, icon: Activity, color: C.red, hi: true },
