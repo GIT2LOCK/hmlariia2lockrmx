@@ -324,15 +324,12 @@ serve(async (req) => {
         // 2) Top hosts by CPU utilization
         let cpuHosts: any[] = [];
         try {
-          // Get CPU idle items to calculate utilization
+          // Get CPU utilization items (exact key match)
           const cpuItems = await zabbix1("item.get", {
             output: ["itemid", "hostid", "lastvalue", "name", "key_"],
-            search: { key_: "system.cpu.util" },
             filter: { key_: "system.cpu.util" },
             selectHosts: ["hostid", "host", "name"],
-            sortfield: "lastvalue",
-            sortorder: "DESC",
-            limit: 10,
+            limit: 20,
           });
           // Also try to get load averages for these hosts
           const hostIds = cpuItems.map((i: any) => i.hostid);
