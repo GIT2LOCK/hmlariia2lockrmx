@@ -195,25 +195,103 @@ const MiniDonut = ({ pct, color, size = 52 }: { pct: number; color: string; size
   );
 };
 
-// ── Problem Row ──
-function ProblemRow({ problem, index }: { problem: ZabbixProblem; index: number }) {
-  const hostName = problem.hosts?.[0]?.name || problem.hosts?.[0]?.host || "—";
-  const duration = formatDuration(Number(problem.clock));
-  const source = problem.source === "z1" ? "BRAVA" : "2LOCK";
+// ── Host grouping for TV ──
+interface TvHostGroup {
+  hostKey: string;
+  hostName: string;
+  problems: ZabbixProblem[];
+  newestClock: number;
+}
 
+function groupByHostTv(items: ZabbixProblem[]): TvHostGroup[] {
+  const map = new Map<string, TvHostGroup>();
+  for (const p of items) {
+    const hostName = p.hosts?.[0]?.name || p.hosts?.[0]?.host || "—";
+    const hostCode = p.hosts?.[0]?.host || hostName;
+    if (!map.has(hostCode)) {
+      map.set(hostCode, { hostKey: hostCode, hostName, problems: [], newestClock: 0 });
+    }
+    const g = map.get(hostCode)!;
+    g.problems.push(p);
+    const clock = Number(p.clock);
+    if (clock > g.newestClock) g.newestClock = clock;
+  }
+  // Sort groups by newest problem first
+  const groups = Array.from(map.values());
+  groups.sort((a, b) => b.newestClock - a.newestClock);
+  // Sort problems within each group newest first
+  for (const g of groups) g.problems.sort((a, b) => Number(b.clock) - Number(a.clock));
+  return groups;
+}
+
+// ── Grouped Problem Rows ──
+function TvGroupedRows({ groups, expandedHosts, onToggle }: {
+  groups: TvHostGroup[];
+  expandedHosts: Set<string>;
+  onToggle: (key: string) => void;
+}) {
   return (
-    <motion.div
-      initial={{ opacity: 0, x: -20 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: 0.02 * index, ease: "easeOut" }}
-      className="grid grid-cols-[1fr_2fr_120px_80px] gap-2 items-center py-1.5 px-3 rounded-lg transition-colors"
-      style={{ borderBottom: `1px solid rgba(77,166,255,0.06)` }}
-    >
-      <span className="text-xs truncate" style={{ color: C.textCyan, fontWeight: 600 }}>{hostName}</span>
-      <span className="text-[11px] truncate" style={{ color: C.dim }}>{problem.triggerDescription || problem.name}</span>
-      <span className="text-[11px] font-mono tabular-nums" style={{ color: C.orange }}>{duration}</span>
-      <span className="text-[10px] text-right" style={{ color: C.dim }}>{source}</span>
-    </motion.div>
+    <>
+      {groups.map((group, gi) => {
+        const isMulti = group.problems.length > 1;
+        const isExpanded = expandedHosts.has(group.hostKey);
+        const source = group.problems[0]?.source === "z1" ? "BRAVA" : "2LOCK";
+
+        return (
+          <div key={group.hostKey}>
+            {/* Main row */}
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.02 * gi, ease: "easeOut" }}
+              className={`grid grid-cols-[24px_1.2fr_2fr_140px_90px] gap-2 items-center py-2 px-3 ${isMulti ? "cursor-pointer" : ""}`}
+              style={{ borderBottom: `1px solid rgba(77,166,255,0.06)` }}
+              onClick={isMulti ? () => onToggle(group.hostKey) : undefined}
+            >
+              <span className="flex items-center justify-center">
+                {isMulti && (isExpanded
+                  ? <ChevronDown className="h-4 w-4" style={{ color: C.dim }} />
+                  : <ChevronRight className="h-4 w-4" style={{ color: C.dim }} />
+                )}
+              </span>
+              <span className="text-sm truncate" style={{ color: C.textCyan, fontWeight: 600 }}>
+                {group.hostName}
+                {isMulti && (
+                  <span className="ml-2 text-xs px-1.5 py-0.5 rounded-full" style={{ background: "rgba(77,166,255,0.15)", color: C.cyan, fontWeight: 700 }}>
+                    {group.problems.length}
+                  </span>
+                )}
+              </span>
+              <span className="text-sm truncate" style={{ color: C.dim }}>
+                {isMulti
+                  ? group.problems.map(p => p.triggerDescription || p.name).filter((v, i, a) => a.indexOf(v) === i).join(" · ")
+                  : (group.problems[0]?.triggerDescription || group.problems[0]?.name)
+                }
+              </span>
+              <span className="text-sm font-mono tabular-nums" style={{ color: C.orange }}>
+                {formatDuration(Number(group.problems[0]?.clock))}
+              </span>
+              <span className="text-xs text-right" style={{ color: C.dim }}>{source}</span>
+            </motion.div>
+
+            {/* Expanded sub-rows */}
+            {isMulti && isExpanded && group.problems.map((p) => (
+              <div
+                key={p.eventid}
+                className="grid grid-cols-[24px_1.2fr_2fr_140px_90px] gap-2 items-center py-1.5 px-3"
+                style={{ background: "rgba(77,166,255,0.03)", borderBottom: `1px solid rgba(77,166,255,0.04)` }}
+              >
+                <span />
+                <span className="text-xs pl-3" style={{ color: C.dim }}>↳ {p.hosts?.[0]?.name || "—"}</span>
+                <span className="text-xs" style={{ color: C.dim }}>{p.triggerDescription || p.name}</span>
+                <span className="text-xs font-mono tabular-nums" style={{ color: C.orange }}>{formatDuration(Number(p.clock))}</span>
+                <span className="text-[11px] text-right" style={{ color: C.dim }}>{p.source === "z1" ? "BRAVA" : "2LOCK"}</span>
+              </div>
+            ))}
+          </div>
+        );
+      })}
+    </>
   );
 }
 
