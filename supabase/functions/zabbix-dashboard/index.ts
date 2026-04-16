@@ -335,13 +335,11 @@ serve(async (req) => {
               loadItems = await zabbix1("item.get", {
                 output: ["itemid", "hostid", "lastvalue", "key_"],
                 hostids: hostIds,
-                filter: { key_: [
-                  "system.cpu.load[all,avg1]",
-                  "system.cpu.load[all,avg5]",
-                  "system.cpu.load[all,avg15]",
-                ] },
+                search: { key_: "system.cpu.load[" },
+                searchByAny: true,
               });
-            } catch { /* no load items */ }
+              console.log("Load items found:", JSON.stringify(loadItems.map((i: any) => ({ hostid: i.hostid, key: i.key_, val: i.lastvalue }))));
+            } catch (e) { console.error("Load error:", e); }
           }
           // Get process count
           let procItems: any[] = [];
