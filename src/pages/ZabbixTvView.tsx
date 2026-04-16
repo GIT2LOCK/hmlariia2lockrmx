@@ -252,10 +252,11 @@ function groupByHostTv(items: ZabbixProblem[]): TvHostGroup[] {
 }
 
 // ── Grouped Problem Rows ──
-function TvGroupedRows({ groups, expandedHosts, onToggle }: {
+function TvGroupedRows({ groups, expandedHosts, onToggle, gridCols = "grid-cols-[20px_1fr_2.5fr_100px_60px_70px]" }: {
   groups: TvHostGroup[];
   expandedHosts: Set<string>;
   onToggle: (key: string) => void;
+  gridCols?: string;
 }) {
   return (
     <>
@@ -270,7 +271,7 @@ function TvGroupedRows({ groups, expandedHosts, onToggle }: {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.02 * gi, ease: "easeOut" }}
-              className={`grid grid-cols-[20px_1fr_2.5fr_100px_60px_70px] gap-2 items-center py-2 px-3 ${isMulti ? "cursor-pointer" : ""}`}
+              className={`grid ${gridCols} gap-2 items-center py-2 px-3 ${isMulti ? "cursor-pointer" : ""}`}
               style={{ borderBottom: `1px solid rgba(77,166,255,0.06)` }}
               onClick={isMulti ? () => onToggle(group.hostKey) : undefined}
             >
@@ -313,7 +314,7 @@ function TvGroupedRows({ groups, expandedHosts, onToggle }: {
             {isMulti && isExpanded && group.problems.map((p) => (
               <div
                 key={p.eventid}
-                className="grid grid-cols-[20px_1fr_2.5fr_100px_60px_70px] gap-2 items-center py-1.5 px-3"
+                className={`grid ${gridCols} gap-2 items-center py-1.5 px-3`}
                 style={{ background: "rgba(77,166,255,0.03)", borderBottom: `1px solid rgba(77,166,255,0.04)` }}
               >
                 <span />
@@ -609,7 +610,7 @@ export default function ZabbixTvView() {
                   </span>
                 </div>
                 <div className="flex-1 overflow-y-auto min-h-0 custom-scrollbar">
-                  <div className="grid grid-cols-[20px_1fr_2.5fr_100px_60px_70px] gap-2 px-3 py-2 sticky top-0" style={{ background: "rgba(6,12,30,0.95)", borderBottom: `1px solid ${C.grid}` }}>
+                  <div className="grid grid-cols-[20px_1.5fr_2fr_100px_60px_70px] gap-2 px-3 py-2 sticky top-0" style={{ background: "rgba(6,12,30,0.95)", borderBottom: `1px solid ${C.grid}` }}>
                     <span />
                     <span className="text-xs uppercase tracking-wider" style={{ color: C.dim, fontWeight: 700 }}>Host</span>
                     <span className="text-xs uppercase tracking-wider" style={{ color: C.dim, fontWeight: 700 }}>Problema</span>
@@ -623,6 +624,7 @@ export default function ZabbixTvView() {
                     </div>
                   ) : (
                     <TvGroupedRows groups={groupByHostTv(items)} expandedHosts={expandedHosts}
+                      gridCols="grid-cols-[20px_1.5fr_2fr_100px_60px_70px]"
                       onToggle={(key) => setExpandedHosts(prev => { const next = new Set(prev); if (next.has(key)) next.delete(key); else next.add(key); return next; })} />
                   )}
                 </div>
