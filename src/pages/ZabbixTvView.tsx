@@ -523,9 +523,6 @@ export default function ZabbixTvView() {
                   <span className="text-sm uppercase tracking-[0.15em]" style={{ color, fontWeight: 700 }}>
                     {CATEGORY_LABELS[cat]}
                   </span>
-                  <span className="ml-auto text-3xl tabular-nums" style={{ color: C.white, fontWeight: 400, textShadow: `0 0 15px ${color}40` }}>
-                    {items.length}
-                  </span>
                 </div>
 
                 <div className="flex-1 overflow-y-auto min-h-0 custom-scrollbar">
