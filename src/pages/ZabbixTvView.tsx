@@ -5,6 +5,7 @@ import { useUser } from "@/contexts/UserContext";
 import {
   ArrowLeft, Eye, EyeOff, Monitor, RefreshCw, Server, Wifi,
   AlertTriangle, Wrench, Activity, ChevronDown, ChevronRight,
+  HardDrive, Cpu, Radio,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
