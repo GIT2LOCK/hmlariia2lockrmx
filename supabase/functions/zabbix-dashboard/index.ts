@@ -288,6 +288,121 @@ serve(async (req) => {
         break;
       }
 
+      case "server_metrics": {
+        // 1) Disk space of Zabbix server (filesystem /)
+        let diskUsagePct: number | null = null;
+        try {
+          const diskItems = await zabbix1("item.get", {
+            output: ["itemid", "lastvalue", "name", "key_"],
+            host: "Zabbix server",
+            search: { key_: "vfs.fs.size[/,pused]" },
+            limit: 1,
+          });
+          if (diskItems.length > 0) {
+            diskUsagePct = parseFloat(diskItems[0].lastvalue);
+          }
+        } catch { /* no disk item */ }
+
+        // 2) Top hosts by CPU utilization
+        let cpuHosts: any[] = [];
+        try {
+          // Get CPU idle items to calculate utilization
+          const cpuItems = await zabbix1("item.get", {
+            output: ["itemid", "hostid", "lastvalue", "name", "key_"],
+            search: { key_: "system.cpu.util" },
+            filter: { key_: "system.cpu.util" },
+            selectHosts: ["hostid", "host", "name"],
+            sortfield: "lastvalue",
+            sortorder: "DESC",
+            limit: 10,
+          });
+          // Also try to get load averages for these hosts
+          const hostIds = cpuItems.map((i: any) => i.hostid);
+          let loadItems: any[] = [];
+          if (hostIds.length > 0) {
+            try {
+              loadItems = await zabbix1("item.get", {
+                output: ["itemid", "hostid", "lastvalue", "key_"],
+                hostids: hostIds,
+                search: { key_: "system.cpu.load" },
+              });
+            } catch { /* no load items */ }
+          }
+          // Get process count
+          let procItems: any[] = [];
+          if (hostIds.length > 0) {
+            try {
+              procItems = await zabbix1("item.get", {
+                output: ["itemid", "hostid", "lastvalue", "key_"],
+                hostids: hostIds,
+                filter: { key_: "proc.num" },
+              });
+            } catch { /* no proc items */ }
+          }
+
+          const loadMap: Record<string, { avg1?: string; avg5?: string; avg15?: string }> = {};
+          for (const li of loadItems) {
+            if (!loadMap[li.hostid]) loadMap[li.hostid] = {};
+            if (li.key_.includes(",1")) loadMap[li.hostid].avg1 = li.lastvalue;
+            else if (li.key_.includes(",5")) loadMap[li.hostid].avg5 = li.lastvalue;
+            else if (li.key_.includes(",15")) loadMap[li.hostid].avg15 = li.lastvalue;
+          }
+          const procMap: Record<string, string> = {};
+          for (const pi of procItems) procMap[pi.hostid] = pi.lastvalue;
+
+          cpuHosts = cpuItems.map((i: any) => ({
+            hostid: i.hostid,
+            hostname: i.hosts?.[0]?.host || "",
+            name: i.hosts?.[0]?.name || i.hosts?.[0]?.host || "",
+            cpuUtil: parseFloat(i.lastvalue),
+            load1m: loadMap[i.hostid]?.avg1 ? parseFloat(loadMap[i.hostid].avg1!) : null,
+            load5m: loadMap[i.hostid]?.avg5 ? parseFloat(loadMap[i.hostid].avg5!) : null,
+            load15m: loadMap[i.hostid]?.avg15 ? parseFloat(loadMap[i.hostid].avg15!) : null,
+            processes: procMap[i.hostid] ? parseInt(procMap[i.hostid]) : null,
+          }));
+        } catch { /* no CPU data */ }
+
+        // 3) Proxy last seen
+        let proxies: any[] = [];
+        try {
+          const pxResult = await zabbix1("proxy.get", {
+            output: ["proxyid", "name", "lastaccess", "host"],
+          });
+          proxies = pxResult.map((px: any) => {
+            const lastAccess = Number(px.lastaccess || 0);
+            const nowSec = Math.floor(Date.now() / 1000);
+            const delaySec = lastAccess > 0 ? nowSec - lastAccess : -1;
+            return {
+              proxyid: px.proxyid,
+              name: px.name || px.host,
+              lastaccess: lastAccess,
+              delaySec,
+            };
+          });
+        } catch {
+          try {
+            // Zabbix 6.x fallback
+            const pxResult = await zabbix1("proxy.get", {
+              output: ["proxyid", "host", "lastaccess"],
+            });
+            proxies = pxResult.map((px: any) => {
+              const lastAccess = Number(px.lastaccess || 0);
+              const nowSec = Math.floor(Date.now() / 1000);
+              const delaySec = lastAccess > 0 ? nowSec - lastAccess : -1;
+              return {
+                proxyid: px.proxyid,
+                name: px.host || px.name,
+                lastaccess: lastAccess,
+                delaySec,
+              };
+            });
+          } catch { /* no proxy support */ }
+        }
+
+        result = { diskUsagePct, cpuHosts, proxies };
+        break;
+      }
+
       default:
         return new Response(JSON.stringify({ error: "Invalid action" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
