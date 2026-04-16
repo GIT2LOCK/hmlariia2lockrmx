@@ -289,7 +289,7 @@ function TvGroupedRows({ groups, expandedHosts, onToggle, gridCols = "grid-cols-
                   </span>
                 )}
               </span>
-              <span className="text-base truncate" style={{ color: C.dim }}>
+              <span className="text-base truncate text-muted-foreground font-semibold" style={{ color: C.dim }}>
                 {isMulti
                   ? group.problems.map(p => p.triggerDescription || p.name).filter((v, i, a) => a.indexOf(v) === i).join(" · ")
                   : (group.problems[0]?.triggerDescription || group.problems[0]?.name)
@@ -650,7 +650,7 @@ export default function ZabbixTvView() {
                   const dash = (pct / 100) * circ;
                   return (
                     <div className="relative flex items-center justify-center">
-                      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+                      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="font-extrabold">
                         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(77,166,255,0.08)" strokeWidth="14" />
                         <motion.circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={diskColor} strokeWidth="14"
                           strokeLinecap="round" strokeDasharray={`${dash} ${circ - dash}`} strokeDashoffset={circ / 4}
@@ -692,10 +692,10 @@ export default function ZabbixTvView() {
                           <div className="h-full rounded-full transition-all" style={{ width: `${barPct}%`, background: barColor, boxShadow: `0 0 8px ${barColor}40` }} />
                         </div>
                         <div className="flex gap-4 text-base font-mono tabular-nums" style={{ color: C.dim }}>
-                          <span>1m: {h.load1m?.toFixed(2) ?? "—"}</span>
-                          <span>5m: {h.load5m?.toFixed(2) ?? "—"}</span>
-                          <span>15m: {h.load15m?.toFixed(2) ?? "—"}</span>
-                          <span className="ml-auto">P: {h.processes ?? "—"}</span>
+                          <span className="font-extrabold">1m: {h.load1m?.toFixed(2) ?? "—"}</span>
+                          <span className="font-extrabold">5m: {h.load5m?.toFixed(2) ?? "—"}</span>
+                          <span className="font-extrabold">15m: {h.load15m?.toFixed(2) ?? "—"}</span>
+                          <span className="ml-auto font-extrabold">P: {h.processes ?? "—"}</span>
                         </div>
                       </div>
                     );
