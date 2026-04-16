@@ -415,6 +415,39 @@ export default function ZabbixTvView() {
     }
   }, []);
 
+  // Detect new problems and trigger toast + sound
+  useEffect(() => {
+    if (knownEventIdsRef.current === null) {
+      // First load: just seed the known set, no notifications
+      knownEventIdsRef.current = new Set(problems.map(p => p.eventid));
+      return;
+    }
+    const known = knownEventIdsRef.current;
+    const newOnes = problems.filter(p => {
+      const cat = classifyProblem(p);
+      if (cat !== "equipamentos" && cat !== "links") return false;
+      return !known.has(p.eventid);
+    });
+    if (newOnes.length > 0) {
+      playAlertSound();
+      for (const p of newOnes) {
+        const cat = classifyProblem(p);
+        const hostName = p.hosts?.[0]?.name || p.hosts?.[0]?.host || "Host desconhecido";
+        const isLink = cat === "links";
+        toast.error(
+          isLink ? "🔗 Novo problema de LINK" : "🖥️ Novo problema de EQUIPAMENTO",
+          {
+            description: `${hostName} — ${p.triggerDescription || p.name}`,
+            duration: 15000,
+            position: "bottom-right",
+          }
+        );
+      }
+    }
+    // Update known set with current problems
+    knownEventIdsRef.current = new Set(problems.map(p => p.eventid));
+  }, [problems, playAlertSound]);
+
   useEffect(() => {
     fetchData();
     const iv = setInterval(fetchData, REFRESH_INTERVAL);
