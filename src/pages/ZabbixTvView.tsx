@@ -8,6 +8,7 @@ import {
   HardDrive, Cpu, Radio,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
 
 // ── Types ──
 interface ZabbixProblem {
@@ -353,6 +354,34 @@ export default function ZabbixTvView() {
   const [sidebarHidden, setSidebarHidden] = useState(true);
   const [expandedHosts, setExpandedHosts] = useState<Set<string>>(new Set());
   const [showCtrl, setShowCtrl] = useState(true);
+  const knownEventIdsRef = useRef<Set<string> | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+
+  const playAlertSound = useCallback(() => {
+    try {
+      if (!audioCtxRef.current) {
+        const Ctx = (window.AudioContext || (window as any).webkitAudioContext);
+        if (!Ctx) return;
+        audioCtxRef.current = new Ctx();
+      }
+      const ctx = audioCtxRef.current;
+      if (ctx.state === "suspended") ctx.resume();
+      const playBeep = (freq: number, start: number, dur: number) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0, ctx.currentTime + start);
+        gain.gain.linearRampToValueAtTime(0.25, ctx.currentTime + start + 0.02);
+        gain.gain.linearRampToValueAtTime(0, ctx.currentTime + start + dur);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(ctx.currentTime + start);
+        osc.stop(ctx.currentTime + start + dur + 0.05);
+      };
+      playBeep(880, 0, 0.18);
+      playBeep(1175, 0.22, 0.22);
+    } catch { /* ignore */ }
+  }, []);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-sidebar-hidden", "true");
@@ -385,6 +414,39 @@ export default function ZabbixTvView() {
       setLoading(false);
     }
   }, []);
+
+  // Detect new problems and trigger toast + sound
+  useEffect(() => {
+    if (knownEventIdsRef.current === null) {
+      // First load: just seed the known set, no notifications
+      knownEventIdsRef.current = new Set(problems.map(p => p.eventid));
+      return;
+    }
+    const known = knownEventIdsRef.current;
+    const newOnes = problems.filter(p => {
+      const cat = classifyProblem(p);
+      if (cat !== "equipamentos" && cat !== "links") return false;
+      return !known.has(p.eventid);
+    });
+    if (newOnes.length > 0) {
+      playAlertSound();
+      for (const p of newOnes) {
+        const cat = classifyProblem(p);
+        const hostName = p.hosts?.[0]?.name || p.hosts?.[0]?.host || "Host desconhecido";
+        const isLink = cat === "links";
+        toast.error(
+          isLink ? "🔗 Novo problema de LINK" : "🖥️ Novo problema de EQUIPAMENTO",
+          {
+            description: `${hostName} — ${p.triggerDescription || p.name}`,
+            duration: 15000,
+            position: "bottom-right",
+          }
+        );
+      }
+    }
+    // Update known set with current problems
+    knownEventIdsRef.current = new Set(problems.map(p => p.eventid));
+  }, [problems, playAlertSound]);
 
   useEffect(() => {
     fetchData();
