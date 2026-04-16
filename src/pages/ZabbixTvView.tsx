@@ -535,9 +535,11 @@ export default function ZabbixTvView() {
             <GlowCard key={k.id} hi={k.hi} delay={i * 0.07}>
               <div className="p-5 lg:p-6 flex items-center gap-4 min-h-[110px]">
                 {k.id === "total" ? (
-                  <div className="flex-shrink-0 flex flex-col items-center justify-center" style={{ width: 60, height: 60 }}>
-                    <k.icon className="h-8 w-8" style={{ color: k.color, filter: `drop-shadow(0 0 8px ${k.color}60)` }} />
-                  </div>
+                  <MultiDonut size={60} segments={[
+                    { pct: totalProblems > 0 ? (catCounts.equipamentos / totalProblems) * 100 : 0, color: C.blue },
+                    { pct: totalProblems > 0 ? (catCounts.links / totalProblems) * 100 : 0, color: C.green },
+                    { pct: totalProblems > 0 ? (catCounts.outros / totalProblems) * 100 : 0, color: C.dim },
+                  ]} />
                 ) : (
                   <MiniDonut pct={totalProblems > 0 ? (k.value / totalProblems) * 100 : k.id === "manut" ? 100 : 0} color={k.color} size={60} />
                 )}
