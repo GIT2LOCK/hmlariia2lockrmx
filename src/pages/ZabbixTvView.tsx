@@ -510,7 +510,7 @@ export default function ZabbixTvView() {
                     <span className="text-xs uppercase tracking-wider" style={{ color: C.dim, fontWeight: 700 }}>Host</span>
                     <span className="text-xs uppercase tracking-wider" style={{ color: C.dim, fontWeight: 700 }}>Problema</span>
                     <span className="text-xs uppercase tracking-wider" style={{ color: C.dim, fontWeight: 700 }}>Duração</span>
-                    <span className="text-xs uppercase tracking-wider text-center" style={{ color: C.dim, fontWeight: 700 }}>Actions</span>
+                    <span className="text-xs uppercase tracking-wider text-center" style={{ color: C.dim, fontWeight: 700 }}>Updates</span>
                     <span className="text-xs uppercase tracking-wider text-right" style={{ color: C.dim, fontWeight: 700 }}>Origem</span>
                   </div>
 
