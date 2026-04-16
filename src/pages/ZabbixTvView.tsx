@@ -343,6 +343,11 @@ export default function ZabbixTvView() {
   const { isTvView } = useUser();
   const [problems, setProblems] = useState<ZabbixProblem[]>([]);
   const [maintenances, setMaintenances] = useState<ZabbixMaintenance[]>([]);
+  const [serverMetrics, setServerMetrics] = useState<{
+    diskUsagePct: number | null;
+    cpuHosts: { hostid: string; hostname: string; name: string; cpuUtil: number; load1m: number | null; load5m: number | null; load15m: number | null; processes: number | null }[];
+    proxies: { proxyid: string; name: string; lastaccess: number; delaySec: number }[];
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
