@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useUser } from "@/contexts/UserContext";
 import {
   ArrowLeft, Eye, EyeOff, Monitor, RefreshCw, Server, Wifi,
-  AlertTriangle, Wrench, Activity,
+  AlertTriangle, Wrench, Activity, ChevronDown, ChevronRight,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -195,25 +195,103 @@ const MiniDonut = ({ pct, color, size = 52 }: { pct: number; color: string; size
   );
 };
 
-// ── Problem Row ──
-function ProblemRow({ problem, index }: { problem: ZabbixProblem; index: number }) {
-  const hostName = problem.hosts?.[0]?.name || problem.hosts?.[0]?.host || "—";
-  const duration = formatDuration(Number(problem.clock));
-  const source = problem.source === "z1" ? "BRAVA" : "2LOCK";
+// ── Host grouping for TV ──
+interface TvHostGroup {
+  hostKey: string;
+  hostName: string;
+  problems: ZabbixProblem[];
+  newestClock: number;
+}
 
+function groupByHostTv(items: ZabbixProblem[]): TvHostGroup[] {
+  const map = new Map<string, TvHostGroup>();
+  for (const p of items) {
+    const hostName = p.hosts?.[0]?.name || p.hosts?.[0]?.host || "—";
+    const hostCode = p.hosts?.[0]?.host || hostName;
+    if (!map.has(hostCode)) {
+      map.set(hostCode, { hostKey: hostCode, hostName, problems: [], newestClock: 0 });
+    }
+    const g = map.get(hostCode)!;
+    g.problems.push(p);
+    const clock = Number(p.clock);
+    if (clock > g.newestClock) g.newestClock = clock;
+  }
+  // Sort groups by newest problem first
+  const groups = Array.from(map.values());
+  groups.sort((a, b) => b.newestClock - a.newestClock);
+  // Sort problems within each group newest first
+  for (const g of groups) g.problems.sort((a, b) => Number(b.clock) - Number(a.clock));
+  return groups;
+}
+
+// ── Grouped Problem Rows ──
+function TvGroupedRows({ groups, expandedHosts, onToggle }: {
+  groups: TvHostGroup[];
+  expandedHosts: Set<string>;
+  onToggle: (key: string) => void;
+}) {
   return (
-    <motion.div
-      initial={{ opacity: 0, x: -20 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: 0.02 * index, ease: "easeOut" }}
-      className="grid grid-cols-[1fr_2fr_120px_80px] gap-2 items-center py-1.5 px-3 rounded-lg transition-colors"
-      style={{ borderBottom: `1px solid rgba(77,166,255,0.06)` }}
-    >
-      <span className="text-xs truncate" style={{ color: C.textCyan, fontWeight: 600 }}>{hostName}</span>
-      <span className="text-[11px] truncate" style={{ color: C.dim }}>{problem.triggerDescription || problem.name}</span>
-      <span className="text-[11px] font-mono tabular-nums" style={{ color: C.orange }}>{duration}</span>
-      <span className="text-[10px] text-right" style={{ color: C.dim }}>{source}</span>
-    </motion.div>
+    <>
+      {groups.map((group, gi) => {
+        const isMulti = group.problems.length > 1;
+        const isExpanded = expandedHosts.has(group.hostKey);
+        const source = group.problems[0]?.source === "z1" ? "BRAVA" : "2LOCK";
+
+        return (
+          <div key={group.hostKey}>
+            {/* Main row */}
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.02 * gi, ease: "easeOut" }}
+              className={`grid grid-cols-[24px_1.2fr_2fr_140px_90px] gap-2 items-center py-2 px-3 ${isMulti ? "cursor-pointer" : ""}`}
+              style={{ borderBottom: `1px solid rgba(77,166,255,0.06)` }}
+              onClick={isMulti ? () => onToggle(group.hostKey) : undefined}
+            >
+              <span className="flex items-center justify-center">
+                {isMulti && (isExpanded
+                  ? <ChevronDown className="h-4 w-4" style={{ color: C.dim }} />
+                  : <ChevronRight className="h-4 w-4" style={{ color: C.dim }} />
+                )}
+              </span>
+              <span className="text-sm truncate" style={{ color: C.textCyan, fontWeight: 600 }}>
+                {group.hostName}
+                {isMulti && (
+                  <span className="ml-2 text-xs px-1.5 py-0.5 rounded-full" style={{ background: "rgba(77,166,255,0.15)", color: C.cyan, fontWeight: 700 }}>
+                    {group.problems.length}
+                  </span>
+                )}
+              </span>
+              <span className="text-sm truncate" style={{ color: C.dim }}>
+                {isMulti
+                  ? group.problems.map(p => p.triggerDescription || p.name).filter((v, i, a) => a.indexOf(v) === i).join(" · ")
+                  : (group.problems[0]?.triggerDescription || group.problems[0]?.name)
+                }
+              </span>
+              <span className="text-sm font-mono tabular-nums" style={{ color: C.orange }}>
+                {formatDuration(Number(group.problems[0]?.clock))}
+              </span>
+              <span className="text-xs text-right" style={{ color: C.dim }}>{source}</span>
+            </motion.div>
+
+            {/* Expanded sub-rows */}
+            {isMulti && isExpanded && group.problems.map((p) => (
+              <div
+                key={p.eventid}
+                className="grid grid-cols-[24px_1.2fr_2fr_140px_90px] gap-2 items-center py-1.5 px-3"
+                style={{ background: "rgba(77,166,255,0.03)", borderBottom: `1px solid rgba(77,166,255,0.04)` }}
+              >
+                <span />
+                <span className="text-xs pl-3" style={{ color: C.dim }}>↳ {p.hosts?.[0]?.name || "—"}</span>
+                <span className="text-xs" style={{ color: C.dim }}>{p.triggerDescription || p.name}</span>
+                <span className="text-xs font-mono tabular-nums" style={{ color: C.orange }}>{formatDuration(Number(p.clock))}</span>
+                <span className="text-[11px] text-right" style={{ color: C.dim }}>{p.source === "z1" ? "BRAVA" : "2LOCK"}</span>
+              </div>
+            ))}
+          </div>
+        );
+      })}
+    </>
   );
 }
 
@@ -229,6 +307,7 @@ export default function ZabbixTvView() {
   const [now, setNow] = useState(new Date());
   const [secAgo, setSecAgo] = useState(0);
   const [sidebarHidden, setSidebarHidden] = useState(true);
+  const [expandedHosts, setExpandedHosts] = useState<Set<string>>(new Set());
 
   // Hide sidebar
   useEffect(() => {
@@ -330,10 +409,10 @@ export default function ZabbixTvView() {
                 <Activity className="h-6 w-6" style={{ color: C.cyan, filter: `drop-shadow(0 0 6px ${C.cyan})` }} />
               </div>
               <div>
-                <h1 className="text-xl tracking-wide" style={{ color: C.white, textShadow: `0 0 20px ${C.cyan}20`, fontWeight: 400 }}>
+                <h1 className="text-2xl tracking-wide" style={{ color: C.white, textShadow: `0 0 20px ${C.cyan}20`, fontWeight: 400 }}>
                   Monitoramento TV View
                 </h1>
-                <div className="flex items-center gap-2 text-[11px]" style={{ color: C.dim }}>
+                <div className="flex items-center gap-2 text-sm" style={{ color: C.dim }}>
                   <PulseDot color={totalProblems > 0 ? C.red : C.green} />
                   <span style={{ fontWeight: 400 }}>
                     {totalProblems > 0 ? `${totalProblems} problema${totalProblems > 1 ? "s" : ""} ativo${totalProblems > 1 ? "s" : ""}` : "Sem problemas ativos"}
@@ -373,17 +452,17 @@ export default function ZabbixTvView() {
         <div className="grid grid-cols-5 gap-3 mb-3 flex-shrink-0">
           {kpis.map((k, i) => (
             <GlowCard key={k.id} hi={k.hi} delay={i * 0.07}>
-              <div className="p-4 lg:p-5 flex items-center gap-4 min-h-[100px]">
-                <MiniDonut pct={k.id === "total" ? 100 : (totalProblems > 0 ? (k.value / totalProblems) * 100 : k.id === "manut" ? 100 : 0)} color={k.color} size={54} />
+              <div className="p-5 lg:p-6 flex items-center gap-4 min-h-[110px]">
+                <MiniDonut pct={k.id === "total" ? 100 : (totalProblems > 0 ? (k.value / totalProblems) * 100 : k.id === "manut" ? 100 : 0)} color={k.color} size={60} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
-                    <k.icon className="h-4 w-4 flex-shrink-0" style={{ color: k.color, filter: `drop-shadow(0 0 5px ${k.color}60)` }} />
-                    <span className="text-[10px] uppercase tracking-[0.15em] truncate" style={{ color: k.color, fontWeight: 700 }}>
+                    <k.icon className="h-5 w-5 flex-shrink-0" style={{ color: k.color, filter: `drop-shadow(0 0 5px ${k.color}60)` }} />
+                    <span className="text-xs uppercase tracking-[0.15em] truncate" style={{ color: k.color, fontWeight: 700 }}>
                       {k.label}
                     </span>
                   </div>
                   <AnimNum value={k.value}
-                    className="text-4xl xl:text-5xl tabular-nums block leading-none"
+                    className="text-5xl xl:text-6xl tabular-nums block leading-none"
                     style={{ color: C.white, textShadow: `0 0 35px ${k.color}45, 0 0 70px ${k.color}15`, fontWeight: 400 }} />
                 </div>
               </div>
@@ -400,31 +479,40 @@ export default function ZabbixTvView() {
 
             return (
               <GlowCard key={cat} delay={0.35 + ci * 0.1} className="min-h-0 flex flex-col" contentClassName="h-full flex flex-col">
-                <div className="p-3 pb-2 flex items-center gap-2 flex-shrink-0" style={{ borderBottom: `1px solid ${C.grid}` }}>
-                  <Icon className="h-5 w-5" style={{ color, filter: `drop-shadow(0 0 4px ${color}60)` }} />
-                  <span className="text-[11px] uppercase tracking-[0.15em]" style={{ color, fontWeight: 700 }}>
+                <div className="p-4 pb-2 flex items-center gap-2 flex-shrink-0" style={{ borderBottom: `1px solid ${C.grid}` }}>
+                  <Icon className="h-6 w-6" style={{ color, filter: `drop-shadow(0 0 4px ${color}60)` }} />
+                  <span className="text-sm uppercase tracking-[0.15em]" style={{ color, fontWeight: 700 }}>
                     {CATEGORY_LABELS[cat]}
                   </span>
-                  <span className="ml-auto text-2xl tabular-nums" style={{ color: C.white, fontWeight: 400, textShadow: `0 0 15px ${color}40` }}>
+                  <span className="ml-auto text-3xl tabular-nums" style={{ color: C.white, fontWeight: 400, textShadow: `0 0 15px ${color}40` }}>
                     {items.length}
                   </span>
                 </div>
 
                 <div className="flex-1 overflow-y-auto min-h-0 custom-scrollbar">
                   {/* Column headers */}
-                  <div className="grid grid-cols-[1fr_2fr_120px_80px] gap-2 px-3 py-1.5 sticky top-0" style={{ background: "rgba(6,12,30,0.95)", borderBottom: `1px solid ${C.grid}` }}>
-                    <span className="text-[10px] uppercase tracking-wider" style={{ color: C.dim, fontWeight: 700 }}>Host</span>
-                    <span className="text-[10px] uppercase tracking-wider" style={{ color: C.dim, fontWeight: 700 }}>Problema</span>
-                    <span className="text-[10px] uppercase tracking-wider" style={{ color: C.dim, fontWeight: 700 }}>Duração</span>
-                    <span className="text-[10px] uppercase tracking-wider text-right" style={{ color: C.dim, fontWeight: 700 }}>Origem</span>
+                  <div className="grid grid-cols-[24px_1.2fr_2fr_140px_90px] gap-2 px-3 py-2 sticky top-0" style={{ background: "rgba(6,12,30,0.95)", borderBottom: `1px solid ${C.grid}` }}>
+                    <span />
+                    <span className="text-xs uppercase tracking-wider" style={{ color: C.dim, fontWeight: 700 }}>Host</span>
+                    <span className="text-xs uppercase tracking-wider" style={{ color: C.dim, fontWeight: 700 }}>Problema</span>
+                    <span className="text-xs uppercase tracking-wider" style={{ color: C.dim, fontWeight: 700 }}>Duração</span>
+                    <span className="text-xs uppercase tracking-wider text-right" style={{ color: C.dim, fontWeight: 700 }}>Origem</span>
                   </div>
 
                   {items.length === 0 ? (
                     <div className="flex items-center justify-center py-8">
-                      <span className="text-sm" style={{ color: C.green }}>✓ Sem problemas</span>
+                      <span className="text-base" style={{ color: C.green }}>✓ Sem problemas</span>
                     </div>
                   ) : (
-                    items.map((p, idx) => <ProblemRow key={p.eventid} problem={p} index={idx} />)
+                    <TvGroupedRows
+                      groups={groupByHostTv(items)}
+                      expandedHosts={expandedHosts}
+                      onToggle={(key) => setExpandedHosts(prev => {
+                        const next = new Set(prev);
+                        if (next.has(key)) next.delete(key); else next.add(key);
+                        return next;
+                      })}
+                    />
                   )}
                 </div>
               </GlowCard>
@@ -435,20 +523,20 @@ export default function ZabbixTvView() {
         {/* "OUTROS" bar if any */}
         {categorized.outros.length > 0 && (
           <GlowCard delay={0.6} className="mt-3 flex-shrink-0">
-            <div className="p-3 flex items-center gap-3">
-              <AlertTriangle className="h-4 w-4" style={{ color: C.dim }} />
-              <span className="text-[11px] uppercase tracking-[0.12em]" style={{ color: C.dim, fontWeight: 700 }}>
+            <div className="p-4 flex items-center gap-3">
+              <AlertTriangle className="h-5 w-5" style={{ color: C.dim }} />
+              <span className="text-sm uppercase tracking-[0.12em]" style={{ color: C.dim, fontWeight: 700 }}>
                 OUTROS: {categorized.outros.length} problema{categorized.outros.length > 1 ? "s" : ""}
               </span>
               <div className="flex-1 flex flex-wrap gap-x-4 gap-y-1 ml-4">
                 {categorized.outros.slice(0, 5).map((p) => (
-                  <span key={p.eventid} className="text-[11px]" style={{ color: C.textCyan }}>
+                  <span key={p.eventid} className="text-sm" style={{ color: C.textCyan }}>
                     {p.hosts?.[0]?.name || "—"}: <span style={{ color: C.dim }}>{p.triggerDescription || p.name}</span>
-                    <span className="ml-2 font-mono text-[10px]" style={{ color: C.orange }}>{formatDuration(Number(p.clock))}</span>
+                    <span className="ml-2 font-mono text-xs" style={{ color: C.orange }}>{formatDuration(Number(p.clock))}</span>
                   </span>
                 ))}
                 {categorized.outros.length > 5 && (
-                  <span className="text-[10px]" style={{ color: C.dim }}>+{categorized.outros.length - 5} mais</span>
+                  <span className="text-xs" style={{ color: C.dim }}>+{categorized.outros.length - 5} mais</span>
                 )}
               </div>
             </div>
