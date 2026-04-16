@@ -295,7 +295,7 @@ serve(async (req) => {
           const diskItems = await zabbix1("item.get", {
             output: ["itemid", "lastvalue", "name", "key_"],
             host: "Zabbix server",
-            search: { key_: "vfs.fs.size[/,pused]" },
+            filter: { key_: "vfs.fs.dependent.size[/,pused]" },
             limit: 1,
           });
           if (diskItems.length > 0) {
@@ -306,18 +306,21 @@ serve(async (req) => {
         // 2) Top hosts by CPU utilization
         let cpuHosts: any[] = [];
         try {
-          // Get CPU idle items to calculate utilization
+          // Get CPU utilization items from monitored hosts only
           const cpuItems = await zabbix1("item.get", {
             output: ["itemid", "hostid", "lastvalue", "name", "key_"],
-            search: { key_: "system.cpu.util" },
             filter: { key_: "system.cpu.util" },
-            selectHosts: ["hostid", "host", "name"],
-            sortfield: "lastvalue",
-            sortorder: "DESC",
-            limit: 10,
+            selectHosts: ["hostid", "host", "name", "status"],
+            monitored: true,
+            limit: 50,
           });
+          // Filter out template hosts (status != 0) and sort by CPU desc
+          const realCpuItems = cpuItems
+            .filter((i: any) => i.hosts?.[0]?.status === "0" && parseFloat(i.lastvalue) > 0)
+            .sort((a: any, b: any) => parseFloat(b.lastvalue) - parseFloat(a.lastvalue))
+            .slice(0, 10);
           // Also try to get load averages for these hosts
-          const hostIds = cpuItems.map((i: any) => i.hostid);
+          const hostIds = realCpuItems.map((i: any) => i.hostid);
           let loadItems: any[] = [];
           if (hostIds.length > 0) {
             try {
@@ -343,14 +346,14 @@ serve(async (req) => {
           const loadMap: Record<string, { avg1?: string; avg5?: string; avg15?: string }> = {};
           for (const li of loadItems) {
             if (!loadMap[li.hostid]) loadMap[li.hostid] = {};
-            if (li.key_.includes(",1")) loadMap[li.hostid].avg1 = li.lastvalue;
-            else if (li.key_.includes(",5")) loadMap[li.hostid].avg5 = li.lastvalue;
-            else if (li.key_.includes(",15")) loadMap[li.hostid].avg15 = li.lastvalue;
+            if (li.key_.includes(",1]")) loadMap[li.hostid].avg1 = li.lastvalue;
+            else if (li.key_.includes(",5]")) loadMap[li.hostid].avg5 = li.lastvalue;
+            else if (li.key_.includes(",15]")) loadMap[li.hostid].avg15 = li.lastvalue;
           }
           const procMap: Record<string, string> = {};
           for (const pi of procItems) procMap[pi.hostid] = pi.lastvalue;
 
-          cpuHosts = cpuItems.map((i: any) => ({
+          cpuHosts = realCpuItems.map((i: any) => ({
             hostid: i.hostid,
             hostname: i.hosts?.[0]?.host || "",
             name: i.hosts?.[0]?.name || i.hosts?.[0]?.host || "",
