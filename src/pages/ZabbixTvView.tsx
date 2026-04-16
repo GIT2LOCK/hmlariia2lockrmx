@@ -20,6 +20,7 @@ interface ZabbixProblem {
   triggerDescription: string;
   source?: string;
   category?: string;
+  acknowledges?: { acknowledgeid: string; user: string; clock: string; message: string; action: string }[];
 }
 
 interface ZabbixMaintenance {
