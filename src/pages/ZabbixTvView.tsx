@@ -289,13 +289,16 @@ function TvGroupedRows({ groups, expandedHosts, onToggle }: {
             {isMulti && isExpanded && group.problems.map((p) => (
               <div
                 key={p.eventid}
-                className="grid grid-cols-[24px_1.2fr_2fr_140px_90px] gap-2 items-center py-1.5 px-3"
+                className="grid grid-cols-[24px_1.2fr_2fr_140px_70px_90px] gap-2 items-center py-1.5 px-3"
                 style={{ background: "rgba(77,166,255,0.03)", borderBottom: `1px solid rgba(77,166,255,0.04)` }}
               >
                 <span />
                 <span className="text-xs pl-3" style={{ color: C.dim }}>↳ {p.hosts?.[0]?.name || "—"}</span>
                 <span className="text-xs" style={{ color: C.dim }}>{p.triggerDescription || p.name}</span>
                 <span className="text-xs font-mono tabular-nums" style={{ color: C.orange }}>{formatDuration(Number(p.clock))}</span>
+                <span className="text-xs text-center font-mono" style={{ color: (p.acknowledges?.length || 0) > 0 ? C.green : C.dim }}>
+                  {(p.acknowledges?.length || 0) > 0 ? p.acknowledges!.length : "—"}
+                </span>
                 <span className="text-[11px] text-right" style={{ color: C.dim }}>{p.source === "z1" ? "BRAVA" : "2LOCK"}</span>
               </div>
             ))}
