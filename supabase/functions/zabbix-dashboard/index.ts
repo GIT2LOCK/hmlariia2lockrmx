@@ -338,7 +338,7 @@ serve(async (req) => {
             .sort((a: any, b: any) => parseFloat(b.lastvalue) - parseFloat(a.lastvalue))
             .slice(0, 10);
           // Also try to get load averages for these hosts
-          const hostIds = cpuItems.map((i: any) => i.hostid);
+          const hostIds = realCpuItems.map((i: any) => i.hostid);
           let loadItems: any[] = [];
           if (hostIds.length > 0) {
             try {
@@ -364,14 +364,14 @@ serve(async (req) => {
           const loadMap: Record<string, { avg1?: string; avg5?: string; avg15?: string }> = {};
           for (const li of loadItems) {
             if (!loadMap[li.hostid]) loadMap[li.hostid] = {};
-            if (li.key_.includes(",1")) loadMap[li.hostid].avg1 = li.lastvalue;
-            else if (li.key_.includes(",5")) loadMap[li.hostid].avg5 = li.lastvalue;
-            else if (li.key_.includes(",15")) loadMap[li.hostid].avg15 = li.lastvalue;
+            if (li.key_.includes(",1]")) loadMap[li.hostid].avg1 = li.lastvalue;
+            else if (li.key_.includes(",5]")) loadMap[li.hostid].avg5 = li.lastvalue;
+            else if (li.key_.includes(",15]")) loadMap[li.hostid].avg15 = li.lastvalue;
           }
           const procMap: Record<string, string> = {};
           for (const pi of procItems) procMap[pi.hostid] = pi.lastvalue;
 
-          cpuHosts = cpuItems.map((i: any) => ({
+          cpuHosts = realCpuItems.map((i: any) => ({
             hostid: i.hostid,
             hostname: i.hosts?.[0]?.host || "",
             name: i.hosts?.[0]?.name || i.hosts?.[0]?.host || "",
