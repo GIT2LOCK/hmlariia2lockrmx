@@ -288,24 +288,6 @@ serve(async (req) => {
         break;
       }
 
-      case "debug_items": {
-        // Discover disk and CPU item keys on Zabbix server
-        const diskAll = await zabbix1("item.get", {
-          output: ["itemid", "lastvalue", "name", "key_"],
-          host: "Zabbix server",
-          search: { key_: "vfs.fs" },
-          limit: 20,
-        });
-        const cpuAll = await zabbix1("item.get", {
-          output: ["itemid", "lastvalue", "name", "key_"],
-          host: "Zabbix server",
-          search: { key_: "system.cpu" },
-          limit: 20,
-        });
-        result = { diskAll, cpuAll };
-        break;
-      }
-
       case "server_metrics": {
         // 1) Disk space of Zabbix server (filesystem /)
         let diskUsagePct: number | null = null;
