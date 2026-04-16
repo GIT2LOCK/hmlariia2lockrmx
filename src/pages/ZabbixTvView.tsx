@@ -674,13 +674,13 @@ export default function ZabbixTvView() {
                     return (
                       <div key={h.hostid + i} className="flex flex-col gap-2 py-3" style={{ borderBottom: `1px solid rgba(77,166,255,0.06)` }}>
                         <div className="flex items-center justify-between">
-                          <span className="text-lg truncate" style={{ color: C.textCyan, fontWeight: 600 }}>{h.name}</span>
-                          <span className="text-xl font-mono tabular-nums ml-2 whitespace-nowrap" style={{ color: barColor, fontWeight: 700 }}>{h.cpuUtil.toFixed(1)}%</span>
+                          <span className="text-base truncate" style={{ color: C.textCyan, fontWeight: 600 }}>{h.name}</span>
+                          <span className="text-lg font-mono tabular-nums ml-2 whitespace-nowrap" style={{ color: barColor, fontWeight: 700 }}>{h.cpuUtil.toFixed(1)}%</span>
                         </div>
-                        <div className="h-3.5 rounded-full overflow-hidden" style={{ background: "rgba(77,166,255,0.08)" }}>
+                        <div className="h-3 rounded-full overflow-hidden" style={{ background: "rgba(77,166,255,0.08)" }}>
                           <div className="h-full rounded-full transition-all" style={{ width: `${barPct}%`, background: barColor, boxShadow: `0 0 8px ${barColor}40` }} />
                         </div>
-                        <div className="flex gap-4 text-base font-mono tabular-nums" style={{ color: C.dim }}>
+                        <div className="flex gap-4 text-sm font-mono tabular-nums" style={{ color: C.dim }}>
                           <span className="font-extrabold">1m: {h.load1m?.toFixed(2) ?? "—"}</span>
                           <span className="font-extrabold">5m: {h.load5m?.toFixed(2) ?? "—"}</span>
                           <span className="font-extrabold">15m: {h.load15m?.toFixed(2) ?? "—"}</span>
