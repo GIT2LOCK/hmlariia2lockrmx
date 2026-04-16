@@ -373,14 +373,16 @@ export default function ZabbixTvView() {
   const fetchData = useCallback(async () => {
     try {
       setError(null);
-      const [pRes, mRes] = await Promise.all([
+      const [pRes, mRes, smRes] = await Promise.all([
         supabase.functions.invoke("zabbix-dashboard", { body: { action: "problems" } }),
         supabase.functions.invoke("zabbix-dashboard", { body: { action: "maintenance" } }),
+        supabase.functions.invoke("zabbix-dashboard", { body: { action: "server_metrics" } }),
       ]);
       if (pRes.error) throw new Error(pRes.error.message);
       if (mRes.error) throw new Error(mRes.error.message);
       setProblems(Array.isArray(pRes.data) ? pRes.data : []);
       setMaintenances(Array.isArray(mRes.data) ? mRes.data : []);
+      if (smRes.data && !smRes.error) setServerMetrics(smRes.data);
       setLastUpdate(new Date());
       setSecAgo(0);
     } catch (err: any) {
