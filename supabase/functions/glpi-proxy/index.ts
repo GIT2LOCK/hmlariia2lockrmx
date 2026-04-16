@@ -8,6 +8,14 @@ interface GlpiSearchResult {
   data?: Array<Record<string, unknown>>;
 }
 
+function normalizeSecret(value: string | undefined): string {
+  return (value ?? '').trim().replace(/^['"]|['"]$/g, '')
+}
+
+function normalizeGlpiUrl(value: string | undefined): string {
+  return normalizeSecret(value).replace(/\/+$/, '')
+}
+
 async function fetchWithRetry(url: string, opts: RequestInit, retries = 3): Promise<Response> {
   for (let i = 0; i < retries; i++) {
     try {
@@ -244,9 +252,9 @@ Deno.serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
-  const GLPI_URL = Deno.env.get('GLPI_API_URL')
-  const APP_TOKEN = Deno.env.get('GLPI_APP_TOKEN')
-  const USER_TOKEN = Deno.env.get('GLPI_USER_TOKEN')
+  const GLPI_URL = normalizeGlpiUrl(Deno.env.get('GLPI_API_URL'))
+  const APP_TOKEN = normalizeSecret(Deno.env.get('GLPI_APP_TOKEN'))
+  const USER_TOKEN = normalizeSecret(Deno.env.get('GLPI_USER_TOKEN'))
 
   if (!GLPI_URL || !APP_TOKEN || !USER_TOKEN) {
     return new Response(JSON.stringify({ error: 'GLPI credentials not configured' }), {
@@ -255,7 +263,23 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const sessionToken = await initSession(GLPI_URL, APP_TOKEN, USER_TOKEN)
+    let sessionToken: string
+
+    try {
+      sessionToken = await initSession(GLPI_URL, APP_TOKEN, USER_TOKEN)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+
+      if (message.includes('ERROR_WRONG_APP_TOKEN_PARAMETER')) {
+        throw new Error('GLPI_APP_TOKEN inválido ou salvo com aspas/espaços extras no secret')
+      }
+
+      if (message.includes('ERROR_WRONG_USER_TOKEN_PARAMETER')) {
+        throw new Error('GLPI_USER_TOKEN inválido ou salvo com aspas/espaços extras no secret')
+      }
+
+      throw error
+    }
 
     const glpiHeaders = {
       'Content-Type': 'application/json',
