@@ -313,18 +313,11 @@ serve(async (req) => {
           const diskItems = await zabbix1("item.get", {
             output: ["itemid", "lastvalue", "name", "key_"],
             host: "Zabbix server",
-            search: { key_: "vfs.fs.size" },
-            searchWildcardsEnabled: true,
-            limit: 10,
+            filter: { key_: "vfs.fs.dependent.size[/,pused]" },
+            limit: 1,
           });
-          // Find pused for / filesystem
-          const pused = diskItems.find((i: any) => i.key_.includes("pused") && (i.key_.includes("[/,") || i.key_.includes("[/]")));
-          if (pused) {
-            diskUsagePct = parseFloat(pused.lastvalue);
-          } else if (diskItems.length > 0) {
-            // Fallback: any pused item
-            const anyPused = diskItems.find((i: any) => i.key_.includes("pused"));
-            if (anyPused) diskUsagePct = parseFloat(anyPused.lastvalue);
+          if (diskItems.length > 0) {
+            diskUsagePct = parseFloat(diskItems[0].lastvalue);
           }
         } catch { /* no disk item */ }
 
