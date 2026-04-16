@@ -523,20 +523,20 @@ export default function ZabbixTvView() {
         {/* "OUTROS" bar if any */}
         {categorized.outros.length > 0 && (
           <GlowCard delay={0.6} className="mt-3 flex-shrink-0">
-            <div className="p-3 flex items-center gap-3">
-              <AlertTriangle className="h-4 w-4" style={{ color: C.dim }} />
-              <span className="text-[11px] uppercase tracking-[0.12em]" style={{ color: C.dim, fontWeight: 700 }}>
+            <div className="p-4 flex items-center gap-3">
+              <AlertTriangle className="h-5 w-5" style={{ color: C.dim }} />
+              <span className="text-sm uppercase tracking-[0.12em]" style={{ color: C.dim, fontWeight: 700 }}>
                 OUTROS: {categorized.outros.length} problema{categorized.outros.length > 1 ? "s" : ""}
               </span>
               <div className="flex-1 flex flex-wrap gap-x-4 gap-y-1 ml-4">
                 {categorized.outros.slice(0, 5).map((p) => (
-                  <span key={p.eventid} className="text-[11px]" style={{ color: C.textCyan }}>
+                  <span key={p.eventid} className="text-sm" style={{ color: C.textCyan }}>
                     {p.hosts?.[0]?.name || "—"}: <span style={{ color: C.dim }}>{p.triggerDescription || p.name}</span>
-                    <span className="ml-2 font-mono text-[10px]" style={{ color: C.orange }}>{formatDuration(Number(p.clock))}</span>
+                    <span className="ml-2 font-mono text-xs" style={{ color: C.orange }}>{formatDuration(Number(p.clock))}</span>
                   </span>
                 ))}
                 {categorized.outros.length > 5 && (
-                  <span className="text-[10px]" style={{ color: C.dim }}>+{categorized.outros.length - 5} mais</span>
+                  <span className="text-xs" style={{ color: C.dim }}>+{categorized.outros.length - 5} mais</span>
                 )}
               </div>
             </div>
