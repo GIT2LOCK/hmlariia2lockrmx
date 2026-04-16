@@ -356,9 +356,9 @@ serve(async (req) => {
           const loadMap: Record<string, { avg1?: string; avg5?: string; avg15?: string }> = {};
           for (const li of loadItems) {
             if (!loadMap[li.hostid]) loadMap[li.hostid] = {};
-            if (li.key_.includes(",1]")) loadMap[li.hostid].avg1 = li.lastvalue;
-            else if (li.key_.includes(",5]")) loadMap[li.hostid].avg5 = li.lastvalue;
-            else if (li.key_.includes(",15]")) loadMap[li.hostid].avg15 = li.lastvalue;
+            if (li.key_.includes("avg1]")) loadMap[li.hostid].avg1 = li.lastvalue;
+            else if (li.key_.includes("avg5]")) loadMap[li.hostid].avg5 = li.lastvalue;
+            else if (li.key_.includes("avg15]")) loadMap[li.hostid].avg15 = li.lastvalue;
           }
           const procMap: Record<string, string> = {};
           for (const pi of procItems) procMap[pi.hostid] = pi.lastvalue;
