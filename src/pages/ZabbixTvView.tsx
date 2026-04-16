@@ -479,31 +479,40 @@ export default function ZabbixTvView() {
 
             return (
               <GlowCard key={cat} delay={0.35 + ci * 0.1} className="min-h-0 flex flex-col" contentClassName="h-full flex flex-col">
-                <div className="p-3 pb-2 flex items-center gap-2 flex-shrink-0" style={{ borderBottom: `1px solid ${C.grid}` }}>
-                  <Icon className="h-5 w-5" style={{ color, filter: `drop-shadow(0 0 4px ${color}60)` }} />
-                  <span className="text-[11px] uppercase tracking-[0.15em]" style={{ color, fontWeight: 700 }}>
+                <div className="p-4 pb-2 flex items-center gap-2 flex-shrink-0" style={{ borderBottom: `1px solid ${C.grid}` }}>
+                  <Icon className="h-6 w-6" style={{ color, filter: `drop-shadow(0 0 4px ${color}60)` }} />
+                  <span className="text-sm uppercase tracking-[0.15em]" style={{ color, fontWeight: 700 }}>
                     {CATEGORY_LABELS[cat]}
                   </span>
-                  <span className="ml-auto text-2xl tabular-nums" style={{ color: C.white, fontWeight: 400, textShadow: `0 0 15px ${color}40` }}>
+                  <span className="ml-auto text-3xl tabular-nums" style={{ color: C.white, fontWeight: 400, textShadow: `0 0 15px ${color}40` }}>
                     {items.length}
                   </span>
                 </div>
 
                 <div className="flex-1 overflow-y-auto min-h-0 custom-scrollbar">
                   {/* Column headers */}
-                  <div className="grid grid-cols-[1fr_2fr_120px_80px] gap-2 px-3 py-1.5 sticky top-0" style={{ background: "rgba(6,12,30,0.95)", borderBottom: `1px solid ${C.grid}` }}>
-                    <span className="text-[10px] uppercase tracking-wider" style={{ color: C.dim, fontWeight: 700 }}>Host</span>
-                    <span className="text-[10px] uppercase tracking-wider" style={{ color: C.dim, fontWeight: 700 }}>Problema</span>
-                    <span className="text-[10px] uppercase tracking-wider" style={{ color: C.dim, fontWeight: 700 }}>Duração</span>
-                    <span className="text-[10px] uppercase tracking-wider text-right" style={{ color: C.dim, fontWeight: 700 }}>Origem</span>
+                  <div className="grid grid-cols-[24px_1.2fr_2fr_140px_90px] gap-2 px-3 py-2 sticky top-0" style={{ background: "rgba(6,12,30,0.95)", borderBottom: `1px solid ${C.grid}` }}>
+                    <span />
+                    <span className="text-xs uppercase tracking-wider" style={{ color: C.dim, fontWeight: 700 }}>Host</span>
+                    <span className="text-xs uppercase tracking-wider" style={{ color: C.dim, fontWeight: 700 }}>Problema</span>
+                    <span className="text-xs uppercase tracking-wider" style={{ color: C.dim, fontWeight: 700 }}>Duração</span>
+                    <span className="text-xs uppercase tracking-wider text-right" style={{ color: C.dim, fontWeight: 700 }}>Origem</span>
                   </div>
 
                   {items.length === 0 ? (
                     <div className="flex items-center justify-center py-8">
-                      <span className="text-sm" style={{ color: C.green }}>✓ Sem problemas</span>
+                      <span className="text-base" style={{ color: C.green }}>✓ Sem problemas</span>
                     </div>
                   ) : (
-                    items.map((p, idx) => <ProblemRow key={p.eventid} problem={p} index={idx} />)
+                    <TvGroupedRows
+                      groups={groupByHostTv(items)}
+                      expandedHosts={expandedHosts}
+                      onToggle={(key) => setExpandedHosts(prev => {
+                        const next = new Set(prev);
+                        if (next.has(key)) next.delete(key); else next.add(key);
+                        return next;
+                      })}
+                    />
                   )}
                 </div>
               </GlowCard>
