@@ -5,6 +5,7 @@ import { useUser } from "@/contexts/UserContext";
 import {
   ArrowLeft, Eye, EyeOff, Monitor, RefreshCw, Server, Wifi,
   AlertTriangle, Wrench, Activity, ChevronDown, ChevronRight,
+  HardDrive, Cpu, Radio,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -342,6 +343,11 @@ export default function ZabbixTvView() {
   const { isTvView } = useUser();
   const [problems, setProblems] = useState<ZabbixProblem[]>([]);
   const [maintenances, setMaintenances] = useState<ZabbixMaintenance[]>([]);
+  const [serverMetrics, setServerMetrics] = useState<{
+    diskUsagePct: number | null;
+    cpuHosts: { hostid: string; hostname: string; name: string; cpuUtil: number; load1m: number | null; load5m: number | null; load15m: number | null; processes: number | null }[];
+    proxies: { proxyid: string; name: string; lastaccess: number; delaySec: number }[];
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
@@ -367,14 +373,16 @@ export default function ZabbixTvView() {
   const fetchData = useCallback(async () => {
     try {
       setError(null);
-      const [pRes, mRes] = await Promise.all([
+      const [pRes, mRes, smRes] = await Promise.all([
         supabase.functions.invoke("zabbix-dashboard", { body: { action: "problems" } }),
         supabase.functions.invoke("zabbix-dashboard", { body: { action: "maintenance" } }),
+        supabase.functions.invoke("zabbix-dashboard", { body: { action: "server_metrics" } }),
       ]);
       if (pRes.error) throw new Error(pRes.error.message);
       if (mRes.error) throw new Error(mRes.error.message);
       setProblems(Array.isArray(pRes.data) ? pRes.data : []);
       setMaintenances(Array.isArray(mRes.data) ? mRes.data : []);
+      if (smRes.data && !smRes.error) setServerMetrics(smRes.data);
       setLastUpdate(new Date());
       setSecAgo(0);
     } catch (err: any) {
@@ -558,6 +566,106 @@ export default function ZabbixTvView() {
             </GlowCard>
           ))}
         </div>
+
+        {/* SERVER METRICS ROW */}
+        {serverMetrics && (
+          <div className="grid grid-cols-[1fr_2fr_1fr] gap-3 mb-3 flex-shrink-0">
+            {/* Disk Space */}
+            <GlowCard delay={0.3} contentClassName="p-4 flex items-center gap-4">
+              <div className="flex items-center gap-2 mb-0">
+                <HardDrive className="h-5 w-5" style={{ color: C.cyan, filter: `drop-shadow(0 0 4px ${C.cyan}60)` }} />
+                <span className="text-xs uppercase tracking-[0.12em]" style={{ color: C.cyan, fontWeight: 700 }}>Espaço em disco</span>
+              </div>
+              <div className="flex items-center gap-3 flex-1 justify-center">
+                <MiniDonut
+                  pct={serverMetrics.diskUsagePct ?? 0}
+                  color={serverMetrics.diskUsagePct !== null && serverMetrics.diskUsagePct > 80 ? C.red : serverMetrics.diskUsagePct !== null && serverMetrics.diskUsagePct > 60 ? C.orange : C.green}
+                  size={64}
+                />
+                <div>
+                  <span className="text-3xl font-mono tabular-nums" style={{ color: C.white, fontWeight: 400 }}>
+                    {serverMetrics.diskUsagePct !== null ? serverMetrics.diskUsagePct.toFixed(2) : "—"}
+                  </span>
+                  <span className="text-sm ml-1" style={{ color: C.dim }}>%</span>
+                </div>
+              </div>
+            </GlowCard>
+
+            {/* CPU Utilization Table */}
+            <GlowCard delay={0.35} contentClassName="p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Cpu className="h-5 w-5" style={{ color: C.cyan, filter: `drop-shadow(0 0 4px ${C.cyan}60)` }} />
+                <span className="text-xs uppercase tracking-[0.12em]" style={{ color: C.cyan, fontWeight: 700 }}>Top hosts por CPU</span>
+              </div>
+              <div className="overflow-hidden">
+                <div className="grid grid-cols-[1.5fr_0.8fr_0.6fr_0.6fr_0.6fr_0.6fr] gap-2 px-2 py-1.5" style={{ borderBottom: `1px solid ${C.grid}` }}>
+                  <span className="text-[10px] uppercase tracking-wider" style={{ color: C.dim, fontWeight: 700 }}>Host</span>
+                  <span className="text-[10px] uppercase tracking-wider" style={{ color: C.dim, fontWeight: 700 }}>Utilização</span>
+                  <span className="text-[10px] uppercase tracking-wider text-right" style={{ color: C.dim, fontWeight: 700 }}>1m avg</span>
+                  <span className="text-[10px] uppercase tracking-wider text-right" style={{ color: C.dim, fontWeight: 700 }}>5m avg</span>
+                  <span className="text-[10px] uppercase tracking-wider text-right" style={{ color: C.dim, fontWeight: 700 }}>15m avg</span>
+                  <span className="text-[10px] uppercase tracking-wider text-right" style={{ color: C.dim, fontWeight: 700 }}>Proc</span>
+                </div>
+                {serverMetrics.cpuHosts.slice(0, 5).map((h, i) => {
+                  const barPct = Math.min(h.cpuUtil, 100);
+                  const barColor = h.cpuUtil > 80 ? C.red : h.cpuUtil > 50 ? C.orange : C.green;
+                  return (
+                    <div key={h.hostid + i} className="grid grid-cols-[1.5fr_0.8fr_0.6fr_0.6fr_0.6fr_0.6fr] gap-2 px-2 py-1.5 items-center" style={{ borderBottom: `1px solid rgba(77,166,255,0.04)` }}>
+                      <span className="text-xs truncate" style={{ color: C.textCyan, fontWeight: 500 }}>{h.name}</span>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: "rgba(77,166,255,0.08)" }}>
+                          <div className="h-full rounded-full transition-all" style={{ width: `${barPct}%`, background: barColor }} />
+                        </div>
+                        <span className="text-xs font-mono tabular-nums whitespace-nowrap" style={{ color: C.white }}>{h.cpuUtil.toFixed(2)}%</span>
+                      </div>
+                      <span className="text-xs font-mono tabular-nums text-right" style={{ color: C.dim }}>{h.load1m !== null ? h.load1m.toFixed(2) : "—"}</span>
+                      <span className="text-xs font-mono tabular-nums text-right" style={{ color: C.dim }}>{h.load5m !== null ? h.load5m.toFixed(2) : "—"}</span>
+                      <span className="text-xs font-mono tabular-nums text-right" style={{ color: C.dim }}>{h.load15m !== null ? h.load15m.toFixed(2) : "—"}</span>
+                      <span className="text-xs font-mono tabular-nums text-right" style={{ color: C.dim }}>{h.processes ?? "—"}</span>
+                    </div>
+                  );
+                })}
+                {serverMetrics.cpuHosts.length === 0 && (
+                  <div className="py-3 text-center text-xs" style={{ color: C.dim }}>Sem dados de CPU</div>
+                )}
+              </div>
+            </GlowCard>
+
+            {/* Proxy Status */}
+            <GlowCard delay={0.4} contentClassName="p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Radio className="h-5 w-5" style={{ color: C.cyan, filter: `drop-shadow(0 0 4px ${C.cyan}60)` }} />
+                <span className="text-xs uppercase tracking-[0.12em]" style={{ color: C.cyan, fontWeight: 700 }}>Proxies</span>
+              </div>
+              <div className="grid grid-cols-1 gap-2">
+                {serverMetrics.proxies.map((px) => {
+                  const isUp = px.delaySec >= 0 && px.delaySec <= 30;
+                  const isWarning = px.delaySec > 30 && px.delaySec <= 120;
+                  const statusColor = isUp ? C.green : isWarning ? C.orange : C.red;
+                  return (
+                    <div key={px.proxyid} className="flex items-center justify-between px-3 py-2 rounded-lg" style={{ background: "rgba(77,166,255,0.04)", border: `1px solid rgba(77,166,255,0.08)` }}>
+                      <span className="text-sm font-mono" style={{ color: C.textCyan, fontWeight: 600 }}>{px.name}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-2xl font-mono tabular-nums" style={{ color: statusColor, fontWeight: 700, textShadow: `0 0 12px ${statusColor}50` }}>
+                          {px.delaySec >= 0 ? `${px.delaySec}s` : "—"}
+                        </span>
+                        {px.delaySec >= 0 && px.delaySec <= 5 && (
+                          <span style={{ color: C.green, fontSize: "1.2rem" }}>↑</span>
+                        )}
+                        {px.delaySec > 30 && (
+                          <span style={{ color: C.red, fontSize: "1.2rem" }}>↓</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+                {serverMetrics.proxies.length === 0 && (
+                  <div className="py-3 text-center text-xs" style={{ color: C.dim }}>Sem proxies</div>
+                )}
+              </div>
+            </GlowCard>
+          </div>
+        )}
 
         {/* PROBLEM LISTS */}
         <div className="grid grid-cols-2 gap-3 flex-1 min-h-0">
