@@ -637,12 +637,12 @@ export default function ZabbixTvView() {
             <div className="flex flex-col gap-3 min-h-0 row-span-2">
               {/* Proxies */}
               {serverMetrics.proxies.length > 0 && (
-                <GlowCard delay={0.45} contentClassName="px-5 py-4 flex flex-col" className="flex-shrink-0">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Radio className="h-6 w-6" style={{ color: C.cyan, filter: `drop-shadow(0 0 4px ${C.cyan}60)` }} />
-                    <span className="text-sm uppercase tracking-[0.12em]" style={{ color: C.cyan, fontWeight: 700 }}>Proxies</span>
+                <GlowCard delay={0.45} contentClassName="px-4 py-2.5 flex flex-col" className="flex-shrink-0">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Radio className="h-5 w-5" style={{ color: C.cyan, filter: `drop-shadow(0 0 4px ${C.cyan}60)` }} />
+                    <span className="text-xs uppercase tracking-[0.12em]" style={{ color: C.cyan, fontWeight: 700 }}>Proxies</span>
                   </div>
-                  <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-2">
                     {serverMetrics.proxies.map((px) => {
                       const isUp = px.delaySec >= 0 && px.delaySec <= 30;
                       const isWarning = px.delaySec > 30 && px.delaySec <= 120;
