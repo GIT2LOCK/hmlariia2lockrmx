@@ -632,7 +632,7 @@ export default function ZabbixTvView() {
 
           {/* RIGHT SIDEBAR: Disk (top) + CPU (bottom, stretches to fill) */}
           {serverMetrics && (
-            <div className="flex flex-col gap-3 min-h-0">
+            <div className="flex flex-col gap-3 min-h-0 row-span-2">
               {/* Disk Space */}
               <GlowCard delay={0.45} contentClassName="p-5 flex flex-col items-center" className="flex-shrink-0">
                 <div className="flex items-center gap-2 mb-3 self-start">
