@@ -438,6 +438,21 @@ const Dashboard = () => {
               </div>
             </div>
 
+            {isTvView && (
+              <button
+                onClick={() => navigate("/dashboard/zabbix/tv")}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs uppercase tracking-wider transition-all hover:scale-105"
+                style={{
+                  background: "rgba(77,166,255,0.12)",
+                  border: `1px solid ${C.border}`,
+                  color: C.cyan,
+                  fontWeight: 700,
+                }}
+              >
+                <Activity className="h-4 w-4" />
+                Monitoramento
+              </button>
+            )}
             <div className="flex items-center gap-4">
               {ticketError && (
                 <motion.span initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
