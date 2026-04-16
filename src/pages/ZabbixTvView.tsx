@@ -708,18 +708,18 @@ export default function ZabbixTvView() {
           {/* PROXIES - spans columns 1-2, below EQUIPAMENTOS and LINKS */}
           {serverMetrics && serverMetrics.proxies.length > 0 && (
             <GlowCard delay={0.55} className="flex-shrink-0 col-span-2" contentClassName="px-5 py-4">
-              <div className="flex items-center gap-6">
+              <div className="flex items-center justify-center gap-8">
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <Radio className="h-6 w-6" style={{ color: C.cyan, filter: `drop-shadow(0 0 4px ${C.cyan}60)` }} />
                   <span className="text-sm uppercase tracking-[0.12em]" style={{ color: C.cyan, fontWeight: 700 }}>Proxies</span>
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-4 flex-1 justify-evenly">
                   {serverMetrics.proxies.map((px) => {
                     const isUp = px.delaySec >= 0 && px.delaySec <= 30;
                     const isWarning = px.delaySec > 30 && px.delaySec <= 120;
                     const statusColor = isUp ? C.green : isWarning ? C.orange : C.red;
                     return (
-                      <div key={px.proxyid} className="flex items-center gap-3 px-5 py-3 rounded-lg" style={{ background: "rgba(77,166,255,0.04)", border: `1px solid rgba(77,166,255,0.08)` }}>
+                      <div key={px.proxyid} className="flex items-center gap-3 px-6 py-3 rounded-lg flex-1 justify-center" style={{ background: "rgba(77,166,255,0.04)", border: `1px solid rgba(77,166,255,0.08)` }}>
                         <PulseDot color={statusColor} />
                         <span className="text-lg font-mono" style={{ color: C.textCyan, fontWeight: 600 }}>{px.name}</span>
                         <span className="text-2xl font-mono tabular-nums" style={{ color: statusColor, fontWeight: 700, textShadow: `0 0 10px ${statusColor}40` }}>
