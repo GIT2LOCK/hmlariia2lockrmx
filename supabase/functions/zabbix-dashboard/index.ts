@@ -338,8 +338,7 @@ serve(async (req) => {
                 search: { key_: "system.cpu.load[" },
                 searchByAny: true,
               });
-              console.log("Load items found:", JSON.stringify(loadItems.map((i: any) => ({ hostid: i.hostid, key: i.key_, val: i.lastvalue }))));
-            } catch (e) { console.error("Load error:", e); }
+            } catch { /* no load items */ }
           }
           // Get process count
           let procItems: any[] = [];
