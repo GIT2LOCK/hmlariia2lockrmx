@@ -270,7 +270,7 @@ function TvGroupedRows({ groups, expandedHosts, onToggle }: {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.02 * gi, ease: "easeOut" }}
-              className={`grid grid-cols-[24px_1.2fr_2fr_140px_70px_90px] gap-2 items-center py-2 px-3 ${isMulti ? "cursor-pointer" : ""}`}
+              className={`grid grid-cols-[20px_1fr_2.5fr_100px_60px_70px] gap-2 items-center py-2 px-3 ${isMulti ? "cursor-pointer" : ""}`}
               style={{ borderBottom: `1px solid rgba(77,166,255,0.06)` }}
               onClick={isMulti ? () => onToggle(group.hostKey) : undefined}
             >
@@ -280,7 +280,7 @@ function TvGroupedRows({ groups, expandedHosts, onToggle }: {
                   : <ChevronRight className="h-4 w-4" style={{ color: C.dim }} />
                 )}
               </span>
-              <span className="text-sm truncate" style={{ color: C.textCyan, fontWeight: 600 }}>
+              <span className="text-base truncate" style={{ color: C.textCyan, fontWeight: 600 }}>
                 {group.hostName}
                 {isMulti && (
                   <span className="ml-2 text-xs px-1.5 py-0.5 rounded-full" style={{ background: "rgba(77,166,255,0.15)", color: C.cyan, fontWeight: 700 }}>
@@ -288,13 +288,13 @@ function TvGroupedRows({ groups, expandedHosts, onToggle }: {
                   </span>
                 )}
               </span>
-              <span className="text-sm truncate" style={{ color: C.dim }}>
+              <span className="text-base truncate" style={{ color: C.dim }}>
                 {isMulti
                   ? group.problems.map(p => p.triggerDescription || p.name).filter((v, i, a) => a.indexOf(v) === i).join(" · ")
                   : (group.problems[0]?.triggerDescription || group.problems[0]?.name)
                 }
               </span>
-              <span className="text-sm font-mono tabular-nums" style={{ color: C.orange }}>
+              <span className="text-sm font-mono tabular-nums whitespace-nowrap" style={{ color: C.orange }}>
                 {formatDuration(Number(group.problems[0]?.clock))}
               </span>
               {(() => {
@@ -307,19 +307,19 @@ function TvGroupedRows({ groups, expandedHosts, onToggle }: {
                   </span>
                 );
               })()}
-              <span className="text-xs text-right" style={{ color: C.dim }}>{source}</span>
+              <span className="text-sm text-right" style={{ color: C.dim }}>{source}</span>
             </motion.div>
 
             {isMulti && isExpanded && group.problems.map((p) => (
               <div
                 key={p.eventid}
-                className="grid grid-cols-[24px_1.2fr_2fr_140px_70px_90px] gap-2 items-center py-1.5 px-3"
+                className="grid grid-cols-[20px_1fr_2.5fr_100px_60px_70px] gap-2 items-center py-1.5 px-3"
                 style={{ background: "rgba(77,166,255,0.03)", borderBottom: `1px solid rgba(77,166,255,0.04)` }}
               >
                 <span />
-                <span className="text-xs pl-3" style={{ color: C.dim }}>↳ {p.hosts?.[0]?.name || "—"}</span>
-                <span className="text-xs" style={{ color: C.dim }}>{p.triggerDescription || p.name}</span>
-                <span className="text-xs font-mono tabular-nums" style={{ color: C.orange }}>{formatDuration(Number(p.clock))}</span>
+                <span className="text-sm pl-3" style={{ color: C.dim }}>↳ {p.hosts?.[0]?.name || "—"}</span>
+                <span className="text-sm" style={{ color: C.dim }}>{p.triggerDescription || p.name}</span>
+                <span className="text-sm font-mono tabular-nums whitespace-nowrap" style={{ color: C.orange }}>{formatDuration(Number(p.clock))}</span>
                 <span className="text-xs text-center font-mono" style={{ color: (p.acknowledges?.length || 0) > 0 ? C.green : C.dim }}>
                   {(p.acknowledges?.length || 0) > 0 ? p.acknowledges!.length : "—"}
                 </span>
