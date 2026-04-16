@@ -7,12 +7,17 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   AlertTriangle, Server, Wifi, Wrench, RefreshCw, CheckCircle2, Clock,
   ShieldCheck, MessageSquare, Phone, ChevronDown, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown,
+  Download, Monitor,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ClearableSelect } from "@/components/ClearableSelect";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
 
 // ── Types ──────────────────────────────────────────────────────────────
 interface ZabbixProblem {
@@ -39,6 +44,7 @@ interface ZabbixMaintenance {
   description: string;
   hosts: { hostid: string; host: string; name: string }[];
   groups: { groupid: string; name: string }[];
+  source?: string;
 }
 
 interface ZabbixContato {
@@ -47,6 +53,19 @@ interface ZabbixContato {
   primeiro_contato_telefone: string | null;
   responsavel_nome: string | null;
   responsavel_telefone: string | null;
+}
+
+interface ZabbixHost {
+  hostid: string;
+  hostname: string;
+  name: string;
+  status: string;
+  ip: string;
+  proxy: string;
+  hostgroups: string[];
+  templates: string[];
+  tags: { tag: string; value: string }[];
+  source: string;
 }
 
 // ── Category mapping ────────────────────────────────────────────────────
@@ -124,18 +143,10 @@ function sortGroups(groups: HostGroup[], field: SortField, dir: SortDir): HostGr
   sorted.sort((a, b) => {
     let cmp = 0;
     switch (field) {
-      case "severity":
-        cmp = a.highestSeverity - b.highestSeverity;
-        break;
-      case "host":
-        cmp = a.hostName.localeCompare(b.hostName);
-        break;
-      case "problem":
-        cmp = a.problems.length - b.problems.length;
-        break;
-      case "duration":
-        cmp = a.newestClock - b.newestClock;
-        break;
+      case "severity": cmp = a.highestSeverity - b.highestSeverity; break;
+      case "host": cmp = a.hostName.localeCompare(b.hostName); break;
+      case "problem": cmp = a.problems.length - b.problems.length; break;
+      case "duration": cmp = a.newestClock - b.newestClock; break;
     }
     return dir === "asc" ? cmp : -cmp;
   });
@@ -149,17 +160,39 @@ const SOURCE_OPTIONS = [
   { value: "z1", label: "BRAVA" },
 ];
 
+// ── Host CSV fields ─────────────────────────────────────────────────────
+const HOST_CSV_FIELDS = [
+  { key: "hostname", label: "Hostname" },
+  { key: "name", label: "Nome Visível" },
+  { key: "status", label: "Status" },
+  { key: "ip", label: "IP" },
+  { key: "proxy", label: "Proxy" },
+  { key: "hostgroups", label: "Host Groups" },
+  { key: "templates", label: "Templates" },
+  { key: "tags", label: "Tags" },
+  { key: "source", label: "Origem" },
+] as const;
+
+type HostFieldKey = typeof HOST_CSV_FIELDS[number]["key"];
+
 // ── Component ───────────────────────────────────────────────────────────
 export default function DashboardZabbix() {
   const [problems, setProblems] = useState<ZabbixProblem[]>([]);
   const [maintenances, setMaintenances] = useState<ZabbixMaintenance[]>([]);
+  const [allHosts, setAllHosts] = useState<ZabbixHost[]>([]);
   const [contatos, setContatos] = useState<Record<string, ZabbixContato>>({});
   const [loading, setLoading] = useState(true);
+  const [hostsLoading, setHostsLoading] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const [sourceFilter, setSourceFilter] = useState("todos");
   const [expandedHosts, setExpandedHosts] = useState<Set<string>>(new Set());
   const [sortField, setSortField] = useState<SortField>("duration");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [hostSearch, setHostSearch] = useState("");
+  const [hostStatusFilter, setHostStatusFilter] = useState("todos");
+  const [showCsvDialog, setShowCsvDialog] = useState(false);
+  const [csvFields, setCsvFields] = useState<Set<HostFieldKey>>(new Set(HOST_CSV_FIELDS.map(f => f.key)));
+  const [activeTab, setActiveTab] = useState("problemas");
   const { toast } = useToast();
 
   const fetchData = useCallback(async () => {
@@ -193,24 +226,65 @@ export default function DashboardZabbix() {
     }
   }, [toast]);
 
+  const fetchHosts = useCallback(async () => {
+    setHostsLoading(true);
+    try {
+      const res = await supabase.functions.invoke("zabbix-dashboard", { body: { action: "hosts_all" } });
+      if (res.error) throw new Error(res.error.message);
+      setAllHosts(Array.isArray(res.data) ? res.data : []);
+    } catch (err: any) {
+      console.error("Hosts fetch error:", err);
+      toast({ title: "Erro ao buscar hosts", description: err.message, variant: "destructive" });
+    } finally {
+      setHostsLoading(false);
+    }
+  }, [toast]);
+
   useEffect(() => {
     fetchData();
     const interval = setInterval(fetchData, 60000);
     return () => clearInterval(interval);
   }, [fetchData]);
 
+  // Fetch hosts when tab is selected
+  useEffect(() => {
+    if (activeTab === "hosts" && allHosts.length === 0 && !hostsLoading) {
+      fetchHosts();
+    }
+  }, [activeTab, allHosts.length, hostsLoading, fetchHosts]);
+
   const filteredProblems = useMemo(() => {
     if (sourceFilter === "todos") return problems;
     return problems.filter(p => p.source === sourceFilter);
   }, [problems, sourceFilter]);
 
+  const filteredMaintenances = useMemo(() => {
+    if (sourceFilter === "todos") return maintenances;
+    return maintenances.filter(m => m.source === sourceFilter);
+  }, [maintenances, sourceFilter]);
+
+  const filteredHosts = useMemo(() => {
+    let list = allHosts;
+    if (sourceFilter !== "todos") list = list.filter(h => h.source === sourceFilter);
+    if (hostStatusFilter === "ativo") list = list.filter(h => h.status === "0");
+    else if (hostStatusFilter === "inativo") list = list.filter(h => h.status !== "0");
+    if (hostSearch.trim()) {
+      const q = hostSearch.toLowerCase();
+      list = list.filter(h =>
+        h.hostname.toLowerCase().includes(q) ||
+        h.name.toLowerCase().includes(q) ||
+        h.ip.toLowerCase().includes(q) ||
+        h.proxy.toLowerCase().includes(q) ||
+        h.hostgroups.some(g => g.toLowerCase().includes(q)) ||
+        h.templates.some(t => t.toLowerCase().includes(q))
+      );
+    }
+    return list;
+  }, [allHosts, sourceFilter, hostStatusFilter, hostSearch]);
+
   const categorizedProblems = useMemo(() => {
     return filteredProblems.reduce<Record<Category, ZabbixProblem[]>>(
-      (acc, p) => {
-        const cat = classifyProblem(p);
-        acc[cat].push(p);
-        return acc;
-      },
+      (acc, p) => { acc[classifyProblem(p)].push(p); return acc; },
       { equipamentos: [], links: [], outros: [] }
     );
   }, [filteredProblems]);
@@ -220,27 +294,61 @@ export default function DashboardZabbix() {
   const toggleHost = (key: string) => {
     setExpandedHosts(prev => {
       const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
+      if (next.has(key)) next.delete(key); else next.add(key);
       return next;
     });
   };
 
   const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortDir(d => d === "asc" ? "desc" : "asc");
-    } else {
-      setSortField(field);
-      setSortDir("desc");
-    }
+    if (sortField === field) setSortDir(d => d === "asc" ? "desc" : "asc");
+    else { setSortField(field); setSortDir("desc"); }
   };
 
   const SortIcon = ({ field }: { field: SortField }) => {
     if (sortField !== field) return <ArrowUpDown className="h-3 w-3 ml-1 opacity-40" />;
-    return sortDir === "asc"
-      ? <ArrowUp className="h-3 w-3 ml-1" />
-      : <ArrowDown className="h-3 w-3 ml-1" />;
+    return sortDir === "asc" ? <ArrowUp className="h-3 w-3 ml-1" /> : <ArrowDown className="h-3 w-3 ml-1" />;
   };
+
+  const toggleCsvField = (key: HostFieldKey) => {
+    setCsvFields(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+
+  const exportCsv = () => {
+    const fields = HOST_CSV_FIELDS.filter(f => csvFields.has(f.key));
+    const header = fields.map(f => f.label).join(";");
+    const rows = filteredHosts.map(h => {
+      return fields.map(f => {
+        switch (f.key) {
+          case "status": return h.status === "0" ? "Ativo" : "Inativo";
+          case "hostgroups": return h.hostgroups.join(", ");
+          case "templates": return h.templates.join(", ");
+          case "tags": return h.tags.map(t => `${t.tag}:${t.value}`).join(", ");
+          case "source": return h.source === "z1" ? "BRAVA" : "2LOCK";
+          default: return h[f.key] || "";
+        }
+      }).map(v => `"${String(v).replace(/"/g, '""')}"`).join(";");
+    });
+
+    const csv = "\uFEFF" + [header, ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `hosts_zabbix_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setShowCsvDialog(false);
+  };
+
+  const HOST_STATUS_OPTIONS = [
+    { value: "todos", label: "Todos" },
+    { value: "ativo", label: "Ativos" },
+    { value: "inativo", label: "Inativos" },
+  ];
 
   return (
     <div className="space-y-4">
@@ -250,21 +358,12 @@ export default function DashboardZabbix() {
           <h1 className="text-2xl font-bold">Monitoramento</h1>
           <p className="text-sm text-muted-foreground">
             Monitoramento em tempo real
-            {lastRefresh && (
-              <span className="ml-2">· Atualizado às {lastRefresh.toLocaleTimeString("pt-BR")}</span>
-            )}
+            {lastRefresh && <span className="ml-2">· Atualizado às {lastRefresh.toLocaleTimeString("pt-BR")}</span>}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <ClearableSelect
-            value={sourceFilter}
-            onValueChange={setSourceFilter}
-            options={SOURCE_OPTIONS}
-            placeholder="Origem"
-            defaultValue="todos"
-            className="w-40"
-          />
-          <Button variant="outline" size="sm" onClick={fetchData} disabled={loading}>
+          <ClearableSelect value={sourceFilter} onValueChange={setSourceFilter} options={SOURCE_OPTIONS} placeholder="Origem" defaultValue="todos" className="w-40" />
+          <Button variant="outline" size="sm" onClick={() => { fetchData(); if (activeTab === "hosts") fetchHosts(); }} disabled={loading}>
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
             Atualizar
           </Button>
@@ -274,21 +373,25 @@ export default function DashboardZabbix() {
       {/* KPI row */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         <KpiCard label="Problemas (High)" value={totalProblems} icon={AlertTriangle} color="text-red-500" loading={loading} />
-        <KpiCard label="Manutenções Ativas" value={maintenances.length} icon={Wrench} color="text-yellow-500" loading={loading} />
+        <KpiCard label="Manutenções Ativas" value={filteredMaintenances.length} icon={Wrench} color="text-yellow-500" loading={loading} />
         <KpiCard label="Em Manutenção (excluídos)" value={0} icon={ShieldCheck} color="text-green-500" loading={loading} />
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="problemas" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList>
           <TabsTrigger value="problemas" className="gap-1">
             <AlertTriangle className="h-4 w-4" /> Problemas ({totalProblems})
           </TabsTrigger>
           <TabsTrigger value="manutencao" className="gap-1">
-            <Wrench className="h-4 w-4" /> Manutenção ({maintenances.length})
+            <Wrench className="h-4 w-4" /> Manutenção ({filteredMaintenances.length})
+          </TabsTrigger>
+          <TabsTrigger value="hosts" className="gap-1">
+            <Monitor className="h-4 w-4" /> Hosts
           </TabsTrigger>
         </TabsList>
 
+        {/* PROBLEMS TAB */}
         <TabsContent value="problemas" className="space-y-4 mt-4">
           {loading ? (
             <LoadingSkeleton />
@@ -317,28 +420,16 @@ export default function DashboardZabbix() {
                         <thead>
                           <tr className="border-b bg-muted/40">
                             <th className="px-4 py-2 text-left font-medium text-muted-foreground w-8"></th>
-                            <th
-                              className="px-4 py-2 text-left font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors"
-                              onClick={() => handleSort("severity")}
-                            >
+                            <th className="px-4 py-2 text-left font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort("severity")}>
                               <span className="inline-flex items-center">Severidade <SortIcon field="severity" /></span>
                             </th>
-                            <th
-                              className="px-4 py-2 text-left font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors"
-                              onClick={() => handleSort("host")}
-                            >
+                            <th className="px-4 py-2 text-left font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort("host")}>
                               <span className="inline-flex items-center">Host <SortIcon field="host" /></span>
                             </th>
-                            <th
-                              className="px-4 py-2 text-left font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors"
-                              onClick={() => handleSort("problem")}
-                            >
+                            <th className="px-4 py-2 text-left font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort("problem")}>
                               <span className="inline-flex items-center">Problema <SortIcon field="problem" /></span>
                             </th>
-                            <th
-                              className="px-4 py-2 text-left font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors"
-                              onClick={() => handleSort("duration")}
-                            >
+                            <th className="px-4 py-2 text-left font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort("duration")}>
                               <span className="inline-flex items-center">Duração <SortIcon field="duration" /></span>
                             </th>
                             <th className="px-4 py-2 text-left font-medium text-muted-foreground">Updates</th>
@@ -352,9 +443,7 @@ export default function DashboardZabbix() {
                             const sev = SEVERITY_CONFIG[String(group.highestSeverity)] || SEVERITY_CONFIG["0"];
                             const isMulti = group.problems.length > 1;
                             const isExpanded = expandedHosts.has(group.hostKey);
-                            const uniqueTriggers = group.problems
-                              .map(p => p.triggerDescription || p.name)
-                              .filter((v, i, a) => a.indexOf(v) === i);
+                            const uniqueTriggers = group.problems.map(p => p.triggerDescription || p.name).filter((v, i, a) => a.indexOf(v) === i);
 
                             return (
                               <GroupRows
@@ -379,18 +468,22 @@ export default function DashboardZabbix() {
           )}
         </TabsContent>
 
+        {/* MAINTENANCE TAB */}
         <TabsContent value="manutencao" className="space-y-4 mt-4">
           {loading ? (
             <LoadingSkeleton />
-          ) : maintenances.length === 0 ? (
+          ) : filteredMaintenances.length === 0 ? (
             <EmptyState icon={CheckCircle2} message="Nenhuma manutenção ativa no momento." />
           ) : (
-            maintenances.map((m) => (
+            filteredMaintenances.map((m) => (
               <Card key={m.maintenanceid}>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base flex items-center gap-2">
                     <Wrench className="h-5 w-5 text-yellow-500" />
                     {m.name}
+                    {m.source && (
+                      <Badge variant="outline" className="text-[10px]">{m.source === "z1" ? "BRAVA" : "2LOCK"}</Badge>
+                    )}
                     <Badge variant="outline" className="ml-auto text-xs">
                       {formatTimestamp(m.active_since)} → {formatTimestamp(m.active_till)}
                     </Badge>
@@ -423,7 +516,124 @@ export default function DashboardZabbix() {
             ))
           )}
         </TabsContent>
+
+        {/* HOSTS TAB */}
+        <TabsContent value="hosts" className="space-y-4 mt-4">
+          <div className="flex items-center gap-2 flex-wrap">
+            <input
+              type="text"
+              placeholder="Buscar host..."
+              value={hostSearch}
+              onChange={e => setHostSearch(e.target.value)}
+              className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring w-64"
+            />
+            <ClearableSelect value={hostStatusFilter} onValueChange={setHostStatusFilter} options={HOST_STATUS_OPTIONS} placeholder="Status" defaultValue="todos" className="w-36" />
+            <div className="ml-auto flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">{filteredHosts.length} hosts</span>
+              <Button variant="outline" size="sm" onClick={() => setShowCsvDialog(true)} disabled={filteredHosts.length === 0}>
+                <Download className="h-4 w-4 mr-2" />
+                Exportar CSV
+              </Button>
+            </div>
+          </div>
+
+          {hostsLoading ? (
+            <LoadingSkeleton />
+          ) : filteredHosts.length === 0 ? (
+            <EmptyState icon={Monitor} message="Nenhum host encontrado." />
+          ) : (
+            <Card>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-muted/40">
+                        <th className="px-4 py-2 text-left font-medium text-muted-foreground">Status</th>
+                        <th className="px-4 py-2 text-left font-medium text-muted-foreground">Hostname</th>
+                        <th className="px-4 py-2 text-left font-medium text-muted-foreground">IP</th>
+                        <th className="px-4 py-2 text-left font-medium text-muted-foreground">Proxy</th>
+                        <th className="px-4 py-2 text-left font-medium text-muted-foreground">Host Groups</th>
+                        <th className="px-4 py-2 text-left font-medium text-muted-foreground">Templates</th>
+                        <th className="px-4 py-2 text-left font-medium text-muted-foreground">Tags</th>
+                        <th className="px-4 py-2 text-left font-medium text-muted-foreground">Origem</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredHosts.map((h) => (
+                        <tr key={h.hostid} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+                          <td className="px-4 py-2">
+                            <Badge variant={h.status === "0" ? "default" : "secondary"} className={`text-[10px] ${h.status === "0" ? "bg-green-600 text-white" : "bg-gray-500 text-white"}`}>
+                              {h.status === "0" ? "Ativo" : "Inativo"}
+                            </Badge>
+                          </td>
+                          <td className="px-4 py-2 font-medium whitespace-nowrap">{h.hostname}</td>
+                          <td className="px-4 py-2 text-muted-foreground font-mono text-xs">{h.ip || "—"}</td>
+                          <td className="px-4 py-2 text-muted-foreground text-xs">{h.proxy || "—"}</td>
+                          <td className="px-4 py-2 max-w-xs">
+                            <div className="flex flex-wrap gap-1">
+                              {h.hostgroups.slice(0, 3).map((g, i) => (
+                                <Badge key={i} variant="outline" className="text-[10px]">{g}</Badge>
+                              ))}
+                              {h.hostgroups.length > 3 && <Badge variant="outline" className="text-[10px]">+{h.hostgroups.length - 3}</Badge>}
+                            </div>
+                          </td>
+                          <td className="px-4 py-2 max-w-xs">
+                            <div className="flex flex-wrap gap-1">
+                              {h.templates.slice(0, 2).map((t, i) => (
+                                <span key={i} className="text-[10px] bg-muted px-1.5 py-0.5 rounded">{t}</span>
+                              ))}
+                              {h.templates.length > 2 && <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded">+{h.templates.length - 2}</span>}
+                            </div>
+                          </td>
+                          <td className="px-4 py-2 max-w-xs">
+                            <div className="flex flex-wrap gap-1">
+                              {h.tags.slice(0, 2).map((t, i) => (
+                                <span key={i} className="text-[10px] bg-muted px-1.5 py-0.5 rounded">{t.tag}{t.value ? `:${t.value}` : ""}</span>
+                              ))}
+                              {h.tags.length > 2 && <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded">+{h.tags.length - 2}</span>}
+                            </div>
+                          </td>
+                          <td className="px-4 py-2">
+                            <Badge variant="outline" className="text-[10px]">{h.source === "z1" ? "BRAVA" : "2LOCK"}</Badge>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
       </Tabs>
+
+      {/* CSV Export Dialog */}
+      <Dialog open={showCsvDialog} onOpenChange={setShowCsvDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Exportar Hosts para CSV</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">Selecione os campos para incluir na exportação:</p>
+          <div className="grid grid-cols-2 gap-3 py-2">
+            {HOST_CSV_FIELDS.map(f => (
+              <label key={f.key} className="flex items-center gap-2 cursor-pointer">
+                <Checkbox
+                  checked={csvFields.has(f.key)}
+                  onCheckedChange={() => toggleCsvField(f.key)}
+                />
+                <span className="text-sm">{f.label}</span>
+              </label>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCsvDialog(false)}>Cancelar</Button>
+            <Button onClick={exportCsv} disabled={csvFields.size === 0}>
+              <Download className="h-4 w-4 mr-2" />
+              Exportar ({filteredHosts.length} hosts)
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -440,38 +650,23 @@ function GroupRows({
   contato: ZabbixContato | null;
   onToggle: () => void;
 }) {
-  // Sort sub-problems by newest first
   const sortedProblems = [...group.problems].sort((a, b) => Number(b.clock) - Number(a.clock));
 
   return (
     <>
-      {/* Main summary row */}
-      <tr
-        className={`border-b last:border-0 hover:bg-muted/30 transition-colors ${isMulti ? "cursor-pointer" : ""}`}
-        onClick={isMulti ? onToggle : undefined}
-      >
+      <tr className={`border-b last:border-0 hover:bg-muted/30 transition-colors ${isMulti ? "cursor-pointer" : ""}`} onClick={isMulti ? onToggle : undefined}>
         <td className="px-2 py-2 text-center">
-          {isMulti && (
-            isExpanded
-              ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
-              : <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          )}
+          {isMulti && (isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />)}
         </td>
-        <td className="px-4 py-2">
-          <Badge className={`${sev.bg} ${sev.text} text-xs`}>{sev.label}</Badge>
-        </td>
+        <td className="px-4 py-2"><Badge className={`${sev.bg} ${sev.text} text-xs`}>{sev.label}</Badge></td>
         <td className="px-4 py-2 font-medium whitespace-nowrap">
           {group.hostName}
-          {isMulti && (
-            <Badge variant="outline" className="ml-2 text-[10px] px-1.5 py-0">{group.problems.length}</Badge>
-          )}
+          {isMulti && <Badge variant="outline" className="ml-2 text-[10px] px-1.5 py-0">{group.problems.length}</Badge>}
         </td>
         <td className="px-4 py-2 max-w-md">
           {isMulti ? (
             <div className="flex flex-wrap gap-1">
-              {uniqueTriggers.map((name, i) => (
-                <span key={i} className="text-xs bg-muted px-1.5 py-0.5 rounded">{name}</span>
-              ))}
+              {uniqueTriggers.map((name, i) => <span key={i} className="text-xs bg-muted px-1.5 py-0.5 rounded">{name}</span>)}
             </div>
           ) : (
             <span className="text-xs">{group.problems[0]?.triggerDescription || group.problems[0]?.name}</span>
@@ -479,39 +674,21 @@ function GroupRows({
         </td>
         <td className="px-4 py-2 whitespace-nowrap text-muted-foreground">
           <Clock className="h-3 w-3 inline mr-1" />
-          {isMulti
-            ? formatDuration(group.newestClock)
-            : formatDuration(Number(group.problems[0]?.clock))
-          }
+          {isMulti ? formatDuration(group.newestClock) : formatDuration(Number(group.problems[0]?.clock))}
         </td>
-        <td className="px-4 py-2">
-          <AcksPopover acks={group.allAcks} />
-        </td>
-        <td className="px-4 py-2">
-          <ContactButton contato={contato} />
-        </td>
+        <td className="px-4 py-2"><AcksPopover acks={group.allAcks} /></td>
+        <td className="px-4 py-2"><ContactButton contato={contato} /></td>
       </tr>
-      {/* Expanded sub-rows */}
       {isMulti && isExpanded && sortedProblems.map((p) => {
         const pSev = SEVERITY_CONFIG[p.severity] || SEVERITY_CONFIG["0"];
         return (
           <tr key={p.eventid} className="border-b last:border-0 bg-muted/10">
             <td className="px-2 py-1.5"></td>
-            <td className="px-4 py-1.5">
-              <Badge className={`${pSev.bg} ${pSev.text} text-[10px]`}>{pSev.label}</Badge>
-            </td>
-            <td className="px-4 py-1.5 text-xs text-muted-foreground pl-8">
-              ↳ {p.hosts?.[0]?.name || p.hosts?.[0]?.host}
-            </td>
-            <td className="px-4 py-1.5">
-              <span className="text-xs">{p.triggerDescription || p.name}</span>
-            </td>
-            <td className="px-4 py-1.5 whitespace-nowrap text-muted-foreground text-xs">
-              <Clock className="h-3 w-3 inline mr-1" />{formatDuration(Number(p.clock))}
-            </td>
-            <td className="px-4 py-1.5">
-              <AcksPopover acks={p.acknowledges || []} />
-            </td>
+            <td className="px-4 py-1.5"><Badge className={`${pSev.bg} ${pSev.text} text-[10px]`}>{pSev.label}</Badge></td>
+            <td className="px-4 py-1.5 text-xs text-muted-foreground pl-8">↳ {p.hosts?.[0]?.name || p.hosts?.[0]?.host}</td>
+            <td className="px-4 py-1.5"><span className="text-xs">{p.triggerDescription || p.name}</span></td>
+            <td className="px-4 py-1.5 whitespace-nowrap text-muted-foreground text-xs"><Clock className="h-3 w-3 inline mr-1" />{formatDuration(Number(p.clock))}</td>
+            <td className="px-4 py-1.5"><AcksPopover acks={p.acknowledges || []} /></td>
             <td className="px-4 py-1.5"></td>
           </tr>
         );
@@ -522,9 +699,7 @@ function GroupRows({
 
 // ── Acks Popover ────────────────────────────────────────────────────────
 function AcksPopover({ acks }: { acks: any[] }) {
-  if (acks.length === 0) {
-    return <span className="text-xs text-muted-foreground">—</span>;
-  }
+  if (acks.length === 0) return <span className="text-xs text-muted-foreground">—</span>;
   const sorted = [...acks].sort((a, b) => Number(b.clock) - Number(a.clock));
   return (
     <Popover>
@@ -535,9 +710,7 @@ function AcksPopover({ acks }: { acks: any[] }) {
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-96 p-0" align="end">
-        <div className="px-3 py-2 border-b bg-muted/40">
-          <p className="text-sm font-medium">Updates ({acks.length})</p>
-        </div>
+        <div className="px-3 py-2 border-b bg-muted/40"><p className="text-sm font-medium">Updates ({acks.length})</p></div>
         <ScrollArea className="max-h-64">
           <div className="divide-y">
             {sorted.map((ack: any, idx: number) => (
@@ -572,9 +745,7 @@ function ContactButton({ contato }: { contato: ZabbixContato | null }) {
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-80 p-0" align="end">
-        <div className="px-3 py-2 border-b bg-muted/40">
-          <p className="text-sm font-medium">Contatos do Local</p>
-        </div>
+        <div className="px-3 py-2 border-b bg-muted/40"><p className="text-sm font-medium">Contatos do Local</p></div>
         <div className="divide-y">
           {hasPrimeiro && (
             <div className="px-3 py-3">
@@ -632,9 +803,7 @@ function KpiCard({ label, value, icon: Icon, color, loading }: { label: string; 
 function LoadingSkeleton() {
   return (
     <div className="space-y-4">
-      {[1, 2, 3].map((i) => (
-        <Card key={i}><CardContent className="p-6"><Skeleton className="h-32 w-full" /></CardContent></Card>
-      ))}
+      {[1, 2, 3].map((i) => <Card key={i}><CardContent className="p-6"><Skeleton className="h-32 w-full" /></CardContent></Card>)}
     </div>
   );
 }

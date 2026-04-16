@@ -5,15 +5,11 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// ── Zabbix API helper ────────────────────────────────────────────────
 function createZabbixClient(url: string, token: string) {
   return async (method: string, params: Record<string, unknown>) => {
     const res = await fetch(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({ jsonrpc: "2.0", method, params, id: 1 }),
     });
     const data = await res.json();
@@ -22,7 +18,6 @@ function createZabbixClient(url: string, token: string) {
   };
 }
 
-// ── Classification for Zabbix 2 (2lock) ────────────────────────────
 function classifyZabbix2(description: string): string {
   const d = description.toLowerCase();
   if (d.includes("indisponibilidade de ctrl")) return "equipamentos";
@@ -32,7 +27,6 @@ function classifyZabbix2(description: string): string {
   return "outros";
 }
 
-// ── Fetch problems from one Zabbix instance ─────────────────────────
 async function fetchProblemsFromInstance(
   zabbixCall: ReturnType<typeof createZabbixClient>,
   source: string,
@@ -52,8 +46,6 @@ async function fetchProblemsFromInstance(
   });
 
   const filtered = triggers.filter(filterFn);
-
-  // Fetch events with acknowledges
   const triggerIds = filtered.map((t: any) => t.triggerid);
   let eventsMap: Record<string, any[]> = {};
 
@@ -64,17 +56,12 @@ async function fetchProblemsFromInstance(
     const events = await zabbixCall("event.get", {
       output: ["eventid", "objectid", "clock", "acknowledged"],
       objectids: triggerIds,
-      source: 0,
-      object: 0,
-      value: 1,
-      sortfield: "clock",
-      sortorder: "DESC",
+      source: 0, object: 0, value: 1,
+      sortfield: "clock", sortorder: "DESC",
       selectAcknowledges: ["acknowledgeid", "userid", "clock", "message", "action"],
     });
 
     const currentEvents = events.filter((ev: any) => ev.clock === lastchangeMap[ev.objectid]);
-
-    // Resolve user names
     const userIds = new Set<string>();
     for (const ev of currentEvents) {
       for (const ack of ev.acknowledges || []) {
@@ -126,8 +113,7 @@ async function fetchProblemsFromInstance(
   });
 }
 
-// ── Fetch maintenance from one instance ─────────────────────────────
-async function fetchMaintenanceFromInstance(zabbixCall: ReturnType<typeof createZabbixClient>) {
+async function fetchMaintenanceFromInstance(zabbixCall: ReturnType<typeof createZabbixClient>, source: string) {
   const now = Math.floor(Date.now() / 1000);
   const all = await zabbixCall("maintenance.get", {
     output: ["maintenanceid", "name", "active_since", "active_till", "description"],
@@ -135,10 +121,70 @@ async function fetchMaintenanceFromInstance(zabbixCall: ReturnType<typeof create
     selectGroups: ["groupid", "name"],
     selectTimeperiods: "extend",
   });
-  return all.filter((m: any) => Number(m.active_till) > now);
+  return all
+    .filter((m: any) => Number(m.active_till) > now)
+    .map((m: any) => ({ ...m, source, maintenanceid: `${source}_${m.maintenanceid}` }));
 }
 
-// ── Main handler ────────────────────────────────────────────────────
+async function fetchAllHostsFromInstance(zabbixCall: ReturnType<typeof createZabbixClient>, source: string, filterFn?: (h: any) => boolean) {
+  const hosts = await zabbixCall("host.get", {
+    output: ["hostid", "host", "name", "status"],
+    selectInterfaces: ["ip", "dns", "type"],
+    selectGroups: ["groupid", "name"],
+    selectParentTemplates: ["templateid", "name"],
+    selectTags: ["tag", "value"],
+    sortfield: "name",
+  });
+
+  // Get proxies
+  let proxyMap: Record<string, string> = {};
+  try {
+    // Try Zabbix 7.x proxy.get
+    const proxies = await zabbixCall("proxy.get", {
+      output: ["proxyid", "name"],
+      selectHosts: ["hostid"],
+    });
+    for (const px of proxies) {
+      for (const h of px.hosts || []) {
+        proxyMap[h.hostid] = px.name;
+      }
+    }
+  } catch {
+    try {
+      // Fallback to Zabbix 6.x
+      const proxies = await zabbixCall("proxy.get", {
+        output: ["proxyid", "host"],
+        selectHosts: ["hostid"],
+      });
+      for (const px of proxies) {
+        for (const h of px.hosts || []) {
+          proxyMap[h.hostid] = px.host || px.name;
+        }
+      }
+    } catch {
+      // No proxy support or no permissions
+    }
+  }
+
+  const filtered = filterFn ? hosts.filter(filterFn) : hosts;
+
+  return filtered.map((h: any) => {
+    const mainIface = h.interfaces?.find((i: any) => i.type === "1") || h.interfaces?.[0];
+    return {
+      hostid: `${source}_${h.hostid}`,
+      hostname: h.host,
+      name: h.name,
+      status: h.status, // 0=enabled, 1=disabled
+      ip: mainIface?.ip || "",
+      proxy: proxyMap[h.hostid] || "",
+      hostgroups: (h.groups || []).map((g: any) => g.name),
+      templates: (h.parentTemplates || []).map((t: any) => t.name),
+      tags: (h.tags || []).map((t: any) => ({ tag: t.tag, value: t.value })),
+      source,
+    };
+  });
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -151,8 +197,7 @@ serve(async (req) => {
 
   if (!ZABBIX_API_URL || !ZABBIX_API_TOKEN) {
     return new Response(JSON.stringify({ error: "Zabbix 1 credentials not configured" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
@@ -177,7 +222,6 @@ serve(async (req) => {
       }
 
       case "problems": {
-        // Zabbix 1: "Indisponibilidade" triggers, exclude "Infraestrutura"
         const filter1 = (t: any) => {
           const desc = (t.description || "").toLowerCase();
           if (!desc.includes("indisponibilidade")) return false;
@@ -186,11 +230,8 @@ serve(async (req) => {
           return true;
         };
 
-        const promises: Promise<any[]>[] = [
-          fetchProblemsFromInstance(zabbix1, "z1", filter1),
-        ];
+        const promises: Promise<any[]>[] = [fetchProblemsFromInstance(zabbix1, "z1", filter1)];
 
-        // Zabbix 2: specific trigger descriptions
         if (zabbix2) {
           const filter2 = (t: any) => {
             const desc = (t.description || "").toLowerCase();
@@ -210,18 +251,30 @@ serve(async (req) => {
       }
 
       case "maintenance": {
-        const promises = [fetchMaintenanceFromInstance(zabbix1)];
-        if (zabbix2) promises.push(fetchMaintenanceFromInstance(zabbix2));
+        const promises = [fetchMaintenanceFromInstance(zabbix1, "z1")];
+        if (zabbix2) promises.push(fetchMaintenanceFromInstance(zabbix2, "z2"));
+        const results = await Promise.all(promises);
+        result = results.flat();
+        break;
+      }
+
+      case "hosts_all": {
+        const filter1 = (h: any) => {
+          const groupNames = (h.groups || []).map((g: any) => g.name.toLowerCase());
+          return !groupNames.includes("infraestrutura");
+        };
+
+        const promises: Promise<any[]>[] = [fetchAllHostsFromInstance(zabbix1, "z1", filter1)];
+        if (zabbix2) {
+          promises.push(fetchAllHostsFromInstance(zabbix2, "z2"));
+        }
         const results = await Promise.all(promises);
         result = results.flat();
         break;
       }
 
       case "hostgroups": {
-        result = await zabbix1("hostgroup.get", {
-          output: ["groupid", "name"],
-          sortfield: "name",
-        });
+        result = await zabbix1("hostgroup.get", { output: ["groupid", "name"], sortfield: "name" });
         break;
       }
 
@@ -237,8 +290,7 @@ serve(async (req) => {
 
       default:
         return new Response(JSON.stringify({ error: "Invalid action" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
     }
 
@@ -248,8 +300,7 @@ serve(async (req) => {
   } catch (error) {
     console.error("Zabbix dashboard error:", error);
     return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
