@@ -196,6 +196,33 @@ const MiniDonut = ({ pct, color, size = 52 }: { pct: number; color: string; size
   );
 };
 
+const MultiDonut = ({ segments, size = 60 }: { segments: { pct: number; color: string }[]; size?: number }) => {
+  const r = size * 0.34, circ = 2 * Math.PI * r;
+  let offset = circ / 4; // start at top
+  const total = segments.reduce((s, seg) => s + seg.pct, 0);
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="flex-shrink-0">
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(77,166,255,0.08)" strokeWidth="5" />
+      {segments.filter(s => s.pct > 0).map((seg, i) => {
+        const dash = (seg.pct / 100) * circ;
+        const gap = circ - dash;
+        const currentOffset = offset;
+        offset -= dash;
+        return (
+          <motion.circle key={i} cx={size / 2} cy={size / 2} r={r} fill="none" stroke={seg.color} strokeWidth="5"
+            strokeDasharray={`${dash} ${gap}`} strokeDashoffset={currentOffset}
+            initial={{ strokeDasharray: `0 ${circ}` }}
+            animate={{ strokeDasharray: `${dash} ${gap}` }}
+            transition={{ duration: 1.2, delay: 0.4 + i * 0.15, ease: "easeOut" }}
+            style={{ filter: `drop-shadow(0 0 6px ${seg.color}70)` }} />
+        );
+      })}
+      <text x={size / 2} y={size / 2} textAnchor="middle" dominantBaseline="central"
+        fill={C.white} fontSize={size * 0.18} fontWeight="400">{Math.round(total)}%</text>
+    </svg>
+  );
+};
+
 // ── Host grouping for TV ──
 interface TvHostGroup {
   hostKey: string;
@@ -508,9 +535,11 @@ export default function ZabbixTvView() {
             <GlowCard key={k.id} hi={k.hi} delay={i * 0.07}>
               <div className="p-5 lg:p-6 flex items-center gap-4 min-h-[110px]">
                 {k.id === "total" ? (
-                  <div className="flex-shrink-0 flex flex-col items-center justify-center" style={{ width: 60, height: 60 }}>
-                    <k.icon className="h-8 w-8" style={{ color: k.color, filter: `drop-shadow(0 0 8px ${k.color}60)` }} />
-                  </div>
+                  <MultiDonut size={60} segments={[
+                    { pct: totalProblems > 0 ? (catCounts.equipamentos / totalProblems) * 100 : 0, color: C.blue },
+                    { pct: totalProblems > 0 ? (catCounts.links / totalProblems) * 100 : 0, color: C.green },
+                    { pct: totalProblems > 0 ? (catCounts.outros / totalProblems) * 100 : 0, color: C.dim },
+                  ]} />
                 ) : (
                   <MiniDonut pct={totalProblems > 0 ? (k.value / totalProblems) * 100 : k.id === "manut" ? 100 : 0} color={k.color} size={60} />
                 )}
