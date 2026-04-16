@@ -20,6 +20,7 @@ interface ZabbixProblem {
   triggerDescription: string;
   source?: string;
   category?: string;
+  acknowledges?: { acknowledgeid: string; user: string; clock: string; message: string; action: string }[];
 }
 
 interface ZabbixMaintenance {
@@ -244,7 +245,7 @@ function TvGroupedRows({ groups, expandedHosts, onToggle }: {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.02 * gi, ease: "easeOut" }}
-              className={`grid grid-cols-[24px_1.2fr_2fr_140px_90px] gap-2 items-center py-2 px-3 ${isMulti ? "cursor-pointer" : ""}`}
+              className={`grid grid-cols-[24px_1.2fr_2fr_140px_70px_90px] gap-2 items-center py-2 px-3 ${isMulti ? "cursor-pointer" : ""}`}
               style={{ borderBottom: `1px solid rgba(77,166,255,0.06)` }}
               onClick={isMulti ? () => onToggle(group.hostKey) : undefined}
             >
@@ -271,6 +272,16 @@ function TvGroupedRows({ groups, expandedHosts, onToggle }: {
               <span className="text-sm font-mono tabular-nums" style={{ color: C.orange }}>
                 {formatDuration(Number(group.problems[0]?.clock))}
               </span>
+              {(() => {
+                const totalAcks = isMulti
+                  ? group.problems.reduce((sum, p) => sum + (p.acknowledges?.length || 0), 0)
+                  : (group.problems[0]?.acknowledges?.length || 0);
+                return (
+                  <span className="text-sm text-center font-mono tabular-nums" style={{ color: totalAcks > 0 ? C.green : C.dim }}>
+                    {totalAcks > 0 ? totalAcks : "—"}
+                  </span>
+                );
+              })()}
               <span className="text-xs text-right" style={{ color: C.dim }}>{source}</span>
             </motion.div>
 
@@ -278,13 +289,16 @@ function TvGroupedRows({ groups, expandedHosts, onToggle }: {
             {isMulti && isExpanded && group.problems.map((p) => (
               <div
                 key={p.eventid}
-                className="grid grid-cols-[24px_1.2fr_2fr_140px_90px] gap-2 items-center py-1.5 px-3"
+                className="grid grid-cols-[24px_1.2fr_2fr_140px_70px_90px] gap-2 items-center py-1.5 px-3"
                 style={{ background: "rgba(77,166,255,0.03)", borderBottom: `1px solid rgba(77,166,255,0.04)` }}
               >
                 <span />
                 <span className="text-xs pl-3" style={{ color: C.dim }}>↳ {p.hosts?.[0]?.name || "—"}</span>
                 <span className="text-xs" style={{ color: C.dim }}>{p.triggerDescription || p.name}</span>
                 <span className="text-xs font-mono tabular-nums" style={{ color: C.orange }}>{formatDuration(Number(p.clock))}</span>
+                <span className="text-xs text-center font-mono" style={{ color: (p.acknowledges?.length || 0) > 0 ? C.green : C.dim }}>
+                  {(p.acknowledges?.length || 0) > 0 ? p.acknowledges!.length : "—"}
+                </span>
                 <span className="text-[11px] text-right" style={{ color: C.dim }}>{p.source === "z1" ? "BRAVA" : "2LOCK"}</span>
               </div>
             ))}
@@ -491,11 +505,12 @@ export default function ZabbixTvView() {
 
                 <div className="flex-1 overflow-y-auto min-h-0 custom-scrollbar">
                   {/* Column headers */}
-                  <div className="grid grid-cols-[24px_1.2fr_2fr_140px_90px] gap-2 px-3 py-2 sticky top-0" style={{ background: "rgba(6,12,30,0.95)", borderBottom: `1px solid ${C.grid}` }}>
+                  <div className="grid grid-cols-[24px_1.2fr_2fr_140px_70px_90px] gap-2 px-3 py-2 sticky top-0" style={{ background: "rgba(6,12,30,0.95)", borderBottom: `1px solid ${C.grid}` }}>
                     <span />
                     <span className="text-xs uppercase tracking-wider" style={{ color: C.dim, fontWeight: 700 }}>Host</span>
                     <span className="text-xs uppercase tracking-wider" style={{ color: C.dim, fontWeight: 700 }}>Problema</span>
                     <span className="text-xs uppercase tracking-wider" style={{ color: C.dim, fontWeight: 700 }}>Duração</span>
+                    <span className="text-xs uppercase tracking-wider text-center" style={{ color: C.dim, fontWeight: 700 }}>Actions</span>
                     <span className="text-xs uppercase tracking-wider text-right" style={{ color: C.dim, fontWeight: 700 }}>Origem</span>
                   </div>
 
