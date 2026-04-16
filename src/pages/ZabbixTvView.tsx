@@ -245,7 +245,7 @@ function TvGroupedRows({ groups, expandedHosts, onToggle }: {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.02 * gi, ease: "easeOut" }}
-              className={`grid grid-cols-[24px_1.2fr_2fr_140px_90px] gap-2 items-center py-2 px-3 ${isMulti ? "cursor-pointer" : ""}`}
+              className={`grid grid-cols-[24px_1.2fr_2fr_140px_70px_90px] gap-2 items-center py-2 px-3 ${isMulti ? "cursor-pointer" : ""}`}
               style={{ borderBottom: `1px solid rgba(77,166,255,0.06)` }}
               onClick={isMulti ? () => onToggle(group.hostKey) : undefined}
             >
@@ -272,6 +272,16 @@ function TvGroupedRows({ groups, expandedHosts, onToggle }: {
               <span className="text-sm font-mono tabular-nums" style={{ color: C.orange }}>
                 {formatDuration(Number(group.problems[0]?.clock))}
               </span>
+              {(() => {
+                const totalAcks = isMulti
+                  ? group.problems.reduce((sum, p) => sum + (p.acknowledges?.length || 0), 0)
+                  : (group.problems[0]?.acknowledges?.length || 0);
+                return (
+                  <span className="text-sm text-center font-mono tabular-nums" style={{ color: totalAcks > 0 ? C.green : C.dim }}>
+                    {totalAcks > 0 ? totalAcks : "—"}
+                  </span>
+                );
+              })()}
               <span className="text-xs text-right" style={{ color: C.dim }}>{source}</span>
             </motion.div>
 
