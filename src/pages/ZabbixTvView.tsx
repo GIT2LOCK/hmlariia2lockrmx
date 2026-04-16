@@ -709,7 +709,7 @@ export default function ZabbixTvView() {
 
         {/* PROXIES FOOTER BAR */}
         {serverMetrics && serverMetrics.proxies.length > 0 && (
-          <GlowCard delay={0.55} className="mt-3 flex-shrink-0" contentClassName="px-5 py-4">
+          <GlowCard delay={0.55} className="mt-3 flex-shrink-0 max-w-max" contentClassName="px-5 py-4">
             <div className="flex items-center gap-6">
               <div className="flex items-center gap-2 flex-shrink-0">
                 <Radio className="h-6 w-6" style={{ color: C.cyan, filter: `drop-shadow(0 0 4px ${C.cyan}60)` }} />
