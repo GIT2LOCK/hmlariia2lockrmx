@@ -335,7 +335,11 @@ serve(async (req) => {
               loadItems = await zabbix1("item.get", {
                 output: ["itemid", "hostid", "lastvalue", "key_"],
                 hostids: hostIds,
-                search: { key_: "system.cpu.load" },
+                filter: { key_: [
+                  "system.cpu.load[all,avg1]",
+                  "system.cpu.load[all,avg5]",
+                  "system.cpu.load[all,avg15]",
+                ] },
               });
             } catch { /* no load items */ }
           }
