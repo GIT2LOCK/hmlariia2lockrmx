@@ -474,7 +474,7 @@ export default function ZabbixTvView() {
               </div>
               <div>
                 <h1 className="text-2xl tracking-wide" style={{ color: C.white, textShadow: `0 0 20px ${C.cyan}20`, fontWeight: 400 }}>
-                  Monitoramento TV View
+                  Monitoramento
                 </h1>
                 <div className="flex items-center gap-2 text-sm" style={{ color: C.dim }}>
                   <PulseDot color={totalProblems > 0 ? C.red : C.green} />
