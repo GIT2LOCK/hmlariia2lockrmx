@@ -676,20 +676,20 @@ export default function ZabbixTvView() {
                   <Cpu className="h-6 w-6" style={{ color: C.cyan, filter: `drop-shadow(0 0 4px ${C.cyan}60)` }} />
                   <span className="text-sm uppercase tracking-[0.12em]" style={{ color: C.cyan, fontWeight: 700 }}>CPU Hosts</span>
                 </div>
-                <div className="overflow-y-auto flex-1 min-h-0 custom-scrollbar flex flex-col gap-0.5">
+                <div className="overflow-y-auto flex-1 min-h-0 custom-scrollbar flex flex-col gap-1 justify-evenly">
                   {serverMetrics.cpuHosts.map((h, i) => {
                     const barPct = Math.min(h.cpuUtil, 100);
                     const barColor = h.cpuUtil > 80 ? C.red : h.cpuUtil > 50 ? C.orange : C.green;
                     return (
-                      <div key={h.hostid + i} className="flex flex-col gap-1.5 py-2.5" style={{ borderBottom: `1px solid rgba(77,166,255,0.06)` }}>
+                      <div key={h.hostid + i} className="flex flex-col gap-2 py-3" style={{ borderBottom: `1px solid rgba(77,166,255,0.06)` }}>
                         <div className="flex items-center justify-between">
-                          <span className="text-base truncate" style={{ color: C.textCyan, fontWeight: 600 }}>{h.name}</span>
-                          <span className="text-lg font-mono tabular-nums ml-2 whitespace-nowrap" style={{ color: barColor, fontWeight: 700 }}>{h.cpuUtil.toFixed(1)}%</span>
+                          <span className="text-lg truncate" style={{ color: C.textCyan, fontWeight: 600 }}>{h.name}</span>
+                          <span className="text-xl font-mono tabular-nums ml-2 whitespace-nowrap" style={{ color: barColor, fontWeight: 700 }}>{h.cpuUtil.toFixed(1)}%</span>
                         </div>
-                        <div className="h-3 rounded-full overflow-hidden" style={{ background: "rgba(77,166,255,0.08)" }}>
+                        <div className="h-3.5 rounded-full overflow-hidden" style={{ background: "rgba(77,166,255,0.08)" }}>
                           <div className="h-full rounded-full transition-all" style={{ width: `${barPct}%`, background: barColor, boxShadow: `0 0 8px ${barColor}40` }} />
                         </div>
-                        <div className="flex gap-3 text-sm font-mono tabular-nums" style={{ color: C.dim }}>
+                        <div className="flex gap-4 text-base font-mono tabular-nums" style={{ color: C.dim }}>
                           <span>1m: {h.load1m?.toFixed(2) ?? "—"}</span>
                           <span>5m: {h.load5m?.toFixed(2) ?? "—"}</span>
                           <span>15m: {h.load15m?.toFixed(2) ?? "—"}</span>
