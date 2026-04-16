@@ -362,42 +362,27 @@ serve(async (req) => {
           }));
         } catch { /* no CPU data */ }
 
-        // 3) Proxy last seen
+        // 3) Proxy last seen - fetched as items from "Zabbix server" host
         let proxies: any[] = [];
         try {
-          const pxResult = await zabbix1("proxy.get", {
-            output: ["proxyid", "name", "lastaccess", "host"],
+          const proxyItems = await zabbix1("item.get", {
+            output: ["itemid", "lastvalue", "name", "key_"],
+            host: "Zabbix server",
+            search: { key_: "zabbix.proxy.last_seen" },
           });
-          proxies = pxResult.map((px: any) => {
-            const lastAccess = Number(px.lastaccess || 0);
-            const nowSec = Math.floor(Date.now() / 1000);
-            const delaySec = lastAccess > 0 ? nowSec - lastAccess : -1;
+          proxies = proxyItems.map((item: any) => {
+            // Extract proxy name from key like "zabbix.proxy.last_seen[PRX-RJ]"
+            const match = item.key_.match(/\[(.+?)\]/);
+            const proxyName = match ? match[1] : item.name;
+            const delaySec = parseInt(item.lastvalue) || 0;
             return {
-              proxyid: px.proxyid,
-              name: px.name || px.host,
-              lastaccess: lastAccess,
+              proxyid: item.itemid,
+              name: proxyName,
+              lastaccess: 0,
               delaySec,
             };
           });
-        } catch {
-          try {
-            // Zabbix 6.x fallback
-            const pxResult = await zabbix1("proxy.get", {
-              output: ["proxyid", "host", "lastaccess"],
-            });
-            proxies = pxResult.map((px: any) => {
-              const lastAccess = Number(px.lastaccess || 0);
-              const nowSec = Math.floor(Date.now() / 1000);
-              const delaySec = lastAccess > 0 ? nowSec - lastAccess : -1;
-              return {
-                proxyid: px.proxyid,
-                name: px.host || px.name,
-                lastaccess: lastAccess,
-                delaySec,
-              };
-            });
-          } catch { /* no proxy support */ }
-        }
+        } catch { /* no proxy items */ }
 
         result = { diskUsagePct, cpuHosts, proxies };
         break;
