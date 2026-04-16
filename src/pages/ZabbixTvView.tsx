@@ -252,10 +252,11 @@ function groupByHostTv(items: ZabbixProblem[]): TvHostGroup[] {
 }
 
 // ── Grouped Problem Rows ──
-function TvGroupedRows({ groups, expandedHosts, onToggle }: {
+function TvGroupedRows({ groups, expandedHosts, onToggle, gridCols = "grid-cols-[20px_1fr_2.5fr_100px_60px_70px]" }: {
   groups: TvHostGroup[];
   expandedHosts: Set<string>;
   onToggle: (key: string) => void;
+  gridCols?: string;
 }) {
   return (
     <>
