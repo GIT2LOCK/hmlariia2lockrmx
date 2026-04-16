@@ -271,7 +271,7 @@ function TvGroupedRows({ groups, expandedHosts, onToggle, gridCols = "grid-cols-
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.02 * gi, ease: "easeOut" }}
-              className={`grid grid-cols-[20px_1fr_2.5fr_100px_60px_70px] gap-2 items-center py-2 px-3 ${isMulti ? "cursor-pointer" : ""}`}
+              className={`grid ${gridCols} gap-2 items-center py-2 px-3 ${isMulti ? "cursor-pointer" : ""}`}
               style={{ borderBottom: `1px solid rgba(77,166,255,0.06)` }}
               onClick={isMulti ? () => onToggle(group.hostKey) : undefined}
             >
