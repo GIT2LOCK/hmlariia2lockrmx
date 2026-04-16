@@ -7,10 +7,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   AlertTriangle, Server, Wifi, Wrench, RefreshCw, CheckCircle2, Clock,
   ShieldCheck, MessageSquare, Phone, ChevronDown, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown,
-  Download, Monitor,
+  Download, Monitor, Tv,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ClearableSelect } from "@/components/ClearableSelect";
@@ -194,6 +195,7 @@ export default function DashboardZabbix() {
   const [csvFields, setCsvFields] = useState<Set<HostFieldKey>>(new Set(HOST_CSV_FIELDS.map(f => f.key)));
   const [activeTab, setActiveTab] = useState("problemas");
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -363,6 +365,9 @@ export default function DashboardZabbix() {
         </div>
         <div className="flex items-center gap-2">
           <ClearableSelect value={sourceFilter} onValueChange={setSourceFilter} options={SOURCE_OPTIONS} placeholder="Origem" defaultValue="todos" className="w-40" />
+          <Button variant="outline" size="sm" onClick={() => navigate("/dashboard/zabbix/tv")} className="gap-2">
+            <Tv className="h-4 w-4" /> TV View
+          </Button>
           <Button variant="outline" size="sm" onClick={() => { fetchData(); if (activeTab === "hosts") fetchHosts(); }} disabled={loading}>
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
             Atualizar
