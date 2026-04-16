@@ -314,7 +314,7 @@ function TvGroupedRows({ groups, expandedHosts, onToggle, gridCols = "grid-cols-
             {isMulti && isExpanded && group.problems.map((p) => (
               <div
                 key={p.eventid}
-                className="grid grid-cols-[20px_1fr_2.5fr_100px_60px_70px] gap-2 items-center py-1.5 px-3"
+                className={`grid ${gridCols} gap-2 items-center py-1.5 px-3`}
                 style={{ background: "rgba(77,166,255,0.03)", borderBottom: `1px solid rgba(77,166,255,0.04)` }}
               >
                 <span />
