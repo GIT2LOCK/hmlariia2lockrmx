@@ -409,10 +409,10 @@ export default function ZabbixTvView() {
                 <Activity className="h-6 w-6" style={{ color: C.cyan, filter: `drop-shadow(0 0 6px ${C.cyan})` }} />
               </div>
               <div>
-                <h1 className="text-xl tracking-wide" style={{ color: C.white, textShadow: `0 0 20px ${C.cyan}20`, fontWeight: 400 }}>
+                <h1 className="text-2xl tracking-wide" style={{ color: C.white, textShadow: `0 0 20px ${C.cyan}20`, fontWeight: 400 }}>
                   Monitoramento TV View
                 </h1>
-                <div className="flex items-center gap-2 text-[11px]" style={{ color: C.dim }}>
+                <div className="flex items-center gap-2 text-sm" style={{ color: C.dim }}>
                   <PulseDot color={totalProblems > 0 ? C.red : C.green} />
                   <span style={{ fontWeight: 400 }}>
                     {totalProblems > 0 ? `${totalProblems} problema${totalProblems > 1 ? "s" : ""} ativo${totalProblems > 1 ? "s" : ""}` : "Sem problemas ativos"}
