@@ -288,6 +288,24 @@ serve(async (req) => {
         break;
       }
 
+      case "debug_items": {
+        // Discover disk and CPU item keys on Zabbix server
+        const diskAll = await zabbix1("item.get", {
+          output: ["itemid", "lastvalue", "name", "key_"],
+          host: "Zabbix server",
+          search: { key_: "vfs.fs" },
+          limit: 20,
+        });
+        const cpuAll = await zabbix1("item.get", {
+          output: ["itemid", "lastvalue", "name", "key_"],
+          host: "Zabbix server",
+          search: { key_: "system.cpu" },
+          limit: 20,
+        });
+        result = { diskAll, cpuAll };
+        break;
+      }
+
       case "server_metrics": {
         // 1) Disk space of Zabbix server (filesystem /)
         let diskUsagePct: number | null = null;
@@ -295,11 +313,18 @@ serve(async (req) => {
           const diskItems = await zabbix1("item.get", {
             output: ["itemid", "lastvalue", "name", "key_"],
             host: "Zabbix server",
-            search: { key_: "vfs.fs.size[/,pused]" },
-            limit: 1,
+            search: { key_: "vfs.fs.size" },
+            searchWildcardsEnabled: true,
+            limit: 10,
           });
-          if (diskItems.length > 0) {
-            diskUsagePct = parseFloat(diskItems[0].lastvalue);
+          // Find pused for / filesystem
+          const pused = diskItems.find((i: any) => i.key_.includes("pused") && (i.key_.includes("[/,") || i.key_.includes("[/]")));
+          if (pused) {
+            diskUsagePct = parseFloat(pused.lastvalue);
+          } else if (diskItems.length > 0) {
+            // Fallback: any pused item
+            const anyPused = diskItems.find((i: any) => i.key_.includes("pused"));
+            if (anyPused) diskUsagePct = parseFloat(anyPused.lastvalue);
           }
         } catch { /* no disk item */ }
 
