@@ -426,7 +426,22 @@ export default function ZabbixTvView() {
                 {sidebarHidden ? <Eye className="h-5 w-5" style={{ color: C.dim }} /> : <EyeOff className="h-5 w-5" style={{ color: C.dim }} />}
               </button>
             )}
-            <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3">
+            {isTvView && (
+              <button
+                onClick={() => navigate("/dashboard")}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs uppercase tracking-wider transition-all hover:scale-105"
+                style={{
+                  background: "rgba(77,166,255,0.12)",
+                  border: `1px solid ${C.border}`,
+                  color: C.cyan,
+                  fontWeight: 700,
+                }}
+              >
+                <Monitor className="h-4 w-4" />
+                Chamados
+              </button>
+            )}
               <div className="p-2 rounded-xl" style={{ background: "rgba(77,166,255,0.12)", boxShadow: "0 0 20px rgba(77,166,255,0.25)" }}>
                 <Activity className="h-6 w-6" style={{ color: C.cyan, filter: `drop-shadow(0 0 6px ${C.cyan})` }} />
               </div>
