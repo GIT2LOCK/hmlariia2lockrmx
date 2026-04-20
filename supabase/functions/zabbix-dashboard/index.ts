@@ -38,7 +38,7 @@ async function fetchProblemsFromInstance(
     source: 0,
     object: 0,
     severities: [4, 5],
-    sortfield: "clock",
+    sortfield: "eventid",
     sortorder: "DESC",
   });
 
