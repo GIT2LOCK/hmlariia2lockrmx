@@ -35,7 +35,7 @@ async function fetchProblemsFromInstance(
 ) {
   const triggers = await zabbixCall("trigger.get", {
     output: ["triggerid", "description", "priority", "lastchange", "value"],
-    filter: { value: 1, priority: 4 },
+    filter: { value: 1 },
     monitored: true,
     maintenance: false,
     skipDependent: true,
@@ -45,7 +45,9 @@ async function fetchProblemsFromInstance(
     sortorder: "DESC",
   });
 
-  const filtered = triggers.filter(filterFn);
+  // Filter only High (4) and Disaster (5) severity triggers
+  const highOrDisasterTriggers = triggers.filter((t: any) => t.priority === "4" || t.priority === "5");
+  const filtered = highOrDisasterTriggers.filter(filterFn);
   const triggerIds = filtered.map((t: any) => t.triggerid);
   let eventsMap: Record<string, any[]> = {};
 
