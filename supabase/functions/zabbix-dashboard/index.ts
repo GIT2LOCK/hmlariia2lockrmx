@@ -49,7 +49,7 @@ async function fetchProblemsFromInstance(
     const triggers = await zabbixCall("trigger.get", {
       output: ["triggerid", "description", "priority", "lastchange", "value"],
       triggerids: triggerIds,
-      selectHosts: ["hostid", "host", "name"],
+      selectHosts: ["hostid", "host", "name", "status"],
       selectGroups: ["groupid", "name"],
     });
 
