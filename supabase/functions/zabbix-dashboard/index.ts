@@ -119,7 +119,14 @@ async function fetchProblemsFromInstance(
         category: categoryFn ? categoryFn(description) : undefined,
       };
     })
-    .filter(filterFn);
+    .filter((p: any) => {
+      // Drop problems whose host(s) are all disabled (status === "1")
+      if (p.hosts && p.hosts.length > 0) {
+        const allDisabled = p.hosts.every((h: any) => String(h.status) === "1");
+        if (allDisabled) return false;
+      }
+      return filterFn(p);
+    });
 }
 
 async function fetchMaintenanceFromInstance(zabbixCall: ReturnType<typeof createZabbixClient>, source: string) {
