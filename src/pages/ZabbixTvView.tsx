@@ -467,7 +467,7 @@ export default function ZabbixTvView() {
     }
     // Update known set with current problems
     knownEventIdsRef.current = new Set(problems.map(p => p.eventid));
-  }, [problems, playAlertSound, showCtrl]);
+  }, [problems, playAlertSound]);
 
   useEffect(() => {
     fetchData();
