@@ -49,9 +49,6 @@ async function fetchProblemsFromInstance(
     const triggers = await zabbixCall("trigger.get", {
       output: ["triggerid", "description", "priority", "lastchange", "value"],
       triggerids: triggerIds,
-      monitored: true,
-      maintenance: false,
-      skipDependent: true,
       selectHosts: ["hostid", "host", "name"],
       selectGroups: ["groupid", "name"],
     });
