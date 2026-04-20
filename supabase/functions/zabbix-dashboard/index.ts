@@ -40,9 +40,6 @@ async function fetchProblemsFromInstance(
     severities: [4, 5],
     sortfield: "clock",
     sortorder: "DESC",
-    selectHosts: ["hostid", "host", "name"],
-    selectTags: ["tag", "value"],
-    selectAcknowledges: ["acknowledgeid", "userid", "clock", "message", "action"],
   });
 
   const triggerIds = Array.from(new Set(problems.map((p: any) => p.objectid).filter(Boolean)));
@@ -62,9 +59,23 @@ async function fetchProblemsFromInstance(
     triggerMap = Object.fromEntries(triggers.map((trigger: any) => [trigger.triggerid, trigger]));
   }
 
+  const eventIds = problems.map((p: any) => p.eventid).filter(Boolean);
+  let eventMap: Record<string, any> = {};
+  if (eventIds.length > 0) {
+    const events = await zabbixCall("event.get", {
+      output: ["eventid", "objectid", "clock", "acknowledged"],
+      eventids: eventIds,
+      source: 0,
+      object: 0,
+      value: 1,
+      selectAcknowledges: ["acknowledgeid", "userid", "clock", "message", "action"],
+    });
+    eventMap = Object.fromEntries(events.map((event: any) => [event.eventid, event]));
+  }
+
   const userIds = new Set<string>();
-  for (const problem of problems) {
-    for (const ack of problem.acknowledges || []) {
+  for (const event of Object.values(eventMap) as any[]) {
+    for (const ack of event.acknowledges || []) {
       if (ack.userid) userIds.add(ack.userid);
     }
   }
@@ -84,8 +95,9 @@ async function fetchProblemsFromInstance(
   return problems
     .map((problem: any) => {
       const trigger = triggerMap[problem.objectid] || {};
+      const event = eventMap[problem.eventid] || {};
       const description = trigger.description || problem.name || "";
-      const acks = (problem.acknowledges || []).map((ack: any) => ({
+      const acks = (event.acknowledges || []).map((ack: any) => ({
         ...ack,
         user: userMap[ack.userid] || "Desconhecido",
       }));
@@ -99,12 +111,12 @@ async function fetchProblemsFromInstance(
         description,
         severity: String(problem.severity ?? trigger.priority ?? "0"),
         clock: problem.clock || trigger.lastchange || "0",
-        acknowledged: String(problem.acknowledged ?? (acks.length > 0 ? "1" : "0")),
+        acknowledged: String(problem.acknowledged ?? event.acknowledged ?? (acks.length > 0 ? "1" : "0")),
         suppressed: String(problem.suppressed ?? "0"),
-        hosts: problem.hosts || trigger.hosts || [],
+        hosts: trigger.hosts || [],
         groups: trigger.groups || [],
         triggerDescription: description,
-        tags: problem.tags || [],
+        tags: [],
         acknowledges: acks,
         source,
         category: categoryFn ? categoryFn(description) : undefined,
