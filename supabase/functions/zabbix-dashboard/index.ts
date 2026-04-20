@@ -120,13 +120,14 @@ async function fetchProblemsFromInstance(
       };
     })
     .filter((p: any) => {
-      // Drop problems whose host(s) are all disabled (status === "1")
-      if (p.hosts && p.hosts.length > 0) {
-        const allDisabled = p.hosts.every((h: any) => String(h.status) === "1");
-        if (allDisabled) return false;
-      }
-      // Also drop if no hosts at all (orphan problem)
       if (!p.hosts || p.hosts.length === 0) return false;
+
+      const allDisabled = p.hosts.every((h: any) => String(h.status) === "1");
+      if (allDisabled) return false;
+
+      const hasActiveMaintenance = p.hosts.some((h: any) => String(h.maintenance_status) === "1");
+      if (hasActiveMaintenance) return false;
+
       return filterFn(p);
     });
 }
