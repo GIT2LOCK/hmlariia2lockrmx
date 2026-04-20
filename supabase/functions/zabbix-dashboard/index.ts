@@ -148,11 +148,12 @@ async function fetchMaintenanceFromInstance(zabbixCall: ReturnType<typeof create
 
 async function fetchAllHostsFromInstance(zabbixCall: ReturnType<typeof createZabbixClient>, source: string, filterFn?: (h: any) => boolean) {
   const hosts = await zabbixCall("host.get", {
-    output: ["hostid", "host", "name", "status"],
+    output: ["hostid", "host", "name", "status", "maintenance_status"],
     selectInterfaces: ["ip", "dns", "type"],
     selectGroups: ["groupid", "name"],
     selectParentTemplates: ["templateid", "name"],
     selectTags: ["tag", "value"],
+    filter: { status: 0 }, // Only enabled hosts
     sortfield: "name",
   });
 
