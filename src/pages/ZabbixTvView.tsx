@@ -415,16 +415,16 @@ export default function ZabbixTvView() {
     }
   }, []);
 
+  // Keep showCtrl in a ref so the detection effect doesn't re-seed when toggled
+  const showCtrlRef = useRef(showCtrl);
+  useEffect(() => { showCtrlRef.current = showCtrl; }, [showCtrl]);
+
   // Detect new problems and trigger toast + sound
   useEffect(() => {
     if (knownEventIdsRef.current === null) {
       // First load: just seed the known set, no notifications
       knownEventIdsRef.current = new Set(problems.map(p => p.eventid));
-      return;
-    }
-    // Only notify when CTRL (alerts) is ON
-    if (!showCtrl) {
-      knownEventIdsRef.current = new Set(problems.map(p => p.eventid));
+      console.log("[TV Alerts] Seeded known events:", knownEventIdsRef.current.size);
       return;
     }
     const known = knownEventIdsRef.current;
@@ -433,6 +433,12 @@ export default function ZabbixTvView() {
       if (cat !== "equipamentos" && cat !== "links") return false;
       return !known.has(p.eventid);
     });
+    console.log("[TV Alerts] Check: total=", problems.length, "known=", known.size, "new=", newOnes.length, "ctrlOn=", showCtrlRef.current);
+    // Only notify when CTRL (alerts) is ON
+    if (!showCtrlRef.current) {
+      knownEventIdsRef.current = new Set(problems.map(p => p.eventid));
+      return;
+    }
     if (newOnes.length > 0) {
       playAlertSound();
       for (const p of newOnes) {
