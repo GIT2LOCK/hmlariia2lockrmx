@@ -121,6 +121,7 @@ async function fetchProblemsFromInstance(
     })
     .filter((p: any) => {
       if (!p.hosts || p.hosts.length === 0) return false;
+      if (String(p.suppressed) === "1") return false;
 
       const allDisabled = p.hosts.every((h: any) => String(h.status) === "1");
       if (allDisabled) return false;
