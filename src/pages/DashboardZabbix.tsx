@@ -69,6 +69,11 @@ interface ZabbixHost {
   source: string;
 }
 
+const isHighOrDisaster = (problem: ZabbixProblem) => {
+  const severity = Number(problem.severity);
+  return severity === 4 || severity === 5;
+};
+
 // ── Category mapping ────────────────────────────────────────────────────
 type Category = "equipamentos" | "links" | "outros";
 
@@ -209,7 +214,7 @@ export default function DashboardZabbix() {
       if (problemsRes.error) throw new Error(problemsRes.error.message);
       if (maintenanceRes.error) throw new Error(maintenanceRes.error.message);
 
-      setProblems(Array.isArray(problemsRes.data) ? problemsRes.data : []);
+      setProblems(Array.isArray(problemsRes.data) ? problemsRes.data.filter(isHighOrDisaster) : []);
       setMaintenances(Array.isArray(maintenanceRes.data) ? maintenanceRes.data : []);
 
       const map: Record<string, ZabbixContato> = {};

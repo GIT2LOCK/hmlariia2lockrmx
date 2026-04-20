@@ -37,6 +37,11 @@ interface ZabbixMaintenance {
 
 type Category = "equipamentos" | "links" | "outros";
 
+const isHighOrDisaster = (problem: ZabbixProblem) => {
+  const severity = Number(problem.severity);
+  return severity === 4 || severity === 5;
+};
+
 function classifyProblem(p: ZabbixProblem): Category {
   if (p.category === "equipamentos" || p.category === "links" || p.category === "outros") return p.category;
   const name = (p.triggerDescription || p.name || "").toLowerCase();
@@ -403,7 +408,7 @@ export default function ZabbixTvView() {
       ]);
       if (pRes.error) throw new Error(pRes.error.message);
       if (mRes.error) throw new Error(mRes.error.message);
-      setProblems(Array.isArray(pRes.data) ? pRes.data : []);
+      setProblems(Array.isArray(pRes.data) ? pRes.data.filter(isHighOrDisaster) : []);
       setMaintenances(Array.isArray(mRes.data) ? mRes.data : []);
       if (smRes.data && !smRes.error) setServerMetrics(smRes.data);
       setLastUpdate(new Date());
