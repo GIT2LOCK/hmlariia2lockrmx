@@ -125,6 +125,8 @@ async function fetchProblemsFromInstance(
         const allDisabled = p.hosts.every((h: any) => String(h.status) === "1");
         if (allDisabled) return false;
       }
+      // Also drop if no hosts at all (orphan problem)
+      if (!p.hosts || p.hosts.length === 0) return false;
       return filterFn(p);
     });
 }
