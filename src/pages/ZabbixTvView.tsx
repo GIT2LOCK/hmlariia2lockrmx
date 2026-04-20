@@ -422,6 +422,11 @@ export default function ZabbixTvView() {
       knownEventIdsRef.current = new Set(problems.map(p => p.eventid));
       return;
     }
+    // Only notify when CTRL (alerts) is ON
+    if (!showCtrl) {
+      knownEventIdsRef.current = new Set(problems.map(p => p.eventid));
+      return;
+    }
     const known = knownEventIdsRef.current;
     const newOnes = problems.filter(p => {
       const cat = classifyProblem(p);
@@ -438,7 +443,7 @@ export default function ZabbixTvView() {
           isLink ? "🔗 Novo problema de LINK" : "🖥️ Novo problema de EQUIPAMENTO",
           {
             description: `${hostName} — ${p.triggerDescription || p.name}`,
-            duration: 15000,
+            duration: 3000,
             position: "bottom-right",
             style: {
               minWidth: "480px",
@@ -456,7 +461,7 @@ export default function ZabbixTvView() {
     }
     // Update known set with current problems
     knownEventIdsRef.current = new Set(problems.map(p => p.eventid));
-  }, [problems, playAlertSound]);
+  }, [problems, playAlertSound, showCtrl]);
 
   useEffect(() => {
     fetchData();
