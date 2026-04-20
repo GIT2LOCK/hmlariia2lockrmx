@@ -49,7 +49,7 @@ async function fetchProblemsFromInstance(
     const triggers = await zabbixCall("trigger.get", {
       output: ["triggerid", "description", "priority", "lastchange", "value"],
       triggerids: triggerIds,
-      selectHosts: ["hostid", "host", "name", "status"],
+      selectHosts: ["hostid", "host", "name", "status", "maintenance_status"],
       selectGroups: ["groupid", "name"],
     });
 
@@ -120,13 +120,15 @@ async function fetchProblemsFromInstance(
       };
     })
     .filter((p: any) => {
-      // Drop problems whose host(s) are all disabled (status === "1")
-      if (p.hosts && p.hosts.length > 0) {
-        const allDisabled = p.hosts.every((h: any) => String(h.status) === "1");
-        if (allDisabled) return false;
-      }
-      // Also drop if no hosts at all (orphan problem)
       if (!p.hosts || p.hosts.length === 0) return false;
+      if (String(p.suppressed) === "1") return false;
+
+      const allDisabled = p.hosts.every((h: any) => String(h.status) === "1");
+      if (allDisabled) return false;
+
+      const hasActiveMaintenance = p.hosts.some((h: any) => String(h.maintenance_status) === "1");
+      if (hasActiveMaintenance) return false;
+
       return filterFn(p);
     });
 }
