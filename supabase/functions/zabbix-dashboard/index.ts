@@ -33,86 +33,84 @@ async function fetchProblemsFromInstance(
   filterFn: (t: any) => boolean,
   categoryFn?: (desc: string) => string,
 ) {
-  const triggers = await zabbixCall("trigger.get", {
-    output: ["triggerid", "description", "priority", "lastchange", "value"],
-    filter: { value: 1 },
-    monitored: true,
-    maintenance: false,
-    skipDependent: true,
-    selectHosts: ["hostid", "host", "name"],
-    selectGroups: ["groupid", "name"],
-    sortfield: "lastchange",
+  const problems = await zabbixCall("problem.get", {
+    output: ["eventid", "objectid", "name", "severity", "clock", "acknowledged", "suppressed"],
+    source: 0,
+    object: 0,
+    severities: [4, 5],
+    sortfield: "clock",
     sortorder: "DESC",
+    selectHosts: ["hostid", "host", "name"],
+    selectTags: ["tag", "value"],
+    selectAcknowledges: ["acknowledgeid", "userid", "clock", "message", "action"],
   });
 
-  // Filter only High (4) and Disaster (5) severity triggers
-  const highOrDisasterTriggers = triggers.filter((t: any) => t.priority === "4" || t.priority === "5");
-  const filtered = highOrDisasterTriggers.filter(filterFn);
-  const triggerIds = filtered.map((t: any) => t.triggerid);
-  let eventsMap: Record<string, any[]> = {};
+  const triggerIds = Array.from(new Set(problems.map((p: any) => p.objectid).filter(Boolean)));
+  let triggerMap: Record<string, any> = {};
 
   if (triggerIds.length > 0) {
-    const lastchangeMap: Record<string, string> = {};
-    for (const t of filtered) lastchangeMap[t.triggerid] = t.lastchange;
-
-    const events = await zabbixCall("event.get", {
-      output: ["eventid", "objectid", "clock", "acknowledged"],
-      objectids: triggerIds,
-      source: 0, object: 0, value: 1,
-      sortfield: "clock", sortorder: "DESC",
-      selectAcknowledges: ["acknowledgeid", "userid", "clock", "message", "action"],
+    const triggers = await zabbixCall("trigger.get", {
+      output: ["triggerid", "description", "priority", "lastchange", "value"],
+      triggerids: triggerIds,
+      monitored: true,
+      maintenance: false,
+      skipDependent: true,
+      selectHosts: ["hostid", "host", "name"],
+      selectGroups: ["groupid", "name"],
     });
 
-    const currentEvents = events.filter((ev: any) => ev.clock === lastchangeMap[ev.objectid]);
-    const userIds = new Set<string>();
-    for (const ev of currentEvents) {
-      for (const ack of ev.acknowledges || []) {
-        if (ack.userid) userIds.add(ack.userid);
-      }
-    }
+    triggerMap = Object.fromEntries(triggers.map((trigger: any) => [trigger.triggerid, trigger]));
+  }
 
-    let userMap: Record<string, string> = {};
-    if (userIds.size > 0) {
-      const users = await zabbixCall("user.get", {
-        output: ["userid", "username", "name", "surname"],
-        userids: Array.from(userIds),
-      });
-      for (const u of users) {
-        const displayName = u.name && u.surname ? `${u.name} ${u.surname}`.trim() : u.username || u.alias || u.userid;
-        userMap[u.userid] = displayName || u.username;
-      }
-    }
-
-    for (const ev of currentEvents) {
-      const enrichedAcks = (ev.acknowledges || []).map((ack: any) => ({
-        ...ack,
-        user: userMap[ack.userid] || "Desconhecido",
-      }));
-      if (!eventsMap[ev.objectid]) eventsMap[ev.objectid] = [];
-      eventsMap[ev.objectid].push(...enrichedAcks);
+  const userIds = new Set<string>();
+  for (const problem of problems) {
+    for (const ack of problem.acknowledges || []) {
+      if (ack.userid) userIds.add(ack.userid);
     }
   }
 
-  return filtered.map((t: any) => {
-    const acks = eventsMap[t.triggerid] || [];
-    acks.sort((a: any, b: any) => Number(b.clock) - Number(a.clock));
-    return {
-      eventid: `${source}_${t.triggerid}`,
-      objectid: t.triggerid,
-      name: t.description,
-      severity: t.priority,
-      clock: t.lastchange,
-      acknowledged: acks.length > 0 ? "1" : "0",
-      suppressed: "0",
-      hosts: t.hosts || [],
-      groups: t.groups || [],
-      triggerDescription: t.description,
-      tags: [],
-      acknowledges: acks,
-      source,
-      category: categoryFn ? categoryFn(t.description || "") : undefined,
-    };
-  });
+  let userMap: Record<string, string> = {};
+  if (userIds.size > 0) {
+    const users = await zabbixCall("user.get", {
+      output: ["userid", "username", "name", "surname"],
+      userids: Array.from(userIds),
+    });
+    for (const u of users) {
+      const displayName = u.name && u.surname ? `${u.name} ${u.surname}`.trim() : u.username || u.alias || u.userid;
+      userMap[u.userid] = displayName || u.username;
+    }
+  }
+
+  return problems
+    .map((problem: any) => {
+      const trigger = triggerMap[problem.objectid] || {};
+      const description = trigger.description || problem.name || "";
+      const acks = (problem.acknowledges || []).map((ack: any) => ({
+        ...ack,
+        user: userMap[ack.userid] || "Desconhecido",
+      }));
+
+      acks.sort((a: any, b: any) => Number(b.clock) - Number(a.clock));
+
+      return {
+        eventid: `${source}_${problem.eventid || problem.objectid}`,
+        objectid: problem.objectid,
+        name: description,
+        description,
+        severity: String(problem.severity ?? trigger.priority ?? "0"),
+        clock: problem.clock || trigger.lastchange || "0",
+        acknowledged: String(problem.acknowledged ?? (acks.length > 0 ? "1" : "0")),
+        suppressed: String(problem.suppressed ?? "0"),
+        hosts: problem.hosts || trigger.hosts || [],
+        groups: trigger.groups || [],
+        triggerDescription: description,
+        tags: problem.tags || [],
+        acknowledges: acks,
+        source,
+        category: categoryFn ? categoryFn(description) : undefined,
+      };
+    })
+    .filter(filterFn);
 }
 
 async function fetchMaintenanceFromInstance(zabbixCall: ReturnType<typeof createZabbixClient>, source: string) {
