@@ -238,7 +238,8 @@ export default function DashboardZabbix() {
     try {
       const res = await supabase.functions.invoke("zabbix-dashboard", { body: { action: "hosts_all" } });
       if (res.error) throw new Error(res.error.message);
-      setAllHosts(Array.isArray(res.data) ? res.data : []);
+      const hosts = Array.isArray(res.data) ? res.data.filter((host: ZabbixHost) => host.status === "0") : [];
+      setAllHosts(hosts);
     } catch (err: any) {
       console.error("Hosts fetch error:", err);
       toast({ title: "Erro ao buscar hosts", description: err.message, variant: "destructive" });
