@@ -561,6 +561,21 @@ Deno.serve(async (req) => {
       const res = await fetch(`${GLPI_URL}/search/KnowbaseItem?${searchParams}`, { headers: glpiHeaders })
       if (!res.ok) throw new Error(`GLPI search returned ${res.status}`)
       result = await res.json()
+    } else if (action === 'reports') {
+      try {
+        await fetchWithRetry(`${GLPI_URL}/changeActiveEntities`, {
+          method: 'POST',
+          headers: glpiHeaders,
+          body: JSON.stringify({ entities_id: 'all', is_recursive: true }),
+        })
+      } catch (err) {
+        console.error('changeActiveEntities failed for reports, continuing:', err)
+      }
+
+      const daysParam = url.searchParams.get('days')
+      const days = daysParam && daysParam !== 'all' ? Number(daysParam) : undefined
+      const tickets = await fetchReportTickets(GLPI_URL, glpiHeaders, Number.isFinite(days) ? days : undefined)
+      result = buildReports(tickets)
     } else {
       const page = parseInt(url.searchParams.get('page') || '1')
       const perPage = 20
