@@ -74,6 +74,17 @@ const isHighOrDisaster = (problem: ZabbixProblem) => {
   return severity === 4 || severity === 5;
 };
 
+const SECOND_UPDATE_ALERT_SECONDS = 25 * 60;
+
+const getAckCount = (problem: ZabbixProblem) => problem.acknowledges?.length || 0;
+
+const needsSecondUpdateAlert = (problem: ZabbixProblem) => {
+  const openedAt = Number(problem.clock);
+  if (!Number.isFinite(openedAt)) return false;
+  const ageSeconds = Math.floor(Date.now() / 1000) - openedAt;
+  return ageSeconds >= SECOND_UPDATE_ALERT_SECONDS && getAckCount(problem) < 2;
+};
+
 // ── Category mapping ────────────────────────────────────────────────────
 type Category = "equipamentos" | "links" | "outros";
 
@@ -662,10 +673,11 @@ function GroupRows({
   onToggle: () => void;
 }) {
   const sortedProblems = [...group.problems].sort((a, b) => Number(b.clock) - Number(a.clock));
+  const hasSecondUpdateAlert = group.problems.some(needsSecondUpdateAlert);
 
   return (
     <>
-      <tr className={`border-b last:border-0 hover:bg-muted/30 transition-colors ${isMulti ? "cursor-pointer" : ""}`} onClick={isMulti ? onToggle : undefined}>
+      <tr className={`border-b last:border-0 hover:bg-muted/30 transition-colors ${isMulti ? "cursor-pointer" : ""} ${hasSecondUpdateAlert ? "bg-destructive/10" : ""}`} onClick={isMulti ? onToggle : undefined}>
         <td className="px-2 py-2 text-center">
           {isMulti && (isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />)}
         </td>
@@ -673,6 +685,11 @@ function GroupRows({
         <td className="px-4 py-2 font-medium whitespace-nowrap">
           {group.hostName}
           {isMulti && <Badge variant="outline" className="ml-2 text-[10px] px-1.5 py-0">{group.problems.length}</Badge>}
+          {hasSecondUpdateAlert && (
+            <Badge variant="destructive" className="ml-2 gap-1 text-[10px] px-1.5 py-0">
+              <AlertTriangle className="h-3 w-3" /> 2º update pendente
+            </Badge>
+          )}
         </td>
         <td className="px-4 py-2 max-w-md">
           {isMulti ? (
@@ -692,12 +709,16 @@ function GroupRows({
       </tr>
       {isMulti && isExpanded && sortedProblems.map((p) => {
         const pSev = SEVERITY_CONFIG[p.severity] || SEVERITY_CONFIG["0"];
+        const pNeedsSecondUpdate = needsSecondUpdateAlert(p);
         return (
-          <tr key={p.eventid} className="border-b last:border-0 bg-muted/10">
+          <tr key={p.eventid} className={`border-b last:border-0 ${pNeedsSecondUpdate ? "bg-destructive/10" : "bg-muted/10"}`}>
             <td className="px-2 py-1.5"></td>
             <td className="px-4 py-1.5"><Badge className={`${pSev.bg} ${pSev.text} text-[10px]`}>{pSev.label}</Badge></td>
             <td className="px-4 py-1.5 text-xs text-muted-foreground pl-8">↳ {p.hosts?.[0]?.name || p.hosts?.[0]?.host}</td>
-            <td className="px-4 py-1.5"><span className="text-xs">{p.triggerDescription || p.name}</span></td>
+            <td className="px-4 py-1.5">
+              <span className="text-xs">{p.triggerDescription || p.name}</span>
+              {pNeedsSecondUpdate && <Badge variant="destructive" className="ml-2 text-[10px] px-1.5 py-0">2º update pendente</Badge>}
+            </td>
             <td className="px-4 py-1.5 whitespace-nowrap text-muted-foreground text-xs"><Clock className="h-3 w-3 inline mr-1" />{formatDuration(Number(p.clock))}</td>
             <td className="px-4 py-1.5"><AcksPopover acks={p.acknowledges || []} /></td>
             <td className="px-4 py-1.5"></td>
