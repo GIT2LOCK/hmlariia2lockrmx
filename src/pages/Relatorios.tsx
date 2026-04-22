@@ -136,10 +136,41 @@ export default function Relatorios() {
         <div className="grid gap-4 md:grid-cols-3"><Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" /></div>
       ) : data && (
         <>
-          <div className="grid gap-4 md:grid-cols-3">
-            <Card><CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm font-medium"><BarChart3 className="h-4 w-4" /> Total GLPI</CardTitle></CardHeader><CardContent><div className="text-3xl font-bold">{data.totalTickets}</div></CardContent></Card>
-            <Card><CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm font-medium"><Building2 className="h-4 w-4" /> GoodStorage</CardTitle></CardHeader><CardContent><div className="text-3xl font-bold">{data.byCompany.GoodStorage || 0}</div></CardContent></Card>
-            <Card><CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm font-medium"><Link2 className="h-4 w-4" /> Maior recorrência link</CardTitle></CardHeader><CardContent><div className="truncate text-xl font-bold">{data.internetLinkRanking[0]?.unit || "—"}</div><p className="text-sm text-muted-foreground">{data.internetLinkRanking[0]?.linkTickets || 0} chamados</p></CardContent></Card>
+          <Card>
+            <CardHeader><CardTitle>Filtros</CardTitle></CardHeader>
+            <CardContent className="grid gap-4 lg:grid-cols-[1.2fr_1fr_1fr_0.8fr_0.8fr]">
+              <div className="space-y-2">
+                <span className="text-sm font-medium text-foreground">Empresa</span>
+                <div className="flex flex-wrap gap-2">
+                  {COMPANY_OPTIONS.map(company => (
+                    <Button key={company} variant={companyFilter === company ? "default" : "outline"} size="sm" onClick={() => setCompanyFilter(company)}>{company}</Button>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <span className="text-sm font-medium text-foreground">Unidade</span>
+                <div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input value={unitSearch} onChange={e => setUnitSearch(e.target.value)} placeholder="Ex: GS LAPA" className="pl-9" /></div>
+              </div>
+              <div className="space-y-2">
+                <span className="text-sm font-medium text-foreground">Tipo</span>
+                <div className="flex gap-2"><Button variant={ticketType === "todos" ? "default" : "outline"} size="sm" onClick={() => setTicketType("todos")}>Todos</Button><Button variant={ticketType === "links" ? "default" : "outline"} size="sm" onClick={() => setTicketType("links")}>Links</Button></div>
+              </div>
+              <div className="space-y-2">
+                <span className="text-sm font-medium text-foreground">Mínimo</span>
+                <Input type="number" min="0" value={minTickets} onChange={e => setMinTickets(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <span className="text-sm font-medium text-foreground">Top</span>
+                <div className="flex flex-wrap gap-2">{LIMIT_OPTIONS.map(value => <Button key={value} variant={limit === value ? "default" : "outline"} size="sm" onClick={() => setLimit(value)}>{value}</Button>)}</div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="grid gap-4 md:grid-cols-4">
+            <Card><CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm font-medium"><BarChart3 className="h-4 w-4" /> Quantidade total de chamados abertos</CardTitle></CardHeader><CardContent><div className="text-3xl font-bold">{filteredTotalTickets}</div><p className="text-sm text-muted-foreground">{companyFilter === "Todos" ? "Todas as empresas" : companyFilter}</p></CardContent></Card>
+            <Card><CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm font-medium"><Building2 className="h-4 w-4" /> Chamados por Unidade</CardTitle></CardHeader><CardContent><div className="text-3xl font-bold">{filteredUnits.length}</div><p className="text-sm text-muted-foreground">unidades filtradas</p></CardContent></Card>
+            <Card><CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm font-medium"><Trophy className="h-4 w-4" /> Unidades com mais chamados</CardTitle></CardHeader><CardContent><div className="truncate text-xl font-bold">{topUnit?.unit || "—"}</div><p className="text-sm text-muted-foreground">{topUnit ? (ticketType === "links" ? topUnit.linkTickets : topUnit.total) : 0} chamados</p></CardContent></Card>
+            <Card><CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm font-medium"><Link2 className="h-4 w-4" /> Maior recorrência link</CardTitle></CardHeader><CardContent><div className="truncate text-xl font-bold">{linkRows[0]?.unit || "—"}</div><p className="text-sm text-muted-foreground">{linkRows[0]?.linkTickets || 0} chamados</p></CardContent></Card>
           </div>
 
           <Tabs defaultValue="empresas" className="space-y-4">
