@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -41,25 +40,16 @@ export default function Relatorios() {
   const fetchReports = async () => {
     setLoading(true);
     try {
-      const { data: result, error } = await supabase.functions.invoke("glpi-proxy", {
-        method: "GET",
-        body: undefined,
-        headers: {},
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const res = await fetch(`https://${projectId}.supabase.co/functions/v1/glpi-proxy?action=reports&days=${period}`, {
+        headers: { Authorization: `Bearer ${anonKey}`, apikey: anonKey },
       });
-
-      if (error || !result) {
-        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-        const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-        const res = await fetch(`https://${projectId}.supabase.co/functions/v1/glpi-proxy?action=reports&days=${period}`, {
-          headers: { Authorization: `Bearer ${anonKey}`, apikey: anonKey },
-        });
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.error || `Erro ${res.status}`);
-        }
-        setData(await res.json());
-        return;
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || `Erro ${res.status}`);
       }
+      setData(await res.json());
     } catch (err: any) {
       toast({ title: "Erro ao carregar relatórios do GLPI", description: err.message, variant: "destructive" });
       setData(null);
