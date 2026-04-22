@@ -117,13 +117,10 @@ async function fetchAllOpenTickets(
     }
   }
   
-  // Filter out tickets with "vConnector", starting with "[Problem]" or "[Resolved]"
+  // Filter out tickets with "vConnector" or marker tickets like "[Problem]" / "[Resolved]" anywhere in the title
   return allTickets.filter(t => {
-    const name = String(t['name'] ?? t['title'] ?? '').toLowerCase()
-    if (name.includes('vconnector')) return false
-    if (name.startsWith('[problem]')) return false
-    if (name.startsWith('[resolved]')) return false
-    return true
+    const name = String(t['name'] ?? t['title'] ?? '')
+    return !hasIgnoredTicketMarker(name)
   })
 }
 
@@ -179,14 +176,9 @@ async function fetchAllTicketsOpenedInPeriod(
   console.log(`Fetched ${allTickets.length} total tickets for chart (last ${days} days)`)
   
   return allTickets.filter(t => {
-    const name = String(t['1'] ?? t['name'] ?? '').toLowerCase()
-    if (name.includes('vconnector')) return false
-    if (name.startsWith('[problem]')) return false
-    if (name.startsWith('[resolved]')) return false
-    // Also filter by ticket name field 2 if present
-    const name2 = String(t['name'] ?? '').toLowerCase()
-    if (name2.includes('vconnector') || name2.startsWith('[problem]') || name2.startsWith('[resolved]')) return false
-    return true
+    const primaryName = String(t['1'] ?? t['name'] ?? '')
+    const fallbackName = String(t['name'] ?? '')
+    return !hasIgnoredTicketMarker(primaryName) && !hasIgnoredTicketMarker(fallbackName)
   })
 }
 
@@ -297,6 +289,11 @@ function isReportUnit(company: ReportCompany, unit: string): boolean {
   return false
 }
 
+function hasIgnoredTicketMarker(title: string): boolean {
+  const normalizedTitle = title.toLowerCase()
+  return normalizedTitle.includes('vconnector') || normalizedTitle.includes('[problem]') || normalizedTitle.includes('[resolved]')
+}
+
 function isInternetLinkTicket(title: string): boolean {
   return /link|internet|conex[aã]o|ddns|wan|operadora|circuito|fibra|banda larga/i.test(title)
 }
@@ -338,8 +335,7 @@ async function fetchReportTickets(
     const data = Array.isArray(json.data) ? json.data : []
     for (const row of data) {
       const title = String(row['1'] ?? row['name'] ?? '')
-      const lowerTitle = title.toLowerCase()
-      if (lowerTitle.includes('vconnector') || lowerTitle.startsWith('[problem]') || lowerTitle.startsWith('[resolved]')) continue
+      if (hasIgnoredTicketMarker(title)) continue
 
       const entity = String(row['80'] ?? '')
       const parsed = parseTicketEntity(entity)
