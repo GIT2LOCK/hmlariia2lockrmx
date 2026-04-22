@@ -42,6 +42,17 @@ const isHighOrDisaster = (problem: ZabbixProblem) => {
   return severity === 4 || severity === 5;
 };
 
+const SECOND_UPDATE_ALERT_SECONDS = 25 * 60;
+
+const getAckCount = (problem: ZabbixProblem) => problem.acknowledges?.length || 0;
+
+const needsSecondUpdateAlert = (problem: ZabbixProblem) => {
+  const openedAt = Number(problem.clock);
+  if (!Number.isFinite(openedAt)) return false;
+  const ageSeconds = Math.floor(Date.now() / 1000) - openedAt;
+  return ageSeconds >= SECOND_UPDATE_ALERT_SECONDS && getAckCount(problem) < 2;
+};
+
 function classifyProblem(p: ZabbixProblem): Category {
   if (p.category === "equipamentos" || p.category === "links" || p.category === "outros") return p.category;
   const name = (p.triggerDescription || p.name || "").toLowerCase();
@@ -270,6 +281,7 @@ function TvGroupedRows({ groups, expandedHosts, onToggle, gridCols = "grid-cols-
         const isMulti = group.problems.length > 1;
         const isExpanded = expandedHosts.has(group.hostKey);
         const source = group.problems[0]?.source === "z1" ? "BRAVA" : "2LOCK";
+        const hasSecondUpdateAlert = group.problems.some(needsSecondUpdateAlert);
 
         return (
           <div key={group.hostKey}>
@@ -278,7 +290,11 @@ function TvGroupedRows({ groups, expandedHosts, onToggle, gridCols = "grid-cols-
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.02 * gi, ease: "easeOut" }}
               className={`grid ${gridCols} gap-2 items-center py-2 px-3 ${isMulti ? "cursor-pointer" : ""}`}
-              style={{ borderBottom: `1px solid rgba(77,166,255,0.06)` }}
+              style={{
+                borderBottom: `1px solid rgba(77,166,255,0.06)`,
+                background: hasSecondUpdateAlert ? "rgba(255,77,77,0.12)" : "transparent",
+                boxShadow: hasSecondUpdateAlert ? "inset 3px 0 0 rgba(255,77,77,0.9)" : "none",
+              }}
               onClick={isMulti ? () => onToggle(group.hostKey) : undefined}
             >
               <span className="flex items-center justify-center">
@@ -289,6 +305,11 @@ function TvGroupedRows({ groups, expandedHosts, onToggle, gridCols = "grid-cols-
               </span>
               <span className="text-base truncate" style={{ color: C.textCyan, fontWeight: 600 }}>
                 {group.hostName}
+                {hasSecondUpdateAlert && (
+                  <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-full align-middle" style={{ background: "rgba(255,77,77,0.22)", color: C.red, fontWeight: 800 }}>
+                    2º UPDATE
+                  </span>
+                )}
                 {isMulti && (
                   <span className="ml-2 text-xs px-1.5 py-0.5 rounded-full" style={{ background: "rgba(77,166,255,0.15)", color: C.cyan, fontWeight: 700 }}>
                     {group.problems.length}
@@ -321,7 +342,10 @@ function TvGroupedRows({ groups, expandedHosts, onToggle, gridCols = "grid-cols-
               <div
                 key={p.eventid}
                 className={`grid ${gridCols} gap-2 items-center py-1.5 px-3`}
-                style={{ background: "rgba(77,166,255,0.03)", borderBottom: `1px solid rgba(77,166,255,0.04)` }}
+                style={{
+                  background: needsSecondUpdateAlert(p) ? "rgba(255,77,77,0.12)" : "rgba(77,166,255,0.03)",
+                  borderBottom: `1px solid rgba(77,166,255,0.04)`,
+                }}
               >
                 <span />
                 <span className="text-sm pl-3" style={{ color: C.dim }}>↳ {p.hosts?.[0]?.name || "—"}</span>
