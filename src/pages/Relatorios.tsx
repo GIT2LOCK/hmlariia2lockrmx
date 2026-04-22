@@ -176,8 +176,8 @@ export default function Relatorios() {
           <Tabs defaultValue="empresas" className="space-y-4">
             <div className="flex items-center justify-between gap-3"><TabsList><TabsTrigger value="empresas">Empresas</TabsTrigger><TabsTrigger value="unidades">Unidades</TabsTrigger><TabsTrigger value="links">Links de Internet</TabsTrigger></TabsList><Button variant="outline" size="sm" onClick={exportCsv}><Download className="mr-2 h-4 w-4" /> CSV</Button></div>
             <TabsContent value="empresas"><Card><CardHeader><CardTitle>Chamados por empresa</CardTitle></CardHeader><CardContent className="h-80"><ResponsiveContainer width="100%" height="100%"><BarChart data={companyChart}><CartesianGrid strokeDasharray="3 3" className="stroke-border" /><XAxis dataKey="empresa" /><YAxis allowDecimals={false} /><Tooltip /><Bar dataKey="total" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} /></BarChart></ResponsiveContainer></CardContent></Card></TabsContent>
-            <TabsContent value="unidades"><RankingTable rows={data.unitRanking} valueKey="total" label="Total de chamados" /></TabsContent>
-            <TabsContent value="links"><RankingTable rows={data.internetLinkRanking} valueKey="linkTickets" label="Chamados de link" /></TabsContent>
+            <TabsContent value="unidades"><RankingTable rows={filteredUnits.slice(0, limit)} valueKey="total" label="Total de chamados" title="Chamados por Unidade / Unidades com mais chamados" /></TabsContent>
+            <TabsContent value="links"><RankingTable rows={linkRows.slice(0, limit)} valueKey="linkTickets" label="Chamados de link" title="Unidades com mais chamados de link de internet" /></TabsContent>
           </Tabs>
         </>
       )}
@@ -185,12 +185,12 @@ export default function Relatorios() {
   );
 }
 
-function RankingTable({ rows, valueKey, label }: { rows: UnitRankingItem[]; valueKey: "total" | "linkTickets"; label: string }) {
+function RankingTable({ rows, valueKey, label, title }: { rows: UnitRankingItem[]; valueKey: "total" | "linkTickets"; label: string; title: string }) {
   return (
     <Card>
-      <CardHeader><CardTitle className="flex items-center gap-2"><Trophy className="h-5 w-5" /> Ranking por unidade</CardTitle></CardHeader>
+      <CardHeader><CardTitle className="flex items-center gap-2"><Trophy className="h-5 w-5" /> {title}</CardTitle></CardHeader>
       <CardContent>
-        <Table><TableHeader><TableRow><TableHead>#</TableHead><TableHead>Empresa</TableHead><TableHead>Unidade</TableHead><TableHead className="text-right">{label}</TableHead></TableRow></TableHeader><TableBody>{rows.slice(0, 50).map((row, index) => (<TableRow key={`${row.company}-${row.unit}`}><TableCell>{index + 1}</TableCell><TableCell><Badge variant="secondary">{row.company}</Badge></TableCell><TableCell className="font-medium">{row.unit}</TableCell><TableCell className="text-right font-bold">{row[valueKey]}</TableCell></TableRow>))}</TableBody></Table>
+        <Table><TableHeader><TableRow><TableHead>#</TableHead><TableHead>Empresa</TableHead><TableHead>Unidade</TableHead><TableHead className="text-right">{label}</TableHead><TableHead className="text-right">Total geral</TableHead></TableRow></TableHeader><TableBody>{rows.map((row, index) => (<TableRow key={`${row.company}-${row.unit}`}><TableCell>{index + 1}</TableCell><TableCell><Badge variant="secondary">{row.company}</Badge></TableCell><TableCell className="font-medium">{row.unit}</TableCell><TableCell className="text-right font-bold">{row[valueKey]}</TableCell><TableCell className="text-right text-muted-foreground">{row.total}</TableCell></TableRow>))}</TableBody></Table>
       </CardContent>
     </Card>
   );
