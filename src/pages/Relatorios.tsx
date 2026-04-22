@@ -39,7 +39,7 @@ const LIMIT_OPTIONS = [10, 25, 50, 100];
 function isValidUnitRow(item: UnitRankingItem) {
   const unit = item.unit.trim().toUpperCase();
   if (!unit) return false;
-  if (item.company === "GoodStorage") return /^GS\s+/.test(unit);
+  if (item.company === "GoodStorage") return unit !== "GOODSTORAGE";
   if (item.company === "PetCare") return unit !== "PETCARE" && unit !== "TECSA";
   if (item.company === "Brava") return unit !== "BRAVA" && !unit.startsWith("POLO");
   return unit !== "INDEFINIDO";
