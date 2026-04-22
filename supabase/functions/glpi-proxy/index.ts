@@ -280,7 +280,21 @@ function parseTicketEntity(entityName: string): { company: ReportCompany; unit: 
       ? 'PetCare'
       : 'Brava'
 
-  return { company, unit: parts[companyIndex + 1] || parts[companyIndex] || company }
+  const unit = parts.slice(companyIndex + 1).find(part => {
+    const upper = part.toUpperCase()
+    return !upper.includes('GOODSTORAGE') && !upper.includes('PETCARE') && !upper.includes('TECSA') && !upper.includes('BRAVA')
+  })
+
+  return { company, unit: unit || '' }
+}
+
+function isReportUnit(company: ReportCompany, unit: string): boolean {
+  const upper = unit.trim().toUpperCase()
+  if (!upper) return false
+  if (company === 'GoodStorage') return /^GS\s+/.test(upper)
+  if (company === 'PetCare') return !['PETCARE', 'TECSA'].includes(upper)
+  if (company === 'Brava') return !['BRAVA', 'POLO'].includes(upper)
+  return false
 }
 
 function isInternetLinkTicket(title: string): boolean {
@@ -354,6 +368,8 @@ function buildReports(tickets: ReportTicket[]) {
 
   for (const ticket of tickets) {
     byCompany[ticket.company] = (byCompany[ticket.company] || 0) + 1
+    if (!isReportUnit(ticket.company, ticket.unit)) continue
+
     const key = `${ticket.company}||${ticket.unit}`
     if (!byUnit[key]) byUnit[key] = { company: ticket.company, unit: ticket.unit, total: 0, linkTickets: 0 }
     byUnit[key].total++
