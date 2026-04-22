@@ -247,6 +247,131 @@ function getEntityKey(entityId: string, entityMap: Record<string, string>): stri
   return 'indefinido'
 }
 
+type ReportCompany = 'GoodStorage' | 'PetCare' | 'Brava' | 'Indefinido'
+
+interface ReportTicket {
+  id: string
+  title: string
+  date: string
+  status: string
+  entity: string
+  company: ReportCompany
+  unit: string
+  isInternetLink: boolean
+}
+
+function parseTicketEntity(entityName: string): { company: ReportCompany; unit: string } {
+  const clean = entityName.replace(/&gt;/g, '>').replace(/\s+/g, ' ').trim()
+  const parts = clean.split('>').map(part => part.trim()).filter(Boolean)
+  const upperParts = parts.map(part => part.toUpperCase())
+
+  const companyIndex = upperParts.findIndex(part =>
+    part.includes('GOODSTORAGE') || part.includes('PETCARE') || part.includes('TECSA') || part.includes('BRAVA') || part.includes('POLO ')
+  )
+
+  if (companyIndex === -1) {
+    return { company: 'Indefinido', unit: parts.at(-1) || clean || 'Sem entidade' }
+  }
+
+  const companyPart = upperParts[companyIndex]
+  const company: ReportCompany = companyPart.includes('GOODSTORAGE')
+    ? 'GoodStorage'
+    : (companyPart.includes('PETCARE') || companyPart.includes('TECSA'))
+      ? 'PetCare'
+      : 'Brava'
+
+  return { company, unit: parts[companyIndex + 1] || parts[companyIndex] || company }
+}
+
+function isInternetLinkTicket(title: string): boolean {
+  return /link|internet|conex[aã]o|ddns|wan|operadora|circuito|fibra|banda larga/i.test(title)
+}
+
+async function fetchReportTickets(
+  glpiUrl: string,
+  headers: Record<string, string>,
+  days?: number
+): Promise<ReportTicket[]> {
+  const tickets: ReportTicket[] = []
+  let start = 0
+  const batchSize = 999
+
+  while (true) {
+    const params = new URLSearchParams({
+      'forcedisplay[0]': '2',
+      'forcedisplay[1]': '1',
+      'forcedisplay[2]': '15',
+      'forcedisplay[3]': '12',
+      'forcedisplay[4]': '80',
+      range: `${start}-${start + batchSize}`,
+    })
+
+    if (days && days > 0) {
+      const since = new Date()
+      since.setDate(since.getDate() - days)
+      params.set('criteria[0][field]', '15')
+      params.set('criteria[0][searchtype]', 'morethan')
+      params.set('criteria[0][value]', since.toISOString().split('T')[0])
+    }
+
+    const res = await fetchWithRetry(`${glpiUrl}/search/Ticket?${params}`, { headers })
+    if (!res.ok) {
+      const body = await res.text()
+      throw new Error(`GLPI report search returned ${res.status}: ${body}`)
+    }
+
+    const json = await res.json()
+    const data = Array.isArray(json.data) ? json.data : []
+    for (const row of data) {
+      const title = String(row['1'] ?? row['name'] ?? '')
+      const lowerTitle = title.toLowerCase()
+      if (lowerTitle.includes('vconnector') || lowerTitle.startsWith('[problem]') || lowerTitle.startsWith('[resolved]')) continue
+
+      const entity = String(row['80'] ?? '')
+      const parsed = parseTicketEntity(entity)
+      tickets.push({
+        id: String(row['2'] ?? ''),
+        title,
+        date: String(row['15'] ?? ''),
+        status: String(row['12'] ?? ''),
+        entity,
+        company: parsed.company,
+        unit: parsed.unit,
+        isInternetLink: isInternetLinkTicket(title),
+      })
+    }
+
+    if (data.length < batchSize) break
+    start += batchSize + 1
+  }
+
+  return tickets
+}
+
+function buildReports(tickets: ReportTicket[]) {
+  const byCompany: Record<string, number> = {}
+  const byUnit: Record<string, { company: ReportCompany; unit: string; total: number; linkTickets: number }> = {}
+
+  for (const ticket of tickets) {
+    byCompany[ticket.company] = (byCompany[ticket.company] || 0) + 1
+    const key = `${ticket.company}||${ticket.unit}`
+    if (!byUnit[key]) byUnit[key] = { company: ticket.company, unit: ticket.unit, total: 0, linkTickets: 0 }
+    byUnit[key].total++
+    if (ticket.isInternetLink) byUnit[key].linkTickets++
+  }
+
+  const unitRanking = Object.values(byUnit).sort((a, b) => b.total - a.total)
+  const internetLinkRanking = Object.values(byUnit).filter(item => item.linkTickets > 0).sort((a, b) => b.linkTickets - a.linkTickets)
+
+  return {
+    totalTickets: tickets.length,
+    byCompany,
+    unitRanking,
+    internetLinkRanking,
+    generatedAt: new Date().toISOString(),
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -436,6 +561,21 @@ Deno.serve(async (req) => {
       const res = await fetch(`${GLPI_URL}/search/KnowbaseItem?${searchParams}`, { headers: glpiHeaders })
       if (!res.ok) throw new Error(`GLPI search returned ${res.status}`)
       result = await res.json()
+    } else if (action === 'reports') {
+      try {
+        await fetchWithRetry(`${GLPI_URL}/changeActiveEntities`, {
+          method: 'POST',
+          headers: glpiHeaders,
+          body: JSON.stringify({ entities_id: 'all', is_recursive: true }),
+        })
+      } catch (err) {
+        console.error('changeActiveEntities failed for reports, continuing:', err)
+      }
+
+      const daysParam = url.searchParams.get('days')
+      const days = daysParam && daysParam !== 'all' ? Number(daysParam) : undefined
+      const tickets = await fetchReportTickets(GLPI_URL, glpiHeaders, Number.isFinite(days) ? days : undefined)
+      result = buildReports(tickets)
     } else {
       const page = parseInt(url.searchParams.get('page') || '1')
       const perPage = 20
