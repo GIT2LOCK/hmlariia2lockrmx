@@ -37,8 +37,6 @@ async function fetchProblemsFromInstance(
     output: ["eventid", "objectid", "name", "severity", "clock", "acknowledged", "suppressed"],
     source: 0,
     object: 0,
-    monitored: true,
-    suppressed: false,
     severities: [4, 5],
     sortfield: "eventid",
     sortorder: "DESC",
