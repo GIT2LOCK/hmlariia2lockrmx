@@ -291,7 +291,7 @@ function parseTicketEntity(entityName: string): { company: ReportCompany; unit: 
 function isReportUnit(company: ReportCompany, unit: string): boolean {
   const upper = unit.trim().toUpperCase()
   if (!upper) return false
-  if (company === 'GoodStorage') return /^GS\s+/.test(upper)
+  if (company === 'GoodStorage') return upper !== 'GOODSTORAGE'
   if (company === 'PetCare') return !['PETCARE', 'TECSA'].includes(upper)
   if (company === 'Brava') return !['BRAVA', 'POLO'].includes(upper)
   return false
