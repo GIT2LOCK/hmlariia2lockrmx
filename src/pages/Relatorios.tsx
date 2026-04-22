@@ -36,6 +36,15 @@ const COMPANY_OPTIONS = ["Todos", "GoodStorage", "PetCare", "Brava", "Indefinido
 
 const LIMIT_OPTIONS = [10, 25, 50, 100];
 
+function isValidUnitRow(item: UnitRankingItem) {
+  const unit = item.unit.trim().toUpperCase();
+  if (!unit) return false;
+  if (item.company === "GoodStorage") return /^GS\s+/.test(unit);
+  if (item.company === "PetCare") return unit !== "PETCARE" && unit !== "TECSA";
+  if (item.company === "Brava") return unit !== "BRAVA" && !unit.startsWith("POLO");
+  return unit !== "INDEFINIDO";
+}
+
 export default function Relatorios() {
   const { toast } = useToast();
   const [period, setPeriod] = useState("all");
@@ -85,6 +94,7 @@ export default function Relatorios() {
     const source = ticketType === "links" ? data.internetLinkRanking : data.unitRanking;
     return source
       .filter(item => companyFilter === "Todos" || item.company === companyFilter)
+      .filter(isValidUnitRow)
       .filter(item => item.unit.toLowerCase().includes(unitSearch.trim().toLowerCase()))
       .filter(item => (ticketType === "links" ? item.linkTickets : item.total) >= min)
       .sort((a, b) => (ticketType === "links" ? b.linkTickets - a.linkTickets : b.total - a.total));
