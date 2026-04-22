@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { BarChart3, Building2, Download, Link2, Loader2, RefreshCw, Trophy } from "lucide-react";
+import { BarChart3, Building2, Download, Link2, Loader2, RefreshCw, Search, Trophy } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 interface UnitRankingItem {
@@ -31,9 +32,18 @@ const PERIODS = [
   { label: "Todos", value: "all" },
 ];
 
+const COMPANY_OPTIONS = ["Todos", "GoodStorage", "PetCare", "Brava", "Indefinido"];
+
+const LIMIT_OPTIONS = [10, 25, 50, 100];
+
 export default function Relatorios() {
   const { toast } = useToast();
   const [period, setPeriod] = useState("all");
+  const [companyFilter, setCompanyFilter] = useState("Todos");
+  const [unitSearch, setUnitSearch] = useState("");
+  const [ticketType, setTicketType] = useState<"todos" | "links">("todos");
+  const [minTickets, setMinTickets] = useState("0");
+  const [limit, setLimit] = useState(50);
   const [data, setData] = useState<GlpiReportsData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -64,13 +74,35 @@ export default function Relatorios() {
 
   const companyChart = useMemo(() => {
     if (!data) return [];
-    return Object.entries(data.byCompany).map(([empresa, total]) => ({ empresa, total }));
-  }, [data]);
+    return Object.entries(data.byCompany)
+      .filter(([empresa]) => companyFilter === "Todos" || empresa === companyFilter)
+      .map(([empresa, total]) => ({ empresa, total }));
+  }, [companyFilter, data]);
+
+  const filteredUnits = useMemo(() => {
+    if (!data) return [];
+    const min = Number(minTickets) || 0;
+    const source = ticketType === "links" ? data.internetLinkRanking : data.unitRanking;
+    return source
+      .filter(item => companyFilter === "Todos" || item.company === companyFilter)
+      .filter(item => item.unit.toLowerCase().includes(unitSearch.trim().toLowerCase()))
+      .filter(item => (ticketType === "links" ? item.linkTickets : item.total) >= min)
+      .sort((a, b) => (ticketType === "links" ? b.linkTickets - a.linkTickets : b.total - a.total));
+  }, [companyFilter, data, minTickets, ticketType, unitSearch]);
+
+  const filteredTotalTickets = useMemo(() => {
+    if (!data) return 0;
+    if (companyFilter === "Todos") return data.totalTickets;
+    return data.byCompany[companyFilter] || 0;
+  }, [companyFilter, data]);
+
+  const topUnit = filteredUnits[0];
+  const linkRows = filteredUnits.filter(item => item.linkTickets > 0);
 
   const exportCsv = () => {
     if (!data) return;
     const rows = [["Empresa", "Unidade", "Total de chamados", "Chamados de link"]];
-    data.unitRanking.forEach(item => rows.push([item.company, item.unit, String(item.total), String(item.linkTickets)]));
+    filteredUnits.forEach(item => rows.push([item.company, item.unit, String(item.total), String(item.linkTickets)]));
     const csv = rows.map(row => row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
