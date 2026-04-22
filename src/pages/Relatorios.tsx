@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { BarChart3, Building2, Download, Link2, Loader2, RefreshCw, Search, Trophy } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { exportGlpiReportWorkbook } from "@/lib/glpiReportExcel";
 
 interface UnitRankingItem {
   company: string;
@@ -109,18 +110,9 @@ export default function Relatorios() {
   const topUnit = filteredUnits[0];
   const linkRows = filteredUnits.filter(item => item.linkTickets > 0);
 
-  const exportCsv = () => {
+  const exportReport = () => {
     if (!data) return;
-    const rows = [["Empresa", "Unidade", "Total de chamados", "Chamados de link"]];
-    filteredUnits.forEach(item => rows.push([item.company, item.unit, String(item.total), String(item.linkTickets)]));
-    const csv = rows.map(row => row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "relatorio-glpi-unidades.csv";
-    link.click();
-    URL.revokeObjectURL(url);
+    exportGlpiReportWorkbook(data, isValidUnitRow);
   };
 
   return (
@@ -184,7 +176,7 @@ export default function Relatorios() {
           </div>
 
           <Tabs defaultValue="empresas" className="space-y-4">
-            <div className="flex items-center justify-between gap-3"><TabsList><TabsTrigger value="empresas">Empresas</TabsTrigger><TabsTrigger value="unidades">Unidades</TabsTrigger><TabsTrigger value="links">Links de Internet</TabsTrigger></TabsList><Button variant="outline" size="sm" onClick={exportCsv}><Download className="mr-2 h-4 w-4" /> CSV</Button></div>
+            <div className="flex items-center justify-between gap-3"><TabsList><TabsTrigger value="empresas">Empresas</TabsTrigger><TabsTrigger value="unidades">Unidades</TabsTrigger><TabsTrigger value="links">Links de Internet</TabsTrigger></TabsList><Button variant="outline" size="sm" onClick={exportReport}><Download className="mr-2 h-4 w-4" /> Excel</Button></div>
             <TabsContent value="empresas"><Card><CardHeader><CardTitle>Chamados por empresa</CardTitle></CardHeader><CardContent className="h-80"><ResponsiveContainer width="100%" height="100%"><BarChart data={companyChart}><CartesianGrid strokeDasharray="3 3" className="stroke-border" /><XAxis dataKey="empresa" /><YAxis allowDecimals={false} /><Tooltip /><Bar dataKey="total" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} /></BarChart></ResponsiveContainer></CardContent></Card></TabsContent>
             <TabsContent value="unidades"><RankingTable rows={filteredUnits.slice(0, limit)} valueKey="total" label="Total de chamados" title="Chamados por Unidade / Unidades com mais chamados" /></TabsContent>
             <TabsContent value="links"><RankingTable rows={linkRows.slice(0, limit)} valueKey="linkTickets" label="Chamados de link" title="Unidades com mais chamados de link de internet" /></TabsContent>
