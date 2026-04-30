@@ -229,7 +229,8 @@ serve(async (req) => {
     : null;
 
   try {
-    const { action } = await req.json();
+    const body = await req.json();
+    const { action } = body;
     let result: unknown;
 
     switch (action) {
