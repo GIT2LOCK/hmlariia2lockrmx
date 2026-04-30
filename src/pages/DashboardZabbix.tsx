@@ -151,6 +151,21 @@ function groupByHost(items: ZabbixProblem[]): HostGroup[] {
   return Array.from(map.values());
 }
 
+// ── Change-detection signatures (used to avoid unnecessary re-renders) ──
+function problemsSignature(items: ZabbixProblem[]): string {
+  return [...items]
+    .map(p => `${p.eventid}:${p.acknowledged}:${(p.acknowledges || []).length}`)
+    .sort()
+    .join("|");
+}
+
+function maintenanceSignature(items: ZabbixMaintenance[]): string {
+  return [...items]
+    .map(m => `${m.maintenanceid}:${m.active_till}`)
+    .sort()
+    .join("|");
+}
+
 // ── Sort logic ──────────────────────────────────────────────────────────
 type SortField = "severity" | "host" | "problem" | "duration";
 type SortDir = "asc" | "desc";
