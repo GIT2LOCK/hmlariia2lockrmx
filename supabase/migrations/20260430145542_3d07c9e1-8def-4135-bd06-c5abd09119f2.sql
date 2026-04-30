@@ -1,0 +1,1 @@
+ALTER TYPE public.tipo_link ADD VALUE IF NOT EXISTS 'satelite';
