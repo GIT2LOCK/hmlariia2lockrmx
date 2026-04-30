@@ -26,6 +26,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 interface Unidade {
   id: number; empresa_id: number; nome_unidade: string; codigo_unidade: string | null;
+  cnpj: string | null;
   hostname: string | null; abreviacao: string | null; nome_antigo: string | null; antiga_razao: string | null;
   telefone: string | null; email: string | null; email_regional: string | null; contato_nome: string | null;
   cidade: string | null; estado: string | null; logradouro: string | null; numero: string | null;
