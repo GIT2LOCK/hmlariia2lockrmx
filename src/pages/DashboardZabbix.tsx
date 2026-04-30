@@ -693,7 +693,7 @@ export default function DashboardZabbix() {
 
 // ── GroupRows ────────────────────────────────────────────────────────────
 function GroupRows({
-  group, sev, isMulti, isExpanded, uniqueTriggers, contato, onToggle,
+  group, sev, isMulti, isExpanded, uniqueTriggers, contato, onToggle, onUpdated,
 }: {
   group: HostGroup;
   sev: { label: string; bg: string; text: string };
@@ -702,6 +702,7 @@ function GroupRows({
   uniqueTriggers: string[];
   contato: ZabbixContato | null;
   onToggle: () => void;
+  onUpdated: () => void;
 }) {
   const sortedProblems = [...group.problems].sort((a, b) => Number(b.clock) - Number(a.clock));
   const hasSecondUpdateAlert = group.problems.some(needsSecondUpdateAlert);
