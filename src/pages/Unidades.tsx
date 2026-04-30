@@ -324,7 +324,7 @@ const Unidades = () => {
     setEditing(u);
     setForm({
       empresa_id: String(u.empresa_id), nome_unidade: u.nome_unidade,
-      codigo_unidade: u.codigo_unidade || "", cnpj: (u as any).cnpj || "",
+      codigo_unidade: u.codigo_unidade || "", cnpj: (u as any).cnpj ? formatCnpjMask((u as any).cnpj) : "",
       antiga_razao: u.antiga_razao || "", contato_nome: u.contato_nome || "",
       telefone: u.telefone || "", email: u.email || "", email_regional: u.email_regional || "",
       logradouro: u.logradouro || "", numero: u.numero || "", complemento: u.complemento || "",
