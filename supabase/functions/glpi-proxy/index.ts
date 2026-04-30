@@ -242,22 +242,50 @@ function getEntityKey(entityId: string, entityMap: Record<string, string>): stri
 type ReportCompany = 'GoodStorage' | 'PetCare' | 'Brava' | 'Indefinido'
 
 // Known operators (must match Operadoras table). Order matters: longer/more specific first.
-const KNOWN_OPERATORS: string[] = [
-  'America-NET', 'AmericaNET', 'Century Telecom', 'Claro NET', 'ClaroNET',
-  'Ctinet Solucoes', 'Directnet', 'Hostfiber', 'Mec Solutions Ltda', 'Mundiox',
-  'Sothis Tecnologia', 'Transit do Brasil', 'Wireless Comm - WCS', 'SkyNet',
-  'Vogel', 'Vivo', 'Claro', 'TIM', 'Oi Fibra', 'Oi', 'Algar', 'Brisanet',
-  'Desktop', 'Unifique', 'Sumicity', 'Giga+', 'Giga Mais', 'Live Tim',
+// Each entry: [pattern to search, canonical name to display]
+// Variations of the same operator are unified under one canonical name.
+const KNOWN_OPERATORS: Array<[string, string]> = [
+  // Claro variations - all normalized to "Claro NET"
+  ['America-NET', 'America-NET'],
+  ['AmericaNET', 'America-NET'],
+  ['Claro NET', 'Claro NET'],
+  ['ClaroNET', 'Claro NET'],
+  ['Claro-NET', 'Claro NET'],
+  ['Claro', 'Claro NET'],
+  // Others
+  ['Century Telecom', 'Century Telecom'],
+  ['Ctinet Solucoes', 'Ctinet Solucoes'],
+  ['Directnet', 'Directnet'],
+  ['Hostfiber', 'Hostfiber'],
+  ['Mec Solutions Ltda', 'Mec Solutions Ltda'],
+  ['Mundiox', 'Mundiox'],
+  ['Sothis Tecnologia', 'Sothis Tecnologia'],
+  ['Transit do Brasil', 'Transit do Brasil'],
+  ['Wireless Comm - WCS', 'Wireless Comm - WCS'],
+  ['SkyNet', 'SkyNet'],
+  ['Vogel', 'Vogel'],
+  ['Vivo', 'Vivo'],
+  ['TIM', 'TIM'],
+  ['Oi Fibra', 'Oi'],
+  ['Oi', 'Oi'],
+  ['Algar', 'Algar'],
+  ['Brisanet', 'Brisanet'],
+  ['Desktop', 'Desktop'],
+  ['Unifique', 'Unifique'],
+  ['Sumicity', 'Sumicity'],
+  ['Giga+', 'Giga+'],
+  ['Giga Mais', 'Giga+'],
+  ['Live Tim', 'Live Tim'],
 ]
 
 function detectOperatorFromText(...texts: string[]): string | null {
   const haystack = texts.filter(Boolean).join(' \n ').toLowerCase()
   if (!haystack) return null
-  for (const op of KNOWN_OPERATORS) {
+  for (const [pattern, canonical] of KNOWN_OPERATORS) {
     // word-ish boundary: allow punctuation/space; case insensitive
-    const escaped = op.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const escaped = pattern.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     const re = new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`, 'i')
-    if (re.test(haystack)) return op
+    if (re.test(haystack)) return canonical
   }
   return null
 }
