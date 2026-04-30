@@ -7,8 +7,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { BarChart3, Building2, Download, Link2, Loader2, RefreshCw, Search, Timer, Trophy, Wifi } from "lucide-react";
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Activity, AlertTriangle, BarChart3, Building2, CheckCircle2, Download, Link2, Loader2, RefreshCw, Search, Timer, TrendingUp, Trophy, Wifi } from "lucide-react";
+import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { exportGlpiReportWorkbook } from "@/lib/glpiReportExcel";
 
 interface UnitRankingItem {
