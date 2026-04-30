@@ -241,15 +241,41 @@ function getEntityKey(entityId: string, entityMap: Record<string, string>): stri
 
 type ReportCompany = 'GoodStorage' | 'PetCare' | 'Brava' | 'Indefinido'
 
+// Known operators (must match Operadoras table). Order matters: longer/more specific first.
+const KNOWN_OPERATORS: string[] = [
+  'America-NET', 'Century Telecom', 'Claro NET', 'Ctinet Solucoes', 'Directnet',
+  'Hostfiber', 'Mec Solutions Ltda', 'Mundiox', 'Sothis Tecnologia', 'Transit do Brasil',
+  'Wireless Comm - WCS', 'SkyNet', 'Vogel', 'Vivo', 'NET',
+  // common aliases that may appear in ticket descriptions
+  'Claro', 'TIM', 'Oi Fibra', 'Oi', 'Algar', 'Brisanet', 'Desktop', 'Unifique',
+  'Sumicity', 'Giga+', 'Giga Mais', 'Live Tim',
+]
+
+function detectOperatorFromText(...texts: string[]): string | null {
+  const haystack = texts.filter(Boolean).join(' \n ').toLowerCase()
+  if (!haystack) return null
+  for (const op of KNOWN_OPERATORS) {
+    // word-ish boundary: allow punctuation/space; case insensitive
+    const escaped = op.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const re = new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`, 'i')
+    if (re.test(haystack)) return op
+  }
+  return null
+}
+
 interface ReportTicket {
   id: string
   title: string
   date: string
+  solveDate: string | null
+  closeDate: string | null
   status: string
   entity: string
   company: ReportCompany
   unit: string
   isInternetLink: boolean
+  operator: string | null
+  durationMinutes: number | null // time-to-resolve in minutes (only for resolved tickets)
 }
 
 function parseTicketEntity(entityName: string): { company: ReportCompany; unit: string } {
