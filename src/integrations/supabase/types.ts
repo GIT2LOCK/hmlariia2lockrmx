@@ -404,6 +404,7 @@ export type Database = {
           bairro: string | null
           cep: string | null
           cidade: string | null
+          cnpj: string | null
           codigo_unidade: string | null
           complemento: string | null
           contato_nome: string | null
@@ -433,6 +434,7 @@ export type Database = {
           bairro?: string | null
           cep?: string | null
           cidade?: string | null
+          cnpj?: string | null
           codigo_unidade?: string | null
           complemento?: string | null
           contato_nome?: string | null
@@ -462,6 +464,7 @@ export type Database = {
           bairro?: string | null
           cep?: string | null
           cidade?: string | null
+          cnpj?: string | null
           codigo_unidade?: string | null
           complemento?: string | null
           contato_nome?: string | null
