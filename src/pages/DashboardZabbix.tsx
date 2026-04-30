@@ -507,6 +507,7 @@ export default function DashboardZabbix() {
                                 uniqueTriggers={uniqueTriggers}
                                 contato={contato}
                                 onToggle={() => toggleHost(group.hostKey)}
+                                onUpdated={() => fetchData(true)}
                               />
                             );
                           })}
