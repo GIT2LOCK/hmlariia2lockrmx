@@ -423,6 +423,23 @@ serve(async (req) => {
         break;
       }
 
+      case "acknowledge": {
+        const { eventids, message, source } = body as { eventids: string[]; message: string; source?: string };
+        if (!Array.isArray(eventids) || eventids.length === 0 || !message || !message.trim()) {
+          return new Response(JSON.stringify({ error: "eventids and message are required" }), {
+            status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const client = source === "z2" && zabbix2 ? zabbix2 : zabbix1;
+        // action=4 → add message (bit flag per Zabbix API)
+        result = await client("event.acknowledge", {
+          eventids,
+          action: 4,
+          message: message.trim(),
+        });
+        break;
+      }
+
       default:
         return new Response(JSON.stringify({ error: "Invalid action" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
