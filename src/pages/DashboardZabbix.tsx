@@ -19,6 +19,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { Send, MessageSquarePlus } from "lucide-react";
 
 // ── Types ──────────────────────────────────────────────────────────────
 interface ZabbixProblem {
