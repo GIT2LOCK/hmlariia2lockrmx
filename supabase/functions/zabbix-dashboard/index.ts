@@ -431,9 +431,11 @@ serve(async (req) => {
           });
         }
         const client = source === "z2" && zabbix2 ? zabbix2 : zabbix1;
+        // Strip "z1_"/"z2_" source prefix from eventids before sending to Zabbix
+        const cleanEventIds = eventids.map((e) => String(e).replace(/^z[12]_/, ""));
         // action=4 → add message (bit flag per Zabbix API)
         result = await client("event.acknowledge", {
-          eventids,
+          eventids: cleanEventIds,
           action: 4,
           message: message.trim(),
         });
