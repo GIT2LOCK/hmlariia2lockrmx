@@ -50,7 +50,7 @@ interface LinkData {
 }
 
 const emptyForm = {
-  empresa_id: "", nome_unidade: "", codigo_unidade: "",
+  empresa_id: "", nome_unidade: "", codigo_unidade: "", cnpj: "",
   antiga_razao: "", contato_nome: "",
   telefone: "", email: "", email_regional: "",
   logradouro: "", numero: "", complemento: "",
