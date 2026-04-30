@@ -23,6 +23,7 @@ import { HistoricoChamadosModal } from "@/components/HistoricoChamadosModal";
 import { ClearableSelect } from "@/components/ClearableSelect";
 import { Badge } from "@/components/ui/badge";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { formatCnpjMask, removeMask } from "@/lib/validators";
 
 interface Unidade {
   id: number; empresa_id: number; nome_unidade: string; codigo_unidade: string | null;
