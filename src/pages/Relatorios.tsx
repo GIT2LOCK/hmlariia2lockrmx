@@ -152,6 +152,39 @@ export default function Relatorios() {
     [linkRows],
   );
 
+  const CHART_COLORS = ["hsl(var(--primary))", "hsl(215 85% 65%)", "hsl(35 95% 60%)", "hsl(280 70% 60%)", "hsl(160 70% 45%)", "hsl(0 75% 60%)", "hsl(45 95% 55%)", "hsl(195 80% 50%)"];
+
+  const topOperatorsChart = useMemo(() => filteredOperators.slice(0, 8).map(op => ({
+    operator: op.operator, chamados: op.displayTotal, mttrHoras: Math.round((op.avgResolutionMinutes || 0) / 60 * 10) / 10,
+  })), [filteredOperators]);
+
+  const topUnitsChart = useMemo(() => filteredUnits.slice(0, 10).map(u => ({
+    unit: u.unit.length > 18 ? u.unit.slice(0, 17) + "…" : u.unit,
+    chamados: ticketType === "links" ? u.linkTickets : u.total,
+  })), [filteredUnits, ticketType]);
+
+  const worstMttrUnitsChart = useMemo(() => [...linkRows]
+    .filter(u => u.avgLinkResolutionMinutes && u.avgLinkResolutionMinutes > 0)
+    .sort((a, b) => (b.avgLinkResolutionMinutes || 0) - (a.avgLinkResolutionMinutes || 0))
+    .slice(0, 8)
+    .map(u => ({ unit: u.unit.length > 18 ? u.unit.slice(0, 17) + "…" : u.unit, horas: Math.round((u.avgLinkResolutionMinutes || 0) / 60 * 10) / 10 })),
+  [linkRows]);
+
+  const operatorMttrChart = useMemo(() => [...filteredOperators]
+    .filter(o => o.avgResolutionMinutes > 0)
+    .sort((a, b) => b.avgResolutionMinutes - a.avgResolutionMinutes)
+    .slice(0, 8)
+    .map(o => ({ operator: o.operator, horas: Math.round((o.avgResolutionMinutes || 0) / 60 * 10) / 10 })),
+  [filteredOperators]);
+
+  const totalLinkTickets = data?.totalLinkTickets ?? 0;
+  const ticketTypeChart = useMemo(() => ([
+    { name: "Indisp. de Link", value: totalLinkTickets },
+    { name: "Outros chamados", value: Math.max(0, (data?.totalTickets ?? 0) - totalLinkTickets) },
+  ]), [data, totalLinkTickets]);
+
+  const linkResolutionRate = data && data.totalLinkTickets ? Math.round(((data as any).resolvedLinkCount ?? 0) / data.totalLinkTickets * 100) : null;
+
   const exportReport = () => { if (data) exportGlpiReportWorkbook(data, isValidUnitRow); };
 
   return (
