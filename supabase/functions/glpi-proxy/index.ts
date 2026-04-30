@@ -241,15 +241,41 @@ function getEntityKey(entityId: string, entityMap: Record<string, string>): stri
 
 type ReportCompany = 'GoodStorage' | 'PetCare' | 'Brava' | 'Indefinido'
 
+// Known operators (must match Operadoras table). Order matters: longer/more specific first.
+const KNOWN_OPERATORS: string[] = [
+  'America-NET', 'Century Telecom', 'Claro NET', 'Ctinet Solucoes', 'Directnet',
+  'Hostfiber', 'Mec Solutions Ltda', 'Mundiox', 'Sothis Tecnologia', 'Transit do Brasil',
+  'Wireless Comm - WCS', 'SkyNet', 'Vogel', 'Vivo', 'NET',
+  // common aliases that may appear in ticket descriptions
+  'Claro', 'TIM', 'Oi Fibra', 'Oi', 'Algar', 'Brisanet', 'Desktop', 'Unifique',
+  'Sumicity', 'Giga+', 'Giga Mais', 'Live Tim',
+]
+
+function detectOperatorFromText(...texts: string[]): string | null {
+  const haystack = texts.filter(Boolean).join(' \n ').toLowerCase()
+  if (!haystack) return null
+  for (const op of KNOWN_OPERATORS) {
+    // word-ish boundary: allow punctuation/space; case insensitive
+    const escaped = op.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const re = new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`, 'i')
+    if (re.test(haystack)) return op
+  }
+  return null
+}
+
 interface ReportTicket {
   id: string
   title: string
   date: string
+  solveDate: string | null
+  closeDate: string | null
   status: string
   entity: string
   company: ReportCompany
   unit: string
   isInternetLink: boolean
+  operator: string | null
+  durationMinutes: number | null // time-to-resolve in minutes (only for resolved tickets)
 }
 
 function parseTicketEntity(entityName: string): { company: ReportCompany; unit: string } {
@@ -295,7 +321,26 @@ function hasIgnoredTicketMarker(title: string): boolean {
 }
 
 function isInternetLinkTicket(title: string): boolean {
-  return /link|internet|conex[aã]o|ddns|wan|operadora|circuito|fibra|banda larga/i.test(title)
+  return /indisponibilidade\s+de\s+link/i.test(title)
+}
+
+function stripHtml(value: string): string {
+  return value
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function parseGlpiDate(value: string): Date | null {
+  if (!value) return null
+  const normalized = value.includes('T') ? value : value.replace(' ', 'T')
+  const d = new Date(normalized)
+  return isNaN(d.getTime()) ? null : d
 }
 
 async function fetchReportTickets(
@@ -308,12 +353,18 @@ async function fetchReportTickets(
   const batchSize = 999
 
   while (true) {
+    // forcedisplay fields:
+    // 2=id, 1=name(title), 15=date opened, 12=status, 80=entity completename,
+    // 21=description (content), 17=solvedate, 16=closedate
     const params = new URLSearchParams({
       'forcedisplay[0]': '2',
       'forcedisplay[1]': '1',
       'forcedisplay[2]': '15',
       'forcedisplay[3]': '12',
       'forcedisplay[4]': '80',
+      'forcedisplay[5]': '21',
+      'forcedisplay[6]': '17',
+      'forcedisplay[7]': '16',
       range: `${start}-${start + batchSize}`,
     })
 
@@ -339,15 +390,31 @@ async function fetchReportTickets(
 
       const entity = String(row['80'] ?? '')
       const parsed = parseTicketEntity(entity)
+      const description = stripHtml(String(row['21'] ?? ''))
+      const isLink = isInternetLinkTicket(title)
+      const operator = isLink ? detectOperatorFromText(title, description) : null
+
+      const openedDate = parseGlpiDate(String(row['15'] ?? ''))
+      const solveDate = parseGlpiDate(String(row['17'] ?? ''))
+      const closeDate = parseGlpiDate(String(row['16'] ?? ''))
+      const endDate = solveDate || closeDate
+      const durationMinutes = openedDate && endDate
+        ? Math.max(0, Math.round((endDate.getTime() - openedDate.getTime()) / 60000))
+        : null
+
       tickets.push({
         id: String(row['2'] ?? ''),
         title,
         date: String(row['15'] ?? ''),
+        solveDate: solveDate ? solveDate.toISOString() : null,
+        closeDate: closeDate ? closeDate.toISOString() : null,
         status: String(row['12'] ?? ''),
         entity,
         company: parsed.company,
         unit: parsed.unit,
-        isInternetLink: isInternetLinkTicket(title),
+        isInternetLink: isLink,
+        operator,
+        durationMinutes,
       })
     }
 
@@ -358,28 +425,94 @@ async function fetchReportTickets(
   return tickets
 }
 
+function avg(nums: number[]): number {
+  if (!nums.length) return 0
+  return nums.reduce((a, b) => a + b, 0) / nums.length
+}
+
 function buildReports(tickets: ReportTicket[]) {
   const byCompany: Record<string, number> = {}
-  const byUnit: Record<string, { company: ReportCompany; unit: string; total: number; linkTickets: number }> = {}
+  const byUnit: Record<string, {
+    company: ReportCompany; unit: string; total: number; linkTickets: number;
+    linkDurations: number[]; allDurations: number[];
+  }> = {}
+  const byOperator: Record<string, {
+    operator: string; total: number;
+    byCompany: Record<string, number>;
+    byUnit: Record<string, number>;
+    durations: number[];
+  }> = {}
 
   for (const ticket of tickets) {
     byCompany[ticket.company] = (byCompany[ticket.company] || 0) + 1
+
+    if (ticket.isInternetLink && ticket.operator) {
+      const op = ticket.operator
+      if (!byOperator[op]) {
+        byOperator[op] = { operator: op, total: 0, byCompany: {}, byUnit: {}, durations: [] }
+      }
+      byOperator[op].total++
+      byOperator[op].byCompany[ticket.company] = (byOperator[op].byCompany[ticket.company] || 0) + 1
+      const unitKey = `${ticket.company} - ${ticket.unit || 'Sem unidade'}`
+      byOperator[op].byUnit[unitKey] = (byOperator[op].byUnit[unitKey] || 0) + 1
+      if (ticket.durationMinutes != null) byOperator[op].durations.push(ticket.durationMinutes)
+    }
+
     if (!isReportUnit(ticket.company, ticket.unit)) continue
 
     const key = `${ticket.company}||${ticket.unit}`
-    if (!byUnit[key]) byUnit[key] = { company: ticket.company, unit: ticket.unit, total: 0, linkTickets: 0 }
+    if (!byUnit[key]) byUnit[key] = {
+      company: ticket.company, unit: ticket.unit, total: 0, linkTickets: 0,
+      linkDurations: [], allDurations: [],
+    }
     byUnit[key].total++
-    if (ticket.isInternetLink) byUnit[key].linkTickets++
+    if (ticket.durationMinutes != null) byUnit[key].allDurations.push(ticket.durationMinutes)
+    if (ticket.isInternetLink) {
+      byUnit[key].linkTickets++
+      if (ticket.durationMinutes != null) byUnit[key].linkDurations.push(ticket.durationMinutes)
+    }
   }
 
-  const unitRanking = Object.values(byUnit).sort((a, b) => b.total - a.total)
-  const internetLinkRanking = Object.values(byUnit).filter(item => item.linkTickets > 0).sort((a, b) => b.linkTickets - a.linkTickets)
+  const unitRanking = Object.values(byUnit)
+    .map(u => ({
+      company: u.company, unit: u.unit, total: u.total, linkTickets: u.linkTickets,
+      avgResolutionMinutes: Math.round(avg(u.allDurations)),
+      avgLinkResolutionMinutes: Math.round(avg(u.linkDurations)),
+      resolvedCount: u.allDurations.length,
+      resolvedLinkCount: u.linkDurations.length,
+    }))
+    .sort((a, b) => b.total - a.total)
+
+  const internetLinkRanking = unitRanking
+    .filter(item => item.linkTickets > 0)
+    .sort((a, b) => b.linkTickets - a.linkTickets)
+
+  const operatorRanking = Object.values(byOperator)
+    .map(o => {
+      const topUnit = Object.entries(o.byUnit).sort((a, b) => b[1] - a[1])[0]
+      return {
+        operator: o.operator,
+        total: o.total,
+        byCompany: o.byCompany,
+        avgResolutionMinutes: Math.round(avg(o.durations)),
+        resolvedCount: o.durations.length,
+        topUnit: topUnit ? topUnit[0] : null,
+        topUnitTickets: topUnit ? topUnit[1] : 0,
+      }
+    })
+    .sort((a, b) => b.total - a.total)
+
+  const linkTicketsCount = tickets.filter(t => t.isInternetLink).length
+  const linkDurationsAll = tickets.filter(t => t.isInternetLink && t.durationMinutes != null).map(t => t.durationMinutes!)
 
   return {
     totalTickets: tickets.length,
+    totalLinkTickets: linkTicketsCount,
+    avgLinkResolutionMinutes: Math.round(avg(linkDurationsAll)),
     byCompany,
     unitRanking,
     internetLinkRanking,
+    operatorRanking,
     generatedAt: new Date().toISOString(),
   }
 }
