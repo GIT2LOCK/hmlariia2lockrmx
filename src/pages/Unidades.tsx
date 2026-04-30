@@ -405,6 +405,7 @@ const Unidades = () => {
     const unitPayload = {
       ...form,
       empresa_id: Number(form.empresa_id),
+      cnpj: form.cnpj ? removeMask(form.cnpj) : null,
       hostname: hostname1 || null,
       ddns: form.ddns || null,
       ddns_usuario: form.ddns_usuario || null,
