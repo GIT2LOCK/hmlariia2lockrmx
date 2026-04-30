@@ -7,8 +7,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { BarChart3, Building2, Download, Link2, Loader2, RefreshCw, Search, Timer, Trophy, Wifi } from "lucide-react";
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Activity, AlertTriangle, BarChart3, Building2, Download, Link2, Loader2, RefreshCw, Search, Timer, TrendingUp, Trophy, Wifi } from "lucide-react";
+import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { exportGlpiReportWorkbook } from "@/lib/glpiReportExcel";
 
 interface UnitRankingItem {
@@ -152,6 +152,39 @@ export default function Relatorios() {
     [linkRows],
   );
 
+  const CHART_COLORS = ["hsl(var(--primary))", "hsl(215 85% 65%)", "hsl(35 95% 60%)", "hsl(280 70% 60%)", "hsl(160 70% 45%)", "hsl(0 75% 60%)", "hsl(45 95% 55%)", "hsl(195 80% 50%)"];
+
+  const topOperatorsChart = useMemo(() => filteredOperators.slice(0, 8).map(op => ({
+    operator: op.operator, chamados: op.displayTotal, mttrHoras: Math.round((op.avgResolutionMinutes || 0) / 60 * 10) / 10,
+  })), [filteredOperators]);
+
+  const topUnitsChart = useMemo(() => filteredUnits.slice(0, 10).map(u => ({
+    unit: u.unit.length > 18 ? u.unit.slice(0, 17) + "…" : u.unit,
+    chamados: ticketType === "links" ? u.linkTickets : u.total,
+  })), [filteredUnits, ticketType]);
+
+  const worstMttrUnitsChart = useMemo(() => [...linkRows]
+    .filter(u => u.avgLinkResolutionMinutes && u.avgLinkResolutionMinutes > 0)
+    .sort((a, b) => (b.avgLinkResolutionMinutes || 0) - (a.avgLinkResolutionMinutes || 0))
+    .slice(0, 8)
+    .map(u => ({ unit: u.unit.length > 18 ? u.unit.slice(0, 17) + "…" : u.unit, horas: Math.round((u.avgLinkResolutionMinutes || 0) / 60 * 10) / 10 })),
+  [linkRows]);
+
+  const operatorMttrChart = useMemo(() => [...filteredOperators]
+    .filter(o => o.avgResolutionMinutes > 0)
+    .sort((a, b) => b.avgResolutionMinutes - a.avgResolutionMinutes)
+    .slice(0, 8)
+    .map(o => ({ operator: o.operator, horas: Math.round((o.avgResolutionMinutes || 0) / 60 * 10) / 10 })),
+  [filteredOperators]);
+
+  const totalLinkTickets = data?.totalLinkTickets ?? 0;
+  const ticketTypeChart = useMemo(() => ([
+    { name: "Indisp. de Link", value: totalLinkTickets },
+    { name: "Outros chamados", value: Math.max(0, (data?.totalTickets ?? 0) - totalLinkTickets) },
+  ]), [data, totalLinkTickets]);
+
+  const linkResolutionRate = data && data.totalLinkTickets ? Math.round(((data as any).resolvedLinkCount ?? 0) / data.totalLinkTickets * 100) : null;
+
   const exportReport = () => { if (data) exportGlpiReportWorkbook(data, isValidUnitRow); };
 
   return (
@@ -218,26 +251,155 @@ export default function Relatorios() {
             <Card><CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm font-medium"><Link2 className="h-4 w-4" /> Maior recorrência de link</CardTitle></CardHeader><CardContent><div className="truncate text-xl font-bold">{linkRows[0]?.unit || "—"}</div><p className="text-sm text-muted-foreground">{linkRows[0]?.linkTickets || 0} chamados • MTTR {formatDuration(linkRows[0]?.avgLinkResolutionMinutes)}</p></CardContent></Card>
           </div>
 
-          <Tabs defaultValue="empresas" className="space-y-4">
+          <Tabs defaultValue="visao" className="space-y-4">
             <div className="flex items-center justify-between gap-3">
               <TabsList>
+                <TabsTrigger value="visao">Visão Geral</TabsTrigger>
                 <TabsTrigger value="empresas">Empresas</TabsTrigger>
                 <TabsTrigger value="unidades">Unidades</TabsTrigger>
-                <TabsTrigger value="links">Links de Internet</TabsTrigger>
+                <TabsTrigger value="links">Links</TabsTrigger>
                 <TabsTrigger value="operadoras">Operadoras</TabsTrigger>
               </TabsList>
               <Button variant="outline" size="sm" onClick={exportReport}><Download className="mr-2 h-4 w-4" /> Excel</Button>
             </div>
-            <TabsContent value="empresas">
-              <Card><CardHeader><CardTitle>Chamados por empresa</CardTitle></CardHeader><CardContent className="h-80"><ResponsiveContainer width="100%" height="100%"><BarChart data={companyChart}><CartesianGrid strokeDasharray="3 3" className="stroke-border" /><XAxis dataKey="empresa" /><YAxis allowDecimals={false} /><Tooltip /><Bar dataKey="total" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} /></BarChart></ResponsiveContainer></CardContent></Card>
+
+            <TabsContent value="visao" className="space-y-4">
+              <div className="grid gap-4 lg:grid-cols-2">
+                <Card className="border-l-4" style={{ borderLeftColor: "hsl(var(--primary))" }}>
+                  <CardHeader><CardTitle className="flex items-center gap-2"><AlertTriangle className="h-5 w-5 text-primary" /> Top 8 unidades — Pior MTTR de link</CardTitle></CardHeader>
+                  <CardContent className="h-80">
+                    {worstMttrUnitsChart.length === 0 ? <p className="text-sm text-muted-foreground">Sem dados de MTTR no período.</p> : (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={worstMttrUnitsChart} layout="vertical" margin={{ left: 20 }}>
+                          <CartesianGrid strokeDasharray="3 3" className="stroke-border" horizontal={false} />
+                          <XAxis type="number" unit="h" />
+                          <YAxis type="category" dataKey="unit" width={120} tick={{ fontSize: 12 }} />
+                          <Tooltip formatter={(v: number) => [`${v} h`, "MTTR médio"]} contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
+                          <Bar dataKey="horas" fill="hsl(0 75% 60%)" radius={[0, 6, 6, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card className="border-l-4" style={{ borderLeftColor: "hsl(35 95% 60%)" }}>
+                  <CardHeader><CardTitle className="flex items-center gap-2"><Timer className="h-5 w-5" style={{ color: "hsl(35 95% 60%)" }} /> Operadoras — Pior tempo de retorno</CardTitle></CardHeader>
+                  <CardContent className="h-80">
+                    {operatorMttrChart.length === 0 ? <p className="text-sm text-muted-foreground">Sem dados de MTTR por operadora.</p> : (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={operatorMttrChart} layout="vertical" margin={{ left: 20 }}>
+                          <CartesianGrid strokeDasharray="3 3" className="stroke-border" horizontal={false} />
+                          <XAxis type="number" unit="h" />
+                          <YAxis type="category" dataKey="operator" width={120} tick={{ fontSize: 12 }} />
+                          <Tooltip formatter={(v: number) => [`${v} h`, "MTTR médio"]} contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
+                          <Bar dataKey="horas" fill="hsl(35 95% 60%)" radius={[0, 6, 6, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader><CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5" /> Operadoras — Volume de chamados</CardTitle></CardHeader>
+                  <CardContent className="h-80">
+                    {topOperatorsChart.length === 0 ? <p className="text-sm text-muted-foreground">Sem dados de operadoras.</p> : (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={topOperatorsChart}>
+                          <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                          <XAxis dataKey="operator" tick={{ fontSize: 11 }} interval={0} angle={-20} textAnchor="end" height={60} />
+                          <YAxis allowDecimals={false} />
+                          <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
+                          <Bar dataKey="chamados" radius={[6, 6, 0, 0]}>
+                            {topOperatorsChart.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader><CardTitle className="flex items-center gap-2"><Activity className="h-5 w-5" /> Composição dos chamados</CardTitle></CardHeader>
+                  <CardContent className="h-80">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={ticketTypeChart} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={60} outerRadius={110} paddingAngle={3}>
+                          <Cell fill="hsl(0 75% 60%)" />
+                          <Cell fill="hsl(var(--primary))" />
+                        </Pie>
+                        <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <Card>
+                <CardHeader><CardTitle className="flex items-center gap-2"><Building2 className="h-5 w-5" /> Top 10 unidades — Volume de chamados</CardTitle></CardHeader>
+                <CardContent className="h-80">
+                  {topUnitsChart.length === 0 ? <p className="text-sm text-muted-foreground">Sem unidades no filtro atual.</p> : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={topUnitsChart}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                        <XAxis dataKey="unit" tick={{ fontSize: 11 }} interval={0} angle={-25} textAnchor="end" height={70} />
+                        <YAxis allowDecimals={false} />
+                        <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
+                        <Bar dataKey="chamados" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
+                </CardContent>
+              </Card>
             </TabsContent>
+
+            <TabsContent value="empresas">
+              <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+                <Card><CardHeader><CardTitle>Chamados por empresa</CardTitle></CardHeader><CardContent className="h-80"><ResponsiveContainer width="100%" height="100%"><BarChart data={companyChart}><CartesianGrid strokeDasharray="3 3" className="stroke-border" /><XAxis dataKey="empresa" /><YAxis allowDecimals={false} /><Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} /><Bar dataKey="total" radius={[6, 6, 0, 0]}>{companyChart.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}</Bar></BarChart></ResponsiveContainer></CardContent></Card>
+                <Card><CardHeader><CardTitle>Distribuição</CardTitle></CardHeader><CardContent className="h-80"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={companyChart} dataKey="total" nameKey="empresa" cx="50%" cy="50%" outerRadius={110} label>{companyChart.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}</Pie><Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} /><Legend /></PieChart></ResponsiveContainer></CardContent></Card>
+              </div>
+            </TabsContent>
+
             <TabsContent value="unidades">
               <RankingTable rows={filteredUnits.slice(0, limit)} valueKey="total" mttrKey="avgResolutionMinutes" label="Total de chamados" title="Unidades com mais chamados" />
             </TabsContent>
+
             <TabsContent value="links">
               <RankingTable rows={linkRows.slice(0, limit)} valueKey="linkTickets" mttrKey="avgLinkResolutionMinutes" label="Indisp. de link" title="Unidades com mais indisponibilidades de link" />
             </TabsContent>
-            <TabsContent value="operadoras">
+
+            <TabsContent value="operadoras" className="space-y-4">
+              <div className="grid gap-4 lg:grid-cols-2">
+                <Card>
+                  <CardHeader><CardTitle className="flex items-center gap-2"><Wifi className="h-5 w-5" /> Volume por operadora</CardTitle></CardHeader>
+                  <CardContent className="h-72">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={topOperatorsChart}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                        <XAxis dataKey="operator" tick={{ fontSize: 11 }} interval={0} angle={-20} textAnchor="end" height={60} />
+                        <YAxis allowDecimals={false} />
+                        <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
+                        <Bar dataKey="chamados" radius={[6, 6, 0, 0]}>{topOperatorsChart.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}</Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader><CardTitle className="flex items-center gap-2"><Timer className="h-5 w-5" /> MTTR por operadora (horas)</CardTitle></CardHeader>
+                  <CardContent className="h-72">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={operatorMttrChart} layout="vertical" margin={{ left: 10 }}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-border" horizontal={false} />
+                        <XAxis type="number" unit="h" />
+                        <YAxis type="category" dataKey="operator" width={120} tick={{ fontSize: 12 }} />
+                        <Tooltip formatter={(v: number) => [`${v} h`, "MTTR"]} contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
+                        <Bar dataKey="horas" fill="hsl(35 95% 60%)" radius={[0, 6, 6, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              </div>
+
               <Card>
                 <CardHeader><CardTitle className="flex items-center gap-2"><Wifi className="h-5 w-5" /> Ranking de operadoras (Indisponibilidade de Link)</CardTitle></CardHeader>
                 <CardContent>
