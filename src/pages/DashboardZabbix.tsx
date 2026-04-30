@@ -794,40 +794,218 @@ function AcksPopover({ acks }: { acks: any[] }) {
 }
 
 // ── Contact Button ──────────────────────────────────────────────────────
-function ContactButton({ contato }: { contato: ZabbixContato | null }) {
-  if (!contato) return <span className="text-xs text-muted-foreground">—</span>;
-  const hasPrimeiro = !!contato.primeiro_contato_nome;
-  const hasResponsavel = !!contato.responsavel_nome;
-  if (!hasPrimeiro && !hasResponsavel) return <span className="text-xs text-muted-foreground">—</span>;
+function ContactButton({
+  contato,
+  group,
+  onUpdated,
+}: {
+  contato: ZabbixContato | null;
+  group: HostGroup;
+  onUpdated: () => void;
+}) {
+  const { toast } = useToast();
+  const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<"menu" | "message" | "update">("menu");
+  const [target, setTarget] = useState<"primeiro" | "responsavel">("primeiro");
+  const [text, setText] = useState("");
+  const [sending, setSending] = useState(false);
+
+  const hasPrimeiro = !!contato?.primeiro_contato_nome;
+  const hasResponsavel = !!contato?.responsavel_nome;
+  const hasContato = hasPrimeiro || hasResponsavel;
+
+  const reset = () => { setMode("menu"); setText(""); setTarget(hasPrimeiro ? "primeiro" : "responsavel"); };
+
+  const close = () => { setOpen(false); setTimeout(reset, 200); };
+
+  const sendMessage = async () => {
+    if (!text.trim()) {
+      toast({ title: "Digite a mensagem antes de enviar.", variant: "destructive" });
+      return;
+    }
+    const nome = target === "primeiro" ? contato?.primeiro_contato_nome : contato?.responsavel_nome;
+    const telefone = target === "primeiro" ? contato?.primeiro_contato_telefone : contato?.responsavel_telefone;
+    if (!nome || !telefone) {
+      toast({ title: "Contato selecionado não está disponível.", variant: "destructive" });
+      return;
+    }
+    setSending(true);
+    try {
+      const problemaResumo = group.problems
+        .map(p => p.triggerDescription || p.name)
+        .filter((v, i, a) => a.indexOf(v) === i)
+        .join(" | ");
+      const res = await supabase.functions.invoke("send-contato-webhook", {
+        body: {
+          tipo_contato: target,
+          contato_nome: nome,
+          contato_telefone: telefone,
+          mensagem: text.trim(),
+          host: group.hostName,
+          problema: problemaResumo,
+          prefixo: extractPrefix(group.hostCode) || null,
+        },
+      });
+      if (res.error) throw new Error(res.error.message);
+      toast({ title: "Mensagem enviada", description: `Para ${nome}` });
+      close();
+    } catch (err: any) {
+      toast({ title: "Erro ao enviar mensagem", description: err.message, variant: "destructive" });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const sendUpdate = async () => {
+    if (!text.trim()) {
+      toast({ title: "Digite o update antes de enviar.", variant: "destructive" });
+      return;
+    }
+    const eventids = group.problems.map(p => p.eventid);
+    const source = (group.problems[0] as any)?.source;
+    setSending(true);
+    try {
+      const res = await supabase.functions.invoke("zabbix-dashboard", {
+        body: { action: "acknowledge", eventids, message: text.trim(), source },
+      });
+      if (res.error) throw new Error(res.error.message);
+      toast({ title: "Update adicionado no Zabbix" });
+      onUpdated();
+      close();
+    } catch (err: any) {
+      toast({ title: "Erro ao adicionar update", description: err.message, variant: "destructive" });
+    } finally {
+      setSending(false);
+    }
+  };
 
   return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button variant="ghost" size="sm" className="gap-1 h-7 px-2">
-          <Phone className="h-4 w-4 text-green-500" />
-          <span className="text-xs">Acionar</span>
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-80 p-0" align="end">
-        <div className="px-3 py-2 border-b bg-muted/40"><p className="text-sm font-medium">Contatos do Local</p></div>
-        <div className="divide-y">
-          {hasPrimeiro && (
-            <div className="px-3 py-3">
-              <p className="text-xs font-semibold text-muted-foreground uppercase mb-1">Primeiro Contato</p>
-              <p className="text-sm font-medium">{contato.primeiro_contato_nome}</p>
-              <p className="text-sm text-muted-foreground">{contato.primeiro_contato_telefone}</p>
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setTimeout(reset, 200); }}>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="gap-1 h-7 px-2"
+        onClick={(e) => { e.stopPropagation(); setTarget(hasPrimeiro ? "primeiro" : "responsavel"); setOpen(true); }}
+      >
+        <Phone className="h-4 w-4 text-green-500" />
+        <span className="text-xs">Acionar</span>
+      </Button>
+      <DialogContent className="sm:max-w-md" onClick={(e) => e.stopPropagation()}>
+        <DialogHeader>
+          <DialogTitle>Acionar — {group.hostName}</DialogTitle>
+        </DialogHeader>
+
+        {mode === "menu" && (
+          <div className="space-y-4">
+            {hasContato ? (
+              <div className="rounded-lg border divide-y">
+                {hasPrimeiro && (
+                  <div className="px-3 py-2">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase">Primeiro Contato</p>
+                    <p className="text-sm font-medium">{contato!.primeiro_contato_nome}</p>
+                    <p className="text-xs text-muted-foreground">{contato!.primeiro_contato_telefone || "—"}</p>
+                  </div>
+                )}
+                {hasResponsavel && (
+                  <div className="px-3 py-2">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase">Responsável</p>
+                    <p className="text-sm font-medium">{contato!.responsavel_nome}</p>
+                    <p className="text-xs text-muted-foreground">{contato!.responsavel_telefone || "—"}</p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Nenhum contato cadastrado para este local.</p>
+            )}
+
+            <div className="grid grid-cols-1 gap-2">
+              <Button onClick={() => setMode("message")} disabled={!hasContato} className="gap-2">
+                <Send className="h-4 w-4" /> Enviar mensagem para um contato
+              </Button>
+              <Button variant="outline" onClick={() => setMode("update")} className="gap-2">
+                <MessageSquarePlus className="h-4 w-4" /> Adicionar update no Zabbix
+              </Button>
             </div>
-          )}
-          {hasResponsavel && (
-            <div className="px-3 py-3">
-              <p className="text-xs font-semibold text-muted-foreground uppercase mb-1">Responsável</p>
-              <p className="text-sm font-medium">{contato.responsavel_nome}</p>
-              <p className="text-sm text-muted-foreground">{contato.responsavel_telefone}</p>
+          </div>
+        )}
+
+        {mode === "message" && (
+          <div className="space-y-4">
+            <div>
+              <Label className="text-xs">Destinatário</Label>
+              <RadioGroup
+                value={target}
+                onValueChange={(v) => setTarget(v as any)}
+                className="mt-2 space-y-1"
+              >
+                {hasPrimeiro && (
+                  <label className="flex items-start gap-2 rounded-md border p-2 cursor-pointer hover:bg-muted/40">
+                    <RadioGroupItem value="primeiro" className="mt-1" />
+                    <div className="flex-1">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase">Primeiro Contato</p>
+                      <p className="text-sm font-medium">{contato!.primeiro_contato_nome}</p>
+                      <p className="text-xs text-muted-foreground">{contato!.primeiro_contato_telefone || "—"}</p>
+                    </div>
+                  </label>
+                )}
+                {hasResponsavel && (
+                  <label className="flex items-start gap-2 rounded-md border p-2 cursor-pointer hover:bg-muted/40">
+                    <RadioGroupItem value="responsavel" className="mt-1" />
+                    <div className="flex-1">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase">Responsável</p>
+                      <p className="text-sm font-medium">{contato!.responsavel_nome}</p>
+                      <p className="text-xs text-muted-foreground">{contato!.responsavel_telefone || "—"}</p>
+                    </div>
+                  </label>
+                )}
+              </RadioGroup>
             </div>
-          )}
-        </div>
-      </PopoverContent>
-    </Popover>
+
+            <div>
+              <Label className="text-xs">Mensagem</Label>
+              <Textarea
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder="Escreva a mensagem que será enviada ao contato..."
+                rows={4}
+                className="mt-1"
+              />
+            </div>
+
+            <DialogFooter className="gap-2">
+              <Button variant="ghost" onClick={() => setMode("menu")} disabled={sending}>Voltar</Button>
+              <Button onClick={sendMessage} disabled={sending} className="gap-2">
+                <Send className="h-4 w-4" /> {sending ? "Enviando..." : "Enviar"}
+              </Button>
+            </DialogFooter>
+          </div>
+        )}
+
+        {mode === "update" && (
+          <div className="space-y-4">
+            <p className="text-xs text-muted-foreground">
+              Adiciona uma mensagem (update) no(s) evento(s) ativo(s) deste host no Zabbix.
+            </p>
+            <div>
+              <Label className="text-xs">Update</Label>
+              <Textarea
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder="Ex: Aberto chamado na operadora, aguardando retorno..."
+                rows={4}
+                className="mt-1"
+              />
+            </div>
+            <DialogFooter className="gap-2">
+              <Button variant="ghost" onClick={() => setMode("menu")} disabled={sending}>Voltar</Button>
+              <Button onClick={sendUpdate} disabled={sending} className="gap-2">
+                <MessageSquarePlus className="h-4 w-4" /> {sending ? "Enviando..." : "Adicionar update"}
+              </Button>
+            </DialogFooter>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
