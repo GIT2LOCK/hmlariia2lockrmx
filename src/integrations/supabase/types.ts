@@ -94,9 +94,46 @@ export type Database = {
           },
         ]
       }
+      contato_unidades: {
+        Row: {
+          contato_id: number
+          criado_em: string
+          id: number
+          unidade_id: number
+        }
+        Insert: {
+          contato_id: number
+          criado_em?: string
+          id?: number
+          unidade_id: number
+        }
+        Update: {
+          contato_id?: number
+          criado_em?: string
+          id?: number
+          unidade_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contato_unidades_contato_id_fkey"
+            columns: ["contato_id"]
+            isOneToOne: false
+            referencedRelation: "contatos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contato_unidades_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contatos: {
         Row: {
           atualizado_em: string | null
+          cobre_empresa_inteira: boolean
           criado_em: string | null
           email: string | null
           empresa_id: number | null
@@ -108,6 +145,7 @@ export type Database = {
         }
         Insert: {
           atualizado_em?: string | null
+          cobre_empresa_inteira?: boolean
           criado_em?: string | null
           email?: string | null
           empresa_id?: number | null
@@ -119,6 +157,7 @@ export type Database = {
         }
         Update: {
           atualizado_em?: string | null
+          cobre_empresa_inteira?: boolean
           criado_em?: string | null
           email?: string | null
           empresa_id?: number | null
