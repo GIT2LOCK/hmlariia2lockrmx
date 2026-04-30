@@ -5,6 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
@@ -15,14 +18,13 @@ interface Contato {
   id: number;
   nome: string;
   telefone: string | null;
-  unidade_id: number | null;
-  unidades?: { nome_unidade: string };
+  contato_unidades?: { unidade_id: number; unidades?: { id: number; nome_unidade: string; empresa_id: number } }[];
 }
 
 interface Unidade { id: number; nome_unidade: string; empresa_id: number; }
 interface Empresa { id: number; nome_fantasia: string; }
 
-const emptyForm = { nome: "", telefone: "", empresa_id: "", unidade_id: "" };
+const emptyForm = { nome: "", telefone: "", empresa_id: "", unidade_ids: [] as number[] };
 
 const Pessoas = () => {
   const { toast } = useToast();
@@ -43,7 +45,7 @@ const Pessoas = () => {
     setLoading(true);
     const { data } = await supabase
       .from("contatos")
-      .select("*, unidades(nome_unidade)")
+      .select("*, contato_unidades(unidade_id, unidades(id, nome_unidade, empresa_id))")
       .eq("tipo", "pessoa")
       .order("nome");
     setPessoas((data as any) || []);
@@ -73,34 +75,70 @@ const Pessoas = () => {
     return pessoas.filter(p =>
       p.nome.toLowerCase().includes(s) ||
       p.telefone?.toLowerCase().includes(s) ||
-      p.unidades?.nome_unidade?.toLowerCase().includes(s)
+      p.contato_unidades?.some(cu => cu.unidades?.nome_unidade?.toLowerCase().includes(s))
     );
   }, [pessoas, search]);
 
   const openNew = () => { setEditId(null); setForm(emptyForm); setDialogOpen(true); };
   const openEdit = (p: Contato) => {
     setEditId(p.id);
-    const unidade = unidades.find(u => u.id === p.unidade_id);
-    setForm({ nome: p.nome, telefone: p.telefone || "", empresa_id: unidade ? String(unidade.empresa_id) : "", unidade_id: String(p.unidade_id) });
+    const links = p.contato_unidades || [];
+    const empresaId = links[0]?.unidades?.empresa_id;
+    setForm({
+      nome: p.nome,
+      telefone: p.telefone || "",
+      empresa_id: empresaId ? String(empresaId) : "",
+      unidade_ids: links.map(l => l.unidade_id),
+    });
     setDialogOpen(true);
   };
 
+  const toggleUnidade = (id: number) => {
+    setForm(f => ({
+      ...f,
+      unidade_ids: f.unidade_ids.includes(id) ? f.unidade_ids.filter(x => x !== id) : [...f.unidade_ids, id],
+    }));
+  };
+
+  const toggleAllUnidades = () => {
+    const allIds = filteredUnidades.map(u => u.id);
+    const allSelected = allIds.every(id => form.unidade_ids.includes(id));
+    setForm(f => ({ ...f, unidade_ids: allSelected ? [] : allIds }));
+  };
+
   const handleSave = async () => {
-    if (!form.nome.trim() || !form.unidade_id) {
-      toast({ title: "Preencha nome e unidade", variant: "destructive" }); return;
+    if (!form.nome.trim() || !form.empresa_id || form.unidade_ids.length === 0) {
+      toast({ title: "Preencha nome, empresa e ao menos uma unidade", variant: "destructive" }); return;
     }
     setSaving(true);
-    const payload = { nome: form.nome.trim(), telefone: form.telefone.trim() || null, unidade_id: Number(form.unidade_id), tipo: "pessoa" as const };
-    
+    const payload: any = {
+      nome: form.nome.trim(),
+      telefone: form.telefone.trim() || null,
+      unidade_id: form.unidade_ids[0], // legacy primary
+      tipo: "pessoa" as const,
+    };
+
+    let contatoId = editId;
     if (editId) {
       const { error } = await supabase.from("contatos").update(payload).eq("id", editId);
-      if (error) { toast({ title: "Erro ao atualizar", variant: "destructive" }); }
-      else { toast({ title: "Pessoa atualizada" }); setDialogOpen(false); fetchPessoas(); }
+      if (error) { toast({ title: "Erro ao atualizar", variant: "destructive" }); setSaving(false); return; }
     } else {
-      const { error } = await supabase.from("contatos").insert(payload);
-      if (error) { toast({ title: "Erro ao cadastrar", variant: "destructive" }); }
-      else { toast({ title: "Pessoa cadastrada" }); setDialogOpen(false); fetchPessoas(); }
+      const { data, error } = await supabase.from("contatos").insert(payload).select("id").single();
+      if (error || !data) { toast({ title: "Erro ao cadastrar", variant: "destructive" }); setSaving(false); return; }
+      contatoId = data.id;
     }
+
+    // Sync contato_unidades
+    await supabase.from("contato_unidades").delete().eq("contato_id", contatoId!);
+    if (form.unidade_ids.length) {
+      await supabase.from("contato_unidades").insert(
+        form.unidade_ids.map(uid => ({ contato_id: contatoId!, unidade_id: uid }))
+      );
+    }
+
+    toast({ title: editId ? "Pessoa atualizada" : "Pessoa cadastrada" });
+    setDialogOpen(false);
+    fetchPessoas();
     setSaving(false);
   };
 
@@ -140,7 +178,7 @@ const Pessoas = () => {
                 <TableRow>
                   <TableHead>Nome</TableHead>
                   <TableHead>Telefone</TableHead>
-                  <TableHead>Unidade</TableHead>
+                  <TableHead>Unidades</TableHead>
                   {canEdit && <TableHead className="w-24">Ações</TableHead>}
                 </TableRow>
               </TableHeader>
@@ -151,7 +189,13 @@ const Pessoas = () => {
                   <TableRow key={p.id}>
                     <TableCell className="font-medium">{p.nome}</TableCell>
                     <TableCell>{p.telefone || "—"}</TableCell>
-                    <TableCell>{p.unidades?.nome_unidade || "—"}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {(p.contato_unidades || []).length === 0 ? "—" : p.contato_unidades!.map(cu => (
+                          <Badge key={cu.unidade_id} variant="secondary">{cu.unidades?.nome_unidade}</Badge>
+                        ))}
+                      </div>
+                    </TableCell>
                     {canEdit && (
                       <TableCell>
                         <div className="flex gap-1">
@@ -171,7 +215,7 @@ const Pessoas = () => {
       </Card>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle>{editId ? "Editar Pessoa" : "Nova Pessoa"}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div>
@@ -184,7 +228,7 @@ const Pessoas = () => {
             </div>
             <div>
               <Label>Empresa *</Label>
-              <Select value={form.empresa_id} onValueChange={v => setForm({ ...form, empresa_id: v, unidade_id: "" })}>
+              <Select value={form.empresa_id} onValueChange={v => setForm({ ...form, empresa_id: v, unidade_ids: [] })}>
                 <SelectTrigger><SelectValue placeholder="Selecione a empresa" /></SelectTrigger>
                 <SelectContent>
                   {empresas.map(e => <SelectItem key={e.id} value={String(e.id)}>{e.nome_fantasia}</SelectItem>)}
@@ -193,13 +237,24 @@ const Pessoas = () => {
             </div>
             {form.empresa_id && (
               <div>
-                <Label>Unidade *</Label>
-                <Select value={form.unidade_id} onValueChange={v => setForm({ ...form, unidade_id: v })}>
-                  <SelectTrigger><SelectValue placeholder="Selecione a unidade" /></SelectTrigger>
-                  <SelectContent>
-                    {filteredUnidades.map(u => <SelectItem key={u.id} value={String(u.id)}>{u.nome_unidade}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center justify-between mb-2">
+                  <Label>Unidades * ({form.unidade_ids.length} selecionada{form.unidade_ids.length === 1 ? "" : "s"})</Label>
+                  {filteredUnidades.length > 0 && (
+                    <Button type="button" variant="link" size="sm" className="h-auto p-0" onClick={toggleAllUnidades}>
+                      {filteredUnidades.every(u => form.unidade_ids.includes(u.id)) ? "Limpar" : "Selecionar todas"}
+                    </Button>
+                  )}
+                </div>
+                <ScrollArea className="h-48 border rounded-md p-2">
+                  {filteredUnidades.length === 0 ? (
+                    <p className="text-sm text-muted-foreground p-2">Nenhuma unidade nesta empresa</p>
+                  ) : filteredUnidades.map(u => (
+                    <label key={u.id} className="flex items-center gap-2 p-2 hover:bg-muted/50 rounded cursor-pointer">
+                      <Checkbox checked={form.unidade_ids.includes(u.id)} onCheckedChange={() => toggleUnidade(u.id)} />
+                      <span className="text-sm">{u.nome_unidade}</span>
+                    </label>
+                  ))}
+                </ScrollArea>
               </div>
             )}
           </div>
