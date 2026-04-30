@@ -587,7 +587,13 @@ export type Database = {
       ip_tipo: "dinamico" | "fixo"
       ip_visibilidade: "publico" | "privado"
       tipo_contato: "pessoa" | "responsavel"
-      tipo_link: "banda_larga" | "link_dedicado" | "4g" | "mpls" | "radio"
+      tipo_link:
+        | "banda_larga"
+        | "link_dedicado"
+        | "4g"
+        | "mpls"
+        | "radio"
+        | "satelite"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -719,7 +725,14 @@ export const Constants = {
       ip_tipo: ["dinamico", "fixo"],
       ip_visibilidade: ["publico", "privado"],
       tipo_contato: ["pessoa", "responsavel"],
-      tipo_link: ["banda_larga", "link_dedicado", "4g", "mpls", "radio"],
+      tipo_link: [
+        "banda_larga",
+        "link_dedicado",
+        "4g",
+        "mpls",
+        "radio",
+        "satelite",
+      ],
     },
   },
 } as const
