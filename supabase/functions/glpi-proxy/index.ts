@@ -243,12 +243,11 @@ type ReportCompany = 'GoodStorage' | 'PetCare' | 'Brava' | 'Indefinido'
 
 // Known operators (must match Operadoras table). Order matters: longer/more specific first.
 const KNOWN_OPERATORS: string[] = [
-  'America-NET', 'Century Telecom', 'Claro NET', 'Ctinet Solucoes', 'Directnet',
-  'Hostfiber', 'Mec Solutions Ltda', 'Mundiox', 'Sothis Tecnologia', 'Transit do Brasil',
-  'Wireless Comm - WCS', 'SkyNet', 'Vogel', 'Vivo', 'NET',
-  // common aliases that may appear in ticket descriptions
-  'Claro', 'TIM', 'Oi Fibra', 'Oi', 'Algar', 'Brisanet', 'Desktop', 'Unifique',
-  'Sumicity', 'Giga+', 'Giga Mais', 'Live Tim',
+  'America-NET', 'AmericaNET', 'Century Telecom', 'Claro NET', 'ClaroNET',
+  'Ctinet Solucoes', 'Directnet', 'Hostfiber', 'Mec Solutions Ltda', 'Mundiox',
+  'Sothis Tecnologia', 'Transit do Brasil', 'Wireless Comm - WCS', 'SkyNet',
+  'Vogel', 'Vivo', 'Claro', 'TIM', 'Oi Fibra', 'Oi', 'Algar', 'Brisanet',
+  'Desktop', 'Unifique', 'Sumicity', 'Giga+', 'Giga Mais', 'Live Tim',
 ]
 
 function detectOperatorFromText(...texts: string[]): string | null {
