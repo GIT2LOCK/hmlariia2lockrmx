@@ -21,13 +21,14 @@ export const CONFIG_REDE_OPTIONS = [
   { value: "cgnat", label: "CGNAT (Apenas Links da Claro NET)" },
   { value: "estatico", label: "Estático" },
   { value: "dhcp", label: "DHCP" },
-  { value: "dhcp_publico", label: "DHCP Público" },
+  { value: "dhcp_publico", label: "Bridge (DHCP)" },
 ];
 
 export const TIPO_LINK_OPTIONS = [
   { value: "banda_larga", label: "Banda Larga" },
   { value: "link_dedicado", label: "Dedicado" },
   { value: "radio", label: "Radio" },
+  { value: "satelite", label: "Satélite" },
 ];
 
 export type ChamadoIdentificador = "designacao" | "cnpj";
