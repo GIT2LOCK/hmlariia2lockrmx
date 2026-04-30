@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { BarChart3, Building2, Download, Link2, Loader2, RefreshCw, Search, Trophy } from "lucide-react";
+import { BarChart3, Building2, Download, Link2, Loader2, RefreshCw, Search, Timer, Trophy, Wifi } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { exportGlpiReportWorkbook } from "@/lib/glpiReportExcel";
 
@@ -16,13 +16,30 @@ interface UnitRankingItem {
   unit: string;
   total: number;
   linkTickets: number;
+  avgResolutionMinutes?: number;
+  avgLinkResolutionMinutes?: number;
+  resolvedCount?: number;
+  resolvedLinkCount?: number;
+}
+
+interface OperatorRankingItem {
+  operator: string;
+  total: number;
+  byCompany: Record<string, number>;
+  avgResolutionMinutes: number;
+  resolvedCount: number;
+  topUnit: string | null;
+  topUnitTickets: number;
 }
 
 interface GlpiReportsData {
   totalTickets: number;
+  totalLinkTickets?: number;
+  avgLinkResolutionMinutes?: number;
   byCompany: Record<string, number>;
   unitRanking: UnitRankingItem[];
   internetLinkRanking: UnitRankingItem[];
+  operatorRanking?: OperatorRankingItem[];
   generatedAt: string;
 }
 
@@ -34,7 +51,6 @@ const PERIODS = [
 ];
 
 const COMPANY_OPTIONS = ["Todos", "GoodStorage", "PetCare", "Brava", "Indefinido"];
-
 const LIMIT_OPTIONS = [10, 25, 50, 100];
 
 function isValidUnitRow(item: UnitRankingItem) {
@@ -44,6 +60,17 @@ function isValidUnitRow(item: UnitRankingItem) {
   if (item.company === "PetCare") return unit !== "PETCARE" && unit !== "TECSA";
   if (item.company === "Brava") return unit !== "BRAVA" && !unit.startsWith("POLO");
   return unit !== "INDEFINIDO";
+}
+
+function formatDuration(minutes?: number) {
+  if (!minutes || minutes <= 0) return "—";
+  if (minutes < 60) return `${minutes}min`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h < 24) return m ? `${h}h ${m}min` : `${h}h`;
+  const d = Math.floor(h / 24);
+  const rh = h % 24;
+  return rh ? `${d}d ${rh}h` : `${d}d`;
 }
 
 export default function Relatorios() {
@@ -78,9 +105,7 @@ export default function Relatorios() {
     }
   };
 
-  useEffect(() => {
-    fetchReports();
-  }, [period]);
+  useEffect(() => { fetchReports(); }, [period]);
 
   const companyChart = useMemo(() => {
     if (!data) return [];
@@ -101,6 +126,17 @@ export default function Relatorios() {
       .sort((a, b) => (ticketType === "links" ? b.linkTickets - a.linkTickets : b.total - a.total));
   }, [companyFilter, data, minTickets, ticketType, unitSearch]);
 
+  const filteredOperators = useMemo(() => {
+    if (!data?.operatorRanking) return [];
+    return data.operatorRanking
+      .filter(op => companyFilter === "Todos" || (op.byCompany[companyFilter] || 0) > 0)
+      .map(op => ({
+        ...op,
+        displayTotal: companyFilter === "Todos" ? op.total : (op.byCompany[companyFilter] || 0),
+      }))
+      .sort((a, b) => b.displayTotal - a.displayTotal);
+  }, [companyFilter, data]);
+
   const filteredTotalTickets = useMemo(() => {
     if (!data) return 0;
     if (companyFilter === "Todos") return data.totalTickets;
@@ -109,24 +145,25 @@ export default function Relatorios() {
 
   const topUnit = filteredUnits[0];
   const linkRows = filteredUnits.filter(item => item.linkTickets > 0);
+  const topOperator = filteredOperators[0];
+  const worstMttrUnit = useMemo(
+    () => [...linkRows].filter(u => u.avgLinkResolutionMinutes && u.avgLinkResolutionMinutes > 0)
+      .sort((a, b) => (b.avgLinkResolutionMinutes || 0) - (a.avgLinkResolutionMinutes || 0))[0],
+    [linkRows],
+  );
 
-  const exportReport = () => {
-    if (!data) return;
-    exportGlpiReportWorkbook(data, isValidUnitRow);
-  };
+  const exportReport = () => { if (data) exportGlpiReportWorkbook(data, isValidUnitRow); };
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Relatórios</h1>
-          <p className="text-muted-foreground">Indicadores de chamados coletados do GLPI por empresa e unidade.</p>
+          <p className="text-muted-foreground">Indicadores de chamados do GLPI por empresa, unidade e operadora.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {PERIODS.map(item => (
-            <Button key={item.value} variant={period === item.value ? "default" : "outline"} size="sm" onClick={() => setPeriod(item.value)}>
-              {item.label}
-            </Button>
+            <Button key={item.value} variant={period === item.value ? "default" : "outline"} size="sm" onClick={() => setPeriod(item.value)}>{item.label}</Button>
           ))}
           <Button variant="outline" size="icon" onClick={fetchReports} disabled={loading}>
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
@@ -168,18 +205,73 @@ export default function Relatorios() {
             </CardContent>
           </Card>
 
-          <div className="grid gap-4 md:grid-cols-4">
-            <Card><CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm font-medium"><BarChart3 className="h-4 w-4" /> Quantidade total de chamados abertos</CardTitle></CardHeader><CardContent><div className="text-3xl font-bold">{filteredTotalTickets}</div><p className="text-sm text-muted-foreground">{companyFilter === "Todos" ? "Todas as empresas" : companyFilter}</p></CardContent></Card>
-            <Card><CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm font-medium"><Building2 className="h-4 w-4" /> Chamados por Unidade</CardTitle></CardHeader><CardContent><div className="text-3xl font-bold">{filteredUnits.length}</div><p className="text-sm text-muted-foreground">unidades filtradas</p></CardContent></Card>
-            <Card><CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm font-medium"><Trophy className="h-4 w-4" /> Unidades com mais chamados</CardTitle></CardHeader><CardContent><div className="truncate text-xl font-bold">{topUnit?.unit || "—"}</div><p className="text-sm text-muted-foreground">{topUnit ? (ticketType === "links" ? topUnit.linkTickets : topUnit.total) : 0} chamados</p></CardContent></Card>
-            <Card><CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm font-medium"><Link2 className="h-4 w-4" /> Maior recorrência link</CardTitle></CardHeader><CardContent><div className="truncate text-xl font-bold">{linkRows[0]?.unit || "—"}</div><p className="text-sm text-muted-foreground">{linkRows[0]?.linkTickets || 0} chamados</p></CardContent></Card>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <Card><CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm font-medium"><BarChart3 className="h-4 w-4" /> Total de chamados</CardTitle></CardHeader><CardContent><div className="text-3xl font-bold">{filteredTotalTickets}</div><p className="text-sm text-muted-foreground">{companyFilter === "Todos" ? "Todas as empresas" : companyFilter}</p></CardContent></Card>
+            <Card><CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm font-medium"><Link2 className="h-4 w-4" /> Indisponibilidade de Link</CardTitle></CardHeader><CardContent><div className="text-3xl font-bold">{data.totalLinkTickets ?? 0}</div><p className="text-sm text-muted-foreground">MTTR médio: {formatDuration(data.avgLinkResolutionMinutes)}</p></CardContent></Card>
+            <Card><CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm font-medium"><Wifi className="h-4 w-4" /> Operadora mais problemática</CardTitle></CardHeader><CardContent><div className="truncate text-xl font-bold">{topOperator?.operator || "—"}</div><p className="text-sm text-muted-foreground">{topOperator ? `${topOperator.total} chamados • MTTR ${formatDuration(topOperator.avgResolutionMinutes)}` : "—"}</p></CardContent></Card>
+            <Card><CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm font-medium"><Timer className="h-4 w-4" /> Pior MTTR de unidade</CardTitle></CardHeader><CardContent><div className="truncate text-xl font-bold">{worstMttrUnit?.unit || "—"}</div><p className="text-sm text-muted-foreground">{worstMttrUnit ? formatDuration(worstMttrUnit.avgLinkResolutionMinutes) : "—"}</p></CardContent></Card>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            <Card><CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm font-medium"><Building2 className="h-4 w-4" /> Unidades filtradas</CardTitle></CardHeader><CardContent><div className="text-3xl font-bold">{filteredUnits.length}</div></CardContent></Card>
+            <Card><CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm font-medium"><Trophy className="h-4 w-4" /> Unidade com mais chamados</CardTitle></CardHeader><CardContent><div className="truncate text-xl font-bold">{topUnit?.unit || "—"}</div><p className="text-sm text-muted-foreground">{topUnit ? (ticketType === "links" ? topUnit.linkTickets : topUnit.total) : 0} chamados</p></CardContent></Card>
+            <Card><CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm font-medium"><Link2 className="h-4 w-4" /> Maior recorrência de link</CardTitle></CardHeader><CardContent><div className="truncate text-xl font-bold">{linkRows[0]?.unit || "—"}</div><p className="text-sm text-muted-foreground">{linkRows[0]?.linkTickets || 0} chamados • MTTR {formatDuration(linkRows[0]?.avgLinkResolutionMinutes)}</p></CardContent></Card>
           </div>
 
           <Tabs defaultValue="empresas" className="space-y-4">
-            <div className="flex items-center justify-between gap-3"><TabsList><TabsTrigger value="empresas">Empresas</TabsTrigger><TabsTrigger value="unidades">Unidades</TabsTrigger><TabsTrigger value="links">Links de Internet</TabsTrigger></TabsList><Button variant="outline" size="sm" onClick={exportReport}><Download className="mr-2 h-4 w-4" /> Excel</Button></div>
-            <TabsContent value="empresas"><Card><CardHeader><CardTitle>Chamados por empresa</CardTitle></CardHeader><CardContent className="h-80"><ResponsiveContainer width="100%" height="100%"><BarChart data={companyChart}><CartesianGrid strokeDasharray="3 3" className="stroke-border" /><XAxis dataKey="empresa" /><YAxis allowDecimals={false} /><Tooltip /><Bar dataKey="total" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} /></BarChart></ResponsiveContainer></CardContent></Card></TabsContent>
-            <TabsContent value="unidades"><RankingTable rows={filteredUnits.slice(0, limit)} valueKey="total" label="Total de chamados" title="Chamados por Unidade / Unidades com mais chamados" /></TabsContent>
-            <TabsContent value="links"><RankingTable rows={linkRows.slice(0, limit)} valueKey="linkTickets" label="Chamados de link" title="Unidades com mais chamados de link de internet" /></TabsContent>
+            <div className="flex items-center justify-between gap-3">
+              <TabsList>
+                <TabsTrigger value="empresas">Empresas</TabsTrigger>
+                <TabsTrigger value="unidades">Unidades</TabsTrigger>
+                <TabsTrigger value="links">Links de Internet</TabsTrigger>
+                <TabsTrigger value="operadoras">Operadoras</TabsTrigger>
+              </TabsList>
+              <Button variant="outline" size="sm" onClick={exportReport}><Download className="mr-2 h-4 w-4" /> Excel</Button>
+            </div>
+            <TabsContent value="empresas">
+              <Card><CardHeader><CardTitle>Chamados por empresa</CardTitle></CardHeader><CardContent className="h-80"><ResponsiveContainer width="100%" height="100%"><BarChart data={companyChart}><CartesianGrid strokeDasharray="3 3" className="stroke-border" /><XAxis dataKey="empresa" /><YAxis allowDecimals={false} /><Tooltip /><Bar dataKey="total" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} /></BarChart></ResponsiveContainer></CardContent></Card>
+            </TabsContent>
+            <TabsContent value="unidades">
+              <RankingTable rows={filteredUnits.slice(0, limit)} valueKey="total" mttrKey="avgResolutionMinutes" label="Total de chamados" title="Unidades com mais chamados" />
+            </TabsContent>
+            <TabsContent value="links">
+              <RankingTable rows={linkRows.slice(0, limit)} valueKey="linkTickets" mttrKey="avgLinkResolutionMinutes" label="Indisp. de link" title="Unidades com mais indisponibilidades de link" />
+            </TabsContent>
+            <TabsContent value="operadoras">
+              <Card>
+                <CardHeader><CardTitle className="flex items-center gap-2"><Wifi className="h-5 w-5" /> Ranking de operadoras (Indisponibilidade de Link)</CardTitle></CardHeader>
+                <CardContent>
+                  {filteredOperators.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Nenhuma operadora identificada nas descrições dos chamados de link no período.</p>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>#</TableHead>
+                          <TableHead>Operadora</TableHead>
+                          <TableHead className="text-right">Chamados</TableHead>
+                          <TableHead className="text-right">MTTR (média off→on)</TableHead>
+                          <TableHead className="text-right">Resolvidos</TableHead>
+                          <TableHead>Unidade mais afetada</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredOperators.slice(0, limit).map((op, index) => (
+                          <TableRow key={op.operator}>
+                            <TableCell>{index + 1}</TableCell>
+                            <TableCell className="font-medium"><Badge variant="secondary">{op.operator}</Badge></TableCell>
+                            <TableCell className="text-right font-bold">{op.displayTotal}</TableCell>
+                            <TableCell className="text-right">{formatDuration(op.avgResolutionMinutes)}</TableCell>
+                            <TableCell className="text-right text-muted-foreground">{op.resolvedCount}</TableCell>
+                            <TableCell className="text-sm">{op.topUnit || "—"}{op.topUnit && <span className="text-muted-foreground"> ({op.topUnitTickets})</span>}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
           </Tabs>
         </>
       )}
@@ -187,12 +279,41 @@ export default function Relatorios() {
   );
 }
 
-function RankingTable({ rows, valueKey, label, title }: { rows: UnitRankingItem[]; valueKey: "total" | "linkTickets"; label: string; title: string }) {
+function RankingTable({ rows, valueKey, mttrKey, label, title }: {
+  rows: UnitRankingItem[];
+  valueKey: "total" | "linkTickets";
+  mttrKey: "avgResolutionMinutes" | "avgLinkResolutionMinutes";
+  label: string;
+  title: string;
+}) {
   return (
     <Card>
       <CardHeader><CardTitle className="flex items-center gap-2"><Trophy className="h-5 w-5" /> {title}</CardTitle></CardHeader>
       <CardContent>
-        <Table><TableHeader><TableRow><TableHead>#</TableHead><TableHead>Empresa</TableHead><TableHead>Unidade</TableHead><TableHead className="text-right">{label}</TableHead><TableHead className="text-right">Total geral</TableHead></TableRow></TableHeader><TableBody>{rows.map((row, index) => (<TableRow key={`${row.company}-${row.unit}`}><TableCell>{index + 1}</TableCell><TableCell><Badge variant="secondary">{row.company}</Badge></TableCell><TableCell className="font-medium">{row.unit}</TableCell><TableCell className="text-right font-bold">{row[valueKey]}</TableCell><TableCell className="text-right text-muted-foreground">{row.total}</TableCell></TableRow>))}</TableBody></Table>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>#</TableHead>
+              <TableHead>Empresa</TableHead>
+              <TableHead>Unidade</TableHead>
+              <TableHead className="text-right">{label}</TableHead>
+              <TableHead className="text-right">Total geral</TableHead>
+              <TableHead className="text-right">MTTR médio</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((row, index) => (
+              <TableRow key={`${row.company}-${row.unit}`}>
+                <TableCell>{index + 1}</TableCell>
+                <TableCell><Badge variant="secondary">{row.company}</Badge></TableCell>
+                <TableCell className="font-medium">{row.unit}</TableCell>
+                <TableCell className="text-right font-bold">{row[valueKey]}</TableCell>
+                <TableCell className="text-right text-muted-foreground">{row.total}</TableCell>
+                <TableCell className="text-right">{formatDuration(row[mttrKey])}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </CardContent>
     </Card>
   );
