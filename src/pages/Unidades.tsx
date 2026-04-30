@@ -684,6 +684,15 @@ const Unidades = () => {
                 <div><Label>UDM (Código) *</Label><Input value={form.codigo_unidade} onChange={(e) => setForm({...form, codigo_unidade: e.target.value})} placeholder="Ex: GS-UDM-ACLIMACAO" /></div>
                 <div><Label>Nome da Unidade *</Label><Input value={form.nome_unidade} onChange={(e) => setForm({...form, nome_unidade: e.target.value.toUpperCase()})} placeholder="Ex: ACLIMAÇÃO" className="uppercase" /></div>
                 <div><Label>Razão Social</Label><Input value={form.antiga_razao} onChange={(e) => setForm({...form, antiga_razao: e.target.value})} /></div>
+                <div>
+                  <Label>CNPJ Unidade</Label>
+                  <Input
+                    value={form.cnpj}
+                    onChange={(e) => setForm({...form, cnpj: formatCnpjMask(e.target.value)})}
+                    placeholder="00.000.000/0000-00"
+                    maxLength={18}
+                  />
+                </div>
               </div>
             </div>
 
@@ -700,13 +709,43 @@ const Unidades = () => {
               operadoras={operadoras}
               hostname1={hostname1}
               hostname2={hostname2}
-              ddns={form.ddns}
-              ddnsUsuario={form.ddns_usuario}
-              ddnsSenha={form.ddns_senha}
-              onDdnsChange={(v) => setForm({...form, ddns: v})}
-              onDdnsUsuarioChange={(v) => setForm({...form, ddns_usuario: v})}
-              onDdnsSenhaChange={(v) => setForm({...form, ddns_senha: v})}
             />
+
+            <Separator />
+
+            {/* DDNS (Geral da Unidade) */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-muted-foreground">DDNS (GERAL DA UNIDADE)</h3>
+              <div className="rounded-lg border border-border p-4 space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label>Host</Label>
+                    <Input
+                      value={form.ddns}
+                      onChange={(e) => setForm({...form, ddns: e.target.value})}
+                      placeholder="Ex: unidade.ddns.net"
+                    />
+                  </div>
+                  <div>
+                    <Label>Usuário</Label>
+                    <Input
+                      value={form.ddns_usuario}
+                      onChange={(e) => setForm({...form, ddns_usuario: e.target.value})}
+                      placeholder="Usuário DDNS"
+                    />
+                  </div>
+                  <div>
+                    <Label>Senha</Label>
+                    <Input
+                      value={form.ddns_senha}
+                      onChange={(e) => setForm({...form, ddns_senha: e.target.value})}
+                      placeholder="Senha DDNS"
+                      type="password"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
 
             <Separator />
 
