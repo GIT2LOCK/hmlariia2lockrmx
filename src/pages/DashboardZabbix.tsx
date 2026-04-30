@@ -19,6 +19,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { Send, MessageSquarePlus } from "lucide-react";
 
 // ── Types ──────────────────────────────────────────────────────────────
 interface ZabbixProblem {
@@ -151,6 +155,21 @@ function groupByHost(items: ZabbixProblem[]): HostGroup[] {
   return Array.from(map.values());
 }
 
+// ── Change-detection signatures (used to avoid unnecessary re-renders) ──
+function problemsSignature(items: ZabbixProblem[]): string {
+  return [...items]
+    .map(p => `${p.eventid}:${p.acknowledged}:${(p.acknowledges || []).length}`)
+    .sort()
+    .join("|");
+}
+
+function maintenanceSignature(items: ZabbixMaintenance[]): string {
+  return [...items]
+    .map(m => `${m.maintenanceid}:${m.active_till}`)
+    .sort()
+    .join("|");
+}
+
 // ── Sort logic ──────────────────────────────────────────────────────────
 type SortField = "severity" | "host" | "problem" | "duration";
 type SortDir = "asc" | "desc";
@@ -213,8 +232,8 @@ export default function DashboardZabbix() {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
+  const fetchData = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const [problemsRes, maintenanceRes, contatosRes] = await Promise.all([
         supabase.functions.invoke("zabbix-dashboard", { body: { action: "problems" } }),
@@ -225,8 +244,12 @@ export default function DashboardZabbix() {
       if (problemsRes.error) throw new Error(problemsRes.error.message);
       if (maintenanceRes.error) throw new Error(maintenanceRes.error.message);
 
-      setProblems(Array.isArray(problemsRes.data) ? problemsRes.data.filter(isHighOrDisaster) : []);
-      setMaintenances(Array.isArray(maintenanceRes.data) ? maintenanceRes.data : []);
+      const newProblems = Array.isArray(problemsRes.data) ? problemsRes.data.filter(isHighOrDisaster) : [];
+      const newMaintenances = Array.isArray(maintenanceRes.data) ? maintenanceRes.data : [];
+
+      // Only update state when data actually changed (avoids re-render & scroll jump)
+      setProblems(prev => problemsSignature(prev) === problemsSignature(newProblems) ? prev : newProblems);
+      setMaintenances(prev => maintenanceSignature(prev) === maintenanceSignature(newMaintenances) ? prev : newMaintenances);
 
       const map: Record<string, ZabbixContato> = {};
       if (contatosRes.data) {
@@ -234,13 +257,17 @@ export default function DashboardZabbix() {
           map[c.prefixo] = c;
         }
       }
-      setContatos(map);
+      setContatos(prev => {
+        const sigA = Object.keys(prev).sort().map(k => `${k}|${prev[k].primeiro_contato_telefone || ""}|${prev[k].responsavel_telefone || ""}`).join(";");
+        const sigB = Object.keys(map).sort().map(k => `${k}|${map[k].primeiro_contato_telefone || ""}|${map[k].responsavel_telefone || ""}`).join(";");
+        return sigA === sigB ? prev : map;
+      });
       setLastRefresh(new Date());
     } catch (err: any) {
       console.error("Zabbix fetch error:", err);
-      toast({ title: "Erro ao buscar dados do Zabbix", description: err.message, variant: "destructive" });
+      if (!silent) toast({ title: "Erro ao buscar dados do Zabbix", description: err.message, variant: "destructive" });
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [toast]);
 
@@ -261,7 +288,10 @@ export default function DashboardZabbix() {
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 60000);
+    // Silent polling: re-fetches every 30s but only swaps state when something
+    // actually changed (new problem, new ack, host went offline, etc.).
+    // This prevents the page from scrolling back to top on every poll.
+    const interval = setInterval(() => fetchData(true), 30000);
     return () => clearInterval(interval);
   }, [fetchData]);
 
@@ -477,6 +507,7 @@ export default function DashboardZabbix() {
                                 uniqueTriggers={uniqueTriggers}
                                 contato={contato}
                                 onToggle={() => toggleHost(group.hostKey)}
+                                onUpdated={() => fetchData(true)}
                               />
                             );
                           })}
@@ -662,7 +693,7 @@ export default function DashboardZabbix() {
 
 // ── GroupRows ────────────────────────────────────────────────────────────
 function GroupRows({
-  group, sev, isMulti, isExpanded, uniqueTriggers, contato, onToggle,
+  group, sev, isMulti, isExpanded, uniqueTriggers, contato, onToggle, onUpdated,
 }: {
   group: HostGroup;
   sev: { label: string; bg: string; text: string };
@@ -671,6 +702,7 @@ function GroupRows({
   uniqueTriggers: string[];
   contato: ZabbixContato | null;
   onToggle: () => void;
+  onUpdated: () => void;
 }) {
   const sortedProblems = [...group.problems].sort((a, b) => Number(b.clock) - Number(a.clock));
   const hasSecondUpdateAlert = group.problems.some(needsSecondUpdateAlert);
@@ -705,7 +737,7 @@ function GroupRows({
           {isMulti ? formatDuration(group.newestClock) : formatDuration(Number(group.problems[0]?.clock))}
         </td>
         <td className="px-4 py-2"><AcksPopover acks={group.allAcks} /></td>
-        <td className="px-4 py-2"><ContactButton contato={contato} /></td>
+        <td className="px-4 py-2"><ContactButton contato={contato} group={group} onUpdated={onUpdated} /></td>
       </tr>
       {isMulti && isExpanded && sortedProblems.map((p) => {
         const pSev = SEVERITY_CONFIG[p.severity] || SEVERITY_CONFIG["0"];
@@ -762,40 +794,218 @@ function AcksPopover({ acks }: { acks: any[] }) {
 }
 
 // ── Contact Button ──────────────────────────────────────────────────────
-function ContactButton({ contato }: { contato: ZabbixContato | null }) {
-  if (!contato) return <span className="text-xs text-muted-foreground">—</span>;
-  const hasPrimeiro = !!contato.primeiro_contato_nome;
-  const hasResponsavel = !!contato.responsavel_nome;
-  if (!hasPrimeiro && !hasResponsavel) return <span className="text-xs text-muted-foreground">—</span>;
+function ContactButton({
+  contato,
+  group,
+  onUpdated,
+}: {
+  contato: ZabbixContato | null;
+  group: HostGroup;
+  onUpdated: () => void;
+}) {
+  const { toast } = useToast();
+  const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<"menu" | "message" | "update">("menu");
+  const [target, setTarget] = useState<"primeiro" | "responsavel">("primeiro");
+  const [text, setText] = useState("");
+  const [sending, setSending] = useState(false);
+
+  const hasPrimeiro = !!contato?.primeiro_contato_nome;
+  const hasResponsavel = !!contato?.responsavel_nome;
+  const hasContato = hasPrimeiro || hasResponsavel;
+
+  const reset = () => { setMode("menu"); setText(""); setTarget(hasPrimeiro ? "primeiro" : "responsavel"); };
+
+  const close = () => { setOpen(false); setTimeout(reset, 200); };
+
+  const sendMessage = async () => {
+    if (!text.trim()) {
+      toast({ title: "Digite a mensagem antes de enviar.", variant: "destructive" });
+      return;
+    }
+    const nome = target === "primeiro" ? contato?.primeiro_contato_nome : contato?.responsavel_nome;
+    const telefone = target === "primeiro" ? contato?.primeiro_contato_telefone : contato?.responsavel_telefone;
+    if (!nome || !telefone) {
+      toast({ title: "Contato selecionado não está disponível.", variant: "destructive" });
+      return;
+    }
+    setSending(true);
+    try {
+      const problemaResumo = group.problems
+        .map(p => p.triggerDescription || p.name)
+        .filter((v, i, a) => a.indexOf(v) === i)
+        .join(" | ");
+      const res = await supabase.functions.invoke("send-contato-webhook", {
+        body: {
+          tipo_contato: target,
+          contato_nome: nome,
+          contato_telefone: telefone,
+          mensagem: text.trim(),
+          host: group.hostName,
+          problema: problemaResumo,
+          prefixo: extractPrefix(group.hostCode) || null,
+        },
+      });
+      if (res.error) throw new Error(res.error.message);
+      toast({ title: "Mensagem enviada", description: `Para ${nome}` });
+      close();
+    } catch (err: any) {
+      toast({ title: "Erro ao enviar mensagem", description: err.message, variant: "destructive" });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const sendUpdate = async () => {
+    if (!text.trim()) {
+      toast({ title: "Digite o update antes de enviar.", variant: "destructive" });
+      return;
+    }
+    const eventids = group.problems.map(p => p.eventid);
+    const source = (group.problems[0] as any)?.source;
+    setSending(true);
+    try {
+      const res = await supabase.functions.invoke("zabbix-dashboard", {
+        body: { action: "acknowledge", eventids, message: text.trim(), source },
+      });
+      if (res.error) throw new Error(res.error.message);
+      toast({ title: "Update adicionado no Zabbix" });
+      onUpdated();
+      close();
+    } catch (err: any) {
+      toast({ title: "Erro ao adicionar update", description: err.message, variant: "destructive" });
+    } finally {
+      setSending(false);
+    }
+  };
 
   return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button variant="ghost" size="sm" className="gap-1 h-7 px-2">
-          <Phone className="h-4 w-4 text-green-500" />
-          <span className="text-xs">Acionar</span>
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-80 p-0" align="end">
-        <div className="px-3 py-2 border-b bg-muted/40"><p className="text-sm font-medium">Contatos do Local</p></div>
-        <div className="divide-y">
-          {hasPrimeiro && (
-            <div className="px-3 py-3">
-              <p className="text-xs font-semibold text-muted-foreground uppercase mb-1">Primeiro Contato</p>
-              <p className="text-sm font-medium">{contato.primeiro_contato_nome}</p>
-              <p className="text-sm text-muted-foreground">{contato.primeiro_contato_telefone}</p>
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setTimeout(reset, 200); }}>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="gap-1 h-7 px-2"
+        onClick={(e) => { e.stopPropagation(); setTarget(hasPrimeiro ? "primeiro" : "responsavel"); setOpen(true); }}
+      >
+        <Phone className="h-4 w-4 text-green-500" />
+        <span className="text-xs">Acionar</span>
+      </Button>
+      <DialogContent className="sm:max-w-md" onClick={(e) => e.stopPropagation()}>
+        <DialogHeader>
+          <DialogTitle>Acionar — {group.hostName}</DialogTitle>
+        </DialogHeader>
+
+        {mode === "menu" && (
+          <div className="space-y-4">
+            {hasContato ? (
+              <div className="rounded-lg border divide-y">
+                {hasPrimeiro && (
+                  <div className="px-3 py-2">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase">Primeiro Contato</p>
+                    <p className="text-sm font-medium">{contato!.primeiro_contato_nome}</p>
+                    <p className="text-xs text-muted-foreground">{contato!.primeiro_contato_telefone || "—"}</p>
+                  </div>
+                )}
+                {hasResponsavel && (
+                  <div className="px-3 py-2">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase">Responsável</p>
+                    <p className="text-sm font-medium">{contato!.responsavel_nome}</p>
+                    <p className="text-xs text-muted-foreground">{contato!.responsavel_telefone || "—"}</p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Nenhum contato cadastrado para este local.</p>
+            )}
+
+            <div className="grid grid-cols-1 gap-2">
+              <Button onClick={() => setMode("message")} disabled={!hasContato} className="gap-2">
+                <Send className="h-4 w-4" /> Enviar mensagem para um contato
+              </Button>
+              <Button variant="outline" onClick={() => setMode("update")} className="gap-2">
+                <MessageSquarePlus className="h-4 w-4" /> Adicionar update no Zabbix
+              </Button>
             </div>
-          )}
-          {hasResponsavel && (
-            <div className="px-3 py-3">
-              <p className="text-xs font-semibold text-muted-foreground uppercase mb-1">Responsável</p>
-              <p className="text-sm font-medium">{contato.responsavel_nome}</p>
-              <p className="text-sm text-muted-foreground">{contato.responsavel_telefone}</p>
+          </div>
+        )}
+
+        {mode === "message" && (
+          <div className="space-y-4">
+            <div>
+              <Label className="text-xs">Destinatário</Label>
+              <RadioGroup
+                value={target}
+                onValueChange={(v) => setTarget(v as any)}
+                className="mt-2 space-y-1"
+              >
+                {hasPrimeiro && (
+                  <label className="flex items-start gap-2 rounded-md border p-2 cursor-pointer hover:bg-muted/40">
+                    <RadioGroupItem value="primeiro" className="mt-1" />
+                    <div className="flex-1">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase">Primeiro Contato</p>
+                      <p className="text-sm font-medium">{contato!.primeiro_contato_nome}</p>
+                      <p className="text-xs text-muted-foreground">{contato!.primeiro_contato_telefone || "—"}</p>
+                    </div>
+                  </label>
+                )}
+                {hasResponsavel && (
+                  <label className="flex items-start gap-2 rounded-md border p-2 cursor-pointer hover:bg-muted/40">
+                    <RadioGroupItem value="responsavel" className="mt-1" />
+                    <div className="flex-1">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase">Responsável</p>
+                      <p className="text-sm font-medium">{contato!.responsavel_nome}</p>
+                      <p className="text-xs text-muted-foreground">{contato!.responsavel_telefone || "—"}</p>
+                    </div>
+                  </label>
+                )}
+              </RadioGroup>
             </div>
-          )}
-        </div>
-      </PopoverContent>
-    </Popover>
+
+            <div>
+              <Label className="text-xs">Mensagem</Label>
+              <Textarea
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder="Escreva a mensagem que será enviada ao contato..."
+                rows={4}
+                className="mt-1"
+              />
+            </div>
+
+            <DialogFooter className="gap-2">
+              <Button variant="ghost" onClick={() => setMode("menu")} disabled={sending}>Voltar</Button>
+              <Button onClick={sendMessage} disabled={sending} className="gap-2">
+                <Send className="h-4 w-4" /> {sending ? "Enviando..." : "Enviar"}
+              </Button>
+            </DialogFooter>
+          </div>
+        )}
+
+        {mode === "update" && (
+          <div className="space-y-4">
+            <p className="text-xs text-muted-foreground">
+              Adiciona uma mensagem (update) no(s) evento(s) ativo(s) deste host no Zabbix.
+            </p>
+            <div>
+              <Label className="text-xs">Update</Label>
+              <Textarea
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder="Ex: Aberto chamado na operadora, aguardando retorno..."
+                rows={4}
+                className="mt-1"
+              />
+            </div>
+            <DialogFooter className="gap-2">
+              <Button variant="ghost" onClick={() => setMode("menu")} disabled={sending}>Voltar</Button>
+              <Button onClick={sendUpdate} disabled={sending} className="gap-2">
+                <MessageSquarePlus className="h-4 w-4" /> {sending ? "Enviando..." : "Adicionar update"}
+              </Button>
+            </DialogFooter>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
