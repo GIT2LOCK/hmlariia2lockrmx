@@ -213,8 +213,8 @@ export default function DashboardZabbix() {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
+  const fetchData = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const [problemsRes, maintenanceRes, contatosRes] = await Promise.all([
         supabase.functions.invoke("zabbix-dashboard", { body: { action: "problems" } }),
@@ -225,8 +225,12 @@ export default function DashboardZabbix() {
       if (problemsRes.error) throw new Error(problemsRes.error.message);
       if (maintenanceRes.error) throw new Error(maintenanceRes.error.message);
 
-      setProblems(Array.isArray(problemsRes.data) ? problemsRes.data.filter(isHighOrDisaster) : []);
-      setMaintenances(Array.isArray(maintenanceRes.data) ? maintenanceRes.data : []);
+      const newProblems = Array.isArray(problemsRes.data) ? problemsRes.data.filter(isHighOrDisaster) : [];
+      const newMaintenances = Array.isArray(maintenanceRes.data) ? maintenanceRes.data : [];
+
+      // Only update state when data actually changed (avoids re-render & scroll jump)
+      setProblems(prev => problemsSignature(prev) === problemsSignature(newProblems) ? prev : newProblems);
+      setMaintenances(prev => maintenanceSignature(prev) === maintenanceSignature(newMaintenances) ? prev : newMaintenances);
 
       const map: Record<string, ZabbixContato> = {};
       if (contatosRes.data) {
@@ -234,13 +238,17 @@ export default function DashboardZabbix() {
           map[c.prefixo] = c;
         }
       }
-      setContatos(map);
+      setContatos(prev => {
+        const sigA = Object.keys(prev).sort().map(k => `${k}|${prev[k].primeiro_contato_telefone || ""}|${prev[k].responsavel_telefone || ""}`).join(";");
+        const sigB = Object.keys(map).sort().map(k => `${k}|${map[k].primeiro_contato_telefone || ""}|${map[k].responsavel_telefone || ""}`).join(";");
+        return sigA === sigB ? prev : map;
+      });
       setLastRefresh(new Date());
     } catch (err: any) {
       console.error("Zabbix fetch error:", err);
-      toast({ title: "Erro ao buscar dados do Zabbix", description: err.message, variant: "destructive" });
+      if (!silent) toast({ title: "Erro ao buscar dados do Zabbix", description: err.message, variant: "destructive" });
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [toast]);
 
@@ -261,7 +269,10 @@ export default function DashboardZabbix() {
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 60000);
+    // Silent polling: re-fetches every 30s but only swaps state when something
+    // actually changed (new problem, new ack, host went offline, etc.).
+    // This prevents the page from scrolling back to top on every poll.
+    const interval = setInterval(() => fetchData(true), 30000);
     return () => clearInterval(interval);
   }, [fetchData]);
 
