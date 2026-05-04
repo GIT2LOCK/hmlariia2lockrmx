@@ -2,3 +2,9 @@ project_id = "jjemlhtyhnncqzpnskor"
 
 [functions.tickets-api]
 verify_jwt = false
+
+[functions.email-ingest]
+verify_jwt = false
+
+[functions.send-email-notification]
+verify_jwt = false
