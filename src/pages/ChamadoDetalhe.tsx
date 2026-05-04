@@ -143,18 +143,39 @@ export default function ChamadoDetalhe() {
     if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
 
     // Notificar cliente por e-mail (via N8N) quando comentário público
-    if (tipoComent === "CLIENTE" && ticket?.solicitante_email) {
-      try {
-        await supabase.functions.invoke("send-email-notification", {
-          body: { ticket_id: ticketId, comment_id: inserted?.id },
-        });
-        toast({ title: "Comentário enviado ao cliente por e-mail" });
-      } catch (e) {
-        console.error("notify error", e);
+    if (tipoComent === "CLIENTE") {
+      if (!ticket?.solicitante_email) {
+        toast({ title: "Comentário salvo", description: "Sem e-mail do solicitante — webhook não disparado." });
+      } else {
+        try {
+          const { data: r, error: fnErr } = await supabase.functions.invoke("send-email-notification", {
+            body: { ticket_id: ticketId, comment_id: inserted?.id },
+          });
+          if (fnErr) throw fnErr;
+          console.log("[notify] resposta", r);
+          toast({ title: "Webhook N8N enviado", description: `${ticket.solicitante_email}` });
+        } catch (e: any) {
+          console.error("[notify] erro", e);
+          toast({ title: "Falha ao enviar webhook", description: e?.message || String(e), variant: "destructive" });
+        }
       }
     }
     setNovoComentario("");
     load();
+  };
+
+  const testarWebhookN8N = async () => {
+    try {
+      const { data: r, error } = await supabase.functions.invoke("send-email-notification", {
+        body: { ticket_id: ticketId },
+      });
+      if (error) throw error;
+      console.log("[test webhook]", r);
+      toast({ title: "Webhook testado", description: JSON.stringify(r) });
+    } catch (e: any) {
+      console.error(e);
+      toast({ title: "Falha", description: e?.message || String(e), variant: "destructive" });
+    }
   };
 
   const handleUpload = async (files: FileList | null) => {
@@ -319,6 +340,11 @@ export default function ChamadoDetalhe() {
         </TabsContent>
 
         <TabsContent value="sla" className="space-y-4">
+          <div className="flex justify-end">
+            <Button variant="outline" size="sm" onClick={testarWebhookN8N}>
+              <Send className="h-4 w-4 mr-1" /> Testar webhook N8N
+            </Button>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card>
               <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Clock className="h-4 w-4" /> SLA Solução</CardTitle></CardHeader>
