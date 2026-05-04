@@ -92,6 +92,7 @@ const SLA_COLORS = {
 };
 
 export default function Chamados() {
+  const navigate = useNavigate();
   const [tickets, setTickets] = useState<TicketRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
