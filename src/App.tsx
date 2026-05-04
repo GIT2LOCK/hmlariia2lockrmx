@@ -20,6 +20,7 @@ import DashboardZabbix from "./pages/DashboardZabbix";
 import ZabbixTvView from "./pages/ZabbixTvView";
 import Relatorios from "./pages/Relatorios";
 import Chamados from "./pages/Chamados";
+import ChamadoDetalhe from "./pages/ChamadoDetalhe";
 import { UserProvider } from "./contexts/UserContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
@@ -53,6 +54,7 @@ const App = () => (
               <Route path="base-conhecimento" element={<BaseConhecimento />} />
               <Route path="relatorios" element={<Relatorios />} />
               <Route path="chamados" element={<Chamados />} />
+              <Route path="chamados/:id" element={<ChamadoDetalhe />} />
               <Route path="zabbix" element={<DashboardZabbix />} />
               <Route path="zabbix/tv" element={<ZabbixTvView />} />
               <Route path="perfil" element={<MeuPerfil />} />

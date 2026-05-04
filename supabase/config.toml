@@ -1,1 +1,4 @@
 project_id = "jjemlhtyhnncqzpnskor"
+
+[functions.tickets-api]
+verify_jwt = false

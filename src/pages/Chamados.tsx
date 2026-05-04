@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -91,6 +92,7 @@ const SLA_COLORS = {
 };
 
 export default function Chamados() {
+  const navigate = useNavigate();
   const [tickets, setTickets] = useState<TicketRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -312,7 +314,7 @@ export default function Chamados() {
                   <TableRow
                     key={t.id}
                     className="cursor-pointer"
-                    onClick={() => { setEditId(t.id); setModalOpen(true); }}
+                    onClick={() => navigate(`/dashboard/chamados/${t.id}`)}
                   >
                     <TableCell className="font-mono text-xs">{t.codigo}</TableCell>
                     <TableCell className="max-w-[280px] truncate">{t.titulo}</TableCell>
