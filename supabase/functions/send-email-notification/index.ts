@@ -32,6 +32,8 @@ serve(async (req) => {
       const { data: c } = await supabase.from("ticket_comments").select("conteudo").eq("id", comment_id).maybeSingle();
       conteudo = c?.conteudo || "";
     }
+    // Fallback: se não houver comentário, envia a descrição do chamado
+    if (!conteudo) conteudo = ticket.descricao || "";
 
     // Anexos (links assinados, válidos por 7 dias)
     const { data: anexos } = await supabase.from("ticket_attachments").select("*").eq("ticket_id", ticket_id);
