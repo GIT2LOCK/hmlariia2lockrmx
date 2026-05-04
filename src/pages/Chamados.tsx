@@ -314,7 +314,7 @@ export default function Chamados() {
                   <TableRow
                     key={t.id}
                     className="cursor-pointer"
-                    onClick={() => { setEditId(t.id); setModalOpen(true); }}
+                    onClick={() => navigate(`/dashboard/chamados/${t.id}`)}
                   >
                     <TableCell className="font-mono text-xs">{t.codigo}</TableCell>
                     <TableCell className="max-w-[280px] truncate">{t.titulo}</TableCell>
