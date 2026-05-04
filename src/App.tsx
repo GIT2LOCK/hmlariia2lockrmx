@@ -20,6 +20,7 @@ import DashboardZabbix from "./pages/DashboardZabbix";
 import ZabbixTvView from "./pages/ZabbixTvView";
 import Relatorios from "./pages/Relatorios";
 import Chamados from "./pages/Chamados";
+import ChamadoDetalhe from "./pages/ChamadoDetalhe";
 import { UserProvider } from "./contexts/UserContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
