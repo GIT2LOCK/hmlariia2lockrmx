@@ -340,6 +340,11 @@ export default function ChamadoDetalhe() {
         </TabsContent>
 
         <TabsContent value="sla" className="space-y-4">
+          <div className="flex justify-end">
+            <Button variant="outline" size="sm" onClick={testarWebhookN8N}>
+              <Send className="h-4 w-4 mr-1" /> Testar webhook N8N
+            </Button>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card>
               <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Clock className="h-4 w-4" /> SLA Solução</CardTitle></CardHeader>
