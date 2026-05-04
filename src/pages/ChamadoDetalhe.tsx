@@ -132,15 +132,27 @@ export default function ChamadoDetalhe() {
   const adicionarComentario = async () => {
     if (!novoComentario.trim()) return;
     setSalvandoComent(true);
-    const { error } = await supabase.from("ticket_comments").insert({
+    const { data: inserted, error } = await supabase.from("ticket_comments").insert({
       ticket_id: ticketId,
       conteudo: novoComentario.trim(),
       tipo: tipoComent,
       autor_id: user?.id ? Number(user.id) : null,
       autor_nome: user?.nome || null,
-    });
+    }).select("id").maybeSingle();
     setSalvandoComent(false);
     if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+
+    // Notificar cliente por e-mail (via N8N) quando comentário público
+    if (tipoComent === "CLIENTE" && ticket?.solicitante_email) {
+      try {
+        await supabase.functions.invoke("send-email-notification", {
+          body: { ticket_id: ticketId, comment_id: inserted?.id },
+        });
+        toast({ title: "Comentário enviado ao cliente por e-mail" });
+      } catch (e) {
+        console.error("notify error", e);
+      }
+    }
     setNovoComentario("");
     load();
   };
