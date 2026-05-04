@@ -435,6 +435,378 @@ export type Database = {
           },
         ]
       }
+      ticket_attachments: {
+        Row: {
+          autor_id: number | null
+          autor_nome: string | null
+          criado_em: string
+          file_name: string
+          id: number
+          mime_type: string | null
+          storage_path: string
+          tamanho_bytes: number | null
+          ticket_id: number
+        }
+        Insert: {
+          autor_id?: number | null
+          autor_nome?: string | null
+          criado_em?: string
+          file_name: string
+          id?: number
+          mime_type?: string | null
+          storage_path: string
+          tamanho_bytes?: number | null
+          ticket_id: number
+        }
+        Update: {
+          autor_id?: number | null
+          autor_nome?: string | null
+          criado_em?: string
+          file_name?: string
+          id?: number
+          mime_type?: string | null
+          storage_path?: string
+          tamanho_bytes?: number | null
+          ticket_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_attachments_autor_id_fkey"
+            columns: ["autor_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_attachments_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ticket_categorias: {
+        Row: {
+          ativo: boolean
+          atualizado_em: string
+          criado_em: string
+          id: number
+          nome: string
+          parent_id: number | null
+        }
+        Insert: {
+          ativo?: boolean
+          atualizado_em?: string
+          criado_em?: string
+          id?: number
+          nome: string
+          parent_id?: number | null
+        }
+        Update: {
+          ativo?: boolean
+          atualizado_em?: string
+          criado_em?: string
+          id?: number
+          nome?: string
+          parent_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_categorias_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_categorias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ticket_comments: {
+        Row: {
+          autor_id: number | null
+          autor_nome: string | null
+          conteudo: string
+          criado_em: string
+          id: number
+          ticket_id: number
+          tipo: Database["public"]["Enums"]["ticket_comment_type"]
+        }
+        Insert: {
+          autor_id?: number | null
+          autor_nome?: string | null
+          conteudo: string
+          criado_em?: string
+          id?: number
+          ticket_id: number
+          tipo?: Database["public"]["Enums"]["ticket_comment_type"]
+        }
+        Update: {
+          autor_id?: number | null
+          autor_nome?: string | null
+          conteudo?: string
+          criado_em?: string
+          id?: number
+          ticket_id?: number
+          tipo?: Database["public"]["Enums"]["ticket_comment_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_comments_autor_id_fkey"
+            columns: ["autor_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_comments_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ticket_filas: {
+        Row: {
+          ativo: boolean
+          atualizado_em: string
+          criado_em: string
+          descricao: string | null
+          id: number
+          nome: string
+        }
+        Insert: {
+          ativo?: boolean
+          atualizado_em?: string
+          criado_em?: string
+          descricao?: string | null
+          id?: number
+          nome: string
+        }
+        Update: {
+          ativo?: boolean
+          atualizado_em?: string
+          criado_em?: string
+          descricao?: string | null
+          id?: number
+          nome?: string
+        }
+        Relationships: []
+      }
+      ticket_history: {
+        Row: {
+          autor_id: number | null
+          autor_nome: string | null
+          campo: string
+          criado_em: string
+          id: number
+          observacao: string | null
+          ticket_id: number
+          valor_anterior: string | null
+          valor_novo: string | null
+        }
+        Insert: {
+          autor_id?: number | null
+          autor_nome?: string | null
+          campo: string
+          criado_em?: string
+          id?: number
+          observacao?: string | null
+          ticket_id: number
+          valor_anterior?: string | null
+          valor_novo?: string | null
+        }
+        Update: {
+          autor_id?: number | null
+          autor_nome?: string | null
+          campo?: string
+          criado_em?: string
+          id?: number
+          observacao?: string | null
+          ticket_id?: number
+          valor_anterior?: string | null
+          valor_novo?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_history_autor_id_fkey"
+            columns: ["autor_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_history_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tickets: {
+        Row: {
+          ativo: string | null
+          atualizado_em: string
+          categoria_id: number | null
+          codigo: string
+          criado_em: string
+          criado_por: number | null
+          data_abertura: string
+          data_fechamento: string | null
+          data_primeiro_atendimento: string | null
+          data_solucao: string | null
+          descricao: string | null
+          empresa_id: number | null
+          fila_id: number | null
+          id: number
+          link_id: number | null
+          operadora_id: number | null
+          origem: Database["public"]["Enums"]["ticket_origem"]
+          prioridade: Database["public"]["Enums"]["ticket_priority"]
+          sla_atendimento_minutos: number
+          sla_pausa_inicio: string | null
+          sla_pausa_total_segundos: number
+          sla_solucao_minutos: number
+          solicitante_email: string | null
+          solicitante_nome: string | null
+          solicitante_telefone: string | null
+          status: Database["public"]["Enums"]["ticket_status"]
+          subcategoria_id: number | null
+          tecnico_id: number | null
+          titulo: string
+          unidade_id: number | null
+        }
+        Insert: {
+          ativo?: string | null
+          atualizado_em?: string
+          categoria_id?: number | null
+          codigo: string
+          criado_em?: string
+          criado_por?: number | null
+          data_abertura?: string
+          data_fechamento?: string | null
+          data_primeiro_atendimento?: string | null
+          data_solucao?: string | null
+          descricao?: string | null
+          empresa_id?: number | null
+          fila_id?: number | null
+          id?: number
+          link_id?: number | null
+          operadora_id?: number | null
+          origem?: Database["public"]["Enums"]["ticket_origem"]
+          prioridade?: Database["public"]["Enums"]["ticket_priority"]
+          sla_atendimento_minutos: number
+          sla_pausa_inicio?: string | null
+          sla_pausa_total_segundos?: number
+          sla_solucao_minutos: number
+          solicitante_email?: string | null
+          solicitante_nome?: string | null
+          solicitante_telefone?: string | null
+          status?: Database["public"]["Enums"]["ticket_status"]
+          subcategoria_id?: number | null
+          tecnico_id?: number | null
+          titulo: string
+          unidade_id?: number | null
+        }
+        Update: {
+          ativo?: string | null
+          atualizado_em?: string
+          categoria_id?: number | null
+          codigo?: string
+          criado_em?: string
+          criado_por?: number | null
+          data_abertura?: string
+          data_fechamento?: string | null
+          data_primeiro_atendimento?: string | null
+          data_solucao?: string | null
+          descricao?: string | null
+          empresa_id?: number | null
+          fila_id?: number | null
+          id?: number
+          link_id?: number | null
+          operadora_id?: number | null
+          origem?: Database["public"]["Enums"]["ticket_origem"]
+          prioridade?: Database["public"]["Enums"]["ticket_priority"]
+          sla_atendimento_minutos?: number
+          sla_pausa_inicio?: string | null
+          sla_pausa_total_segundos?: number
+          sla_solucao_minutos?: number
+          solicitante_email?: string | null
+          solicitante_nome?: string | null
+          solicitante_telefone?: string | null
+          status?: Database["public"]["Enums"]["ticket_status"]
+          subcategoria_id?: number | null
+          tecnico_id?: number | null
+          titulo?: string
+          unidade_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tickets_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_categorias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_criado_por_fkey"
+            columns: ["criado_por"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_fila_id_fkey"
+            columns: ["fila_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_filas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "links_internet"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_operadora_id_fkey"
+            columns: ["operadora_id"]
+            isOneToOne: false
+            referencedRelation: "operadoras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_subcategoria_id_fkey"
+            columns: ["subcategoria_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_categorias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_tecnico_id_fkey"
+            columns: ["tecnico_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       unidades: {
         Row: {
           abreviacao: string | null
@@ -625,6 +997,27 @@ export type Database = {
       finalidade_link: "principal" | "backup"
       ip_tipo: "dinamico" | "fixo"
       ip_visibilidade: "publico" | "privado"
+      ticket_comment_type: "INTERNO" | "CLIENTE" | "AUTOMATICO"
+      ticket_origem:
+        | "MANUAL"
+        | "EMAIL"
+        | "TELEFONE"
+        | "CHAT"
+        | "MONITORAMENTO"
+        | "API"
+        | "N8N"
+      ticket_priority: "CRITICO" | "ALTO" | "MEDIO" | "BAIXO"
+      ticket_status:
+        | "NOVO"
+        | "TRIAGEM"
+        | "EM_ATENDIMENTO"
+        | "AGUARDANDO_CLIENTE"
+        | "AGUARDANDO_OPERADORA"
+        | "AGUARDANDO_TERCEIRO"
+        | "AGENDADO"
+        | "RESOLVIDO"
+        | "FECHADO"
+        | "CANCELADO"
       tipo_contato: "pessoa" | "responsavel"
       tipo_link:
         | "banda_larga"
@@ -763,6 +1156,29 @@ export const Constants = {
       finalidade_link: ["principal", "backup"],
       ip_tipo: ["dinamico", "fixo"],
       ip_visibilidade: ["publico", "privado"],
+      ticket_comment_type: ["INTERNO", "CLIENTE", "AUTOMATICO"],
+      ticket_origem: [
+        "MANUAL",
+        "EMAIL",
+        "TELEFONE",
+        "CHAT",
+        "MONITORAMENTO",
+        "API",
+        "N8N",
+      ],
+      ticket_priority: ["CRITICO", "ALTO", "MEDIO", "BAIXO"],
+      ticket_status: [
+        "NOVO",
+        "TRIAGEM",
+        "EM_ATENDIMENTO",
+        "AGUARDANDO_CLIENTE",
+        "AGUARDANDO_OPERADORA",
+        "AGUARDANDO_TERCEIRO",
+        "AGENDADO",
+        "RESOLVIDO",
+        "FECHADO",
+        "CANCELADO",
+      ],
       tipo_contato: ["pessoa", "responsavel"],
       tipo_link: [
         "banda_larga",

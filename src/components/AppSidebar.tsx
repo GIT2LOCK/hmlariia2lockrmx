@@ -14,6 +14,7 @@ import {
   BookOpen,
   Activity,
   BarChart3,
+  Ticket,
 } from "lucide-react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -42,6 +43,7 @@ const menuItems = [
   { title: "Pessoas", url: "/dashboard/pessoas", icon: Contact },
   { title: "Responsáveis", url: "/dashboard/responsaveis", icon: UserCheck },
   { title: "Base de Conhecimento", url: "/dashboard/base-conhecimento", icon: BookOpen },
+  { title: "Chamados", url: "/dashboard/chamados", icon: Ticket },
   { title: "Relatórios", url: "/dashboard/relatorios", icon: BarChart3 },
   { title: "Montioramento", url: "/dashboard/zabbix", icon: Activity },
 ];
