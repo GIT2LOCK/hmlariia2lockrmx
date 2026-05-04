@@ -54,6 +54,7 @@ const App = () => (
               <Route path="base-conhecimento" element={<BaseConhecimento />} />
               <Route path="relatorios" element={<Relatorios />} />
               <Route path="chamados" element={<Chamados />} />
+              <Route path="chamados/:id" element={<ChamadoDetalhe />} />
               <Route path="zabbix" element={<DashboardZabbix />} />
               <Route path="zabbix/tv" element={<ZabbixTvView />} />
               <Route path="perfil" element={<MeuPerfil />} />
