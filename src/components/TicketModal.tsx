@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +14,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
+import { Paperclip, X, Upload } from "lucide-react";
 import {
   PRIORITY_LABELS,
   PRIORITY_ORDER,
@@ -26,6 +27,17 @@ import {
 } from "@/lib/ticketSla";
 
 interface Option { id: number; label: string }
+interface UnidadeOpt extends Option { empresa_id: number }
+interface ContatoOpt {
+  id: number;
+  nome: string;
+  email: string | null;
+  telefone: string | null;
+  tipo: string;
+  empresa_id: number | null;
+  unidade_id: number | null;
+  cobre_empresa_inteira: boolean;
+}
 
 interface Props {
   open: boolean;
@@ -34,15 +46,21 @@ interface Props {
   onSaved?: () => void;
 }
 
+const MAX_FILE_BYTES = 5 * 1024 * 1024;
+
 export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
   const { user } = useUser();
   const [loading, setLoading] = useState(false);
   const [empresas, setEmpresas] = useState<Option[]>([]);
-  const [unidades, setUnidades] = useState<Option[]>([]);
+  const [unidadesAll, setUnidadesAll] = useState<UnidadeOpt[]>([]);
   const [operadoras, setOperadoras] = useState<Option[]>([]);
   const [filas, setFilas] = useState<Option[]>([]);
   const [categorias, setCategorias] = useState<Option[]>([]);
   const [tecnicos, setTecnicos] = useState<Option[]>([]);
+  const [contatosAll, setContatosAll] = useState<ContatoOpt[]>([]);
+
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [existingAttachments, setExistingAttachments] = useState<any[]>([]);
 
   const [form, setForm] = useState({
     titulo: "",
@@ -55,28 +73,54 @@ export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
     fila_id: "" as string,
     categoria_id: "" as string,
     tecnico_id: "" as string,
+    solicitante_id: "" as string,
     solicitante_nome: "",
+    solicitante_email: "",
+    solicitante_telefone: "",
     ativo: "",
     origem: "MANUAL" as string,
   });
 
+  const unidadesFiltered = useMemo(() => {
+    if (!form.empresa_id) return [];
+    const empId = Number(form.empresa_id);
+    return unidadesAll.filter((u) => u.empresa_id === empId);
+  }, [form.empresa_id, unidadesAll]);
+
+  const contatosFiltered = useMemo(() => {
+    if (!form.empresa_id) return [];
+    const empId = Number(form.empresa_id);
+    const unidId = form.unidade_id ? Number(form.unidade_id) : null;
+    return contatosAll.filter((c) => {
+      if (c.empresa_id !== empId) return false;
+      // se cobre empresa inteira ou sem unidade, sempre aparece
+      if (c.cobre_empresa_inteira || !c.unidade_id) return true;
+      // se há unidade selecionada, mostrar somente os daquela unidade
+      if (unidId) return c.unidade_id === unidId;
+      // sem unidade selecionada: mostrar todos da empresa
+      return true;
+    });
+  }, [form.empresa_id, form.unidade_id, contatosAll]);
+
   useEffect(() => {
     if (!open) return;
     (async () => {
-      const [e, u, o, f, c, us] = await Promise.all([
+      const [e, u, o, f, c, us, ct] = await Promise.all([
         supabase.from("empresas").select("id,nome_fantasia").order("nome_fantasia"),
-        supabase.from("unidades").select("id,nome_unidade").order("nome_unidade"),
+        supabase.from("unidades").select("id,nome_unidade,empresa_id").order("nome_unidade"),
         supabase.from("operadoras").select("id,nome").order("nome"),
         supabase.from("ticket_filas").select("id,nome").eq("ativo", true).order("nome"),
         supabase.from("ticket_categorias").select("id,nome,parent_id").is("parent_id", null).order("nome"),
         supabase.from("usuarios").select("id,nome").eq("ativo", true).order("nome"),
+        supabase.from("contatos").select("id,nome,email,telefone,tipo,empresa_id,unidade_id,cobre_empresa_inteira").order("nome"),
       ]);
       setEmpresas((e.data || []).map((r: any) => ({ id: r.id, label: r.nome_fantasia })));
-      setUnidades((u.data || []).map((r: any) => ({ id: r.id, label: r.nome_unidade })));
+      setUnidadesAll((u.data || []).map((r: any) => ({ id: r.id, label: r.nome_unidade, empresa_id: r.empresa_id })));
       setOperadoras((o.data || []).map((r: any) => ({ id: r.id, label: r.nome })));
       setFilas((f.data || []).map((r: any) => ({ id: r.id, label: r.nome })));
       setCategorias((c.data || []).map((r: any) => ({ id: r.id, label: r.nome })));
       setTecnicos((us.data || []).map((r: any) => ({ id: r.id, label: r.nome })));
+      setContatosAll((ct.data || []) as ContatoOpt[]);
 
       if (ticketId) {
         const { data } = await supabase.from("tickets").select("*").eq("id", ticketId).maybeSingle();
@@ -92,20 +136,100 @@ export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
             fila_id: data.fila_id?.toString() || "",
             categoria_id: data.categoria_id?.toString() || "",
             tecnico_id: data.tecnico_id?.toString() || "",
+            solicitante_id: "",
             solicitante_nome: data.solicitante_nome || "",
+            solicitante_email: data.solicitante_email || "",
+            solicitante_telefone: data.solicitante_telefone || "",
             ativo: data.ativo || "",
             origem: data.origem || "MANUAL",
           });
         }
+        const { data: atts } = await supabase
+          .from("ticket_attachments")
+          .select("*")
+          .eq("ticket_id", ticketId)
+          .order("criado_em", { ascending: false });
+        setExistingAttachments(atts || []);
       } else {
         setForm({
           titulo: "", descricao: "", prioridade: "MEDIO", status: "NOVO",
           empresa_id: "", unidade_id: "", operadora_id: "", fila_id: "",
-          categoria_id: "", tecnico_id: "", solicitante_nome: "", ativo: "", origem: "MANUAL",
+          categoria_id: "", tecnico_id: "", solicitante_id: "",
+          solicitante_nome: "", solicitante_email: "", solicitante_telefone: "",
+          ativo: "", origem: "MANUAL",
         });
+        setExistingAttachments([]);
       }
+      setPendingFiles([]);
     })();
   }, [open, ticketId]);
+
+  // ao trocar empresa, limpar unidade e solicitante se não pertencerem
+  useEffect(() => {
+    if (!form.empresa_id) {
+      if (form.unidade_id || form.solicitante_id) {
+        setForm((f) => ({ ...f, unidade_id: "", solicitante_id: "" }));
+      }
+      return;
+    }
+    const empId = Number(form.empresa_id);
+    const unidValid = !form.unidade_id || unidadesAll.some((u) => u.id === Number(form.unidade_id) && u.empresa_id === empId);
+    const contValid = !form.solicitante_id || contatosAll.some((c) => c.id === Number(form.solicitante_id) && c.empresa_id === empId);
+    if (!unidValid || !contValid) {
+      setForm((f) => ({ ...f, unidade_id: unidValid ? f.unidade_id : "", solicitante_id: contValid ? f.solicitante_id : "" }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.empresa_id]);
+
+  const handlePickContato = (id: string) => {
+    const c = contatosAll.find((x) => x.id === Number(id));
+    if (!c) return;
+    setForm((f) => ({
+      ...f,
+      solicitante_id: id,
+      solicitante_nome: c.nome,
+      solicitante_email: c.email || "",
+      solicitante_telefone: c.telefone || "",
+    }));
+  };
+
+  const handleFiles = (files: FileList | null) => {
+    if (!files) return;
+    const incoming = Array.from(files);
+    const valid: File[] = [];
+    for (const f of incoming) {
+      if (f.size > MAX_FILE_BYTES) {
+        toast({ title: "Arquivo muito grande", description: `${f.name} excede 5MB`, variant: "destructive" });
+        continue;
+      }
+      valid.push(f);
+    }
+    setPendingFiles((prev) => [...prev, ...valid]);
+  };
+
+  const uploadAttachments = async (tid: number) => {
+    if (!pendingFiles.length) return;
+    for (const file of pendingFiles) {
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const path = `${tid}/${Date.now()}_${safeName}`;
+      const { error: upErr } = await supabase.storage.from("ticket-attachments").upload(path, file, {
+        contentType: file.type || "application/octet-stream",
+      });
+      if (upErr) {
+        toast({ title: "Erro ao enviar anexo", description: `${file.name}: ${upErr.message}`, variant: "destructive" });
+        continue;
+      }
+      await supabase.from("ticket_attachments").insert({
+        ticket_id: tid,
+        autor_id: user?.id ? Number(user.id) : null,
+        autor_nome: user?.nome || null,
+        storage_path: path,
+        file_name: file.name,
+        mime_type: file.type || null,
+        tamanho_bytes: file.size,
+      });
+    }
+  };
 
   const handleSave = async () => {
     if (!form.titulo.trim()) {
@@ -125,27 +249,40 @@ export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
       categoria_id: form.categoria_id ? Number(form.categoria_id) : null,
       tecnico_id: form.tecnico_id ? Number(form.tecnico_id) : null,
       solicitante_nome: form.solicitante_nome || null,
+      solicitante_email: form.solicitante_email || null,
+      solicitante_telefone: form.solicitante_telefone || null,
       ativo: form.ativo || null,
       origem: form.origem,
       sla_atendimento_minutos: SLA_ATENDIMENTO[form.prioridade],
       sla_solucao_minutos: SLA_SOLUCAO[form.prioridade],
     };
 
+    let savedId = ticketId || null;
     let error;
     if (ticketId) {
       ({ error } = await supabase.from("tickets").update(payload).eq("id", ticketId));
     } else {
       payload.criado_por = user?.id ? Number(user.id) : null;
-      ({ error } = await supabase.from("tickets").insert(payload));
+      const { data, error: insErr } = await supabase.from("tickets").insert(payload).select("id").maybeSingle();
+      error = insErr;
+      savedId = data?.id || null;
     }
-    setLoading(false);
     if (error) {
+      setLoading(false);
       toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
       return;
     }
+    if (savedId) await uploadAttachments(savedId);
+    setLoading(false);
     toast({ title: ticketId ? "Chamado atualizado" : "Chamado criado" });
     onOpenChange(false);
     onSaved?.();
+  };
+
+  const removeExisting = async (att: any) => {
+    await supabase.storage.from("ticket-attachments").remove([att.storage_path]);
+    await supabase.from("ticket_attachments").delete().eq("id", att.id);
+    setExistingAttachments((prev) => prev.filter((a) => a.id !== att.id));
   };
 
   return (
@@ -195,10 +332,20 @@ export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
           </div>
           <div>
             <Label>Unidade</Label>
-            <Select value={form.unidade_id} onValueChange={(v) => setForm({ ...form, unidade_id: v })}>
-              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+            <Select
+              value={form.unidade_id}
+              onValueChange={(v) => setForm({ ...form, unidade_id: v })}
+              disabled={!form.empresa_id}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={form.empresa_id ? "Selecione" : "Selecione a empresa"} />
+              </SelectTrigger>
               <SelectContent>
-                {unidades.map((o) => <SelectItem key={o.id} value={o.id.toString()}>{o.label}</SelectItem>)}
+                {unidadesFiltered.length === 0 ? (
+                  <div className="px-2 py-1.5 text-sm text-muted-foreground">Nenhuma unidade</div>
+                ) : unidadesFiltered.map((o) => (
+                  <SelectItem key={o.id} value={o.id.toString()}>{o.label}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -246,13 +393,85 @@ export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
             </Select>
           </div>
           <div>
-            <Label>Solicitante</Label>
-            <Input value={form.solicitante_nome} onChange={(e) => setForm({ ...form, solicitante_nome: e.target.value })} />
+            <Label>Solicitante (Pessoa/Responsável)</Label>
+            <Select
+              value={form.solicitante_id}
+              onValueChange={handlePickContato}
+              disabled={!form.empresa_id}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={form.empresa_id ? "Selecione um contato" : "Selecione a empresa"} />
+              </SelectTrigger>
+              <SelectContent>
+                {contatosFiltered.length === 0 ? (
+                  <div className="px-2 py-1.5 text-sm text-muted-foreground">Nenhum contato cadastrado</div>
+                ) : contatosFiltered.map((c) => (
+                  <SelectItem key={c.id} value={c.id.toString()}>
+                    {c.nome} {c.tipo ? `· ${c.tipo}` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {form.solicitante_nome && (
+              <p className="text-xs text-muted-foreground mt-1">
+                {form.solicitante_nome}
+                {form.solicitante_email ? ` · ${form.solicitante_email}` : ""}
+                {form.solicitante_telefone ? ` · ${form.solicitante_telefone}` : ""}
+              </p>
+            )}
           </div>
 
           <div className="md:col-span-2">
             <Label>Descrição</Label>
             <Textarea rows={4} value={form.descricao} onChange={(e) => setForm({ ...form, descricao: e.target.value })} />
+          </div>
+
+          <div className="md:col-span-2 space-y-2">
+            <Label>Anexos (máx 5MB por arquivo)</Label>
+            <label className="flex items-center gap-2 border border-dashed rounded-md px-3 py-3 cursor-pointer hover:bg-muted/50 transition-colors text-sm text-muted-foreground">
+              <Upload className="h-4 w-4" />
+              <span>Clique para selecionar arquivos</span>
+              <input
+                type="file"
+                multiple
+                className="hidden"
+                onChange={(e) => { handleFiles(e.target.files); e.target.value = ""; }}
+              />
+            </label>
+            {existingAttachments.length > 0 && (
+              <div className="space-y-1">
+                {existingAttachments.map((a) => (
+                  <div key={a.id} className="flex items-center justify-between text-sm bg-muted/40 rounded px-2 py-1">
+                    <span className="flex items-center gap-2 truncate">
+                      <Paperclip className="h-3.5 w-3.5" />
+                      {a.file_name} <span className="text-xs text-muted-foreground">({Math.round(a.tamanho_bytes / 1024)} KB)</span>
+                    </span>
+                    <button type="button" onClick={() => removeExisting(a)} className="text-destructive hover:opacity-70">
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {pendingFiles.length > 0 && (
+              <div className="space-y-1">
+                {pendingFiles.map((f, i) => (
+                  <div key={i} className="flex items-center justify-between text-sm bg-primary/5 rounded px-2 py-1">
+                    <span className="flex items-center gap-2 truncate">
+                      <Paperclip className="h-3.5 w-3.5" />
+                      {f.name} <span className="text-xs text-muted-foreground">({Math.round(f.size / 1024)} KB)</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setPendingFiles((p) => p.filter((_, idx) => idx !== i))}
+                      className="text-destructive hover:opacity-70"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="md:col-span-2 text-xs text-muted-foreground">
