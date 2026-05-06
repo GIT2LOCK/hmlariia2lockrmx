@@ -275,7 +275,8 @@ const MeuPerfil = () => {
       if (upErr) throw upErr;
       const { data: urlData } = supabase.storage.from("email-signatures").getPublicUrl(path);
       const assinatura_email_url = urlData.publicUrl;
-      await callProfileAPI({ action: "update-info", assinatura_email_url });
+      const { error: updErr } = await supabase.from("usuarios").update({ assinatura_email_url }).eq("id", user.id);
+      if (updErr) throw updErr;
       setProfile(prev => prev ? { ...prev, assinatura_email_url } : prev);
       toast({ title: "Assinatura atualizada!" });
     } catch (err: any) {
@@ -287,8 +288,8 @@ const MeuPerfil = () => {
   };
 
   const handleRemoveSignature = async () => {
-    await callProfileAPI({ action: "update-info", assinatura_email_url: null });
-    setProfile(prev => prev ? { ...prev } : prev);
+    await supabase.from("usuarios").update({ assinatura_email_url: null }).eq("id", user.id);
+    setProfile(prev => prev ? { ...prev, assinatura_email_url: "" } : prev);
     toast({ title: "Assinatura removida" });
   };
 
