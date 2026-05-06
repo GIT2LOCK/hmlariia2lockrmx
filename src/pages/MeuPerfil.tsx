@@ -63,12 +63,14 @@ const MeuPerfil = () => {
   const { user, updateAvatar, syncFromDatabase, isLoading, isAuthenticated } = useUser();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const signatureInputRef = useRef<HTMLInputElement>(null);
 
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [editing, setEditing] = useState(false);
-  const [editForm, setEditForm] = useState({ nome: "", email: "", telefone: "", assinatura_email_url: "" });
+  const [editForm, setEditForm] = useState({ nome: "", email: "", telefone: "" });
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [uploadingSignature, setUploadingSignature] = useState(false);
 
   // Password change
   const [changingPassword, setChangingPassword] = useState(false);
@@ -254,6 +256,42 @@ const MeuPerfil = () => {
     } finally {
       setUploadingAvatar(false);
     }
+  };
+
+  const handleSignatureUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!["image/png", "image/jpeg", "image/jpg"].includes(file.type)) {
+      toast({ title: "Use PNG ou JPG", variant: "destructive" });
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast({ title: "Imagem deve ter no máximo 2MB", variant: "destructive" });
+      return;
+    }
+    setUploadingSignature(true);
+    try {
+      const ext = file.name.split(".").pop();
+      const path = `user-${user.id}/${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("email-signatures").upload(path, file, { upsert: true });
+      if (upErr) throw upErr;
+      const { data: urlData } = supabase.storage.from("email-signatures").getPublicUrl(path);
+      const assinatura_email_url = urlData.publicUrl;
+      await callProfileAPI({ action: "update-info", assinatura_email_url });
+      setProfile(prev => prev ? { ...prev, assinatura_email_url } : prev);
+      toast({ title: "Assinatura atualizada!" });
+    } catch (err: any) {
+      toast({ title: "Erro ao enviar assinatura", description: err?.message, variant: "destructive" });
+    } finally {
+      setUploadingSignature(false);
+      if (signatureInputRef.current) signatureInputRef.current.value = "";
+    }
+  };
+
+  const handleRemoveSignature = async () => {
+    await callProfileAPI({ action: "update-info", assinatura_email_url: null });
+    setProfile(prev => prev ? { ...prev, assinatura_email_url: "" } : prev);
+    toast({ title: "Assinatura removida" });
   };
 
   const handleSaveInfo = async () => {
