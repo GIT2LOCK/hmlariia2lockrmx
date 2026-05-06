@@ -62,6 +62,7 @@ export function AbrirChamadoModal({ open, onOpenChange, unidadeId }: AbrirChamad
   const [protocolo, setProtocolo] = useState("");
   const [codigoServico, setCodigoServico] = useState("");
   const [copiedId, setCopiedId] = useState<number | null>(null);
+  const [enviandoEmail, setEnviandoEmail] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
