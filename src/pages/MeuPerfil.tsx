@@ -27,6 +27,7 @@ interface ProfileData {
   avatar_url: string;
   totp_enabled: boolean;
   permissao: string;
+  assinatura_email: string;
 }
 
 interface SessionData {
