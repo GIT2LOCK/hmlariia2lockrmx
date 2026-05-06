@@ -69,8 +69,8 @@ export function AbrirChamadoModal({ open, onOpenChange, unidadeId }: AbrirChamad
 
   useEffect(() => {
     if (!user.id) return;
-    supabase.from("usuarios").select("assinatura_email").eq("id", user.id).maybeSingle()
-      .then(({ data }) => setAssinatura((data as any)?.assinatura_email || ""));
+    supabase.from("usuarios").select("assinatura_email_url").eq("id", user.id).maybeSingle()
+      .then(({ data }) => setAssinatura((data as any)?.assinatura_email_url || ""));
   }, [user.id]);
 
   useEffect(() => {

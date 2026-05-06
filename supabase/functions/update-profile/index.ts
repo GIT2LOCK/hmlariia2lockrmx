@@ -23,13 +23,13 @@ serve(async (req) => {
     const { action } = body;
 
     if (action === "update-info") {
-      const { nome, email, telefone, avatar_url, assinatura_email } = body;
+      const { nome, email, telefone, avatar_url, assinatura_email_url } = body;
       const updates: Record<string, any> = {};
       if (nome !== undefined) updates.nome = nome;
       if (email !== undefined) updates.email = email;
       if (telefone !== undefined) updates.telefone = telefone;
       if (avatar_url !== undefined) updates.avatar_url = avatar_url;
-      if (assinatura_email !== undefined) updates.assinatura_email = assinatura_email;
+      if (assinatura_email_url !== undefined) updates.assinatura_email_url = assinatura_email_url;
 
       if (Object.keys(updates).length === 0) {
         return new Response(JSON.stringify({ error: "Nenhum campo para atualizar" }),
@@ -40,7 +40,7 @@ serve(async (req) => {
       if (error) throw error;
 
       const { data: user } = await supabase.from("usuarios")
-        .select("id, nome, email, permissao, telefone, avatar_url, totp_enabled, assinatura_email")
+        .select("id, nome, email, permissao, telefone, avatar_url, totp_enabled, assinatura_email_url")
         .eq("id", userId).single();
 
       return new Response(JSON.stringify({ success: true, user }),
@@ -108,7 +108,7 @@ serve(async (req) => {
 
     if (action === "get-profile") {
       const { data: user } = await supabase.from("usuarios")
-        .select("id, nome, email, permissao, telefone, avatar_url, totp_enabled, assinatura_email")
+        .select("id, nome, email, permissao, telefone, avatar_url, totp_enabled, assinatura_email_url")
         .eq("id", userId).single();
 
       return new Response(JSON.stringify({ success: true, user }),
