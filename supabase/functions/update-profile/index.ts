@@ -23,12 +23,13 @@ serve(async (req) => {
     const { action } = body;
 
     if (action === "update-info") {
-      const { nome, email, telefone, avatar_url } = body;
+      const { nome, email, telefone, avatar_url, assinatura_email } = body;
       const updates: Record<string, any> = {};
       if (nome !== undefined) updates.nome = nome;
       if (email !== undefined) updates.email = email;
       if (telefone !== undefined) updates.telefone = telefone;
       if (avatar_url !== undefined) updates.avatar_url = avatar_url;
+      if (assinatura_email !== undefined) updates.assinatura_email = assinatura_email;
 
       if (Object.keys(updates).length === 0) {
         return new Response(JSON.stringify({ error: "Nenhum campo para atualizar" }),

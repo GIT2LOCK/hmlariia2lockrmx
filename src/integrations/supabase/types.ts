@@ -910,6 +910,7 @@ export type Database = {
       }
       usuarios: {
         Row: {
+          assinatura_email: string | null
           ativo: boolean | null
           atualizado_em: string | null
           avatar_url: string | null
@@ -924,6 +925,7 @@ export type Database = {
           totp_secret: string | null
         }
         Insert: {
+          assinatura_email?: string | null
           ativo?: boolean | null
           atualizado_em?: string | null
           avatar_url?: string | null
@@ -938,6 +940,7 @@ export type Database = {
           totp_secret?: string | null
         }
         Update: {
+          assinatura_email?: string | null
           ativo?: boolean | null
           atualizado_em?: string | null
           avatar_url?: string | null
