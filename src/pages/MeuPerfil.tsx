@@ -148,7 +148,7 @@ const MeuPerfil = () => {
     // Fallback: load profile directly from database
     const { data: dbUser } = await supabase
       .from("usuarios")
-      .select("id, nome, email, permissao, telefone, avatar_url, totp_enabled")
+      .select("id, nome, email, permissao, telefone, avatar_url, totp_enabled, assinatura_email")
       .eq("id", resolvedUserId)
       .single();
 

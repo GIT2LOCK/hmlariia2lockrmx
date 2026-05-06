@@ -40,7 +40,7 @@ serve(async (req) => {
       if (error) throw error;
 
       const { data: user } = await supabase.from("usuarios")
-        .select("id, nome, email, permissao, telefone, avatar_url, totp_enabled")
+        .select("id, nome, email, permissao, telefone, avatar_url, totp_enabled, assinatura_email")
         .eq("id", userId).single();
 
       return new Response(JSON.stringify({ success: true, user }),
@@ -108,7 +108,7 @@ serve(async (req) => {
 
     if (action === "get-profile") {
       const { data: user } = await supabase.from("usuarios")
-        .select("id, nome, email, permissao, telefone, avatar_url, totp_enabled")
+        .select("id, nome, email, permissao, telefone, avatar_url, totp_enabled, assinatura_email")
         .eq("id", userId).single();
 
       return new Response(JSON.stringify({ success: true, user }),
