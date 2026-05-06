@@ -157,6 +157,35 @@ export function AbrirChamadoModal({ open, onOpenChange, unidadeId }: AbrirChamad
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  const handleSendEmail = async (link: LinkOption) => {
+    if (!unidade) return;
+    const message = generateEmail(link);
+    if (!message) {
+      toast({ title: "E-mail vazio", variant: "destructive" });
+      return;
+    }
+    setEnviandoEmail(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("send-smartsigma-webhook", {
+        body: {
+          empresa: unidade.empresa_nome,
+          unidade: unidade.nome_unidade,
+          operadora_nome: link.operadora_nome,
+          operadora_email: link.operadora_email || null,
+          message,
+          link_id: link.id,
+          unidade_id: unidade.id,
+        },
+      });
+      if (error) throw error;
+      toast({ title: "E-mail enviado", description: (data as any)?.subject || "" });
+    } catch (e: any) {
+      toast({ title: "Falha ao enviar e-mail", description: e?.message || String(e), variant: "destructive" });
+    } finally {
+      setEnviandoEmail(false);
+    }
+  };
+
   const handleSaveChamado = async () => {
     if (!protocolo.trim()) {
       toast({ title: "Protocolo é obrigatório", variant: "destructive" });
