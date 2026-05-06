@@ -143,7 +143,6 @@ const MeuPerfil = () => {
           nome: data.user.nome || "",
           email: data.user.email || "",
           telefone: data.user.telefone || "",
-          assinatura_email_url: data.user.assinatura_email_url || "",
         });
         if (data.user.avatar_url) updateAvatar(data.user.avatar_url);
         return;
@@ -171,7 +170,6 @@ const MeuPerfil = () => {
         nome: dbUser.nome || "",
         email: dbUser.email || "",
         telefone: dbUser.telefone || "",
-        assinatura_email_url: (dbUser as any).assinatura_email_url || "",
       });
       if (dbUser.avatar_url) updateAvatar(dbUser.avatar_url);
     }
