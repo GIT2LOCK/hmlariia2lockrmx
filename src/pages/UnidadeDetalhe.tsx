@@ -16,7 +16,7 @@ import { useUser } from "@/contexts/UserContext";
 import { OPERADORA_ABREVIACOES } from "@/lib/operadoras";
 import { AbrirChamadoModal } from "@/components/AbrirChamadoModal";
 import { HistoricoChamadosModal } from "@/components/HistoricoChamadosModal";
-import { ArrowLeft, Plus, Pencil, Trash2, Wifi, Phone, FileText, MapPin, Building, Globe, Server, Shield, Mail, Copy, Check, Eye, EyeOff, History } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2, Wifi, Phone, FileText, MapPin, Building, Globe, Server, Shield, Mail, Copy, Check, Eye, EyeOff, History, Send } from "lucide-react";
 
 interface LinkInternet {
   id: number; unidade_id: number; operadora_id: number; nome_link: string | null;
@@ -229,6 +229,37 @@ const UnidadeDetalhe = () => {
     toast({ title: "Texto copiado para a área de transferência" });
     setTimeout(() => setCopiedLinkId(null), 2000);
   };
+
+  const [enviandoEmailLinkId, setEnviandoEmailLinkId] = useState<number | null>(null);
+  const handleSendSmartSigmaEmail = async (link: LinkInternet) => {
+    if (!unidade) return;
+    const message = generateSmartSigmaEmail(link);
+    if (!message) {
+      toast({ title: "E-mail vazio", variant: "destructive" });
+      return;
+    }
+    setEnviandoEmailLinkId(link.id);
+    try {
+      const { data, error } = await supabase.functions.invoke("send-smartsigma-webhook", {
+        body: {
+          empresa: unidade.empresas?.nome_fantasia || "",
+          unidade: unidade.nome_unidade || "",
+          operadora_nome: link.operadoras?.nome || "",
+          operadora_email: link.operadoras?.email || null,
+          message,
+          link_id: link.id,
+          unidade_id: unidade.id,
+        },
+      });
+      if (error) throw error;
+      toast({ title: "E-mail enviado", description: (data as any)?.subject || "" });
+    } catch (e: any) {
+      toast({ title: "Falha ao enviar e-mail", description: e?.message || String(e), variant: "destructive" });
+    } finally {
+      setEnviandoEmailLinkId(null);
+    }
+  };
+
 
   // --- Link CRUD ---
   const openNewLink = () => { setEditingLink(null); setLinkForm(emptyLinkForm); setLinkModalOpen(true); };
@@ -588,17 +619,27 @@ const UnidadeDetalhe = () => {
                             </pre>
                           </div>
 
-                          <Button
-                            onClick={() => handleCopyEmail(link)}
-                            className="w-full gap-2"
-                            variant={copiedLinkId === link.id ? "secondary" : "default"}
-                          >
-                            {copiedLinkId === link.id ? (
-                              <><Check className="h-4 w-4" /> Copiado!</>
-                            ) : (
-                              <><Copy className="h-4 w-4" /> Copiar texto do chamado</>
-                            )}
-                          </Button>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <Button
+                              onClick={() => handleCopyEmail(link)}
+                              className="w-full gap-2"
+                              variant={copiedLinkId === link.id ? "secondary" : "outline"}
+                            >
+                              {copiedLinkId === link.id ? (
+                                <><Check className="h-4 w-4" /> Copiado!</>
+                              ) : (
+                                <><Copy className="h-4 w-4" /> Copiar texto</>
+                              )}
+                            </Button>
+                            <Button
+                              onClick={() => handleSendSmartSigmaEmail(link)}
+                              className="w-full gap-2"
+                              disabled={enviandoEmailLinkId === link.id}
+                            >
+                              <Send className="h-4 w-4" />
+                              {enviandoEmailLinkId === link.id ? "Enviando..." : "Enviar e-mail"}
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </>
