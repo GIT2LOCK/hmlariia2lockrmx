@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import { Copy, Check, Mail, Phone } from "lucide-react";
+import { Copy, Check, Mail, Phone, Send } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
@@ -62,6 +62,7 @@ export function AbrirChamadoModal({ open, onOpenChange, unidadeId }: AbrirChamad
   const [protocolo, setProtocolo] = useState("");
   const [codigoServico, setCodigoServico] = useState("");
   const [copiedId, setCopiedId] = useState<number | null>(null);
+  const [enviandoEmail, setEnviandoEmail] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -154,6 +155,35 @@ export function AbrirChamadoModal({ open, onOpenChange, unidadeId }: AbrirChamad
     setCopiedId(link.id);
     toast({ title: "Texto copiado para a área de transferência" });
     setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handleSendEmail = async (link: LinkOption) => {
+    if (!unidade) return;
+    const message = generateEmail(link);
+    if (!message) {
+      toast({ title: "E-mail vazio", variant: "destructive" });
+      return;
+    }
+    setEnviandoEmail(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("send-smartsigma-webhook", {
+        body: {
+          empresa: unidade.empresa_nome,
+          unidade: unidade.nome_unidade,
+          operadora_nome: link.operadora_nome,
+          operadora_email: link.operadora_email || null,
+          message,
+          link_id: link.id,
+          unidade_id: unidade.id,
+        },
+      });
+      if (error) throw error;
+      toast({ title: "E-mail enviado", description: (data as any)?.subject || "" });
+    } catch (e: any) {
+      toast({ title: "Falha ao enviar e-mail", description: e?.message || String(e), variant: "destructive" });
+    } finally {
+      setEnviandoEmail(false);
+    }
   };
 
   const handleSaveChamado = async () => {
@@ -267,9 +297,15 @@ export function AbrirChamadoModal({ open, onOpenChange, unidadeId }: AbrirChamad
                         <Label className="text-xs text-muted-foreground mb-2 block">Prévia do e-mail</Label>
                         <pre className="text-sm whitespace-pre-wrap font-sans text-foreground">{generateEmail(selectedLink)}</pre>
                       </div>
-                      <Button onClick={() => handleCopy(selectedLink)} className="w-full gap-2" variant={copiedId === selectedLink.id ? "secondary" : "default"}>
-                        {copiedId === selectedLink.id ? <><Check className="h-4 w-4" /> Copiado!</> : <><Copy className="h-4 w-4" /> Copiar texto do chamado</>}
-                      </Button>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <Button onClick={() => handleCopy(selectedLink)} className="w-full gap-2" variant={copiedId === selectedLink.id ? "secondary" : "outline"}>
+                          {copiedId === selectedLink.id ? <><Check className="h-4 w-4" /> Copiado!</> : <><Copy className="h-4 w-4" /> Copiar texto</>}
+                        </Button>
+                        <Button onClick={() => handleSendEmail(selectedLink)} className="w-full gap-2" disabled={enviandoEmail}>
+                          <Send className="h-4 w-4" />
+                          {enviandoEmail ? "Enviando..." : "Enviar e-mail"}
+                        </Button>
+                      </div>
                     </>
                   )}
 
