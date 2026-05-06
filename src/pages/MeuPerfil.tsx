@@ -14,7 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import {
   User, Shield, Monitor, Pencil, Camera, Save, X, Loader2,
-  Smartphone, Globe, Clock, Trash2, Lock, Eye, EyeOff, Copy, Check,
+  Smartphone, Globe, Clock, Trash2, Lock, Eye, EyeOff, Copy, Check, Mail,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
