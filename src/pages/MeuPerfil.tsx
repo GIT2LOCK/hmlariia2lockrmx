@@ -65,7 +65,7 @@ const MeuPerfil = () => {
 
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [editing, setEditing] = useState(false);
-  const [editForm, setEditForm] = useState({ nome: "", email: "", telefone: "" });
+  const [editForm, setEditForm] = useState({ nome: "", email: "", telefone: "", assinatura_email: "" });
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
@@ -140,6 +140,7 @@ const MeuPerfil = () => {
           nome: data.user.nome || "",
           email: data.user.email || "",
           telefone: data.user.telefone || "",
+          assinatura_email: data.user.assinatura_email || "",
         });
         if (data.user.avatar_url) updateAvatar(data.user.avatar_url);
         return;
@@ -161,11 +162,13 @@ const MeuPerfil = () => {
         avatar_url: dbUser.avatar_url || "",
         totp_enabled: dbUser.totp_enabled || false,
         permissao: dbUser.permissao,
+        assinatura_email: (dbUser as any).assinatura_email || "",
       });
       setEditForm({
         nome: dbUser.nome || "",
         email: dbUser.email || "",
         telefone: dbUser.telefone || "",
+        assinatura_email: (dbUser as any).assinatura_email || "",
       });
       if (dbUser.avatar_url) updateAvatar(dbUser.avatar_url);
     }
@@ -409,7 +412,7 @@ const MeuPerfil = () => {
                   </Button>
                 ) : (
                   <div className="flex gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => { setEditing(false); setEditForm({ nome: profile.nome, email: profile.email, telefone: profile.telefone || "" }); }}>
+                    <Button variant="ghost" size="sm" onClick={() => { setEditing(false); setEditForm({ nome: profile.nome, email: profile.email, telefone: profile.telefone || "", assinatura_email: profile.assinatura_email || "" }); }}>
                       <X className="h-4 w-4" />
                     </Button>
                     <Button size="sm" onClick={handleSaveInfo} disabled={saving} className="gap-2">
