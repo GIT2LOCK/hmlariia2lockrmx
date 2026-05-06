@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -483,6 +484,29 @@ const MeuPerfil = () => {
                   <p className="text-sm mt-1 p-2 bg-muted/50 rounded">{roleLabels[profile.permissao] || profile.permissao}</p>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><Mail className="h-5 w-5" /> Assinatura de E-mail</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-xs text-muted-foreground">
+                Esta assinatura será adicionada automaticamente ao final dos e-mails enviados pelo sistema (ex: SmartSigma) quando você for o autor.
+              </p>
+              {editing ? (
+                <Textarea
+                  value={editForm.assinatura_email}
+                  onChange={(e) => setEditForm({ ...editForm, assinatura_email: e.target.value })}
+                  rows={6}
+                  placeholder={`Atenciosamente,\n${profile.nome}\nMonitoramento — 2lock\ncontato@empresa.com`}
+                />
+              ) : (
+                <pre className="text-sm whitespace-pre-wrap font-sans p-3 bg-muted/50 rounded min-h-[80px]">
+                  {profile.assinatura_email || <span className="text-muted-foreground italic">Nenhuma assinatura cadastrada. Clique em "Editar" para configurar.</span>}
+                </pre>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
