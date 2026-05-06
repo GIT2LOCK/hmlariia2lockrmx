@@ -65,6 +65,13 @@ export function AbrirChamadoModal({ open, onOpenChange, unidadeId }: AbrirChamad
   const [enviandoEmail, setEnviandoEmail] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [assinatura, setAssinatura] = useState("");
+
+  useEffect(() => {
+    if (!user.id) return;
+    supabase.from("usuarios").select("assinatura_email").eq("id", user.id).maybeSingle()
+      .then(({ data }) => setAssinatura((data as any)?.assinatura_email || ""));
+  }, [user.id]);
 
   useEffect(() => {
     if (open && unidadeId) {
@@ -143,10 +150,12 @@ export function AbrirChamadoModal({ open, onOpenChange, unidadeId }: AbrirChamad
     if (!unidade || !link.smart_sigma) return "";
     const nomeUsuario = `${user.nome}${user.sobrenome ? ` ${user.sobrenome}` : ""}`;
     const obs = observacoes.trim();
+    const sig = assinatura.trim() ? `\n\n${assinatura.trim()}` : "";
     const base = `Olá!\n\nMe chamo ${nomeUsuario}, faço parte do time de monitoramento da ${unidade.empresa_nome}. Identificamos que o link de internet ${link.operadora_nome}, da unidade ${unidade.nome_unidade}, está inoperante${obs ? `. ${obs}` : ""}, gostaríamos de abrir um chamado ao link. Segue dados do mesmo:\n\nRazão: ${unidade.antiga_razao || "-"}\nCNPJ: ${link.cnpj_abertura || "-"}\nEndereço: ${buildEndereco() || "-"}\n\nContato:\nTelefone: ${unidade.telefone || "-"}\nEmail: ${unidade.email || "-"}`;
-    return obs
+    const body = obs
       ? `Olá!\n\nMe chamo ${nomeUsuario}, faço parte do time de monitoramento da ${unidade.empresa_nome}. Identificamos que o link de internet ${link.operadora_nome}, da unidade ${unidade.nome_unidade}, está inoperante. ${obs}\n\nDiante disso, gostaríamos de abrir um chamado ao link. Segue dados do mesmo:\n\nRazão: ${unidade.antiga_razao || "-"}\nCNPJ: ${link.cnpj_abertura || "-"}\nEndereço: ${buildEndereco() || "-"}\n\nContato:\nTelefone: ${unidade.telefone || "-"}\nEmail: ${unidade.email || "-"}\n\nAgradecemos a atenção e aguardamos retorno.`
       : base;
+    return body + sig;
   };
 
   const handleCopy = async (link: LinkOption) => {

@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import {
   User, Shield, Monitor, Pencil, Camera, Save, X, Loader2,
-  Smartphone, Globe, Clock, Trash2, Lock, Eye, EyeOff, Copy, Check,
+  Smartphone, Globe, Clock, Trash2, Lock, Eye, EyeOff, Copy, Check, Mail,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
@@ -27,6 +28,7 @@ interface ProfileData {
   avatar_url: string;
   totp_enabled: boolean;
   permissao: string;
+  assinatura_email: string;
 }
 
 interface SessionData {
@@ -64,7 +66,7 @@ const MeuPerfil = () => {
 
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [editing, setEditing] = useState(false);
-  const [editForm, setEditForm] = useState({ nome: "", email: "", telefone: "" });
+  const [editForm, setEditForm] = useState({ nome: "", email: "", telefone: "", assinatura_email: "" });
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
@@ -139,6 +141,7 @@ const MeuPerfil = () => {
           nome: data.user.nome || "",
           email: data.user.email || "",
           telefone: data.user.telefone || "",
+          assinatura_email: data.user.assinatura_email || "",
         });
         if (data.user.avatar_url) updateAvatar(data.user.avatar_url);
         return;
@@ -148,7 +151,7 @@ const MeuPerfil = () => {
     // Fallback: load profile directly from database
     const { data: dbUser } = await supabase
       .from("usuarios")
-      .select("id, nome, email, permissao, telefone, avatar_url, totp_enabled")
+      .select("id, nome, email, permissao, telefone, avatar_url, totp_enabled, assinatura_email")
       .eq("id", resolvedUserId)
       .single();
 
@@ -160,11 +163,13 @@ const MeuPerfil = () => {
         avatar_url: dbUser.avatar_url || "",
         totp_enabled: dbUser.totp_enabled || false,
         permissao: dbUser.permissao,
+        assinatura_email: (dbUser as any).assinatura_email || "",
       });
       setEditForm({
         nome: dbUser.nome || "",
         email: dbUser.email || "",
         telefone: dbUser.telefone || "",
+        assinatura_email: (dbUser as any).assinatura_email || "",
       });
       if (dbUser.avatar_url) updateAvatar(dbUser.avatar_url);
     }
@@ -408,7 +413,7 @@ const MeuPerfil = () => {
                   </Button>
                 ) : (
                   <div className="flex gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => { setEditing(false); setEditForm({ nome: profile.nome, email: profile.email, telefone: profile.telefone || "" }); }}>
+                    <Button variant="ghost" size="sm" onClick={() => { setEditing(false); setEditForm({ nome: profile.nome, email: profile.email, telefone: profile.telefone || "", assinatura_email: profile.assinatura_email || "" }); }}>
                       <X className="h-4 w-4" />
                     </Button>
                     <Button size="sm" onClick={handleSaveInfo} disabled={saving} className="gap-2">
@@ -479,6 +484,29 @@ const MeuPerfil = () => {
                   <p className="text-sm mt-1 p-2 bg-muted/50 rounded">{roleLabels[profile.permissao] || profile.permissao}</p>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><Mail className="h-5 w-5" /> Assinatura de E-mail</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-xs text-muted-foreground">
+                Esta assinatura será adicionada automaticamente ao final dos e-mails enviados pelo sistema (ex: SmartSigma) quando você for o autor.
+              </p>
+              {editing ? (
+                <Textarea
+                  value={editForm.assinatura_email}
+                  onChange={(e) => setEditForm({ ...editForm, assinatura_email: e.target.value })}
+                  rows={6}
+                  placeholder={`Atenciosamente,\n${profile.nome}\nMonitoramento — 2lock\ncontato@empresa.com`}
+                />
+              ) : (
+                <pre className="text-sm whitespace-pre-wrap font-sans p-3 bg-muted/50 rounded min-h-[80px]">
+                  {profile.assinatura_email || <span className="text-muted-foreground italic">Nenhuma assinatura cadastrada. Clique em "Editar" para configurar.</span>}
+                </pre>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
