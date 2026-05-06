@@ -230,6 +230,37 @@ const UnidadeDetalhe = () => {
     setTimeout(() => setCopiedLinkId(null), 2000);
   };
 
+  const [enviandoEmailLinkId, setEnviandoEmailLinkId] = useState<number | null>(null);
+  const handleSendSmartSigmaEmail = async (link: LinkInternet) => {
+    if (!unidade) return;
+    const message = generateSmartSigmaEmail(link);
+    if (!message) {
+      toast({ title: "E-mail vazio", variant: "destructive" });
+      return;
+    }
+    setEnviandoEmailLinkId(link.id);
+    try {
+      const { data, error } = await supabase.functions.invoke("send-smartsigma-webhook", {
+        body: {
+          empresa: unidade.empresas?.nome_fantasia || "",
+          unidade: unidade.nome_unidade || "",
+          operadora_nome: link.operadoras?.nome || "",
+          operadora_email: link.operadoras?.email || null,
+          message,
+          link_id: link.id,
+          unidade_id: unidade.id,
+        },
+      });
+      if (error) throw error;
+      toast({ title: "E-mail enviado", description: (data as any)?.subject || "" });
+    } catch (e: any) {
+      toast({ title: "Falha ao enviar e-mail", description: e?.message || String(e), variant: "destructive" });
+    } finally {
+      setEnviandoEmailLinkId(null);
+    }
+  };
+
+
   // --- Link CRUD ---
   const openNewLink = () => { setEditingLink(null); setLinkForm(emptyLinkForm); setLinkModalOpen(true); };
   const openEditLink = (l: LinkInternet) => {
