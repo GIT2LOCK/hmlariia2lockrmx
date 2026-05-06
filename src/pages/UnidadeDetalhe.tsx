@@ -619,17 +619,27 @@ const UnidadeDetalhe = () => {
                             </pre>
                           </div>
 
-                          <Button
-                            onClick={() => handleCopyEmail(link)}
-                            className="w-full gap-2"
-                            variant={copiedLinkId === link.id ? "secondary" : "default"}
-                          >
-                            {copiedLinkId === link.id ? (
-                              <><Check className="h-4 w-4" /> Copiado!</>
-                            ) : (
-                              <><Copy className="h-4 w-4" /> Copiar texto do chamado</>
-                            )}
-                          </Button>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <Button
+                              onClick={() => handleCopyEmail(link)}
+                              className="w-full gap-2"
+                              variant={copiedLinkId === link.id ? "secondary" : "outline"}
+                            >
+                              {copiedLinkId === link.id ? (
+                                <><Check className="h-4 w-4" /> Copiado!</>
+                              ) : (
+                                <><Copy className="h-4 w-4" /> Copiar texto</>
+                              )}
+                            </Button>
+                            <Button
+                              onClick={() => handleSendSmartSigmaEmail(link)}
+                              className="w-full gap-2"
+                              disabled={enviandoEmailLinkId === link.id}
+                            >
+                              <Send className="h-4 w-4" />
+                              {enviandoEmailLinkId === link.id ? "Enviando..." : "Enviar e-mail"}
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </>
