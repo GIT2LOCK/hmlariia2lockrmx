@@ -911,6 +911,7 @@ export type Database = {
       usuarios: {
         Row: {
           assinatura_email: string | null
+          assinatura_email_url: string | null
           ativo: boolean | null
           atualizado_em: string | null
           avatar_url: string | null
@@ -926,6 +927,7 @@ export type Database = {
         }
         Insert: {
           assinatura_email?: string | null
+          assinatura_email_url?: string | null
           ativo?: boolean | null
           atualizado_em?: string | null
           avatar_url?: string | null
@@ -941,6 +943,7 @@ export type Database = {
         }
         Update: {
           assinatura_email?: string | null
+          assinatura_email_url?: string | null
           ativo?: boolean | null
           atualizado_em?: string | null
           avatar_url?: string | null

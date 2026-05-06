@@ -28,7 +28,7 @@ interface ProfileData {
   avatar_url: string;
   totp_enabled: boolean;
   permissao: string;
-  assinatura_email: string;
+  assinatura_email_url: string;
 }
 
 interface SessionData {
@@ -63,12 +63,14 @@ const MeuPerfil = () => {
   const { user, updateAvatar, syncFromDatabase, isLoading, isAuthenticated } = useUser();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const signatureInputRef = useRef<HTMLInputElement>(null);
 
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [editing, setEditing] = useState(false);
-  const [editForm, setEditForm] = useState({ nome: "", email: "", telefone: "", assinatura_email: "" });
+  const [editForm, setEditForm] = useState({ nome: "", email: "", telefone: "" });
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [uploadingSignature, setUploadingSignature] = useState(false);
 
   // Password change
   const [changingPassword, setChangingPassword] = useState(false);
@@ -141,7 +143,6 @@ const MeuPerfil = () => {
           nome: data.user.nome || "",
           email: data.user.email || "",
           telefone: data.user.telefone || "",
-          assinatura_email: data.user.assinatura_email || "",
         });
         if (data.user.avatar_url) updateAvatar(data.user.avatar_url);
         return;
@@ -151,7 +152,7 @@ const MeuPerfil = () => {
     // Fallback: load profile directly from database
     const { data: dbUser } = await supabase
       .from("usuarios")
-      .select("id, nome, email, permissao, telefone, avatar_url, totp_enabled, assinatura_email")
+      .select("id, nome, email, permissao, telefone, avatar_url, totp_enabled, assinatura_email_url")
       .eq("id", resolvedUserId)
       .single();
 
@@ -163,13 +164,12 @@ const MeuPerfil = () => {
         avatar_url: dbUser.avatar_url || "",
         totp_enabled: dbUser.totp_enabled || false,
         permissao: dbUser.permissao,
-        assinatura_email: (dbUser as any).assinatura_email || "",
+        assinatura_email_url: (dbUser as any).assinatura_email_url || "",
       });
       setEditForm({
         nome: dbUser.nome || "",
         email: dbUser.email || "",
         telefone: dbUser.telefone || "",
-        assinatura_email: (dbUser as any).assinatura_email || "",
       });
       if (dbUser.avatar_url) updateAvatar(dbUser.avatar_url);
     }
@@ -254,6 +254,42 @@ const MeuPerfil = () => {
     } finally {
       setUploadingAvatar(false);
     }
+  };
+
+  const handleSignatureUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!["image/png", "image/jpeg", "image/jpg"].includes(file.type)) {
+      toast({ title: "Use PNG ou JPG", variant: "destructive" });
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast({ title: "Imagem deve ter no máximo 2MB", variant: "destructive" });
+      return;
+    }
+    setUploadingSignature(true);
+    try {
+      const ext = file.name.split(".").pop();
+      const path = `user-${user.id}/${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("email-signatures").upload(path, file, { upsert: true });
+      if (upErr) throw upErr;
+      const { data: urlData } = supabase.storage.from("email-signatures").getPublicUrl(path);
+      const assinatura_email_url = urlData.publicUrl;
+      await callProfileAPI({ action: "update-info", assinatura_email_url });
+      setProfile(prev => prev ? { ...prev, assinatura_email_url } : prev);
+      toast({ title: "Assinatura atualizada!" });
+    } catch (err: any) {
+      toast({ title: "Erro ao enviar assinatura", description: err?.message, variant: "destructive" });
+    } finally {
+      setUploadingSignature(false);
+      if (signatureInputRef.current) signatureInputRef.current.value = "";
+    }
+  };
+
+  const handleRemoveSignature = async () => {
+    await callProfileAPI({ action: "update-info", assinatura_email_url: null });
+    setProfile(prev => prev ? { ...prev } : prev);
+    toast({ title: "Assinatura removida" });
   };
 
   const handleSaveInfo = async () => {
@@ -413,7 +449,7 @@ const MeuPerfil = () => {
                   </Button>
                 ) : (
                   <div className="flex gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => { setEditing(false); setEditForm({ nome: profile.nome, email: profile.email, telefone: profile.telefone || "", assinatura_email: profile.assinatura_email || "" }); }}>
+                    <Button variant="ghost" size="sm" onClick={() => { setEditing(false); setEditForm({ nome: profile.nome, email: profile.email, telefone: profile.telefone || "" }); }}>
                       <X className="h-4 w-4" />
                     </Button>
                     <Button size="sm" onClick={handleSaveInfo} disabled={saving} className="gap-2">
@@ -493,20 +529,33 @@ const MeuPerfil = () => {
             </CardHeader>
             <CardContent className="space-y-3">
               <p className="text-xs text-muted-foreground">
-                Esta assinatura será adicionada automaticamente ao final dos e-mails enviados pelo sistema (ex: SmartSigma) quando você for o autor.
+                Faça upload de uma imagem (PNG/JPG) com sua assinatura. Ela será enviada como anexo nos e-mails disparados pelo sistema (ex: SmartSigma) quando você for o autor.
               </p>
-              {editing ? (
-                <Textarea
-                  value={editForm.assinatura_email}
-                  onChange={(e) => setEditForm({ ...editForm, assinatura_email: e.target.value })}
-                  rows={6}
-                  placeholder={`Atenciosamente,\n${profile.nome}\nMonitoramento — 2lock\ncontato@empresa.com`}
-                />
+              {profile.assinatura_email_url ? (
+                <div className="border rounded p-3 bg-muted/30 inline-block">
+                  <img src={profile.assinatura_email_url} alt="Assinatura" className="max-h-32" />
+                </div>
               ) : (
-                <pre className="text-sm whitespace-pre-wrap font-sans p-3 bg-muted/50 rounded min-h-[80px]">
-                  {profile.assinatura_email || <span className="text-muted-foreground italic">Nenhuma assinatura cadastrada. Clique em "Editar" para configurar.</span>}
-                </pre>
+                <p className="text-sm text-muted-foreground italic">Nenhuma assinatura enviada.</p>
               )}
+              <div className="flex gap-2">
+                <input
+                  ref={signatureInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/jpg"
+                  className="hidden"
+                  onChange={handleSignatureUpload}
+                />
+                <Button variant="outline" size="sm" onClick={() => signatureInputRef.current?.click()} disabled={uploadingSignature} className="gap-2">
+                  {uploadingSignature ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+                  {profile.assinatura_email_url ? "Substituir" : "Enviar imagem"}
+                </Button>
+                {profile.assinatura_email_url && (
+                  <Button variant="ghost" size="sm" onClick={handleRemoveSignature} className="gap-2 text-destructive">
+                    <Trash2 className="h-4 w-4" /> Remover
+                  </Button>
+                )}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
