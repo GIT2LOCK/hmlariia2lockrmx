@@ -290,7 +290,7 @@ const MeuPerfil = () => {
 
   const handleRemoveSignature = async () => {
     await callProfileAPI({ action: "update-info", assinatura_email_url: null });
-    setProfile(prev => prev ? { ...prev, assinatura_email_url: "" } : prev);
+    setProfile(prev => prev ? { ...prev } : prev);
     toast({ title: "Assinatura removida" });
   };
 
@@ -451,7 +451,7 @@ const MeuPerfil = () => {
                   </Button>
                 ) : (
                   <div className="flex gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => { setEditing(false); setEditForm({ nome: profile.nome, email: profile.email, telefone: profile.telefone || "", assinatura_email_url: profile.assinatura_email_url || "" }); }}>
+                    <Button variant="ghost" size="sm" onClick={() => { setEditing(false); setEditForm({ nome: profile.nome, email: profile.email, telefone: profile.telefone || "" }); }}>
                       <X className="h-4 w-4" />
                     </Button>
                     <Button size="sm" onClick={handleSaveInfo} disabled={saving} className="gap-2">
@@ -533,9 +533,9 @@ const MeuPerfil = () => {
               <p className="text-xs text-muted-foreground">
                 Faça upload de uma imagem (PNG/JPG) com sua assinatura. Ela será enviada como anexo nos e-mails disparados pelo sistema (ex: SmartSigma) quando você for o autor.
               </p>
-              {profile.assinatura_email_url_url ? (
+              {profile.assinatura_email_url ? (
                 <div className="border rounded p-3 bg-muted/30 inline-block">
-                  <img src={profile.assinatura_email_url_url} alt="Assinatura" className="max-h-32" />
+                  <img src={profile.assinatura_email_url} alt="Assinatura" className="max-h-32" />
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground italic">Nenhuma assinatura enviada.</p>
@@ -550,9 +550,9 @@ const MeuPerfil = () => {
                 />
                 <Button variant="outline" size="sm" onClick={() => signatureInputRef.current?.click()} disabled={uploadingSignature} className="gap-2">
                   {uploadingSignature ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
-                  {profile.assinatura_email_url_url ? "Substituir" : "Enviar imagem"}
+                  {profile.assinatura_email_url ? "Substituir" : "Enviar imagem"}
                 </Button>
-                {profile.assinatura_email_url_url && (
+                {profile.assinatura_email_url && (
                   <Button variant="ghost" size="sm" onClick={handleRemoveSignature} className="gap-2 text-destructive">
                     <Trash2 className="h-4 w-4" /> Remover
                   </Button>
