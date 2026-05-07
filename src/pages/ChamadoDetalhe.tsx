@@ -261,68 +261,53 @@ export default function ChamadoDetalhe() {
 
       <Tabs defaultValue="resumo" className="w-full">
         <TabsList>
-          <TabsTrigger value="resumo">Resumo ({comments.length + 1})</TabsTrigger>
+          <TabsTrigger value="resumo">Conversa ({comments.length + 1})</TabsTrigger>
           <TabsTrigger value="sla">SLA</TabsTrigger>
           <TabsTrigger value="historico">Histórico ({history.length})</TabsTrigger>
           <TabsTrigger value="anexos">Anexos ({attachments.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="resumo" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Timeline GLPI-style */}
-            <div className="md:col-span-2 space-y-3">
+            <div className="lg:col-span-2 space-y-5">
               {/* Mensagem inicial (descrição) */}
-              <Card className="border-l-4 border-l-primary">
-                <CardContent className="pt-4 space-y-2">
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>
-                      <b>{ticket.solicitante_nome || ticket.usuarios?.nome || "Solicitante"}</b>
-                      {ticket.solicitante_email && <span> · {ticket.solicitante_email}</span>}
-                      <span> · Abertura ({ticket.origem})</span>
-                    </span>
-                    <span>{fmtDate(ticket.data_abertura)}</span>
-                  </div>
-                  <p className="text-sm whitespace-pre-wrap">
-                    {ticket.descricao || <span className="text-muted-foreground">Sem descrição</span>}
-                  </p>
-                </CardContent>
-              </Card>
+              <ConversationBubble
+                side="left"
+                authorName={ticket.solicitante_nome || ticket.usuarios?.nome || "Solicitante"}
+                title={ticket.titulo}
+                createdAt={ticket.data_abertura}
+                createdLabel="Criado em"
+                meta={ticket.solicitante_email}
+                tone="primary"
+              >
+                {ticket.descricao || <span className="text-muted-foreground">Sem descrição</span>}
+              </ConversationBubble>
 
               {/* Conversa */}
               {comments.map((c) => {
                 const isInterno = c.tipo === "INTERNO";
                 return (
-                  <Card
+                  <ConversationBubble
                     key={c.id}
-                    className={
-                      isInterno
-                        ? "border-l-4 border-l-amber-500 bg-amber-500/5"
-                        : "border-l-4 border-l-secondary"
-                    }
+                    side={isInterno ? "right" : "right"}
+                    authorName={c.autor_nome || "Sistema"}
+                    createdAt={c.criado_em}
+                    createdLabel="Respondido em"
+                    badge={isInterno ? "Nota interna" : "Resposta"}
+                    tone={isInterno ? "internal" : "default"}
                   >
-                    <CardContent className="pt-4 space-y-1">
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span>
-                          <b>{c.autor_nome || "Sistema"}</b>
-                          <span> · </span>
-                          <Badge variant="outline" className="ml-1 text-[10px] py-0 px-1.5">
-                            {isInterno ? "Nota interna" : "Resposta"}
-                          </Badge>
-                        </span>
-                        <span>{fmtDate(c.criado_em)}</span>
-                      </div>
-                      <p className="text-sm whitespace-pre-wrap">{c.conteudo}</p>
-                    </CardContent>
-                  </Card>
+                    {c.conteudo}
+                  </ConversationBubble>
                 );
               })}
 
               {/* Compositor */}
-              <Card>
-                <CardContent className="pt-4 space-y-2">
-                  <div className="flex gap-2 items-center">
+              <Card className="border-dashed">
+                <CardContent className="pt-4 space-y-3">
+                  <div className="flex gap-2 items-center flex-wrap">
                     <Select value={tipoComent} onValueChange={(v) => setTipoComent(v as any)}>
-                      <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="CLIENTE">Resposta (cliente)</SelectItem>
                         <SelectItem value="INTERNO">Nota interna</SelectItem>
@@ -335,7 +320,7 @@ export default function ChamadoDetalhe() {
                     </span>
                   </div>
                   <Textarea
-                    rows={3}
+                    rows={4}
                     placeholder="Escreva uma resposta ou nota..."
                     value={novoComentario}
                     onChange={(e) => setNovoComentario(e.target.value)}
@@ -350,20 +335,53 @@ export default function ChamadoDetalhe() {
             </div>
 
             {/* Painel lateral de detalhes */}
-            <Card className="h-fit">
-              <CardHeader><CardTitle className="text-sm">Detalhes</CardTitle></CardHeader>
-              <CardContent className="space-y-2 text-sm">
+            <div className="space-y-4">
+              <DetailGroup title="Solicitante">
+                <DetailRow label="Nome" value={ticket.solicitante_nome} />
+                <DetailRow label="Email" value={ticket.solicitante_email} />
+                <DetailRow label="Telefone" value={ticket.solicitante_telefone} />
+                <DetailRow label="Origem" value={ticket.origem} />
+              </DetailGroup>
+
+              <DetailGroup title="Localização">
                 <DetailRow label="Cliente" value={ticket.empresas?.nome_fantasia} />
                 <DetailRow label="Unidade" value={ticket.unidades?.nome_unidade} />
                 <DetailRow label="Operadora" value={ticket.operadoras?.nome} />
                 <DetailRow label="Ativo" value={ticket.ativo} />
+              </DetailGroup>
+
+              <DetailGroup title="Atribuição">
                 <DetailRow label="Fila" value={ticket.ticket_filas?.nome} />
                 <DetailRow label="Categoria" value={ticket.ticket_categorias?.nome} />
                 <DetailRow label="Técnico" value={ticket.usuarios?.nome} />
-                <DetailRow label="Origem" value={ticket.origem} />
-                <DetailRow label="Solicitante" value={ticket.solicitante_nome} />
-                {ticket.solicitante_email && <DetailRow label="Email" value={ticket.solicitante_email} />}
-                {ticket.solicitante_telefone && <DetailRow label="Telefone" value={ticket.solicitante_telefone} />}
+              </DetailGroup>
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="sla" className="space-y-4">
+          <div className="flex justify-end">
+            <Button variant="outline" size="sm" onClick={testarWebhookN8N}>
+              <Send className="h-4 w-4 mr-1" /> Testar webhook N8N
+            </Button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card>
+              <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Clock className="h-4 w-4" /> SLA Solução</CardTitle></CardHeader>
+              <CardContent className="space-y-2">
+                {sla && <Badge className={SLA_COLORS[sla.level]}>{sla.label}</Badge>}
+                <DetailRow label="Meta" value={`${SLA_SOLUCAO[ticket.prioridade as TicketPriority]} min`} />
+                <DetailRow label="Pausa acumulada" value={`${Math.round((ticket.sla_pausa_total_segundos || 0) / 60)} min`} />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader><CardTitle className="text-sm">Marcos</CardTitle></CardHeader>
+              <CardContent className="space-y-2 text-sm">
+                <DetailRow label="Abertura" value={fmtDate(ticket.data_abertura)} />
+                <DetailRow label="1º Atendimento" value={fmtDate(ticket.data_primeiro_atendimento)} />
+                <DetailRow label="Solução" value={fmtDate(ticket.data_solucao)} />
+                <DetailRow label="Fechamento" value={fmtDate(ticket.data_fechamento)} />
+                <DetailRow label="SLA Atendimento" value={`${SLA_ATENDIMENTO[ticket.prioridade as TicketPriority]} min`} />
               </CardContent>
             </Card>
           </div>
@@ -464,9 +482,102 @@ export default function ChamadoDetalhe() {
 
 function DetailRow({ label, value }: { label: string; value?: string | null }) {
   return (
-    <div className="flex justify-between gap-2">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium text-right truncate">{value || "—"}</span>
+    <div className="flex justify-between gap-2 py-1.5">
+      <span className="text-muted-foreground text-xs">{label}</span>
+      <span className="font-medium text-right text-sm truncate max-w-[60%]">{value || "—"}</span>
+    </div>
+  );
+}
+
+function DetailGroup({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <Card className="overflow-hidden">
+      <div className="bg-muted/50 px-4 py-2 border-b">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</h3>
+      </div>
+      <CardContent className="p-4 divide-y divide-border/50">{children}</CardContent>
+    </Card>
+  );
+}
+
+function getInitials(name?: string | null) {
+  if (!name) return "?";
+  const parts = name.trim().split(/\s+/);
+  return ((parts[0]?.[0] || "") + (parts[1]?.[0] || "")).toUpperCase() || "?";
+}
+
+function ConversationBubble({
+  side,
+  authorName,
+  title,
+  createdAt,
+  createdLabel,
+  meta,
+  badge,
+  tone = "default",
+  children,
+}: {
+  side: "left" | "right";
+  authorName: string;
+  title?: string;
+  createdAt?: string | null;
+  createdLabel?: string;
+  meta?: string | null;
+  badge?: string;
+  tone?: "default" | "primary" | "internal";
+  children: React.ReactNode;
+}) {
+  const isLeft = side === "left";
+  const toneClasses =
+    tone === "primary"
+      ? "bg-primary/5 border-primary/30"
+      : tone === "internal"
+      ? "bg-amber-500/5 border-amber-500/40"
+      : "bg-card border-border";
+  const avatarClasses =
+    tone === "primary"
+      ? "bg-primary text-primary-foreground"
+      : tone === "internal"
+      ? "bg-amber-500 text-white"
+      : "bg-secondary text-secondary-foreground";
+
+  return (
+    <div className={`flex gap-3 ${isLeft ? "flex-row" : "flex-row-reverse"}`}>
+      <div
+        className={`flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center font-semibold text-sm shadow-sm ${avatarClasses}`}
+      >
+        {getInitials(authorName)}
+      </div>
+      <div className={`flex-1 max-w-[88%] ${isLeft ? "" : "flex flex-col items-end"}`}>
+        <div className={`relative rounded-lg border ${toneClasses} shadow-sm w-full`}>
+          <div className="flex items-center gap-2 flex-wrap px-4 py-2 border-b border-border/60 bg-muted/30 text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              <span>{createdLabel || "Criado em"}:</span>
+              <b className="text-foreground">{fmtDate(createdAt)}</b>
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span>·</span>
+              <b className="text-foreground">{authorName}</b>
+            </span>
+            {meta && (
+              <span className="inline-flex items-center gap-1">
+                <span>·</span>
+                <span>{meta}</span>
+              </span>
+            )}
+            {badge && (
+              <Badge variant="outline" className="ml-auto text-[10px] py-0 px-1.5">
+                {badge}
+              </Badge>
+            )}
+          </div>
+          <div className="px-4 py-3 space-y-2">
+            {title && <h4 className="font-semibold text-base text-foreground">{title}</h4>}
+            <div className="text-sm whitespace-pre-wrap leading-relaxed text-foreground/90">{children}</div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
