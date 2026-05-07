@@ -5,7 +5,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const WEBHOOK_URL = "https://api01.2lock.com.br/webhook-test/ariia";
+const WEBHOOK_URL = "https://workflow01.2lock.com.br/webhook/ariia";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {

@@ -11,7 +11,7 @@ const corsHeaders = {
 const json = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-const WEBHOOK_URL = "https://api01.2lock.com.br/webhook-test/smartsigma";
+const WEBHOOK_URL = "https://workflow01.2lock.com.br/webhook/smartsigma";
 
 // SLA defaults (espelho de tickets-api)
 const SLA_ATENDIMENTO: Record<string, number> = { CRITICO: 15, ALTO: 30, MEDIO: 120, BAIXO: 480 };
