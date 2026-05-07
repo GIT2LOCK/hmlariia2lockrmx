@@ -38,12 +38,17 @@ function isHtmlContent(s?: string | null): boolean {
 function RichContent({ value }: { value?: string | null }) {
   if (!value) return <span className="text-muted-foreground">Sem conteúdo</span>;
   if (isHtmlContent(value)) {
-    const clean = DOMPurify.sanitize(value, {
+    // Substitui imagens cid: não resolvidas por placeholder amigável
+    const prepared = value.replace(
+      /<img\b[^>]*\bsrc=["']cid:[^"']+["'][^>]*>/gi,
+      '<span class="inline-block px-2 py-1 my-1 text-xs rounded border border-dashed border-muted-foreground/40 bg-muted/30 text-muted-foreground">[imagem inline da assinatura — não disponível]</span>'
+    );
+    const clean = DOMPurify.sanitize(prepared, {
       USE_PROFILES: { html: true },
-      ADD_ATTR: ["target", "style", "src", "srcset", "alt", "width", "height", "align", "border", "cellpadding", "cellspacing", "bgcolor", "background"],
+      ADD_ATTR: ["target", "style", "src", "srcset", "alt", "width", "height", "align", "border", "cellpadding", "cellspacing", "bgcolor", "background", "class"],
       ADD_TAGS: ["img", "style"],
       ALLOW_DATA_ATTR: true,
-      ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel|cid|data):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,
+      ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel|data):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,
     });
     return (
       <div

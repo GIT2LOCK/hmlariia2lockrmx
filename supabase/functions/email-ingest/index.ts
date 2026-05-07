@@ -223,13 +223,14 @@ serve(async (req) => {
       });
     }
 
-    // Anexos
-    for (const att of attachments) {
+    // Anexos — armazena, e mapeia Content-ID -> URL pública para reescrever cid: no HTML
+    const cidMap: Record<string, string> = {};
+    for (const att of attachments as Array<any>) {
       if (!att?.content || !att?.filename) continue;
       try {
         const bytes = b64decode(att.content);
-        if (bytes.byteLength > 5 * 1024 * 1024) {
-          console.log("[ingest] anexo > 5MB ignorado:", att.filename);
+        if (bytes.byteLength > 10 * 1024 * 1024) {
+          console.log("[ingest] anexo > 10MB ignorado:", att.filename);
           continue;
         }
         const safe = att.filename.replace(/[^a-zA-Z0-9._-]/g, "_");
@@ -245,9 +246,42 @@ serve(async (req) => {
             tamanho_bytes: bytes.byteLength,
             autor_nome: `email:${email}`,
           });
+          // gera URL assinada longa para uso inline em <img src="cid:...">
+          const cid = String(att.cid || att.contentId || att.content_id || "").replace(/^<|>$/g, "");
+          if (cid) {
+            const { data: signed } = await supabase.storage.from("ticket-attachments")
+              .createSignedUrl(path, 60 * 60 * 24 * 365 * 5); // 5 anos
+            if (signed?.signedUrl) cidMap[cid.toLowerCase()] = signed.signedUrl;
+          }
         }
       } catch (e) {
         console.error("anexo erro:", e);
+      }
+    }
+
+    // Reescreve src="cid:XYZ" no descricao/comments do ticket
+    if (Object.keys(cidMap).length > 0) {
+      const rewrite = (html: string | null): string | null => {
+        if (!html) return html;
+        return html.replace(/src=(["'])cid:([^"'>\s]+)\1/gi, (m, q, id) => {
+          const url = cidMap[String(id).toLowerCase()];
+          return url ? `src=${q}${url}${q}` : m;
+        });
+      };
+      // descrição (apenas em criação) e último comentário (em ambos os fluxos)
+      const newDesc = rewrite(ticket.descricao);
+      if (newDesc && newDesc !== ticket.descricao) {
+        await supabase.from("tickets").update({ descricao: newDesc }).eq("id", ticket.id);
+      }
+      // atualiza último comentário criado neste request
+      const { data: lastC } = await supabase.from("ticket_comments")
+        .select("id, conteudo").eq("ticket_id", ticket.id)
+        .order("criado_em", { ascending: false }).limit(1).maybeSingle();
+      if (lastC) {
+        const newC = rewrite(lastC.conteudo);
+        if (newC && newC !== lastC.conteudo) {
+          await supabase.from("ticket_comments").update({ conteudo: newC }).eq("id", lastC.id);
+        }
       }
     }
 
