@@ -99,7 +99,37 @@ serve(async (req) => {
     }
 
     const cleanedBody = cleanBody(body);
-    const ticketId = extractTicketId(subject);
+    let ticketId = extractTicketId(subject);
+
+    // Headers normalizados (lowercase)
+    const hLower: Record<string, string> = Object.fromEntries(
+      Object.entries(headers).map(([k, v]) => [k.toLowerCase(), String(v)])
+    );
+
+    // Tenta achar ticket aberto pelo In-Reply-To/References (Message-ID original do envio do sistema)
+    // ou pelo assunto normalizado + remetente.
+    if (!ticketId) {
+      const refIds = `${hLower["in-reply-to"] || ""} ${hLower["references"] || ""}`;
+      const refMatches = Array.from(refIds.matchAll(/ticket[-_]?(\d+)@/gi)).map((m) => Number(m[1]));
+      for (const tid of refMatches) {
+        const { data: t } = await supabase.from("tickets").select("id,status").eq("id", tid).maybeSingle();
+        if (t && OPEN_STATUSES.includes(t.status)) { ticketId = t.id; break; }
+      }
+    }
+    if (!ticketId) {
+      const norm = normalizeSubject(subject);
+      if (norm) {
+        const { data: candidates } = await supabase
+          .from("tickets")
+          .select("id,titulo,status,solicitante_email,criado_em")
+          .ilike("solicitante_email", email)
+          .in("status", OPEN_STATUSES)
+          .order("criado_em", { ascending: false })
+          .limit(20);
+        const match = (candidates || []).find((t) => normalizeSubject(t.titulo || "") === norm);
+        if (match) ticketId = match.id;
+      }
+    }
 
     let ticket: any = null;
 
