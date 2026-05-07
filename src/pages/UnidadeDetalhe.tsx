@@ -247,6 +247,8 @@ const UnidadeDetalhe = () => {
           operadora_nome: link.operadoras?.nome || "",
           operadora_email: link.operadoras?.email || null,
           message,
+          user_email: user.email || null,
+          user_nome: `${user.nome || ""}${(user as any).sobrenome ? ` ${(user as any).sobrenome}` : ""}`.trim() || null,
           link_id: link.id,
           unidade_id: unidade.id,
         },
