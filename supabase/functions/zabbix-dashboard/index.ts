@@ -454,6 +454,44 @@ serve(async (req) => {
         break;
       }
 
+      case "test_token": {
+        const { token, source } = body as { token: string; source?: string };
+        if (!token || !token.trim()) {
+          return new Response(JSON.stringify({ ok: false, error: "Token vazio" }), {
+            status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const targetUrl = source === "z2" ? ZABBIX_API_URL_2 : ZABBIX_API_URL;
+        if (!targetUrl) {
+          return new Response(JSON.stringify({ ok: false, error: "URL Zabbix não configurada" }), {
+            status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        try {
+          const client = createZabbixClient(targetUrl, token.trim());
+          const r = await client("user.checkAuthentication", { token: token.trim() });
+          return new Response(JSON.stringify({ ok: true, user: r }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        } catch (e) {
+          // Fallback: try a simple call
+          try {
+            const client = createZabbixClient(targetUrl, token.trim());
+            await client("apiinfo.version", {});
+            // apiinfo.version doesn't validate token, so try host.get with limit 1
+            await client("host.get", { output: ["hostid"], limit: 1 });
+            return new Response(JSON.stringify({ ok: true }), {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          } catch (e2) {
+            const msg = e2 instanceof Error ? e2.message : String(e2);
+            return new Response(JSON.stringify({ ok: false, error: msg }), {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+        }
+      }
+
       default:
         return new Response(JSON.stringify({ error: "Invalid action" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },

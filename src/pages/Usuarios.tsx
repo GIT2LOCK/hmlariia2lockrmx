@@ -7,9 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useUser, UserRole } from "@/contexts/UserContext";
-import { Search, Shield, Users as UsersIcon, Loader2 } from "lucide-react";
+import { Search, Shield, Users as UsersIcon, Loader2, KeyRound, CheckCircle2, XCircle, MinusCircle } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface Usuario {
   id: number;
@@ -19,6 +20,16 @@ interface Usuario {
   ativo: boolean;
   avatar_url: string | null;
   criado_em: string | null;
+  zabbix_token_z1: string | null;
+  zabbix_token_z2: string | null;
+}
+
+type TokenStatus = "idle" | "testing" | "ok" | "fail" | "missing";
+interface TestResult {
+  z1: TokenStatus;
+  z2: TokenStatus;
+  z1Error?: string;
+  z2Error?: string;
 }
 
 const roleLabels: Record<string, string> = {
@@ -45,18 +56,69 @@ const Usuarios = () => {
   const [search, setSearch] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
+  const [results, setResults] = useState<Record<number, TestResult>>({});
+  const [testingAll, setTestingAll] = useState(false);
 
   const load = async () => {
     setLoading(true);
     const { data } = await supabase
       .from("usuarios")
-      .select("id, nome, email, permissao, ativo, avatar_url, criado_em")
+      .select("id, nome, email, permissao, ativo, avatar_url, criado_em, zabbix_token_z1, zabbix_token_z2")
       .order("nome");
-    setUsuarios((data as Usuario[]) || []);
+    const list = (data as Usuario[]) || [];
+    setUsuarios(list);
+    const init: Record<number, TestResult> = {};
+    list.forEach((u) => {
+      init[u.id] = {
+        z1: u.zabbix_token_z1?.trim() ? "idle" : "missing",
+        z2: u.zabbix_token_z2?.trim() ? "idle" : "missing",
+      };
+    });
+    setResults(init);
     setLoading(false);
   };
 
   useEffect(() => { load(); }, []);
+
+  const testToken = async (userId: number, source: "z1" | "z2", token: string | null) => {
+    if (!token?.trim()) {
+      setResults((r) => ({ ...r, [userId]: { ...r[userId], [source]: "missing" } }));
+      return;
+    }
+    setResults((r) => ({ ...r, [userId]: { ...r[userId], [source]: "testing" } }));
+    try {
+      const { data, error } = await supabase.functions.invoke("zabbix-dashboard", {
+        body: { action: "test_token", token, source },
+      });
+      if (error) throw error;
+      const ok = (data as any)?.ok;
+      setResults((r) => ({
+        ...r,
+        [userId]: {
+          ...r[userId],
+          [source]: ok ? "ok" : "fail",
+          [`${source}Error`]: ok ? undefined : (data as any)?.error,
+        } as TestResult,
+      }));
+    } catch (e: any) {
+      setResults((r) => ({
+        ...r,
+        [userId]: { ...r[userId], [source]: "fail", [`${source}Error`]: e?.message } as TestResult,
+      }));
+    }
+  };
+
+  const testAll = async () => {
+    setTestingAll(true);
+    await Promise.all(
+      usuarios.flatMap((u) => [
+        testToken(u.id, "z1", u.zabbix_token_z1),
+        testToken(u.id, "z2", u.zabbix_token_z2),
+      ])
+    );
+    setTestingAll(false);
+    toast({ title: "Teste de tokens concluído" });
+  };
 
   const filtered = usuarios.filter((u) =>
     [u.nome, u.email, u.permissao].some((v) => v?.toLowerCase().includes(search.toLowerCase()))
@@ -117,6 +179,35 @@ const Usuarios = () => {
     return new Date(date).toLocaleDateString("pt-BR");
   };
 
+  const renderTokenBadge = (status: TokenStatus, label: string, error?: string) => {
+    const base = "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium border";
+    let cls = "";
+    let Icon = MinusCircle;
+    let text = label;
+    if (status === "ok") { cls = "bg-primary/10 text-primary border-primary/30"; Icon = CheckCircle2; }
+    else if (status === "fail") { cls = "bg-destructive/10 text-destructive border-destructive/30"; Icon = XCircle; }
+    else if (status === "testing") { cls = "bg-muted text-muted-foreground border-border"; Icon = Loader2; }
+    else if (status === "missing") { cls = "bg-muted/50 text-muted-foreground border-border"; Icon = MinusCircle; }
+    else { cls = "bg-muted/50 text-muted-foreground border-border"; Icon = KeyRound; }
+    const node = (
+      <span className={`${base} ${cls}`}>
+        <Icon className={`h-3 w-3 ${status === "testing" ? "animate-spin" : ""}`} />
+        {text}
+      </span>
+    );
+    if (status === "fail" && error) {
+      return (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>{node}</TooltipTrigger>
+            <TooltipContent className="max-w-xs">{error}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    }
+    return node;
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
@@ -124,6 +215,10 @@ const Usuarios = () => {
           <h2 className="text-2xl font-bold text-foreground">Usuários</h2>
           <p className="text-muted-foreground">Gerencie os usuários e suas permissões</p>
         </div>
+        <Button onClick={testAll} disabled={testingAll || loading} className="gap-2">
+          {testingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
+          Testar tokens Zabbix
+        </Button>
       </div>
 
       <Card>
@@ -145,6 +240,7 @@ const Usuarios = () => {
                   <TableHead>Usuário</TableHead>
                   <TableHead>E-mail</TableHead>
                   <TableHead>Permissão</TableHead>
+                  <TableHead>Tokens Zabbix</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Desde</TableHead>
                   <TableHead className="w-32">Ações</TableHead>
@@ -194,6 +290,12 @@ const Usuarios = () => {
                         )}
                       </TableCell>
                       <TableCell>
+                        <div className="flex flex-col gap-1">
+                          {renderTokenBadge(results[u.id]?.z1 ?? "missing", "Z1 Brava", results[u.id]?.z1Error)}
+                          {renderTokenBadge(results[u.id]?.z2 ?? "missing", "Z2 2lock", results[u.id]?.z2Error)}
+                        </div>
+                      </TableCell>
+                      <TableCell>
                         <Badge variant={u.ativo ? "default" : "secondary"}>
                           {u.ativo ? "Ativo" : "Inativo"}
                         </Badge>
@@ -229,7 +331,7 @@ const Usuarios = () => {
                 })}
                 {!loading && filtered.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                       Nenhum usuário encontrado
                     </TableCell>
                   </TableRow>
