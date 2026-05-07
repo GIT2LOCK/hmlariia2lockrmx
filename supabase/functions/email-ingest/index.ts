@@ -33,9 +33,15 @@ function extractTicketId(subject: string): number | null {
   return m ? Number(m[1]) : null;
 }
 
+function isHtml(s: string): boolean {
+  return /<\/?[a-z][\s\S]*?>/i.test(s);
+}
+
 function cleanBody(body: string): string {
   if (!body) return "";
-  // remove citações (linhas começando com >) e separadores comuns
+  // Se for HTML, preserva integralmente (sanitização ocorre no frontend)
+  if (isHtml(body)) return body.trim();
+  // remove citações (linhas começando com >) e separadores comuns para texto puro
   const lines = body.split(/\r?\n/);
   const out: string[] = [];
   for (const ln of lines) {
@@ -87,6 +93,20 @@ serve(async (req) => {
 
     let ticket: any = null;
 
+    // Resolve nome amigável do remetente (contatos -> usuarios)
+    let resolvedSenderName: string | null = null;
+    {
+      const { data: c1 } = await supabase
+        .from("contatos").select("nome").ilike("email", email).limit(1).maybeSingle();
+      if (c1?.nome) resolvedSenderName = c1.nome;
+      if (!resolvedSenderName) {
+        const { data: u1 } = await supabase
+          .from("usuarios").select("nome").ilike("email", email).limit(1).maybeSingle();
+        if (u1?.nome) resolvedSenderName = u1.nome;
+      }
+    }
+    const authorDisplay = resolvedSenderName ? `${resolvedSenderName} <${email}>` : from;
+
     if (ticketId) {
       // ATUALIZAÇÃO
       const { data: cur } = await supabase.from("tickets").select("*").eq("id", ticketId).maybeSingle();
@@ -98,7 +118,7 @@ serve(async (req) => {
         ticket_id: ticketId,
         conteudo: cleanedBody || "(sem conteúdo)",
         tipo: "CLIENTE",
-        autor_nome: from,
+        autor_nome: authorDisplay,
       });
 
       // Reabrir / mover status
@@ -128,18 +148,38 @@ serve(async (req) => {
       }
     } else {
       // CRIAÇÃO
-      // Identifica empresa pelo domínio (tenta match em contatos)
+      // Tenta identificar o solicitante: contatos -> usuarios
       let empresa_id: number | null = null;
       let unidade_id: number | null = null;
+      let solicitante_nome: string | null = null;
+      let solicitante_telefone: string | null = null;
+
+      // 1) contatos (cobre 'pessoa' e 'responsavel' — coluna tipo é enum)
       const { data: contato } = await supabase
         .from("contatos")
-        .select("empresa_id, unidade_id, nome")
+        .select("empresa_id, unidade_id, nome, telefone")
         .ilike("email", email)
         .limit(1)
         .maybeSingle();
       if (contato) {
-        empresa_id = contato.empresa_id;
-        unidade_id = contato.unidade_id;
+        empresa_id = contato.empresa_id ?? null;
+        unidade_id = contato.unidade_id ?? null;
+        solicitante_nome = contato.nome ?? null;
+        solicitante_telefone = contato.telefone ?? null;
+      }
+
+      // 2) usuarios (fallback)
+      if (!solicitante_nome) {
+        const { data: usuario } = await supabase
+          .from("usuarios")
+          .select("nome, telefone")
+          .ilike("email", email)
+          .limit(1)
+          .maybeSingle();
+        if (usuario) {
+          solicitante_nome = usuario.nome ?? null;
+          solicitante_telefone = solicitante_telefone || usuario.telefone || null;
+        }
       }
 
       // Categoria padrão "Internet"
@@ -159,8 +199,9 @@ serve(async (req) => {
         empresa_id,
         unidade_id,
         categoria_id,
-        solicitante_nome: contato?.nome || from,
+        solicitante_nome: solicitante_nome || from,
         solicitante_email: email,
+        solicitante_telefone,
         sla_atendimento_minutos: SLA_ATENDIMENTO[prioridade],
         sla_solucao_minutos: SLA_SOLUCAO[prioridade],
       }).select("*").maybeSingle();
@@ -172,7 +213,7 @@ serve(async (req) => {
         ticket_id: created.id,
         conteudo: cleanedBody || "(sem conteúdo)",
         tipo: "CLIENTE",
-        autor_nome: from,
+        autor_nome: authorDisplay,
       });
       await supabase.from("ticket_history").insert({
         ticket_id: created.id, campo: "criacao",

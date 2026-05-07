@@ -28,6 +28,29 @@ import {
 import { TicketModal } from "@/components/TicketModal";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import DOMPurify from "dompurify";
+
+function isHtmlContent(s?: string | null): boolean {
+  if (!s) return false;
+  return /<\/?[a-z][\s\S]*?>/i.test(s);
+}
+
+function RichContent({ value }: { value?: string | null }) {
+  if (!value) return <span className="text-muted-foreground">Sem conteúdo</span>;
+  if (isHtmlContent(value)) {
+    const clean = DOMPurify.sanitize(value, {
+      USE_PROFILES: { html: true },
+      ADD_ATTR: ["target", "style"],
+    });
+    return (
+      <div
+        className="email-html prose prose-sm max-w-none dark:prose-invert"
+        dangerouslySetInnerHTML={{ __html: clean }}
+      />
+    );
+  }
+  return <div className="whitespace-pre-wrap">{value}</div>;
+}
 
 const PRIORITY_COLORS: Record<TicketPriority, string> = {
   CRITICO: "bg-destructive text-destructive-foreground",
@@ -281,7 +304,7 @@ export default function ChamadoDetalhe() {
                 meta={ticket.solicitante_email}
                 tone="primary"
               >
-                {ticket.descricao || <span className="text-muted-foreground">Sem descrição</span>}
+                {ticket.descricao ? <RichContent value={ticket.descricao} /> : <span className="text-muted-foreground">Sem descrição</span>}
               </ConversationBubble>
 
               {/* Conversa */}
@@ -297,7 +320,7 @@ export default function ChamadoDetalhe() {
                     badge={isInterno ? "Nota interna" : "Resposta"}
                     tone={isInterno ? "internal" : "default"}
                   >
-                    {c.conteudo}
+                    <RichContent value={c.conteudo} />
                   </ConversationBubble>
                 );
               })}
@@ -574,7 +597,7 @@ function ConversationBubble({
           </div>
           <div className="px-4 py-3 space-y-2">
             {title && <h4 className="font-semibold text-base text-foreground">{title}</h4>}
-            <div className="text-sm whitespace-pre-wrap leading-relaxed text-foreground/90">{children}</div>
+            <div className="text-sm leading-relaxed text-foreground/90">{children}</div>
           </div>
         </div>
       </div>
