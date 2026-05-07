@@ -33,6 +33,16 @@ function extractTicketId(subject: string): number | null {
   return m ? Number(m[1]) : null;
 }
 
+function normalizeSubject(s: string): string {
+  return (s || "")
+    .replace(/\[Ticket\s*#\d+\]/gi, "")
+    .replace(/^(\s*(re|res|fwd?|enc|encaminhado|i:)\s*:\s*)+/gi, "")
+    .trim()
+    .toLowerCase();
+}
+
+const OPEN_STATUSES = ["NOVO", "EM_ATENDIMENTO", "AGUARDANDO_CLIENTE", "AGUARDANDO_OPERADORA", "AGUARDANDO_TERCEIRO", "AGENDADO", "TRIAGEM"];
+
 function isHtml(s: string): boolean {
   return /<\/?[a-z][\s\S]*?>/i.test(s);
 }
