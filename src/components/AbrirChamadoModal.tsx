@@ -183,6 +183,8 @@ export function AbrirChamadoModal({ open, onOpenChange, unidadeId }: AbrirChamad
           operadora_nome: link.operadora_nome,
           operadora_email: link.operadora_email || null,
           message,
+          user_email: user.email || null,
+          user_nome: `${user.nome}${user.sobrenome ? ` ${user.sobrenome}` : ""}`,
           assinatura_url: assinatura || null,
           attachments,
           link_id: link.id,
