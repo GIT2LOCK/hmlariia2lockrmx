@@ -179,6 +179,35 @@ const Usuarios = () => {
     return new Date(date).toLocaleDateString("pt-BR");
   };
 
+  const renderTokenBadge = (status: TokenStatus, label: string, error?: string) => {
+    const base = "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium border";
+    let cls = "";
+    let Icon = MinusCircle;
+    let text = label;
+    if (status === "ok") { cls = "bg-primary/10 text-primary border-primary/30"; Icon = CheckCircle2; }
+    else if (status === "fail") { cls = "bg-destructive/10 text-destructive border-destructive/30"; Icon = XCircle; }
+    else if (status === "testing") { cls = "bg-muted text-muted-foreground border-border"; Icon = Loader2; }
+    else if (status === "missing") { cls = "bg-muted/50 text-muted-foreground border-border"; Icon = MinusCircle; }
+    else { cls = "bg-muted/50 text-muted-foreground border-border"; Icon = KeyRound; }
+    const node = (
+      <span className={`${base} ${cls}`}>
+        <Icon className={`h-3 w-3 ${status === "testing" ? "animate-spin" : ""}`} />
+        {text}
+      </span>
+    );
+    if (status === "fail" && error) {
+      return (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>{node}</TooltipTrigger>
+            <TooltipContent className="max-w-xs">{error}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    }
+    return node;
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
@@ -186,6 +215,10 @@ const Usuarios = () => {
           <h2 className="text-2xl font-bold text-foreground">Usuários</h2>
           <p className="text-muted-foreground">Gerencie os usuários e suas permissões</p>
         </div>
+        <Button onClick={testAll} disabled={testingAll || loading} className="gap-2">
+          {testingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
+          Testar tokens Zabbix
+        </Button>
       </div>
 
       <Card>
@@ -207,6 +240,7 @@ const Usuarios = () => {
                   <TableHead>Usuário</TableHead>
                   <TableHead>E-mail</TableHead>
                   <TableHead>Permissão</TableHead>
+                  <TableHead>Tokens Zabbix</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Desde</TableHead>
                   <TableHead className="w-32">Ações</TableHead>
