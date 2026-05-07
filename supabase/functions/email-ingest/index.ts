@@ -93,6 +93,20 @@ serve(async (req) => {
 
     let ticket: any = null;
 
+    // Resolve nome amigável do remetente (contatos -> usuarios)
+    let resolvedSenderName: string | null = null;
+    {
+      const { data: c1 } = await supabase
+        .from("contatos").select("nome").ilike("email", email).limit(1).maybeSingle();
+      if (c1?.nome) resolvedSenderName = c1.nome;
+      if (!resolvedSenderName) {
+        const { data: u1 } = await supabase
+          .from("usuarios").select("nome").ilike("email", email).limit(1).maybeSingle();
+        if (u1?.nome) resolvedSenderName = u1.nome;
+      }
+    }
+    const authorDisplay = resolvedSenderName ? `${resolvedSenderName} <${email}>` : from;
+
     if (ticketId) {
       // ATUALIZAÇÃO
       const { data: cur } = await supabase.from("tickets").select("*").eq("id", ticketId).maybeSingle();
@@ -104,7 +118,7 @@ serve(async (req) => {
         ticket_id: ticketId,
         conteudo: cleanedBody || "(sem conteúdo)",
         tipo: "CLIENTE",
-        autor_nome: from,
+        autor_nome: authorDisplay,
       });
 
       // Reabrir / mover status
