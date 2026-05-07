@@ -56,18 +56,69 @@ const Usuarios = () => {
   const [search, setSearch] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
+  const [results, setResults] = useState<Record<number, TestResult>>({});
+  const [testingAll, setTestingAll] = useState(false);
 
   const load = async () => {
     setLoading(true);
     const { data } = await supabase
       .from("usuarios")
-      .select("id, nome, email, permissao, ativo, avatar_url, criado_em")
+      .select("id, nome, email, permissao, ativo, avatar_url, criado_em, zabbix_token_z1, zabbix_token_z2")
       .order("nome");
-    setUsuarios((data as Usuario[]) || []);
+    const list = (data as Usuario[]) || [];
+    setUsuarios(list);
+    const init: Record<number, TestResult> = {};
+    list.forEach((u) => {
+      init[u.id] = {
+        z1: u.zabbix_token_z1?.trim() ? "idle" : "missing",
+        z2: u.zabbix_token_z2?.trim() ? "idle" : "missing",
+      };
+    });
+    setResults(init);
     setLoading(false);
   };
 
   useEffect(() => { load(); }, []);
+
+  const testToken = async (userId: number, source: "z1" | "z2", token: string | null) => {
+    if (!token?.trim()) {
+      setResults((r) => ({ ...r, [userId]: { ...r[userId], [source]: "missing" } }));
+      return;
+    }
+    setResults((r) => ({ ...r, [userId]: { ...r[userId], [source]: "testing" } }));
+    try {
+      const { data, error } = await supabase.functions.invoke("zabbix-dashboard", {
+        body: { action: "test_token", token, source },
+      });
+      if (error) throw error;
+      const ok = (data as any)?.ok;
+      setResults((r) => ({
+        ...r,
+        [userId]: {
+          ...r[userId],
+          [source]: ok ? "ok" : "fail",
+          [`${source}Error`]: ok ? undefined : (data as any)?.error,
+        } as TestResult,
+      }));
+    } catch (e: any) {
+      setResults((r) => ({
+        ...r,
+        [userId]: { ...r[userId], [source]: "fail", [`${source}Error`]: e?.message } as TestResult,
+      }));
+    }
+  };
+
+  const testAll = async () => {
+    setTestingAll(true);
+    await Promise.all(
+      usuarios.flatMap((u) => [
+        testToken(u.id, "z1", u.zabbix_token_z1),
+        testToken(u.id, "z2", u.zabbix_token_z2),
+      ])
+    );
+    setTestingAll(false);
+    toast({ title: "Teste de tokens concluído" });
+  };
 
   const filtered = usuarios.filter((u) =>
     [u.nome, u.email, u.permissao].some((v) => v?.toLowerCase().includes(search.toLowerCase()))
