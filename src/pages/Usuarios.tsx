@@ -7,9 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useUser, UserRole } from "@/contexts/UserContext";
-import { Search, Shield, Users as UsersIcon, Loader2 } from "lucide-react";
+import { Search, Shield, Users as UsersIcon, Loader2, KeyRound, CheckCircle2, XCircle, MinusCircle } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface Usuario {
   id: number;
@@ -19,6 +20,16 @@ interface Usuario {
   ativo: boolean;
   avatar_url: string | null;
   criado_em: string | null;
+  zabbix_token_z1: string | null;
+  zabbix_token_z2: string | null;
+}
+
+type TokenStatus = "idle" | "testing" | "ok" | "fail" | "missing";
+interface TestResult {
+  z1: TokenStatus;
+  z2: TokenStatus;
+  z1Error?: string;
+  z2Error?: string;
 }
 
 const roleLabels: Record<string, string> = {
