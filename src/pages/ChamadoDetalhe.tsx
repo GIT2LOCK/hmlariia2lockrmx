@@ -597,7 +597,7 @@ function ConversationBubble({
           </div>
           <div className="px-4 py-3 space-y-2">
             {title && <h4 className="font-semibold text-base text-foreground">{title}</h4>}
-            <div className="text-sm whitespace-pre-wrap leading-relaxed text-foreground/90">{children}</div>
+            <div className="text-sm leading-relaxed text-foreground/90">{children}</div>
           </div>
         </div>
       </div>
