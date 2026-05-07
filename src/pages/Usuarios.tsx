@@ -290,6 +290,12 @@ const Usuarios = () => {
                         )}
                       </TableCell>
                       <TableCell>
+                        <div className="flex flex-col gap-1">
+                          {renderTokenBadge(results[u.id]?.z1 ?? "missing", "Z1 Brava", results[u.id]?.z1Error)}
+                          {renderTokenBadge(results[u.id]?.z2 ?? "missing", "Z2 2lock", results[u.id]?.z2Error)}
+                        </div>
+                      </TableCell>
+                      <TableCell>
                         <Badge variant={u.ativo ? "default" : "secondary"}>
                           {u.ativo ? "Ativo" : "Inativo"}
                         </Badge>
