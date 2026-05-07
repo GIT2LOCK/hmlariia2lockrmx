@@ -72,6 +72,11 @@ const MeuPerfil = () => {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadingSignature, setUploadingSignature] = useState(false);
 
+  // Zabbix tokens
+  const [zabbixTokens, setZabbixTokens] = useState({ z1: "", z2: "" });
+  const [savingZabbix, setSavingZabbix] = useState(false);
+  const [showZabbixTokens, setShowZabbixTokens] = useState({ z1: false, z2: false });
+
   // Password change
   const [changingPassword, setChangingPassword] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ current: "", new: "", confirm: "" });
@@ -152,7 +157,7 @@ const MeuPerfil = () => {
     // Fallback: load profile directly from database
     const { data: dbUser } = await supabase
       .from("usuarios")
-      .select("id, nome, email, permissao, telefone, avatar_url, totp_enabled, assinatura_email_url")
+      .select("id, nome, email, permissao, telefone, avatar_url, totp_enabled, assinatura_email_url, zabbix_token_z1, zabbix_token_z2")
       .eq("id", resolvedUserId)
       .single();
 
@@ -166,12 +171,30 @@ const MeuPerfil = () => {
         permissao: dbUser.permissao,
         assinatura_email_url: (dbUser as any).assinatura_email_url || "",
       });
+      setZabbixTokens({
+        z1: (dbUser as any).zabbix_token_z1 || "",
+        z2: (dbUser as any).zabbix_token_z2 || "",
+      });
       setEditForm({
         nome: dbUser.nome || "",
         email: dbUser.email || "",
         telefone: dbUser.telefone || "",
       });
       if (dbUser.avatar_url) updateAvatar(dbUser.avatar_url);
+    }
+  };
+
+  const handleSaveZabbixTokens = async () => {
+    setSavingZabbix(true);
+    const { error } = await supabase.from("usuarios").update({
+      zabbix_token_z1: zabbixTokens.z1.trim() || null,
+      zabbix_token_z2: zabbixTokens.z2.trim() || null,
+    } as any).eq("id", user.id);
+    setSavingZabbix(false);
+    if (error) {
+      toast({ title: "Erro ao salvar tokens", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Tokens Zabbix salvos!" });
     }
   };
 
