@@ -17,7 +17,7 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { empresa, unidade, operadora_email, operadora_nome, message } = body || {};
+    const { empresa, unidade, operadora_email, operadora_nome, message, user_email, user_nome } = body || {};
     if (!empresa || !unidade || !message) {
       return json({ error: "empresa, unidade e message são obrigatórios" }, 400);
     }
@@ -25,6 +25,8 @@ serve(async (req) => {
     const subject = `Indisponibilidade de link - ${empresa} ${unidade}`;
     const payload = {
       to: operadora_email || null,
+      from: user_email || null,
+      from_name: user_nome || null,
       subject,
       message,
       empresa,

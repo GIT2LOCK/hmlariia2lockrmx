@@ -72,6 +72,11 @@ const MeuPerfil = () => {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadingSignature, setUploadingSignature] = useState(false);
 
+  // Zabbix tokens
+  const [zabbixTokens, setZabbixTokens] = useState({ z1: "", z2: "" });
+  const [savingZabbix, setSavingZabbix] = useState(false);
+  const [showZabbixTokens, setShowZabbixTokens] = useState({ z1: false, z2: false });
+
   // Password change
   const [changingPassword, setChangingPassword] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ current: "", new: "", confirm: "" });
@@ -152,7 +157,7 @@ const MeuPerfil = () => {
     // Fallback: load profile directly from database
     const { data: dbUser } = await supabase
       .from("usuarios")
-      .select("id, nome, email, permissao, telefone, avatar_url, totp_enabled, assinatura_email_url")
+      .select("id, nome, email, permissao, telefone, avatar_url, totp_enabled, assinatura_email_url, zabbix_token_z1, zabbix_token_z2")
       .eq("id", resolvedUserId)
       .single();
 
@@ -166,12 +171,30 @@ const MeuPerfil = () => {
         permissao: dbUser.permissao,
         assinatura_email_url: (dbUser as any).assinatura_email_url || "",
       });
+      setZabbixTokens({
+        z1: (dbUser as any).zabbix_token_z1 || "",
+        z2: (dbUser as any).zabbix_token_z2 || "",
+      });
       setEditForm({
         nome: dbUser.nome || "",
         email: dbUser.email || "",
         telefone: dbUser.telefone || "",
       });
       if (dbUser.avatar_url) updateAvatar(dbUser.avatar_url);
+    }
+  };
+
+  const handleSaveZabbixTokens = async () => {
+    setSavingZabbix(true);
+    const { error } = await supabase.from("usuarios").update({
+      zabbix_token_z1: zabbixTokens.z1.trim() || null,
+      zabbix_token_z2: zabbixTokens.z2.trim() || null,
+    } as any).eq("id", user.id);
+    setSavingZabbix(false);
+    if (error) {
+      toast({ title: "Erro ao salvar tokens", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Tokens Zabbix salvos!" });
     }
   };
 
@@ -643,6 +666,46 @@ const MeuPerfil = () => {
                   )}
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Zabbix Tokens */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><Monitor className="h-5 w-5" /> Tokens da API do Zabbix</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Configure seu token pessoal de cada instância Zabbix. Quando você adicionar um update em um problema, ele será registrado em seu nome no Zabbix.
+              </p>
+              {([
+                { key: "z1" as const, label: "Token Zabbix — Brava (z1)" },
+                { key: "z2" as const, label: "Token Zabbix — 2lock (z2)" },
+              ]).map(({ key, label }) => (
+                <div key={key}>
+                  <Label>{label}</Label>
+                  <div className="relative">
+                    <Input
+                      type={showZabbixTokens[key] ? "text" : "password"}
+                      value={zabbixTokens[key]}
+                      onChange={(e) => setZabbixTokens({ ...zabbixTokens, [key]: e.target.value })}
+                      placeholder="Cole aqui seu API token"
+                      className="font-mono pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowZabbixTokens({ ...showZabbixTokens, [key]: !showZabbixTokens[key] })}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      {showZabbixTokens[key] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+              ))}
+              <Button onClick={handleSaveZabbixTokens} disabled={savingZabbix} className="gap-2">
+                {savingZabbix ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                Salvar tokens
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>
