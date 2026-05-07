@@ -482,9 +482,102 @@ export default function ChamadoDetalhe() {
 
 function DetailRow({ label, value }: { label: string; value?: string | null }) {
   return (
-    <div className="flex justify-between gap-2">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium text-right truncate">{value || "—"}</span>
+    <div className="flex justify-between gap-2 py-1.5">
+      <span className="text-muted-foreground text-xs">{label}</span>
+      <span className="font-medium text-right text-sm truncate max-w-[60%]">{value || "—"}</span>
+    </div>
+  );
+}
+
+function DetailGroup({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <Card className="overflow-hidden">
+      <div className="bg-muted/50 px-4 py-2 border-b">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</h3>
+      </div>
+      <CardContent className="p-4 divide-y divide-border/50">{children}</CardContent>
+    </Card>
+  );
+}
+
+function getInitials(name?: string | null) {
+  if (!name) return "?";
+  const parts = name.trim().split(/\s+/);
+  return ((parts[0]?.[0] || "") + (parts[1]?.[0] || "")).toUpperCase() || "?";
+}
+
+function ConversationBubble({
+  side,
+  authorName,
+  title,
+  createdAt,
+  createdLabel,
+  meta,
+  badge,
+  tone = "default",
+  children,
+}: {
+  side: "left" | "right";
+  authorName: string;
+  title?: string;
+  createdAt?: string | null;
+  createdLabel?: string;
+  meta?: string | null;
+  badge?: string;
+  tone?: "default" | "primary" | "internal";
+  children: React.ReactNode;
+}) {
+  const isLeft = side === "left";
+  const toneClasses =
+    tone === "primary"
+      ? "bg-primary/5 border-primary/30"
+      : tone === "internal"
+      ? "bg-amber-500/5 border-amber-500/40"
+      : "bg-card border-border";
+  const avatarClasses =
+    tone === "primary"
+      ? "bg-primary text-primary-foreground"
+      : tone === "internal"
+      ? "bg-amber-500 text-white"
+      : "bg-secondary text-secondary-foreground";
+
+  return (
+    <div className={`flex gap-3 ${isLeft ? "flex-row" : "flex-row-reverse"}`}>
+      <div
+        className={`flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center font-semibold text-sm shadow-sm ${avatarClasses}`}
+      >
+        {getInitials(authorName)}
+      </div>
+      <div className={`flex-1 max-w-[88%] ${isLeft ? "" : "flex flex-col items-end"}`}>
+        <div className={`relative rounded-lg border ${toneClasses} shadow-sm w-full`}>
+          <div className="flex items-center gap-2 flex-wrap px-4 py-2 border-b border-border/60 bg-muted/30 text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              <span>{createdLabel || "Criado em"}:</span>
+              <b className="text-foreground">{fmtDate(createdAt)}</b>
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span>·</span>
+              <b className="text-foreground">{authorName}</b>
+            </span>
+            {meta && (
+              <span className="inline-flex items-center gap-1">
+                <span>·</span>
+                <span>{meta}</span>
+              </span>
+            )}
+            {badge && (
+              <Badge variant="outline" className="ml-auto text-[10px] py-0 px-1.5">
+                {badge}
+              </Badge>
+            )}
+          </div>
+          <div className="px-4 py-3 space-y-2">
+            {title && <h4 className="font-semibold text-base text-foreground">{title}</h4>}
+            <div className="text-sm whitespace-pre-wrap leading-relaxed text-foreground/90">{children}</div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
