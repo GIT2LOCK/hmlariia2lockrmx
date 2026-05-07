@@ -40,11 +40,14 @@ function RichContent({ value }: { value?: string | null }) {
   if (isHtmlContent(value)) {
     const clean = DOMPurify.sanitize(value, {
       USE_PROFILES: { html: true },
-      ADD_ATTR: ["target", "style"],
+      ADD_ATTR: ["target", "style", "src", "srcset", "alt", "width", "height", "align", "border", "cellpadding", "cellspacing", "bgcolor", "background"],
+      ADD_TAGS: ["img", "style"],
+      ALLOW_DATA_ATTR: true,
+      ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel|cid|data):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,
     });
     return (
       <div
-        className="email-html prose prose-sm max-w-none dark:prose-invert"
+        className="email-html prose prose-sm max-w-none dark:prose-invert [&_img]:inline-block [&_img]:max-w-full [&_img]:h-auto"
         dangerouslySetInnerHTML={{ __html: clean }}
       />
     );
