@@ -74,13 +74,55 @@ serve(async (req) => {
       const body = await req.json();
       if (!body.titulo) return json({ error: "titulo obrigatório" }, 400);
       const prioridade = body.prioridade || "MEDIO";
+      const reqEmail = (body.solicitante_email || "").trim().toLowerCase();
+
+      // ===== Detecção de RESPOSTA a chamado existente =====
+      // 1) [Ticket #N] no assunto/titulo
+      // 2) headers In-Reply-To/References com "ticket-N@"
+      // 3) assunto normalizado + mesmo email do solicitante em ticket aberto
+      const OPEN_STATUSES = ["NOVO","EM_ATENDIMENTO","AGUARDANDO_CLIENTE","AGUARDANDO_OPERADORA","AGUARDANDO_TERCEIRO","AGENDADO","TRIAGEM"];
+      const normalizeSubject = (s: string) => (s || "")
+        .replace(/\[Ticket\s*#\d+\]/gi, "")
+        .replace(/^(\s*(re|res|fwd?|enc|encaminhado|i:)\s*:\s*)+/gi, "")
+        .trim().toLowerCase();
+
+      const subject: string = body.titulo || "";
+      const headers: Record<string, string> = Object.fromEntries(
+        Object.entries(body.headers || {}).map(([k, v]) => [k.toLowerCase(), String(v)])
+      );
+
+      let existingTicketId: number | null = null;
+      const tagMatch = subject.match(/\[Ticket\s*#(\d+)\]/i);
+      if (tagMatch) existingTicketId = Number(tagMatch[1]);
+
+      if (!existingTicketId) {
+        const refIds = `${headers["in-reply-to"] || ""} ${headers["references"] || ""}`;
+        const refMatches = Array.from(refIds.matchAll(/ticket[-_]?(\d+)@/gi)).map((m) => Number(m[1]));
+        for (const tid of refMatches) {
+          const { data: t } = await supabase.from("tickets").select("id,status").eq("id", tid).maybeSingle();
+          if (t && OPEN_STATUSES.includes(t.status)) { existingTicketId = t.id; break; }
+        }
+      }
+      if (!existingTicketId && reqEmail) {
+        const norm = normalizeSubject(subject);
+        if (norm) {
+          const { data: candidates } = await supabase
+            .from("tickets")
+            .select("id,titulo,status,criado_em")
+            .ilike("solicitante_email", reqEmail)
+            .in("status", OPEN_STATUSES)
+            .order("criado_em", { ascending: false })
+            .limit(20);
+          const match = (candidates || []).find((t) => normalizeSubject(t.titulo || "") === norm);
+          if (match) existingTicketId = match.id;
+        }
+      }
 
       // Enriquecimento por e-mail do solicitante: contatos -> usuarios
       let resolved_nome: string | null = body.solicitante_nome || null;
       let resolved_telefone: string | null = body.solicitante_telefone || null;
       let resolved_empresa_id: number | null = body.empresa_id || null;
       let resolved_unidade_id: number | null = body.unidade_id || null;
-      const reqEmail = (body.solicitante_email || "").trim().toLowerCase();
       if (reqEmail) {
         const { data: contato } = await supabase
           .from("contatos")
@@ -101,6 +143,43 @@ serve(async (req) => {
             resolved_nome = resolved_nome || usuario.nome || null;
             resolved_telefone = resolved_telefone || usuario.telefone || null;
           }
+        }
+      }
+
+      // Se for resposta -> apenda comentário no ticket existente
+      if (existingTicketId) {
+        const { data: cur } = await supabase.from("tickets").select("*").eq("id", existingTicketId).maybeSingle();
+        if (cur) {
+          const authorDisplay = resolved_nome ? `${resolved_nome} <${reqEmail}>` : (reqEmail || "email");
+          await supabase.from("ticket_comments").insert({
+            ticket_id: existingTicketId,
+            conteudo: body.descricao || "(sem conteúdo)",
+            tipo: "CLIENTE",
+            autor_nome: authorDisplay,
+          });
+          const update: Record<string, unknown> = {};
+          if (cur.status === "RESOLVIDO" || cur.status === "FECHADO") {
+            update.status = "EM_ATENDIMENTO";
+            update.data_solucao = null;
+            update.data_fechamento = null;
+          } else if (cur.status === "AGUARDANDO_CLIENTE") {
+            update.status = "EM_ATENDIMENTO";
+            if (cur.sla_pausa_inicio) {
+              update.sla_pausa_total_segundos = (cur.sla_pausa_total_segundos || 0) +
+                Math.round((Date.now() - new Date(cur.sla_pausa_inicio).getTime()) / 1000);
+              update.sla_pausa_inicio = null;
+            }
+          }
+          if (Object.keys(update).length) {
+            await supabase.from("tickets").update(update).eq("id", existingTicketId);
+            await supabase.from("ticket_history").insert({
+              ticket_id: existingTicketId, campo: "status",
+              valor_anterior: cur.status, valor_novo: update.status,
+              autor_nome: `email:${reqEmail}`,
+              observacao: "Resposta recebida via e-mail",
+            });
+          }
+          return json({ data: cur, appended: true, ticket_id: existingTicketId }, 200);
         }
       }
 
