@@ -1,5 +1,7 @@
 // Dispara webhook N8N para envio de e-mail SmartSigma (indisponibilidade de link)
+// e abre automaticamente um chamado "Em Atendimento" no Ariia.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,18 +13,25 @@ const json = (b: unknown, s = 200) =>
 
 const WEBHOOK_URL = "https://api01.2lock.com.br/webhook-test/smartsigma";
 
+// SLA defaults (espelho de tickets-api)
+const SLA_ATENDIMENTO: Record<string, number> = { CRITICO: 15, ALTO: 30, MEDIO: 120, BAIXO: 480 };
+const SLA_SOLUCAO: Record<string, number> = { CRITICO: 240, ALTO: 480, MEDIO: 1440, BAIXO: 4320 };
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   try {
     const body = await req.json();
-    const { empresa, unidade, operadora_email, operadora_nome, message, user_email, user_nome } = body || {};
+    const {
+      empresa, unidade, operadora_email, operadora_nome, message,
+      user_email, user_nome, link_id, unidade_id,
+    } = body || {};
     if (!empresa || !unidade || !message) {
       return json({ error: "empresa, unidade e message são obrigatórios" }, 400);
     }
 
-    const subject = `Indisponibilidade de link - ${empresa} ${unidade}`;
+    const subject = `Indisponibilidade de Link - ${empresa} ${unidade}`;
     const payload = {
       to: operadora_email || null,
       from: user_email || null,
@@ -42,7 +51,59 @@ serve(async (req) => {
     });
     const txt = await r.text();
     if (!r.ok) return json({ error: "Falha webhook N8N", status: r.status, detail: txt }, 502);
-    return json({ ok: true, subject });
+
+    // ===== Abre chamado automaticamente "EM_ATENDIMENTO" =====
+    let ticket: any = null;
+    try {
+      const supabase = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      );
+
+      // Resolve empresa_id e operadora_id quando possível
+      let empresa_id: number | null = null;
+      let operadora_id: number | null = null;
+      if (unidade_id) {
+        const { data: u } = await supabase
+          .from("unidades").select("empresa_id").eq("id", unidade_id).maybeSingle();
+        empresa_id = (u as any)?.empresa_id ?? null;
+      }
+      if (link_id) {
+        const { data: l } = await supabase
+          .from("links_internet").select("operadora_id").eq("id", link_id).maybeSingle();
+        operadora_id = (l as any)?.operadora_id ?? null;
+      }
+
+      const prioridade = "ALTO";
+      const now = new Date().toISOString();
+      const insertPayload = {
+        titulo: subject,
+        descricao: message,
+        prioridade,
+        status: "EM_ATENDIMENTO",
+        origem: "API",
+        empresa_id,
+        unidade_id: unidade_id || null,
+        link_id: link_id || null,
+        operadora_id,
+        solicitante_nome: user_nome || null,
+        solicitante_email: user_email || null,
+        data_primeiro_atendimento: now,
+        sla_atendimento_minutos: SLA_ATENDIMENTO[prioridade],
+        sla_solucao_minutos: SLA_SOLUCAO[prioridade],
+      };
+      const { data: inserted, error: insErr } = await supabase
+        .from("tickets").insert(insertPayload).select("*").maybeSingle();
+      if (insErr) {
+        console.error("[smartsigma] erro ao criar ticket:", insErr.message);
+      } else {
+        ticket = inserted;
+      }
+    } catch (e) {
+      console.error("[smartsigma] exceção ao criar ticket:", (e as Error).message);
+    }
+
+    return json({ ok: true, subject, ticket });
   } catch (e) {
     return json({ error: (e as Error).message }, 500);
   }
