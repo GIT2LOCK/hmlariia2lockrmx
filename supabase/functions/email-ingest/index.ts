@@ -213,7 +213,7 @@ serve(async (req) => {
         ticket_id: created.id,
         conteudo: cleanedBody || "(sem conteúdo)",
         tipo: "CLIENTE",
-        autor_nome: from,
+        autor_nome: authorDisplay,
       });
       await supabase.from("ticket_history").insert({
         ticket_id: created.id, campo: "criacao",
