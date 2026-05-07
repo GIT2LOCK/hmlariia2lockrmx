@@ -74,22 +74,52 @@ serve(async (req) => {
       const body = await req.json();
       if (!body.titulo) return json({ error: "titulo obrigatório" }, 400);
       const prioridade = body.prioridade || "MEDIO";
+
+      // Enriquecimento por e-mail do solicitante: contatos -> usuarios
+      let resolved_nome: string | null = body.solicitante_nome || null;
+      let resolved_telefone: string | null = body.solicitante_telefone || null;
+      let resolved_empresa_id: number | null = body.empresa_id || null;
+      let resolved_unidade_id: number | null = body.unidade_id || null;
+      const reqEmail = (body.solicitante_email || "").trim().toLowerCase();
+      if (reqEmail) {
+        const { data: contato } = await supabase
+          .from("contatos")
+          .select("nome, telefone, empresa_id, unidade_id")
+          .ilike("email", reqEmail).limit(1).maybeSingle();
+        if (contato) {
+          resolved_nome = resolved_nome || contato.nome || null;
+          resolved_telefone = resolved_telefone || contato.telefone || null;
+          resolved_empresa_id = resolved_empresa_id ?? contato.empresa_id ?? null;
+          resolved_unidade_id = resolved_unidade_id ?? contato.unidade_id ?? null;
+        }
+        if (!resolved_nome || !resolved_telefone) {
+          const { data: usuario } = await supabase
+            .from("usuarios")
+            .select("nome, telefone")
+            .ilike("email", reqEmail).limit(1).maybeSingle();
+          if (usuario) {
+            resolved_nome = resolved_nome || usuario.nome || null;
+            resolved_telefone = resolved_telefone || usuario.telefone || null;
+          }
+        }
+      }
+
       const payload = {
         titulo: body.titulo,
         descricao: body.descricao || null,
         prioridade,
         status: body.status || "NOVO",
         origem: body.origem || "API",
-        empresa_id: body.empresa_id || null,
-        unidade_id: body.unidade_id || null,
+        empresa_id: resolved_empresa_id,
+        unidade_id: resolved_unidade_id,
         link_id: body.link_id || null,
         operadora_id: body.operadora_id || null,
         fila_id: body.fila_id || null,
         categoria_id: body.categoria_id || null,
         tecnico_id: body.tecnico_id || null,
-        solicitante_nome: body.solicitante_nome || null,
-        solicitante_email: body.solicitante_email || null,
-        solicitante_telefone: body.solicitante_telefone || null,
+        solicitante_nome: resolved_nome,
+        solicitante_email: reqEmail || null,
+        solicitante_telefone: resolved_telefone,
         ativo: body.ativo || null,
         sla_atendimento_minutos: body.sla_atendimento_minutos || SLA_ATENDIMENTO[prioridade],
         sla_solucao_minutos: body.sla_solucao_minutos || SLA_SOLUCAO[prioridade],
