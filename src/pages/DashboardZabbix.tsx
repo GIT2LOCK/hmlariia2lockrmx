@@ -865,8 +865,30 @@ function ContactButton({
     const source = (group.problems[0] as any)?.source;
     setSending(true);
     try {
+      // Get current user's personal Zabbix token for this source
+      let user_token: string | null = null;
+      try {
+        const stored = JSON.parse(localStorage.getItem("auth_user") || "{}");
+        const uid = Number(stored?.id || 0);
+        if (uid) {
+          const col = source === "z2" ? "zabbix_token_z2" : "zabbix_token_z1";
+          const { data } = await supabase.from("usuarios").select(col).eq("id", uid).maybeSingle();
+          user_token = (data as any)?.[col] || null;
+        }
+      } catch { /* fallback to global */ }
+
+      if (!user_token) {
+        toast({
+          title: "Token Zabbix não configurado",
+          description: "Configure seu token pessoal em Meu Perfil para que o update saia em seu nome.",
+          variant: "destructive",
+        });
+        setSending(false);
+        return;
+      }
+
       const res = await supabase.functions.invoke("zabbix-dashboard", {
-        body: { action: "acknowledge", eventids, message: text.trim(), source },
+        body: { action: "acknowledge", eventids, message: text.trim(), source, user_token },
       });
       if (res.error) throw new Error(res.error.message);
       toast({ title: "Update adicionado no Zabbix" });

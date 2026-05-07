@@ -424,13 +424,25 @@ serve(async (req) => {
       }
 
       case "acknowledge": {
-        const { eventids, message, source } = body as { eventids: string[]; message: string; source?: string };
+        const { eventids, message, source, user_token } = body as { eventids: string[]; message: string; source?: string; user_token?: string };
         if (!Array.isArray(eventids) || eventids.length === 0 || !message || !message.trim()) {
           return new Response(JSON.stringify({ error: "eventids and message are required" }), {
             status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
-        const client = source === "z2" && zabbix2 ? zabbix2 : zabbix1;
+        // Use per-user token if provided, otherwise fall back to global token
+        let client;
+        if (user_token && user_token.trim()) {
+          const targetUrl = source === "z2" ? ZABBIX_API_URL_2 : ZABBIX_API_URL;
+          if (!targetUrl) {
+            return new Response(JSON.stringify({ error: "Zabbix URL não configurada para essa instância" }), {
+              status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+          client = createZabbixClient(targetUrl, user_token.trim());
+        } else {
+          client = source === "z2" && zabbix2 ? zabbix2 : zabbix1;
+        }
         // Strip "z1_"/"z2_" source prefix from eventids before sending to Zabbix
         const cleanEventIds = eventids.map((e) => String(e).replace(/^z[12]_/, ""));
         // action=4 → add message (bit flag per Zabbix API)

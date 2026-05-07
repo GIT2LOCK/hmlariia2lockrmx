@@ -924,6 +924,8 @@ export type Database = {
           telefone: string | null
           totp_enabled: boolean | null
           totp_secret: string | null
+          zabbix_token_z1: string | null
+          zabbix_token_z2: string | null
         }
         Insert: {
           assinatura_email?: string | null
@@ -940,6 +942,8 @@ export type Database = {
           telefone?: string | null
           totp_enabled?: boolean | null
           totp_secret?: string | null
+          zabbix_token_z1?: string | null
+          zabbix_token_z2?: string | null
         }
         Update: {
           assinatura_email?: string | null
@@ -956,6 +960,8 @@ export type Database = {
           telefone?: string | null
           totp_enabled?: boolean | null
           totp_secret?: string | null
+          zabbix_token_z1?: string | null
+          zabbix_token_z2?: string | null
         }
         Relationships: []
       }
