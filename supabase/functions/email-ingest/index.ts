@@ -33,9 +33,15 @@ function extractTicketId(subject: string): number | null {
   return m ? Number(m[1]) : null;
 }
 
+function isHtml(s: string): boolean {
+  return /<\/?[a-z][\s\S]*?>/i.test(s);
+}
+
 function cleanBody(body: string): string {
   if (!body) return "";
-  // remove citações (linhas começando com >) e separadores comuns
+  // Se for HTML, preserva integralmente (sanitização ocorre no frontend)
+  if (isHtml(body)) return body.trim();
+  // remove citações (linhas começando com >) e separadores comuns para texto puro
   const lines = body.split(/\r?\n/);
   const out: string[] = [];
   for (const ln of lines) {
