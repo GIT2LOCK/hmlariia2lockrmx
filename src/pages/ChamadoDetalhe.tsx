@@ -320,7 +320,7 @@ export default function ChamadoDetalhe() {
                     badge={isInterno ? "Nota interna" : "Resposta"}
                     tone={isInterno ? "internal" : "default"}
                   >
-                    {c.conteudo}
+                    <RichContent value={c.conteudo} />
                   </ConversationBubble>
                 );
               })}
