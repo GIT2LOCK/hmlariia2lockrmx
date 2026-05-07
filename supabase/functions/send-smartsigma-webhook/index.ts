@@ -36,6 +36,8 @@ serve(async (req) => {
       to: operadora_email || null,
       from: user_email || null,
       from_name: user_nome || null,
+      user_email: user_email || null,
+      user_nome: user_nome || null,
       subject,
       message,
       empresa,
