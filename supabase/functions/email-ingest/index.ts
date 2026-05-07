@@ -134,18 +134,38 @@ serve(async (req) => {
       }
     } else {
       // CRIAÇÃO
-      // Identifica empresa pelo domínio (tenta match em contatos)
+      // Tenta identificar o solicitante: contatos -> usuarios
       let empresa_id: number | null = null;
       let unidade_id: number | null = null;
+      let solicitante_nome: string | null = null;
+      let solicitante_telefone: string | null = null;
+
+      // 1) contatos (cobre 'pessoa' e 'responsavel' — coluna tipo é enum)
       const { data: contato } = await supabase
         .from("contatos")
-        .select("empresa_id, unidade_id, nome")
+        .select("empresa_id, unidade_id, nome, telefone")
         .ilike("email", email)
         .limit(1)
         .maybeSingle();
       if (contato) {
-        empresa_id = contato.empresa_id;
-        unidade_id = contato.unidade_id;
+        empresa_id = contato.empresa_id ?? null;
+        unidade_id = contato.unidade_id ?? null;
+        solicitante_nome = contato.nome ?? null;
+        solicitante_telefone = contato.telefone ?? null;
+      }
+
+      // 2) usuarios (fallback)
+      if (!solicitante_nome) {
+        const { data: usuario } = await supabase
+          .from("usuarios")
+          .select("nome, telefone")
+          .ilike("email", email)
+          .limit(1)
+          .maybeSingle();
+        if (usuario) {
+          solicitante_nome = usuario.nome ?? null;
+          solicitante_telefone = solicitante_telefone || usuario.telefone || null;
+        }
       }
 
       // Categoria padrão "Internet"
@@ -165,8 +185,9 @@ serve(async (req) => {
         empresa_id,
         unidade_id,
         categoria_id,
-        solicitante_nome: contato?.nome || from,
+        solicitante_nome: solicitante_nome || from,
         solicitante_email: email,
+        solicitante_telefone,
         sla_atendimento_minutos: SLA_ATENDIMENTO[prioridade],
         sla_solucao_minutos: SLA_SOLUCAO[prioridade],
       }).select("*").maybeSingle();
