@@ -19,11 +19,17 @@ const SLA_SOLUCAO: Record<string, number> = { CRITICO: 240, ALTO: 480, MEDIO: 14
 const PAUSED = ["AGUARDANDO_CLIENTE", "AGUARDANDO_OPERADORA", "AGUARDANDO_TERCEIRO", "AGENDADO", "TRIAGEM"];
 
 function authorize(req: Request) {
-  const expected = Deno.env.get("N8N_API_TOKEN");
-  if (!expected) return false;
-  const header = req.headers.get("x-api-token") ||
-    (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
-  return header === expected;
+  const expected = Deno.env.get("N8N_API_TOKEN") || "";
+  const header = (req.headers.get("x-api-token") ||
+    (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "")).trim();
+  const ok = !!expected && header === expected;
+  if (!ok) {
+    const mask = (s: string) => s.length <= 8 ? s : `${s.slice(0,4)}...${s.slice(-4)}(len=${s.length})`;
+    console.log("[auth] FAIL expected=", mask(expected), "received=", mask(header),
+      "expectedHasNonAscii=", /[^\x20-\x7E]/.test(expected),
+      "receivedHasNonAscii=", /[^\x20-\x7E]/.test(header));
+  }
+  return ok;
 }
 
 serve(async (req) => {
