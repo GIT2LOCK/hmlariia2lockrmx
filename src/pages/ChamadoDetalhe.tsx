@@ -304,7 +304,7 @@ export default function ChamadoDetalhe() {
                 meta={ticket.solicitante_email}
                 tone="primary"
               >
-                {ticket.descricao || <span className="text-muted-foreground">Sem descrição</span>}
+                {ticket.descricao ? <RichContent value={ticket.descricao} /> : <span className="text-muted-foreground">Sem descrição</span>}
               </ConversationBubble>
 
               {/* Conversa */}
