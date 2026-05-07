@@ -261,8 +261,7 @@ export default function ChamadoDetalhe() {
 
       <Tabs defaultValue="resumo" className="w-full">
         <TabsList>
-          <TabsTrigger value="resumo">Resumo</TabsTrigger>
-          <TabsTrigger value="comentarios">Comentários ({comments.length})</TabsTrigger>
+          <TabsTrigger value="resumo">Resumo ({comments.length + 1})</TabsTrigger>
           <TabsTrigger value="sla">SLA</TabsTrigger>
           <TabsTrigger value="historico">Histórico ({history.length})</TabsTrigger>
           <TabsTrigger value="anexos">Anexos ({attachments.length})</TabsTrigger>
@@ -270,15 +269,88 @@ export default function ChamadoDetalhe() {
 
         <TabsContent value="resumo" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card className="md:col-span-2">
-              <CardHeader><CardTitle className="text-sm">Descrição</CardTitle></CardHeader>
-              <CardContent>
-                <p className="whitespace-pre-wrap text-sm">
-                  {ticket.descricao || <span className="text-muted-foreground">Sem descrição</span>}
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
+            {/* Timeline GLPI-style */}
+            <div className="md:col-span-2 space-y-3">
+              {/* Mensagem inicial (descrição) */}
+              <Card className="border-l-4 border-l-primary">
+                <CardContent className="pt-4 space-y-2">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>
+                      <b>{ticket.solicitante_nome || ticket.usuarios?.nome || "Solicitante"}</b>
+                      {ticket.solicitante_email && <span> · {ticket.solicitante_email}</span>}
+                      <span> · Abertura ({ticket.origem})</span>
+                    </span>
+                    <span>{fmtDate(ticket.data_abertura)}</span>
+                  </div>
+                  <p className="text-sm whitespace-pre-wrap">
+                    {ticket.descricao || <span className="text-muted-foreground">Sem descrição</span>}
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* Conversa */}
+              {comments.map((c) => {
+                const isInterno = c.tipo === "INTERNO";
+                return (
+                  <Card
+                    key={c.id}
+                    className={
+                      isInterno
+                        ? "border-l-4 border-l-amber-500 bg-amber-500/5"
+                        : "border-l-4 border-l-secondary"
+                    }
+                  >
+                    <CardContent className="pt-4 space-y-1">
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>
+                          <b>{c.autor_nome || "Sistema"}</b>
+                          <span> · </span>
+                          <Badge variant="outline" className="ml-1 text-[10px] py-0 px-1.5">
+                            {isInterno ? "Nota interna" : "Resposta"}
+                          </Badge>
+                        </span>
+                        <span>{fmtDate(c.criado_em)}</span>
+                      </div>
+                      <p className="text-sm whitespace-pre-wrap">{c.conteudo}</p>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+
+              {/* Compositor */}
+              <Card>
+                <CardContent className="pt-4 space-y-2">
+                  <div className="flex gap-2 items-center">
+                    <Select value={tipoComent} onValueChange={(v) => setTipoComent(v as any)}>
+                      <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="CLIENTE">Resposta (cliente)</SelectItem>
+                        <SelectItem value="INTERNO">Nota interna</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <span className="text-xs text-muted-foreground">
+                      {tipoComent === "CLIENTE"
+                        ? "Visível ao cliente · dispara e-mail"
+                        : "Visível apenas à equipe"}
+                    </span>
+                  </div>
+                  <Textarea
+                    rows={3}
+                    placeholder="Escreva uma resposta ou nota..."
+                    value={novoComentario}
+                    onChange={(e) => setNovoComentario(e.target.value)}
+                  />
+                  <div className="flex justify-end">
+                    <Button onClick={adicionarComentario} disabled={salvandoComent || !novoComentario.trim()}>
+                      <Send className="h-4 w-4 mr-1" /> Enviar
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Painel lateral de detalhes */}
+            <Card className="h-fit">
               <CardHeader><CardTitle className="text-sm">Detalhes</CardTitle></CardHeader>
               <CardContent className="space-y-2 text-sm">
                 <DetailRow label="Cliente" value={ticket.empresas?.nome_fantasia} />
@@ -294,48 +366,6 @@ export default function ChamadoDetalhe() {
                 {ticket.solicitante_telefone && <DetailRow label="Telefone" value={ticket.solicitante_telefone} />}
               </CardContent>
             </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="comentarios" className="space-y-4">
-          <Card>
-            <CardContent className="pt-4 space-y-3">
-              <div className="flex gap-2 items-start">
-                <Select value={tipoComent} onValueChange={(v) => setTipoComent(v as any)}>
-                  <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="INTERNO">Interno</SelectItem>
-                    <SelectItem value="CLIENTE">Cliente</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Textarea
-                  rows={3}
-                  placeholder="Escreva um comentário..."
-                  value={novoComentario}
-                  onChange={(e) => setNovoComentario(e.target.value)}
-                />
-                <Button onClick={adicionarComentario} disabled={salvandoComent || !novoComentario.trim()}>
-                  <Send className="h-4 w-4 mr-1" /> Enviar
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          <div className="space-y-2">
-            {comments.length === 0 && (
-              <p className="text-sm text-muted-foreground text-center py-6">Nenhum comentário ainda</p>
-            )}
-            {comments.map((c) => (
-              <Card key={c.id} className={c.tipo === "INTERNO" ? "border-l-4 border-l-amber-500" : c.tipo === "CLIENTE" ? "border-l-4 border-l-primary" : ""}>
-                <CardContent className="pt-4 space-y-1">
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span><b>{c.autor_nome || "Sistema"}</b> · {c.tipo}</span>
-                    <span>{fmtDate(c.criado_em)}</span>
-                  </div>
-                  <p className="text-sm whitespace-pre-wrap">{c.conteudo}</p>
-                </CardContent>
-              </Card>
-            ))}
           </div>
         </TabsContent>
 
