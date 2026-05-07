@@ -469,26 +469,16 @@ serve(async (req) => {
         }
         try {
           const client = createZabbixClient(targetUrl, token.trim());
-          const r = await client("user.checkAuthentication", { token: token.trim() });
-          return new Response(JSON.stringify({ ok: true, user: r }), {
+          // user.get with no filter returns the authenticated user — works for any valid API token
+          const users = await client("user.get", { output: ["userid", "username"] });
+          return new Response(JSON.stringify({ ok: true, user: Array.isArray(users) ? users[0] : users }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         } catch (e) {
-          // Fallback: try a simple call
-          try {
-            const client = createZabbixClient(targetUrl, token.trim());
-            await client("apiinfo.version", {});
-            // apiinfo.version doesn't validate token, so try host.get with limit 1
-            await client("host.get", { output: ["hostid"], limit: 1 });
-            return new Response(JSON.stringify({ ok: true }), {
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-            });
-          } catch (e2) {
-            const msg = e2 instanceof Error ? e2.message : String(e2);
-            return new Response(JSON.stringify({ ok: false, error: msg }), {
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-            });
-          }
+          const msg = e instanceof Error ? e.message : String(e);
+          return new Response(JSON.stringify({ ok: false, error: msg }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
         }
       }
 
