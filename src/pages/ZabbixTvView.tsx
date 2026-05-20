@@ -58,6 +58,8 @@ function classifyProblem(p: ZabbixProblem): Category {
   const name = (p.triggerDescription || p.name || "").toLowerCase();
   if (/indisponibilidade.*equipamento/i.test(name)) return "equipamentos";
   if (/indisponibilidade.*link/i.test(name)) return "links";
+  if (/indisponibilidade de ddns/i.test(name)) return "links";
+  if (/sem conex[ãa]o com a unidade/i.test(name)) return "links";
   return "outros";
 }
 
