@@ -828,6 +828,30 @@ const UnidadeDetalhe = () => {
         unidadeId={unidade?.id || null}
         unidadeNome={unidade?.nome_unidade}
       />
+
+      <AlertDialog open={!!confirmSendLink} onOpenChange={(o) => !o && setConfirmSendLink(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar envio do e-mail?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmSendLink && unidade
+                ? `O e-mail de abertura de chamado será enviado para a operadora ${confirmSendLink.operadoras?.nome || ""}${confirmSendLink.operadoras?.email ? ` (${confirmSendLink.operadoras.email})` : ""}, referente à unidade ${unidade.nome_unidade}. Deseja continuar?`
+                : "Deseja enviar o e-mail?"}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (confirmSendLink) handleSendSmartSigmaEmail(confirmSendLink);
+                setConfirmSendLink(null);
+              }}
+            >
+              Sim, enviar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
