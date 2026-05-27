@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
@@ -231,6 +232,7 @@ const UnidadeDetalhe = () => {
   };
 
   const [enviandoEmailLinkId, setEnviandoEmailLinkId] = useState<number | null>(null);
+  const [confirmSendLink, setConfirmSendLink] = useState<LinkInternet | null>(null);
   const handleSendSmartSigmaEmail = async (link: LinkInternet) => {
     if (!unidade) return;
     const message = generateSmartSigmaEmail(link);
@@ -634,7 +636,7 @@ const UnidadeDetalhe = () => {
                               )}
                             </Button>
                             <Button
-                              onClick={() => handleSendSmartSigmaEmail(link)}
+                              onClick={() => setConfirmSendLink(link)}
                               className="w-full gap-2"
                               disabled={enviandoEmailLinkId === link.id}
                             >
@@ -826,6 +828,30 @@ const UnidadeDetalhe = () => {
         unidadeId={unidade?.id || null}
         unidadeNome={unidade?.nome_unidade}
       />
+
+      <AlertDialog open={!!confirmSendLink} onOpenChange={(o) => !o && setConfirmSendLink(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar envio do e-mail?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmSendLink && unidade
+                ? `O e-mail de abertura de chamado será enviado para a operadora ${confirmSendLink.operadoras?.nome || ""}${confirmSendLink.operadoras?.email ? ` (${confirmSendLink.operadoras.email})` : ""}, referente à unidade ${unidade.nome_unidade}. Deseja continuar?`
+                : "Deseja enviar o e-mail?"}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (confirmSendLink) handleSendSmartSigmaEmail(confirmSendLink);
+                setConfirmSendLink(null);
+              }}
+            >
+              Sim, enviar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
