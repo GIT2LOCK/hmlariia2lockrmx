@@ -362,5 +362,30 @@ export function AbrirChamadoModal({ open, onOpenChange, unidadeId }: AbrirChamad
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <AlertDialog open={confirmSendOpen} onOpenChange={setConfirmSendOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Confirmar envio do e-mail?</AlertDialogTitle>
+          <AlertDialogDescription>
+            {selectedLink && unidade
+              ? `O e-mail de abertura de chamado será enviado para a operadora ${selectedLink.operadora_nome}${selectedLink.operadora_email ? ` (${selectedLink.operadora_email})` : ""}, referente à unidade ${unidade.nome_unidade}. Deseja continuar?`
+              : "Deseja enviar o e-mail?"}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={() => {
+              if (selectedLink) handleSendEmail(selectedLink);
+              setConfirmSendOpen(false);
+            }}
+          >
+            Sim, enviar
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
