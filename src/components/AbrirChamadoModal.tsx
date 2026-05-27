@@ -326,7 +326,7 @@ export function AbrirChamadoModal({ open, onOpenChange, unidadeId }: AbrirChamad
                         <Button onClick={() => handleCopy(selectedLink)} className="w-full gap-2" variant={copiedId === selectedLink.id ? "secondary" : "outline"}>
                           {copiedId === selectedLink.id ? <><Check className="h-4 w-4" /> Copiado!</> : <><Copy className="h-4 w-4" /> Copiar texto</>}
                         </Button>
-                        <Button onClick={() => handleSendEmail(selectedLink)} className="w-full gap-2" disabled={enviandoEmail}>
+                        <Button onClick={() => setConfirmSendOpen(true)} className="w-full gap-2" disabled={enviandoEmail}>
                           <Send className="h-4 w-4" />
                           {enviandoEmail ? "Enviando..." : "Enviar e-mail"}
                         </Button>
