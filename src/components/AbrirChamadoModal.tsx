@@ -1,5 +1,15 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -66,6 +76,7 @@ export function AbrirChamadoModal({ open, onOpenChange, unidadeId }: AbrirChamad
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [assinatura, setAssinatura] = useState("");
+  const [confirmSendOpen, setConfirmSendOpen] = useState(false);
 
   useEffect(() => {
     if (!user.id) return;
