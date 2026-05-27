@@ -1,5 +1,15 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -66,6 +76,7 @@ export function AbrirChamadoModal({ open, onOpenChange, unidadeId }: AbrirChamad
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [assinatura, setAssinatura] = useState("");
+  const [confirmSendOpen, setConfirmSendOpen] = useState(false);
 
   useEffect(() => {
     if (!user.id) return;
@@ -239,6 +250,7 @@ export function AbrirChamadoModal({ open, onOpenChange, unidadeId }: AbrirChamad
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -315,7 +327,7 @@ export function AbrirChamadoModal({ open, onOpenChange, unidadeId }: AbrirChamad
                         <Button onClick={() => handleCopy(selectedLink)} className="w-full gap-2" variant={copiedId === selectedLink.id ? "secondary" : "outline"}>
                           {copiedId === selectedLink.id ? <><Check className="h-4 w-4" /> Copiado!</> : <><Copy className="h-4 w-4" /> Copiar texto</>}
                         </Button>
-                        <Button onClick={() => handleSendEmail(selectedLink)} className="w-full gap-2" disabled={enviandoEmail}>
+                        <Button onClick={() => setConfirmSendOpen(true)} className="w-full gap-2" disabled={enviandoEmail}>
                           <Send className="h-4 w-4" />
                           {enviandoEmail ? "Enviando..." : "Enviar e-mail"}
                         </Button>
@@ -351,5 +363,30 @@ export function AbrirChamadoModal({ open, onOpenChange, unidadeId }: AbrirChamad
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <AlertDialog open={confirmSendOpen} onOpenChange={setConfirmSendOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Confirmar envio do e-mail?</AlertDialogTitle>
+          <AlertDialogDescription>
+            {selectedLink && unidade
+              ? `O e-mail de abertura de chamado será enviado para a operadora ${selectedLink.operadora_nome}${selectedLink.operadora_email ? ` (${selectedLink.operadora_email})` : ""}, referente à unidade ${unidade.nome_unidade}. Deseja continuar?`
+              : "Deseja enviar o e-mail?"}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={() => {
+              if (selectedLink) handleSendEmail(selectedLink);
+              setConfirmSendOpen(false);
+            }}
+          >
+            Sim, enviar
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
