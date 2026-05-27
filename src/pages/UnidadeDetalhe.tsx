@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
@@ -231,6 +232,7 @@ const UnidadeDetalhe = () => {
   };
 
   const [enviandoEmailLinkId, setEnviandoEmailLinkId] = useState<number | null>(null);
+  const [confirmSendLink, setConfirmSendLink] = useState<LinkInternet | null>(null);
   const handleSendSmartSigmaEmail = async (link: LinkInternet) => {
     if (!unidade) return;
     const message = generateSmartSigmaEmail(link);
@@ -634,7 +636,7 @@ const UnidadeDetalhe = () => {
                               )}
                             </Button>
                             <Button
-                              onClick={() => handleSendSmartSigmaEmail(link)}
+                              onClick={() => setConfirmSendLink(link)}
                               className="w-full gap-2"
                               disabled={enviandoEmailLinkId === link.id}
                             >
