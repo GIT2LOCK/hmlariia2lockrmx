@@ -32,15 +32,17 @@ async function fetchProblemsFromInstance(
   source: string,
   filterFn: (t: any) => boolean,
   categoryFn?: (desc: string) => string,
+  severities: number[] = [4, 5],
 ) {
   const problems = await zabbixCall("problem.get", {
     output: ["eventid", "objectid", "name", "severity", "clock", "acknowledged", "suppressed"],
     source: 0,
     object: 0,
-    severities: [4, 5],
+    severities,
     sortfield: "eventid",
     sortorder: "DESC",
   });
+
 
   const triggerIds = Array.from(new Set(problems.map((p: any) => p.objectid).filter(Boolean)));
   let triggerMap: Record<string, any> = {};
@@ -265,7 +267,8 @@ serve(async (req) => {
               desc.includes("sem conexão com a unidade")
             );
           };
-          promises.push(fetchProblemsFromInstance(zabbix2, "z2", filter2, classifyZabbix2));
+          promises.push(fetchProblemsFromInstance(zabbix2, "z2", filter2, classifyZabbix2, [2, 3, 4, 5]));
+
         }
 
         const results = await Promise.all(promises);
