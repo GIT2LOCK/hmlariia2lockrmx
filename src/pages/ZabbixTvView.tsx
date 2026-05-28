@@ -39,8 +39,12 @@ type Category = "equipamentos" | "links" | "outros";
 
 const isHighOrDisaster = (problem: ZabbixProblem) => {
   const severity = Number(problem.severity);
-  return severity === 4 || severity === 5;
+  if (severity === 4 || severity === 5) return true;
+  // Allow z2 link-category problems (e.g. "Sem Conexão com a Unidade") regardless of severity
+  if ((problem as any).source === "z2" && (problem as any).category === "links") return true;
+  return false;
 };
+
 
 const SECOND_UPDATE_ALERT_SECONDS = 25 * 60;
 
