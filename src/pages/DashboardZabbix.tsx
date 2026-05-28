@@ -75,8 +75,11 @@ interface ZabbixHost {
 
 const isHighOrDisaster = (problem: ZabbixProblem) => {
   const severity = Number(problem.severity);
-  return severity === 4 || severity === 5;
+  if (severity === 4 || severity === 5) return true;
+  if ((problem as any).source === "z2" && (problem as any).category === "links") return true;
+  return false;
 };
+
 
 const SECOND_UPDATE_ALERT_SECONDS = 25 * 60;
 
