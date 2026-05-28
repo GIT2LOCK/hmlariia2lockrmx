@@ -364,6 +364,76 @@ export type Database = {
           },
         ]
       }
+      nfse_app_logs: {
+        Row: {
+          acao: string
+          arquivo_fonte: string | null
+          criado_em: string | null
+          detalhes: string | null
+          id: number
+          ip_local: string | null
+          maquina_os: string | null
+          status: string
+          usuario_id: number | null
+        }
+        Insert: {
+          acao: string
+          arquivo_fonte?: string | null
+          criado_em?: string | null
+          detalhes?: string | null
+          id?: number
+          ip_local?: string | null
+          maquina_os?: string | null
+          status: string
+          usuario_id?: number | null
+        }
+        Update: {
+          acao?: string
+          arquivo_fonte?: string | null
+          criado_em?: string | null
+          detalhes?: string | null
+          id?: number
+          ip_local?: string | null
+          maquina_os?: string | null
+          status?: string
+          usuario_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nfse_app_logs_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      nfse_app_origem: {
+        Row: {
+          criado_em: string | null
+          origem: string
+          usuario_id: number
+        }
+        Insert: {
+          criado_em?: string | null
+          origem?: string
+          usuario_id: number
+        }
+        Update: {
+          criado_em?: string | null
+          origem?: string
+          usuario_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nfse_app_origem_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: true
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       operadoras: {
         Row: {
           atualizado_em: string | null
