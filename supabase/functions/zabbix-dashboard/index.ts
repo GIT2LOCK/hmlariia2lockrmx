@@ -32,15 +32,17 @@ async function fetchProblemsFromInstance(
   source: string,
   filterFn: (t: any) => boolean,
   categoryFn?: (desc: string) => string,
+  severities: number[] = [4, 5],
 ) {
   const problems = await zabbixCall("problem.get", {
     output: ["eventid", "objectid", "name", "severity", "clock", "acknowledged", "suppressed"],
     source: 0,
     object: 0,
-    severities: [4, 5],
+    severities,
     sortfield: "eventid",
     sortorder: "DESC",
   });
+
 
   const triggerIds = Array.from(new Set(problems.map((p: any) => p.objectid).filter(Boolean)));
   let triggerMap: Record<string, any> = {};
