@@ -267,7 +267,8 @@ serve(async (req) => {
               desc.includes("sem conexão com a unidade")
             );
           };
-          promises.push(fetchProblemsFromInstance(zabbix2, "z2", filter2, classifyZabbix2));
+          promises.push(fetchProblemsFromInstance(zabbix2, "z2", filter2, classifyZabbix2, [2, 3, 4, 5]));
+
         }
 
         const results = await Promise.all(promises);
