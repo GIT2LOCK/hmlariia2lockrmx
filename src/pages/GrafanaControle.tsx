@@ -207,7 +207,7 @@ function OrgsTab() {
                 const isOpen = expanded === o.id;
                 const users = orgUsers[o.id];
                 return (
-                  <>
+                  <Fragment key={o.id}>
                     <TableRow key={o.id} className="cursor-pointer hover:bg-accent/50" onClick={() => toggleExpand(o.id)}>
                       <TableCell>{isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}</TableCell>
                       <TableCell className="font-mono">{o.grafana_org_id}</TableCell>
