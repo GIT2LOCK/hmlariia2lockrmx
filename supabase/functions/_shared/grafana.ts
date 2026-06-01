@@ -16,27 +16,41 @@ export function serviceClient() {
   });
 }
 
-/** Verifies the caller's Supabase JWT and returns the linked Ariia usuario. */
+function decodeJwtClaims(jwt: string): Record<string, any> | null {
+  try {
+    const part = jwt.split(".")[1];
+    if (!part) return null;
+    const b64 = part.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(part.length / 4) * 4, "=");
+    return JSON.parse(atob(b64));
+  } catch {
+    return null;
+  }
+}
+
+/** Verifies the caller's Supabase JWT and returns the linked Ariia usuario.
+ *  Reads claims directly from the JWT (post-OAuth tokens may lack a valid `sub` for /auth/v1/user). */
 export async function getCallerUsuario(req: Request) {
   const authHeader = req.headers.get("Authorization") || "";
   const jwt = authHeader.replace(/^Bearer\s+/i, "");
   if (!jwt) throw new Error("missing_auth");
 
-  const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    global: { headers: { Authorization: `Bearer ${jwt}` } },
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-
-  const { data: userRes, error } = await userClient.auth.getUser();
-  if (error || !userRes?.user) throw new Error("invalid_auth");
+  const claims = decodeJwtClaims(jwt);
+  if (!claims) throw new Error("invalid_auth");
 
   const svc = serviceClient();
-  const { data: u, error: e2 } = await svc
-    .from("usuarios")
-    .select("id, nome, email, permissao, ativo, auth_user_id")
-    .eq("auth_user_id", userRes.user.id)
-    .maybeSingle();
+  let query = svc.from("usuarios").select("id, nome, email, permissao, ativo, auth_user_id");
 
+  if (claims.ariia_usuario_id) {
+    query = query.eq("id", claims.ariia_usuario_id);
+  } else if (claims.sub) {
+    query = query.eq("auth_user_id", claims.sub);
+  } else if (claims.email) {
+    query = query.eq("email", claims.email);
+  } else {
+    throw new Error("invalid_auth");
+  }
+
+  const { data: u, error: e2 } = await query.maybeSingle();
   if (e2 || !u) throw new Error("usuario_not_found");
   if (!u.ativo) throw new Error("usuario_inativo");
   return u;
