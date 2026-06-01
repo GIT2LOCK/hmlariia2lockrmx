@@ -144,17 +144,25 @@ export async function logout(logoutAll: boolean = false): Promise<void> {
 
 /**
  * Establishes a Supabase Auth session in parallel with the custom session.
- * Used so OAuth flows (Grafana SSO) reuse the same login.
- * Silent failure: if signIn fails the app still works; only OAuth consent
- * will require re-login.
+ * Required for OAuth flows (Grafana SSO) to reuse the same login.
+ * Throws if the Supabase session cannot be created/persisted.
  */
 export async function ensureSupabaseAuthSession(email: string, password: string): Promise<void> {
-  try {
-    const { supabase } = await import("@/integrations/supabase/client");
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) console.warn("[ensureSupabaseAuthSession] signIn failed:", error.message);
-  } catch (e) {
-    console.warn("[ensureSupabaseAuthSession] exception:", e);
+  const { supabase } = await import("@/integrations/supabase/client");
+
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  console.log("[ensureSupabaseAuthSession] signIn result:", { user: data?.user?.id, error });
+
+  if (error) {
+    console.error("[ensureSupabaseAuthSession] Falha ao criar sessão Supabase Auth:", error);
+    throw new Error("Login Ariia ok, mas falhou ao criar sessão Supabase Auth: " + error.message);
+  }
+
+  const { data: sessionData } = await supabase.auth.getSession();
+  console.log("[ensureSupabaseAuthSession] session after login:", sessionData.session?.user?.id ?? null);
+
+  if (!sessionData.session) {
+    throw new Error("Sessão Supabase Auth não foi persistida no browser.");
   }
 }
 
