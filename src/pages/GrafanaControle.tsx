@@ -98,7 +98,7 @@ function DashboardTab() {
 
   const load = async () => {
     const [o, u, g, l] = await Promise.all([
-      supabase.from("grafana_organizations").select("id", { count: "exact", head: true }),
+      supabase.from("grafana_organizations").select("id", { count: "exact", head: true }).eq("active", true),
       supabase.from("grafana_user_links").select("id", { count: "exact", head: true }),
       supabase.from("grafana_access_groups").select("id", { count: "exact", head: true }),
       supabase.from("grafana_sync_logs").select("*").eq("status", "error").order("criado_em", { ascending: false }).limit(5),
@@ -182,7 +182,7 @@ function OrgsTab() {
   const [busy, setBusy] = useState(false);
 
   const load = async () => {
-    const { data } = await supabase.from("grafana_organizations").select("*").order("name");
+    const { data } = await supabase.from("grafana_organizations").select("*").eq("active", true).order("name");
     setOrgs((data as Org[]) || []);
   };
   useEffect(() => { load(); }, []);
@@ -247,7 +247,7 @@ function GroupsTab() {
     const [g, u, o] = await Promise.all([
       supabase.from("grafana_access_groups").select("*").order("name"),
       supabase.from("usuarios").select("id, nome, email, permissao, ativo").order("nome"),
-      supabase.from("grafana_organizations").select("*").order("name"),
+      supabase.from("grafana_organizations").select("*").eq("active", true).order("name"),
     ]);
     setGroups((g.data as Group[]) || []);
     setUsuarios((u.data as Usuario[]) || []);
@@ -469,7 +469,7 @@ function DirectPermsTab() {
   const load = async () => {
     const [u, o, p] = await Promise.all([
       supabase.from("usuarios").select("id, nome, email, permissao, ativo").order("nome"),
-      supabase.from("grafana_organizations").select("*").order("name"),
+      supabase.from("grafana_organizations").select("*").eq("active", true).order("name"),
       supabase.from("grafana_user_org_permissions").select("*"),
     ]);
     setUsuarios((u.data as Usuario[]) || []);
