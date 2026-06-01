@@ -394,8 +394,7 @@ function UsersTab() {
   const syncUser = async (id: number) => {
     setBusy(id);
     try {
-      const { error } = await supabase.functions.invoke("grafana-sync-user", { body: { usuario_id: id } });
-      if (error) throw error;
+      await invokeGrafanaFunction("grafana-sync-user", { body: { usuario_id: id } });
       toast({ title: "Usuário sincronizado" });
       await load();
     } catch (e: any) {
@@ -404,16 +403,10 @@ function UsersTab() {
   };
 
   const viewPerms = async (u: Usuario) => {
-    const { data } = await supabase.functions.invoke("grafana-effective-permissions", {
+    const json = await invokeGrafanaFunction<{ perms: unknown }>("grafana-effective-permissions", {
       method: "GET",
-    } as any);
-    // GET with query param via fetch fallback
-    const { data: { session } } = await supabase.auth.getSession();
-    const res = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/grafana-effective-permissions?usuario_id=${u.id}`,
-      { headers: { Authorization: `Bearer ${session?.access_token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY } }
-    );
-    const json = await res.json();
+      query: { usuario_id: u.id },
+    });
     setPermsModal({ user: u, perms: json.perms });
   };
 
@@ -494,14 +487,14 @@ function DirectPermsTab() {
         atualizado_em: new Date().toISOString(),
       }, { onConflict: "usuario_id,grafana_organization_id" });
     }
-    await supabase.functions.invoke("grafana-sync-user", { body: { usuario_id: uid } });
+    await invokeGrafanaFunction("grafana-sync-user", { body: { usuario_id: uid } });
     toast({ title: "Permissão salva e sincronizada" });
     await load();
   };
 
   const removePerm = async (id: number, uid: number) => {
     await supabase.from("grafana_user_org_permissions").delete().eq("id", id);
-    await supabase.functions.invoke("grafana-sync-user", { body: { usuario_id: uid } });
+    await invokeGrafanaFunction("grafana-sync-user", { body: { usuario_id: uid } });
     await load();
   };
 
