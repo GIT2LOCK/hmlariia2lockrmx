@@ -1,144 +1,139 @@
-## Objetivo
+# Controle Grafana no Ariia
 
-Integrar Supabase Auth ao Ariia/2LOCK como camada de identidade OAuth/OIDC para permitir SSO com Grafana via Generic OAuth, **sem substituir** `public.usuarios` e mantendo RBAC, 2FA, tokens Zabbix e todas as FKs internas intactas.
+Transformar o Ariia no painel central de controle de acesso do Grafana. O Ariia define organizações, grupos, usuários e permissões; o Grafana apenas reflete via API. OAuth continua como hoje (scopes `profile email`, sem `openid`).
 
-A coluna `public.usuarios.auth_user_id uuid` já existe e fará a ponte entre `auth.users.id` (Supabase Auth) e `usuarios.id` (Ariia).
+## 1. Secrets (Lovable Cloud)
 
----
+Adicionar (via `add_secret`) antes de qualquer Edge Function:
+- `GRAFANA_URL`
+- `GRAFANA_ADMIN_USER`
+- `GRAFANA_ADMIN_PASSWORD`
 
-## Arquitetura final
+Basic Auth obrigatório (Server Admin), pois service accounts são por organização.
 
-```text
-Grafana → "Sign in with 2LOCK"
-   ↓
-Supabase OAuth Server (/auth/v1/oauth/authorize)
-   ↓
-Ariia /oauth/consent?authorization_id=XYZ
-   ↓ (se não logado) /login?redirect=...
-   ↓ (se 2FA obrigatório) /verify-2fa?redirect=...
-   ↓
-approveAuthorization()
-   ↓
-Grafana logado (claims: ariia_usuario_id, ariia_permissao, grafana_role)
+## 2. Schema Supabase (migration)
+
+Novas tabelas em `public` (com `GRANT` + RLS — leitura/escrita apenas via edge functions com service_role; frontend lê via select com policy restrita a SUPERADMIN/ADMIN do Ariia):
+
+- `grafana_organizations` (grafana_org_id int unique, name, slug, active, synced_at)
+- `grafana_user_links` (usuario_id unique → usuarios.id, grafana_user_id, grafana_login, grafana_email, last_synced_at)
+- `grafana_access_groups` (name, description, active)
+- `grafana_access_group_members` (group_id, usuario_id, unique(group_id, usuario_id))
+- `grafana_group_org_permissions` (group_id, grafana_organization_id, role enum)
+- `grafana_user_org_permissions` (usuario_id, grafana_organization_id, role enum, enabled)
+- `grafana_sync_logs` (usuario_id nullable, action, status, request_payload jsonb, response_payload jsonb, error_message, created_at)
+
+Enum `grafana_role`: `None | Viewer | Editor | Admin`.
+
+Função SQL `public.grafana_effective_permissions(_usuario_id int)` retorna `{ is_grafana_admin, orgs: [{org_id, grafana_org_id, role}] }`:
+- Se `usuarios.permissao` ∈ {SUPERADMIN, ADMIN} e `ativo=true` → `is_grafana_admin=true`, `Admin` em todas as orgs ativas.
+- Senão, merge de `grafana_user_org_permissions` (enabled=true) com `grafana_group_org_permissions` via membership; maior role vence (Admin > Editor > Viewer > None); direta sobrescreve grupo quando definida.
+- Inativo → vazio.
+
+Policies de leitura: usar função `has_role`-equivalente baseada em `usuarios.permissao` via `auth_user_id = auth.uid()`.
+
+## 3. Edge Functions
+
+Todas com CORS, validam JWT do chamador via `SUPABASE_JWKS`, e exigem que `usuarios.permissao` do chamador seja SUPERADMIN/ADMIN (exceto `grafana-effective-permissions` que pode rodar para o próprio usuário):
+
+- `grafana-test-connection` — GET `/api/admin/settings` com Basic Auth; valida 200.
+- `grafana-sync-organizations` — GET `/api/orgs`, upsert em `grafana_organizations`. POST opcional para criar org.
+- `grafana-sync-user` — input `{ usuario_id }`:
+  1. Resolve email do usuário.
+  2. Lookup `/api/users/lookup?loginOrEmail=`. Se 404, cria via `/api/admin/users` com senha random (login = email).
+  3. Atualiza `grafana_user_links`.
+  4. Calcula permissões efetivas.
+  5. PUT `/api/admin/users/{id}/permissions` `{ isGrafanaAdmin }`.
+  6. Para cada org desejada: `POST /api/orgs/{orgId}/users` (add) ou `PATCH` (update role). Para orgs não desejadas onde está presente: `DELETE /api/orgs/{orgId}/users/{userId}`.
+  7. Se inativo no Ariia: desabilita (`PUT /api/admin/users/{id}/disable`) e remove de todas as orgs.
+  8. Loga tudo em `grafana_sync_logs`.
+- `grafana-sync-all` — itera `usuarios` ativos e chama lógica acima.
+- `grafana-effective-permissions` — retorna a saída da função SQL para um usuário.
+
+## 4. OAuth Consent — gating
+
+Em `src/pages/OAuthConsent.tsx`, antes de `approveAuthorization`:
+1. Carrega `usuarios` por `auth_user_id`.
+2. Bloqueia se `ativo=false` ou 2FA pendente (já existe).
+3. Chama `grafana-effective-permissions`:
+   - SUPERADMIN/ADMIN → dispara `grafana-sync-user` (fire-and-forget com await curto) → aprova.
+   - USER/VIEWER/TV_VIEW com `orgs.length === 0` → mostra mensagem amigável: "Você ainda não possui acesso liberado ao Grafana. Solicite acesso ao administrador." e botão "Voltar". NÃO aprova.
+   - Caso contrário → sincroniza → aprova.
+
+## 5. Custom Access Token Hook (SQL migration)
+
+Atualizar `public.custom_access_token_hook` para incluir claims:
+- `ariia_usuario_id`, `ariia_permissao`
+- `grafana_role`: `GrafanaAdmin` (admins), `Viewer` (USER/VIEWER/TV_VIEW com ≥1 org), `None` (sem org)
+- `grafana_is_admin` boolean
+- `grafana_allowed_orgs`: array de `grafana_org_id`
+- `grafana_access_summary`: jsonb `{org_id: role}`
+
+Source of truth real continua sendo o sync via API; claims são apenas para `role_attribute_path` do Grafana.
+
+## 6. UI — "Controle Grafana"
+
+Nova rota `/dashboard/grafana` protegida por `canManageUsers` (SUPERADMIN/ADMIN apenas). Entrada no `AppSidebar` em "Conta" com ícone Activity/Shield.
+
+Componente raiz com Tabs:
+
+- **Dashboard**: cards (orgs sincronizadas, usuários com acesso, grupos, últimos erros), botões "Sincronizar organizações" e "Sincronizar todos".
+- **Organizações**: tabela (`grafana_org_id`, nome, status, última sync), botão refresh.
+- **Grupos**: CRUD de `grafana_access_groups`, membros (multi-select de usuários), permissões por org (matriz grupo×org com select de role).
+- **Usuários**: lista de `usuarios` com colunas: permissão Ariia, GrafanaAdmin (badge), orgs liberadas (count), grupos, último sync. Ações: "Sincronizar", "Ver permissões efetivas" (modal).
+- **Permissões diretas**: form (usuário, org, role) salva em `grafana_user_org_permissions` e dispara sync.
+- **Logs**: tabela paginada de `grafana_sync_logs` com filtro por status/usuário.
+
+## 7. Segurança
+
+- Edge functions validam permissão do chamador.
+- RLS bloqueia leitura das tabelas Grafana para não-admins.
+- Credenciais Grafana só em secrets.
+- Toda mutação registra autor (do JWT) em `grafana_sync_logs`.
+- Trigger ou função impede remover último SUPERADMIN ativo.
+- Desativar usuário no Ariia → trigger enfileira sync (ou hook no `update-profile`/`usuarios` page chama `grafana-sync-user`).
+
+## 8. Documentação `grafana.ini`
+
+Atualizar `.lovable/plan.md` com bloco final:
+
+```ini
+[auth.generic_oauth]
+enabled = true
+name = 2LOCK
+allow_sign_up = true
+client_id = <CLIENT_ID>
+client_secret = <CLIENT_SECRET>
+scopes = profile email
+auth_url = https://jjemlhtyhnncqzpnskor.supabase.co/auth/v1/authorize
+token_url = https://jjemlhtyhnncqzpnskor.supabase.co/auth/v1/token
+api_url = https://jjemlhtyhnncqzpnskor.supabase.co/auth/v1/user
+use_pkce = true
+auth_style = InHeader
+email_attribute_path = email
+login_attribute_path = email
+name_attribute_path = name
+role_attribute_path = grafana_role
+role_attribute_strict = true
+allow_assign_grafana_admin = true
+auto_assign_org = false
+auto_assign_org_role = Viewer
+skip_org_role_sync = true
 ```
 
-`public.usuarios` continua sendo a fonte da verdade do perfil/RBAC. Supabase Auth vira a camada de identidade.
+`skip_org_role_sync=true` evita que Grafana sobrescreva as orgs gerenciadas via API pelo Ariia.
 
----
+## 9. Ordem de execução
 
-## Etapas de implementação
+1. Pedir secrets Grafana (`add_secret`).
+2. Migration: tabelas + enum + função SQL + atualização do hook.
+3. Edge functions (test, sync-orgs, sync-user, sync-all, effective-permissions).
+4. Atualizar `OAuthConsent.tsx` (gating).
+5. Criar página `GrafanaControle.tsx` + subcomponentes por aba, rota em `App.tsx`, item no `AppSidebar`.
+6. Smoke test: test-connection, sync-orgs, criar grupo, atribuir org, sync-user, login Grafana com usuário VIEWER sem acesso (bloqueio), com acesso (Viewer), e ADMIN (GrafanaAdmin).
 
-### 1. Migração SQL
-- Tornar `usuarios.senha_hash` nullable (a senha passa a ser do Supabase Auth; mantida só para usuários legados durante migração progressiva).
-- Garantir índice único em `usuarios.auth_user_id`.
-- Criar `public.custom_access_token_hook(event jsonb)` que injeta nas claims:
-  - `ariia_usuario_id`, `ariia_permissao`, `grafana_role`
-  - Mapeamento: SUPERADMIN→GrafanaAdmin, ADMIN→Admin, USER→Editor, VIEWER/TV_VIEW→Viewer
-  - Grant EXECUTE para `supabase_auth_admin`.
+## Tradeoffs
 
-### 2. Edge Functions (service role, nunca expostas no frontend)
-- **`signup`** (refatorar): cria `auth.users` via `supabase.auth.admin.createUser` (email confirmado), depois faz upsert em `public.usuarios` setando `auth_user_id`, `permissao='VIEWER'`, `ativo=true`, `senha_hash='SUPABASE_AUTH'`. Mantém retorno de 2FA setup atual.
-- **`migrate-legacy-login`** (nova): recebe email+senha, valida PBKDF2 antigo via `verifyPassword`, se OK cria `auth.users` com mesma senha, atualiza `auth_user_id` e `senha_hash='SUPABASE_AUTH'`. Retorna OK para o frontend continuar com `signInWithPassword`.
-
-### 3. Frontend — fluxo de login
-- `authService.login` passa a:
-  1. Buscar usuário por email em `public.usuarios` (campos: `auth_user_id`, `ativo`, `senha_hash`, `totp_enabled`).
-  2. Se `ativo=false` → erro.
-  3. Se `auth_user_id` null → chamar edge `migrate-legacy-login`; em sucesso → seguir para passo 4.
-  4. `supabase.auth.signInWithPassword({ email, password })`.
-  5. Carregar perfil interno por `auth_user_id = session.user.id`.
-  6. Manter fluxo 2FA atual (verify-2fa) preservando redirect.
-- `authService.logout`: `supabase.auth.signOut()` + limpar chaves antigas (`auth_token`, `auth_user`, `auth_expires`) + redirect `/`.
-
-### 4. `UserContext` (refatorar)
-- Usar `supabase.auth.getSession()` + `onAuthStateChange` como fonte primária.
-- Carregar `usuario` interno via `select * from usuarios where auth_user_id = session.user.id`.
-- Manter Realtime na linha de `usuarios` (já funciona por `id`).
-- Expor: `authUser` (Supabase), `usuario` (interno), `usuario.id`, `permissao`, `ativo`, `loading`, `signIn`, `signUp`, `signOut`.
-- Manter compatibilidade com restante do app (todos os consumidores recebem `usuario` interno como hoje).
-
-### 5. Rota `/oauth/consent`
-- Nova página `src/pages/OAuthConsent.tsx` + rota pública (fora do `ProtectedRoute`).
-- Lógica:
-  1. Ler `authorization_id` da query.
-  2. `getSession()`. Sem sessão → `navigate('/login?redirect=' + encodeURIComponent(currentUrl))`.
-  3. Carregar perfil interno; se inexistente ou `ativo=false` → signOut + erro.
-  4. Se `totp_enabled` e flag de sessão `twofa_validated` ausente → `/verify-2fa?redirect=...`.
-  5. Chamar `supabase.auth.oauthServer.approveAuthorization({ authorization_id })` (ou endpoint REST equivalente do OAuth server).
-  6. Redirecionar para `redirect_url` retornada.
-- Tela mínima com loader + tratamento de erro.
-
-### 6. Preservar `redirect` em login/cadastro/2FA
-- `Index.tsx` (login), `signup`, `TwoFactorModal`/verify-2fa: ler `?redirect=` e após sucesso `navigate(redirect || '/dashboard')`.
-- Setar `sessionStorage.setItem('twofa_validated','1')` após verify-2fa OK; limpar no logout.
-
-### 7. Documentação Grafana
-- Criar `/mnt/documents/grafana-oauth-2lock.md` com bloco `[auth.generic_oauth]` completo (PKCE, scopes, role_attribute_path=grafana_role, allow_assign_grafana_admin=true).
-
----
-
-## Detalhes técnicos
-
-### Migração SQL
-```sql
-ALTER TABLE public.usuarios ALTER COLUMN senha_hash DROP NOT NULL;
-CREATE UNIQUE INDEX IF NOT EXISTS usuarios_auth_user_id_key 
-  ON public.usuarios(auth_user_id) WHERE auth_user_id IS NOT NULL;
-
-CREATE OR REPLACE FUNCTION public.custom_access_token_hook(event jsonb)
-RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER
-SET search_path = public AS $$
-DECLARE
-  u record; claims jsonb; grafana_role text;
-BEGIN
-  claims := event->'claims';
-  SELECT id, permissao, ativo INTO u
-  FROM public.usuarios WHERE auth_user_id = (event->>'user_id')::uuid;
-
-  IF u.id IS NOT NULL AND u.ativo THEN
-    grafana_role := CASE u.permissao
-      WHEN 'SUPERADMIN' THEN 'GrafanaAdmin'
-      WHEN 'ADMIN' THEN 'Admin'
-      WHEN 'USER' THEN 'Editor'
-      ELSE 'Viewer' END;
-    claims := claims 
-      || jsonb_build_object('ariia_usuario_id', u.id)
-      || jsonb_build_object('ariia_permissao', u.permissao)
-      || jsonb_build_object('grafana_role', grafana_role);
-    event := jsonb_set(event, '{claims}', claims);
-  END IF;
-  RETURN event;
-END; $$;
-
-GRANT EXECUTE ON FUNCTION public.custom_access_token_hook TO supabase_auth_admin;
-REVOKE EXECUTE ON FUNCTION public.custom_access_token_hook FROM authenticated, anon, public;
-```
-
-### Edge Functions afetadas
-- `supabase/functions/signup/index.ts` — refatorar para criar auth.users primeiro.
-- `supabase/functions/migrate-legacy-login/index.ts` — novo, valida PBKDF2 e provisiona auth.users.
-- `supabase/functions/login/index.ts` — mantido temporariamente para fluxos legados/2FA, mas frontend passa a usar `signInWithPassword` direto após migração.
-
-### Arquivos frontend afetados
-- `src/services/authService.ts` — novo fluxo de login com migração progressiva.
-- `src/contexts/UserContext.tsx` — refatorar para Supabase Auth como fonte.
-- `src/pages/OAuthConsent.tsx` — nova.
-- `src/App.tsx` — rota `/oauth/consent` pública; rotas `/login`, `/cadastro`, `/verify-2fa` (se ainda não existirem como rotas reais; hoje login está em `Index.tsx`).
-- `src/pages/Index.tsx` e fluxo 2FA — preservar `redirect`.
-
-### Itens manuais (documentar ao usuário no final)
-1. Habilitar **Custom Access Token Hook** em Authentication → Hooks apontando para `public.custom_access_token_hook`.
-2. No OAuth Server do Supabase (Auth → OAuth Applications), registrar o Grafana como client e copiar `client_id`/`client_secret`.
-3. Setar **Authorization UI URL** para `https://ariia.2lock.com.br/oauth/consent`.
-4. Colar config no `grafana.ini`.
-
----
-
-## O que NÃO será alterado
-- `public.usuarios.id` e todas as FKs internas.
-- Tabela `sessions` (mantida para legado).
-- Lógica PBKDF2 (mantida durante migração progressiva).
-- 2FA/TOTP customizado.
-- RBAC e permissões existentes.
-
-Aprovar para implementar nesta ordem.
+- Sync é on-demand (no consent + botões). Não há job periódico — pode ser adicionado depois.
+- Criação automática de usuário no Grafana usa senha random; usuário sempre entra via OAuth.
+- `role_attribute_strict=true` + `skip_org_role_sync=true` significa que o Ariia controla orgs; o claim `grafana_role` decide apenas o status global (GrafanaAdmin/Viewer/None).
