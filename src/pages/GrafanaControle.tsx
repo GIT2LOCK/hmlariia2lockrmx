@@ -92,6 +92,9 @@ function OrgsTab() {
   const { toast } = useToast();
   const [orgs, setOrgs] = useState<Org[]>([]);
   const [busy, setBusy] = useState(false);
+  const [expanded, setExpanded] = useState<number | null>(null);
+  const [orgUsers, setOrgUsers] = useState<Record<number, Array<{ id: number; nome: string; email: string; role: Role; source: "direct" | "group"; groupName?: string }>>>({});
+  const [loadingUsers, setLoadingUsers] = useState<number | null>(null);
 
   const load = async () => {
     const { data } = await supabase.from("grafana_organizations").select("*").eq("active", true).order("name");
@@ -110,6 +113,79 @@ function OrgsTab() {
     } finally { setBusy(false); }
   };
 
+  const loadOrgUsers = async (orgId: number) => {
+    setLoadingUsers(orgId);
+    try {
+      const rank: Record<string, number> = { None: 0, Viewer: 1, Editor: 2, Admin: 3 };
+
+      const [directRes, groupPermRes, usuariosRes, superRes] = await Promise.all([
+        supabase.from("grafana_user_org_permissions").select("usuario_id, role, enabled").eq("grafana_organization_id", orgId),
+        supabase.from("grafana_group_org_permissions").select("group_id, role, grafana_access_groups(name)").eq("grafana_organization_id", orgId),
+        supabase.from("usuarios").select("id, nome, email, permissao, ativo").eq("ativo", true).order("nome"),
+        supabase.from("usuarios").select("id, nome, email").eq("ativo", true).eq("permissao", "SUPERADMIN"),
+      ]);
+
+      const usuariosMap = new Map((usuariosRes.data || []).map((u: any) => [u.id, u]));
+      const merged = new Map<number, { id: number; nome: string; email: string; role: Role; source: "direct" | "group"; groupName?: string }>();
+
+      // SUPERADMINs (acesso total automático)
+      for (const s of (superRes.data || []) as any[]) {
+        merged.set(s.id, { id: s.id, nome: s.nome, email: s.email, role: "Admin", source: "direct" });
+      }
+
+      // Direct perms
+      for (const p of (directRes.data || []) as any[]) {
+        if (!p.enabled || p.role === "None") continue;
+        const u = usuariosMap.get(p.usuario_id);
+        if (!u) continue;
+        const existing = merged.get(p.usuario_id);
+        if (!existing || rank[p.role] > rank[existing.role]) {
+          merged.set(p.usuario_id, { id: u.id, nome: u.nome, email: u.email, role: p.role as Role, source: "direct" });
+        }
+      }
+
+      // Group perms — resolve members
+      const groupRows = (groupPermRes.data || []) as any[];
+      if (groupRows.length) {
+        const groupIds = groupRows.map((g) => g.group_id);
+        const { data: membersData } = await supabase
+          .from("grafana_access_group_members")
+          .select("group_id, usuario_id")
+          .in("group_id", groupIds);
+        const byGroup = new Map<number, number[]>();
+        for (const m of (membersData || []) as any[]) {
+          if (!byGroup.has(m.group_id)) byGroup.set(m.group_id, []);
+          byGroup.get(m.group_id)!.push(m.usuario_id);
+        }
+        for (const gp of groupRows) {
+          const userIds = byGroup.get(gp.group_id) || [];
+          for (const uid of userIds) {
+            const u = usuariosMap.get(uid);
+            if (!u) continue;
+            const existing = merged.get(uid);
+            if (!existing || rank[gp.role] > rank[existing.role]) {
+              merged.set(uid, {
+                id: u.id, nome: u.nome, email: u.email,
+                role: gp.role as Role, source: "group",
+                groupName: gp.grafana_access_groups?.name,
+              });
+            }
+          }
+        }
+      }
+
+      setOrgUsers((prev) => ({ ...prev, [orgId]: Array.from(merged.values()).sort((a, b) => a.nome.localeCompare(b.nome)) }));
+    } finally {
+      setLoadingUsers(null);
+    }
+  };
+
+  const toggleExpand = (orgId: number) => {
+    if (expanded === orgId) { setExpanded(null); return; }
+    setExpanded(orgId);
+    if (!orgUsers[orgId]) loadOrgUsers(orgId);
+  };
+
   return (
     <div className="space-y-4 mt-4">
       <Button onClick={sync} disabled={busy}>
@@ -121,20 +197,67 @@ function OrgsTab() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-8"></TableHead>
                 <TableHead>ID Grafana</TableHead><TableHead>Nome</TableHead>
                 <TableHead>Status</TableHead><TableHead>Última sync</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {orgs.map(o => (
-                <TableRow key={o.id}>
-                  <TableCell className="font-mono">{o.grafana_org_id}</TableCell>
-                  <TableCell>{o.name}</TableCell>
-                  <TableCell>{o.active ? <Badge>Ativa</Badge> : <Badge variant="outline">Inativa</Badge>}</TableCell>
-                  <TableCell className="text-xs">{o.synced_at ? new Date(o.synced_at).toLocaleString() : "—"}</TableCell>
-                </TableRow>
-              ))}
-              {orgs.length === 0 && <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">Nenhuma organização. Clique em "Sincronizar do Grafana".</TableCell></TableRow>}
+              {orgs.map(o => {
+                const isOpen = expanded === o.id;
+                const users = orgUsers[o.id];
+                return (
+                  <>
+                    <TableRow key={o.id} className="cursor-pointer hover:bg-accent/50" onClick={() => toggleExpand(o.id)}>
+                      <TableCell>{isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}</TableCell>
+                      <TableCell className="font-mono">{o.grafana_org_id}</TableCell>
+                      <TableCell>{o.name}</TableCell>
+                      <TableCell>{o.active ? <Badge>Ativa</Badge> : <Badge variant="outline">Inativa</Badge>}</TableCell>
+                      <TableCell className="text-xs">{o.synced_at ? new Date(o.synced_at).toLocaleString() : "—"}</TableCell>
+                    </TableRow>
+                    {isOpen && (
+                      <TableRow key={`${o.id}-detail`}>
+                        <TableCell colSpan={5} className="bg-muted/30">
+                          {loadingUsers === o.id ? (
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                              <Loader2 className="h-4 w-4 animate-spin" /> Carregando usuários…
+                            </div>
+                          ) : !users || users.length === 0 ? (
+                            <p className="text-sm text-muted-foreground py-2">Nenhum usuário com acesso a esta organização.</p>
+                          ) : (
+                            <div className="py-2">
+                              <div className="text-xs text-muted-foreground mb-2">{users.length} usuário(s) com acesso</div>
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead>Nome</TableHead>
+                                    <TableHead>Email</TableHead>
+                                    <TableHead>Role</TableHead>
+                                    <TableHead>Origem</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {users.map((u) => (
+                                    <TableRow key={u.id}>
+                                      <TableCell>{u.nome}</TableCell>
+                                      <TableCell className="text-sm">{u.email}</TableCell>
+                                      <TableCell><Badge>{u.role}</Badge></TableCell>
+                                      <TableCell className="text-xs text-muted-foreground">
+                                        {u.source === "group" ? `Grupo: ${u.groupName || "—"}` : "Direto"}
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </>
+                );
+              })}
+              {orgs.length === 0 && <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Nenhuma organização. Clique em "Sincronizar do Grafana".</TableCell></TableRow>}
             </TableBody>
           </Table>
         </CardContent>
