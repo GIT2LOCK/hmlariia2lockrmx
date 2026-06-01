@@ -201,6 +201,13 @@ export async function syncUserToGrafana(usuario_id: number, actor_id?: number | 
     }
   }
 
+  // Lookup or create Grafana user
+  let grafanaUserId: number | null = existingLink?.grafana_user_id ?? null;
+  let grafanaLogin: string = existingLink?.grafana_login ?? u.email;
+
+  const lookup = await grafanaFetch(
+    `/api/users/lookup?loginOrEmail=${encodeURIComponent(u.email)}`
+  );
 
   if (lookup.ok && lookup.body?.id) {
     grafanaUserId = lookup.body.id;
