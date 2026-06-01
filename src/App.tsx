@@ -22,6 +22,7 @@ import Relatorios from "./pages/Relatorios";
 import Chamados from "./pages/Chamados";
 import ChamadoDetalhe from "./pages/ChamadoDetalhe";
 import OAuthConsent from "./pages/OAuthConsent";
+import GrafanaControle from "./pages/GrafanaControle";
 import { UserProvider } from "./contexts/UserContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
@@ -59,6 +60,7 @@ const App = () => (
               <Route path="chamados/:id" element={<ChamadoDetalhe />} />
               <Route path="zabbix" element={<DashboardZabbix />} />
               <Route path="zabbix/tv" element={<ZabbixTvView />} />
+              <Route path="grafana" element={<GrafanaControle />} />
               <Route path="perfil" element={<MeuPerfil />} />
             </Route>
             <Route path="*" element={<NotFound />} />

@@ -108,6 +108,38 @@ export default function OAuthConsent() {
         return;
       }
 
+      // 4.5 Grafana access gating
+      setStatus("Verificando acesso ao Grafana...");
+      try {
+        const { data: permsResp, error: permsErr } = await supabase.functions.invoke(
+          "grafana-effective-permissions",
+          { method: "GET" }
+        );
+        if (permsErr) {
+          console.warn("[oauth-consent] effective-permissions error", permsErr);
+        } else {
+          const perms = (permsResp as any)?.perms;
+          const isAdminAriia = ["SUPERADMIN", "ADMIN"].includes(usuario.permissao);
+          const orgsCount = Array.isArray(perms?.orgs) ? perms.orgs.length : 0;
+          if (!isAdminAriia && orgsCount === 0) {
+            setError(
+              "Você ainda não possui acesso liberado ao Grafana. Solicite acesso ao administrador."
+            );
+            return;
+          }
+          setStatus("Sincronizando acesso ao Grafana...");
+          try {
+            await supabase.functions.invoke("grafana-sync-user", {
+              body: { usuario_id: usuario.id },
+            });
+          } catch (e) {
+            console.warn("[oauth-consent] grafana-sync-user failed", e);
+          }
+        }
+      } catch (e) {
+        console.warn("[oauth-consent] grafana gating exception", e);
+      }
+
       // 5. Approve OAuth authorization using official supabase-js methods
       setStatus("Autorizando acesso...");
       try {

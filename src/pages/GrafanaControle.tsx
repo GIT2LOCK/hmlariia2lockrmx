@@ -1,0 +1,581 @@
+import { useEffect, useState } from "react";
+import { useUser } from "@/contexts/UserContext";
+import { Navigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
+import { Loader2, RefreshCw, Plus, Trash2, Activity, ShieldCheck } from "lucide-react";
+
+type Role = "None" | "Viewer" | "Editor" | "Admin";
+const ROLES: Role[] = ["None", "Viewer", "Editor", "Admin"];
+
+interface Org { id: number; grafana_org_id: number; name: string; active: boolean; synced_at: string | null; }
+interface Usuario { id: number; nome: string; email: string; permissao: string; ativo: boolean; }
+interface Group { id: number; name: string; description: string | null; active: boolean; }
+interface SyncLog { id: number; usuario_id: number | null; action: string; status: string; error_message: string | null; criado_em: string; }
+
+export default function GrafanaControle() {
+  const { canManageUsers, isLoading } = useUser();
+  if (isLoading) return null;
+  if (!canManageUsers) return <Navigate to="/dashboard" replace />;
+
+  return (
+    <div className="p-6 space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold flex items-center gap-2">
+          <ShieldCheck className="h-7 w-7 text-primary" /> Controle Grafana
+        </h1>
+        <p className="text-muted-foreground">Gestão centralizada de acesso ao Grafana via Ariia.</p>
+      </div>
+
+      <Tabs defaultValue="dashboard" className="w-full">
+        <TabsList className="grid grid-cols-6 w-full max-w-3xl">
+          <TabsTrigger value="dashboard">Resumo</TabsTrigger>
+          <TabsTrigger value="orgs">Organizações</TabsTrigger>
+          <TabsTrigger value="groups">Grupos</TabsTrigger>
+          <TabsTrigger value="users">Usuários</TabsTrigger>
+          <TabsTrigger value="direct">Permissões diretas</TabsTrigger>
+          <TabsTrigger value="logs">Logs</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="dashboard"><DashboardTab /></TabsContent>
+        <TabsContent value="orgs"><OrgsTab /></TabsContent>
+        <TabsContent value="groups"><GroupsTab /></TabsContent>
+        <TabsContent value="users"><UsersTab /></TabsContent>
+        <TabsContent value="direct"><DirectPermsTab /></TabsContent>
+        <TabsContent value="logs"><LogsTab /></TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+// -------------------- Dashboard --------------------
+function DashboardTab() {
+  const { toast } = useToast();
+  const [stats, setStats] = useState({ orgs: 0, users: 0, groups: 0 });
+  const [recentErrors, setRecentErrors] = useState<SyncLog[]>([]);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const load = async () => {
+    const [o, u, g, l] = await Promise.all([
+      supabase.from("grafana_organizations").select("id", { count: "exact", head: true }),
+      supabase.from("grafana_user_links").select("id", { count: "exact", head: true }),
+      supabase.from("grafana_access_groups").select("id", { count: "exact", head: true }),
+      supabase.from("grafana_sync_logs").select("*").eq("status", "error").order("criado_em", { ascending: false }).limit(5),
+    ]);
+    setStats({ orgs: o.count || 0, users: u.count || 0, groups: g.count || 0 });
+    setRecentErrors((l.data as SyncLog[]) || []);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const run = async (fn: "grafana-test-connection" | "grafana-sync-organizations" | "grafana-sync-all", label: string) => {
+    setBusy(fn);
+    try {
+      const { data, error } = await supabase.functions.invoke(fn, { body: {} });
+      if (error) throw error;
+      toast({ title: label, description: "Concluído com sucesso." });
+      await load();
+    } catch (e: any) {
+      toast({ title: label, description: e?.message || "Erro", variant: "destructive" });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <div className="space-y-4 mt-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <StatCard title="Organizações" value={stats.orgs} />
+        <StatCard title="Usuários vinculados" value={stats.users} />
+        <StatCard title="Grupos de acesso" value={stats.groups} />
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <Button onClick={() => run("grafana-test-connection", "Teste de conexão")} disabled={!!busy}>
+          {busy === "grafana-test-connection" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Activity className="h-4 w-4" />}
+          Testar conexão
+        </Button>
+        <Button onClick={() => run("grafana-sync-organizations", "Sincronizar organizações")} disabled={!!busy}>
+          {busy === "grafana-sync-organizations" ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+          Sincronizar organizações
+        </Button>
+        <Button onClick={() => run("grafana-sync-all", "Sincronizar todos")} disabled={!!busy} variant="secondary">
+          {busy === "grafana-sync-all" ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+          Sincronizar todos os usuários
+        </Button>
+      </div>
+
+      <Card>
+        <CardHeader><CardTitle>Últimos erros</CardTitle></CardHeader>
+        <CardContent>
+          {recentErrors.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhum erro recente.</p>
+          ) : (
+            <ul className="space-y-2 text-sm">
+              {recentErrors.map(l => (
+                <li key={l.id} className="border-l-2 border-destructive pl-2">
+                  <span className="font-mono text-xs text-muted-foreground">{new Date(l.criado_em).toLocaleString()}</span>
+                  {" — "}<b>{l.action}</b>: {l.error_message}
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function StatCard({ title, value }: { title: string; value: number }) {
+  return (
+    <Card>
+      <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">{title}</CardTitle></CardHeader>
+      <CardContent><div className="text-3xl font-bold">{value}</div></CardContent>
+    </Card>
+  );
+}
+
+// -------------------- Organizações --------------------
+function OrgsTab() {
+  const { toast } = useToast();
+  const [orgs, setOrgs] = useState<Org[]>([]);
+  const [busy, setBusy] = useState(false);
+
+  const load = async () => {
+    const { data } = await supabase.from("grafana_organizations").select("*").order("name");
+    setOrgs((data as Org[]) || []);
+  };
+  useEffect(() => { load(); }, []);
+
+  const sync = async () => {
+    setBusy(true);
+    try {
+      const { error } = await supabase.functions.invoke("grafana-sync-organizations", { body: {} });
+      if (error) throw error;
+      toast({ title: "Organizações sincronizadas" });
+      await load();
+    } catch (e: any) {
+      toast({ title: "Erro", description: e?.message, variant: "destructive" });
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <div className="space-y-4 mt-4">
+      <Button onClick={sync} disabled={busy}>
+        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+        Sincronizar do Grafana
+      </Button>
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>ID Grafana</TableHead><TableHead>Nome</TableHead>
+                <TableHead>Status</TableHead><TableHead>Última sync</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {orgs.map(o => (
+                <TableRow key={o.id}>
+                  <TableCell className="font-mono">{o.grafana_org_id}</TableCell>
+                  <TableCell>{o.name}</TableCell>
+                  <TableCell>{o.active ? <Badge>Ativa</Badge> : <Badge variant="outline">Inativa</Badge>}</TableCell>
+                  <TableCell className="text-xs">{o.synced_at ? new Date(o.synced_at).toLocaleString() : "—"}</TableCell>
+                </TableRow>
+              ))}
+              {orgs.length === 0 && <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">Nenhuma organização. Clique em "Sincronizar do Grafana".</TableCell></TableRow>}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// -------------------- Grupos --------------------
+function GroupsTab() {
+  const { toast } = useToast();
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+  const [orgs, setOrgs] = useState<Org[]>([]);
+  const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
+  const [members, setMembers] = useState<number[]>([]);
+  const [groupPerms, setGroupPerms] = useState<Record<number, Role>>({});
+  const [open, setOpen] = useState(false);
+  const [newGroup, setNewGroup] = useState({ name: "", description: "" });
+
+  const load = async () => {
+    const [g, u, o] = await Promise.all([
+      supabase.from("grafana_access_groups").select("*").order("name"),
+      supabase.from("usuarios").select("id, nome, email, permissao, ativo").order("nome"),
+      supabase.from("grafana_organizations").select("*").order("name"),
+    ]);
+    setGroups((g.data as Group[]) || []);
+    setUsuarios((u.data as Usuario[]) || []);
+    setOrgs((o.data as Org[]) || []);
+  };
+  useEffect(() => { load(); }, []);
+
+  const openGroup = async (g: Group) => {
+    setSelectedGroup(g);
+    const [m, p] = await Promise.all([
+      supabase.from("grafana_access_group_members").select("usuario_id").eq("group_id", g.id),
+      supabase.from("grafana_group_org_permissions").select("grafana_organization_id, role").eq("group_id", g.id),
+    ]);
+    setMembers((m.data || []).map((x: any) => x.usuario_id));
+    const map: Record<number, Role> = {};
+    (p.data || []).forEach((x: any) => { map[x.grafana_organization_id] = x.role as Role; });
+    setGroupPerms(map);
+  };
+
+  const createGroup = async () => {
+    if (!newGroup.name.trim()) return;
+    const { error } = await supabase.from("grafana_access_groups").insert({ name: newGroup.name, description: newGroup.description });
+    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+    setOpen(false);
+    setNewGroup({ name: "", description: "" });
+    await load();
+  };
+
+  const toggleMember = async (userId: number, on: boolean) => {
+    if (!selectedGroup) return;
+    if (on) {
+      await supabase.from("grafana_access_group_members").insert({ group_id: selectedGroup.id, usuario_id: userId });
+      setMembers([...members, userId]);
+    } else {
+      await supabase.from("grafana_access_group_members").delete().eq("group_id", selectedGroup.id).eq("usuario_id", userId);
+      setMembers(members.filter(m => m !== userId));
+    }
+  };
+
+  const setOrgRole = async (orgId: number, role: Role) => {
+    if (!selectedGroup) return;
+    if (role === "None") {
+      await supabase.from("grafana_group_org_permissions").delete().eq("group_id", selectedGroup.id).eq("grafana_organization_id", orgId);
+      const c = { ...groupPerms }; delete c[orgId]; setGroupPerms(c);
+    } else {
+      await supabase.from("grafana_group_org_permissions").upsert({
+        group_id: selectedGroup.id, grafana_organization_id: orgId, role, atualizado_em: new Date().toISOString(),
+      }, { onConflict: "group_id,grafana_organization_id" });
+      setGroupPerms({ ...groupPerms, [orgId]: role });
+    }
+  };
+
+  const deleteGroup = async (id: number) => {
+    if (!confirm("Excluir grupo?")) return;
+    await supabase.from("grafana_access_groups").delete().eq("id", id);
+    setSelectedGroup(null);
+    await load();
+  };
+
+  return (
+    <div className="space-y-4 mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+      <Card className="md:col-span-1">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Grupos</CardTitle>
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild><Button size="sm"><Plus className="h-4 w-4" /></Button></DialogTrigger>
+            <DialogContent>
+              <DialogHeader><DialogTitle>Novo grupo</DialogTitle></DialogHeader>
+              <div className="space-y-3">
+                <div><Label>Nome</Label><Input value={newGroup.name} onChange={e => setNewGroup({ ...newGroup, name: e.target.value })} /></div>
+                <div><Label>Descrição</Label><Textarea value={newGroup.description} onChange={e => setNewGroup({ ...newGroup, description: e.target.value })} /></div>
+              </div>
+              <DialogFooter><Button onClick={createGroup}>Criar</Button></DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </CardHeader>
+        <CardContent className="space-y-1">
+          {groups.map(g => (
+            <button key={g.id} onClick={() => openGroup(g)}
+              className={`w-full text-left p-2 rounded hover:bg-accent ${selectedGroup?.id === g.id ? "bg-accent" : ""}`}>
+              <div className="font-medium">{g.name}</div>
+              {g.description && <div className="text-xs text-muted-foreground">{g.description}</div>}
+            </button>
+          ))}
+          {groups.length === 0 && <p className="text-sm text-muted-foreground">Nenhum grupo.</p>}
+        </CardContent>
+      </Card>
+
+      <Card className="md:col-span-2">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>{selectedGroup ? selectedGroup.name : "Selecione um grupo"}</CardTitle>
+          {selectedGroup && <Button size="sm" variant="ghost" onClick={() => deleteGroup(selectedGroup.id)}><Trash2 className="h-4 w-4" /></Button>}
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {selectedGroup ? (
+            <>
+              <section>
+                <h3 className="font-semibold mb-2">Membros</h3>
+                <div className="max-h-64 overflow-y-auto space-y-1 border rounded p-2">
+                  {usuarios.map(u => (
+                    <label key={u.id} className="flex items-center justify-between gap-2 p-1 hover:bg-accent rounded">
+                      <span className="text-sm">{u.nome} <span className="text-muted-foreground">({u.email})</span></span>
+                      <Switch checked={members.includes(u.id)} onCheckedChange={(v) => toggleMember(u.id, v)} />
+                    </label>
+                  ))}
+                </div>
+              </section>
+              <section>
+                <h3 className="font-semibold mb-2">Permissões por organização</h3>
+                <div className="space-y-2">
+                  {orgs.map(o => (
+                    <div key={o.id} className="flex items-center justify-between gap-2">
+                      <span className="text-sm">{o.name}</span>
+                      <Select value={groupPerms[o.id] || "None"} onValueChange={(v) => setOrgRole(o.id, v as Role)}>
+                        <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+                        <SelectContent>{ROLES.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
+                  ))}
+                  {orgs.length === 0 && <p className="text-sm text-muted-foreground">Sincronize organizações primeiro.</p>}
+                </div>
+              </section>
+            </>
+          ) : <p className="text-sm text-muted-foreground">Escolha um grupo à esquerda.</p>}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// -------------------- Usuários --------------------
+function UsersTab() {
+  const { toast } = useToast();
+  const [rows, setRows] = useState<any[]>([]);
+  const [busy, setBusy] = useState<number | null>(null);
+  const [permsModal, setPermsModal] = useState<{ user: Usuario; perms: any } | null>(null);
+
+  const load = async () => {
+    const { data: users } = await supabase.from("usuarios").select("id, nome, email, permissao, ativo").order("nome");
+    const { data: links } = await supabase.from("grafana_user_links").select("*");
+    const linkMap = new Map((links || []).map((l: any) => [l.usuario_id, l]));
+    setRows((users || []).map((u: any) => ({ ...u, link: linkMap.get(u.id) })));
+  };
+  useEffect(() => { load(); }, []);
+
+  const syncUser = async (id: number) => {
+    setBusy(id);
+    try {
+      const { error } = await supabase.functions.invoke("grafana-sync-user", { body: { usuario_id: id } });
+      if (error) throw error;
+      toast({ title: "Usuário sincronizado" });
+      await load();
+    } catch (e: any) {
+      toast({ title: "Erro", description: e?.message, variant: "destructive" });
+    } finally { setBusy(null); }
+  };
+
+  const viewPerms = async (u: Usuario) => {
+    const { data } = await supabase.functions.invoke("grafana-effective-permissions", {
+      method: "GET",
+    } as any);
+    // GET with query param via fetch fallback
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/grafana-effective-permissions?usuario_id=${u.id}`,
+      { headers: { Authorization: `Bearer ${session?.access_token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY } }
+    );
+    const json = await res.json();
+    setPermsModal({ user: u, perms: json.perms });
+  };
+
+  return (
+    <div className="space-y-4 mt-4">
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nome</TableHead><TableHead>Email</TableHead><TableHead>Permissão Ariia</TableHead>
+                <TableHead>GrafanaAdmin</TableHead><TableHead>Vinculado</TableHead><TableHead>Última sync</TableHead><TableHead></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map(r => {
+                const isAdmin = ["SUPERADMIN", "ADMIN"].includes(r.permissao);
+                return (
+                  <TableRow key={r.id}>
+                    <TableCell>{r.nome}</TableCell>
+                    <TableCell>{r.email}</TableCell>
+                    <TableCell><Badge variant={isAdmin ? "default" : "outline"}>{r.permissao}</Badge></TableCell>
+                    <TableCell>{isAdmin ? <Badge>Sim</Badge> : <Badge variant="outline">Não</Badge>}</TableCell>
+                    <TableCell className="font-mono text-xs">{r.link?.grafana_user_id || "—"}</TableCell>
+                    <TableCell className="text-xs">{r.link?.last_synced_at ? new Date(r.link.last_synced_at).toLocaleString() : "—"}</TableCell>
+                    <TableCell className="text-right space-x-1">
+                      <Button size="sm" variant="ghost" onClick={() => viewPerms(r)}>Ver</Button>
+                      <Button size="sm" onClick={() => syncUser(r.id)} disabled={busy === r.id}>
+                        {busy === r.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <Dialog open={!!permsModal} onOpenChange={() => setPermsModal(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Permissões efetivas — {permsModal?.user.nome}</DialogTitle></DialogHeader>
+          <pre className="text-xs bg-muted p-3 rounded overflow-auto max-h-96">{JSON.stringify(permsModal?.perms, null, 2)}</pre>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+// -------------------- Permissões diretas --------------------
+function DirectPermsTab() {
+  const { toast } = useToast();
+  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+  const [orgs, setOrgs] = useState<Org[]>([]);
+  const [perms, setPerms] = useState<any[]>([]);
+  const [form, setForm] = useState({ usuario_id: "", org_id: "", role: "Viewer" as Role });
+
+  const load = async () => {
+    const [u, o, p] = await Promise.all([
+      supabase.from("usuarios").select("id, nome, email, permissao, ativo").order("nome"),
+      supabase.from("grafana_organizations").select("*").order("name"),
+      supabase.from("grafana_user_org_permissions").select("*"),
+    ]);
+    setUsuarios((u.data as Usuario[]) || []);
+    setOrgs((o.data as Org[]) || []);
+    setPerms(p.data || []);
+  };
+  useEffect(() => { load(); }, []);
+
+  const save = async () => {
+    const uid = Number(form.usuario_id), oid = Number(form.org_id);
+    if (!uid || !oid) return;
+    if (form.role === "None") {
+      await supabase.from("grafana_user_org_permissions").delete().eq("usuario_id", uid).eq("grafana_organization_id", oid);
+    } else {
+      await supabase.from("grafana_user_org_permissions").upsert({
+        usuario_id: uid, grafana_organization_id: oid, role: form.role, enabled: true,
+        atualizado_em: new Date().toISOString(),
+      }, { onConflict: "usuario_id,grafana_organization_id" });
+    }
+    await supabase.functions.invoke("grafana-sync-user", { body: { usuario_id: uid } });
+    toast({ title: "Permissão salva e sincronizada" });
+    await load();
+  };
+
+  const removePerm = async (id: number, uid: number) => {
+    await supabase.from("grafana_user_org_permissions").delete().eq("id", id);
+    await supabase.functions.invoke("grafana-sync-user", { body: { usuario_id: uid } });
+    await load();
+  };
+
+  const nameOf = (uid: number) => usuarios.find(u => u.id === uid)?.nome || `#${uid}`;
+  const orgNameOf = (oid: number) => orgs.find(o => o.id === oid)?.name || `#${oid}`;
+
+  return (
+    <div className="space-y-4 mt-4">
+      <Card>
+        <CardHeader><CardTitle>Nova permissão direta</CardTitle></CardHeader>
+        <CardContent className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <Select value={form.usuario_id} onValueChange={(v) => setForm({ ...form, usuario_id: v })}>
+            <SelectTrigger><SelectValue placeholder="Usuário" /></SelectTrigger>
+            <SelectContent>{usuarios.map(u => <SelectItem key={u.id} value={String(u.id)}>{u.nome}</SelectItem>)}</SelectContent>
+          </Select>
+          <Select value={form.org_id} onValueChange={(v) => setForm({ ...form, org_id: v })}>
+            <SelectTrigger><SelectValue placeholder="Organização" /></SelectTrigger>
+            <SelectContent>{orgs.map(o => <SelectItem key={o.id} value={String(o.id)}>{o.name}</SelectItem>)}</SelectContent>
+          </Select>
+          <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v as Role })}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>{ROLES.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
+          </Select>
+          <Button onClick={save}>Salvar e sincronizar</Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>Permissões diretas atuais</CardTitle></CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader><TableRow><TableHead>Usuário</TableHead><TableHead>Organização</TableHead><TableHead>Role</TableHead><TableHead></TableHead></TableRow></TableHeader>
+            <TableBody>
+              {perms.map((p: any) => (
+                <TableRow key={p.id}>
+                  <TableCell>{nameOf(p.usuario_id)}</TableCell>
+                  <TableCell>{orgNameOf(p.grafana_organization_id)}</TableCell>
+                  <TableCell><Badge>{p.role}</Badge></TableCell>
+                  <TableCell className="text-right">
+                    <Button size="sm" variant="ghost" onClick={() => removePerm(p.id, p.usuario_id)}><Trash2 className="h-3 w-3" /></Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {perms.length === 0 && <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">Nenhuma permissão direta.</TableCell></TableRow>}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// -------------------- Logs --------------------
+function LogsTab() {
+  const [logs, setLogs] = useState<SyncLog[]>([]);
+  const [filter, setFilter] = useState("all");
+
+  const load = async () => {
+    let q = supabase.from("grafana_sync_logs").select("*").order("criado_em", { ascending: false }).limit(100);
+    if (filter !== "all") q = q.eq("status", filter);
+    const { data } = await q;
+    setLogs((data as SyncLog[]) || []);
+  };
+  useEffect(() => { load(); }, [filter]);
+
+  return (
+    <div className="space-y-4 mt-4">
+      <div className="flex gap-2 items-center">
+        <Label>Status</Label>
+        <Select value={filter} onValueChange={setFilter}>
+          <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos</SelectItem>
+            <SelectItem value="success">Sucesso</SelectItem>
+            <SelectItem value="error">Erro</SelectItem>
+            <SelectItem value="skipped">Pulado</SelectItem>
+          </SelectContent>
+        </Select>
+        <Button variant="ghost" size="sm" onClick={load}><RefreshCw className="h-4 w-4" /></Button>
+      </div>
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader><TableRow><TableHead>Data</TableHead><TableHead>Ação</TableHead><TableHead>Usuário</TableHead><TableHead>Status</TableHead><TableHead>Erro</TableHead></TableRow></TableHeader>
+            <TableBody>
+              {logs.map(l => (
+                <TableRow key={l.id}>
+                  <TableCell className="text-xs font-mono">{new Date(l.criado_em).toLocaleString()}</TableCell>
+                  <TableCell>{l.action}</TableCell>
+                  <TableCell>{l.usuario_id || "—"}</TableCell>
+                  <TableCell>
+                    <Badge variant={l.status === "error" ? "destructive" : l.status === "success" ? "default" : "outline"}>{l.status}</Badge>
+                  </TableCell>
+                  <TableCell className="text-xs text-destructive">{l.error_message}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
