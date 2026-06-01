@@ -127,9 +127,35 @@ export async function logout(logoutAll: boolean = false): Promise<void> {
       console.error("Logout error:", error);
     }
   }
+
+  // Also sign out from Supabase Auth (used for OAuth flows like Grafana SSO)
+  try {
+    const { supabase } = await import("@/integrations/supabase/client");
+    await supabase.auth.signOut();
+  } catch (e) {
+    console.error("Supabase signOut error:", e);
+  }
+
   localStorage.removeItem("auth_token");
   localStorage.removeItem("auth_expires");
   localStorage.removeItem("auth_user");
+  sessionStorage.removeItem("twofa_validated");
+}
+
+/**
+ * Establishes a Supabase Auth session in parallel with the custom session.
+ * Used so OAuth flows (Grafana SSO) reuse the same login.
+ * Silent failure: if signIn fails the app still works; only OAuth consent
+ * will require re-login.
+ */
+export async function ensureSupabaseAuthSession(email: string, password: string): Promise<void> {
+  try {
+    const { supabase } = await import("@/integrations/supabase/client");
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) console.warn("[ensureSupabaseAuthSession] signIn failed:", error.message);
+  } catch (e) {
+    console.warn("[ensureSupabaseAuthSession] exception:", e);
+  }
 }
 
 export function getStoredUser(): AuthUser | null {

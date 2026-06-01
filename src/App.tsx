@@ -21,6 +21,7 @@ import ZabbixTvView from "./pages/ZabbixTvView";
 import Relatorios from "./pages/Relatorios";
 import Chamados from "./pages/Chamados";
 import ChamadoDetalhe from "./pages/ChamadoDetalhe";
+import OAuthConsent from "./pages/OAuthConsent";
 import { UserProvider } from "./contexts/UserContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
@@ -35,6 +36,7 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
+            <Route path="/oauth/consent" element={<OAuthConsent />} />
             <Route 
               path="/dashboard" 
               element={

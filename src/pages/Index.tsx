@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { login, signup } from "@/services/authService";
+import { login, signup, ensureSupabaseAuthSession } from "@/services/authService";
 import { useUser } from "@/contexts/UserContext";
 import { Eye, EyeOff, Mail, Lock, User } from "lucide-react";
 import PasswordChecklist from "@/components/PasswordChecklist";
@@ -17,13 +17,15 @@ const Index = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { refreshUser, isAuthenticated, isLoading } = useUser();
+  const [searchParams] = useSearchParams();
+  const redirectTo = searchParams.get("redirect");
 
-  // Redirect to dashboard if already authenticated
+  // Redirect to dashboard (or preserved redirect) if already authenticated
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
-      navigate("/dashboard", { replace: true });
+      navigate(redirectTo || "/dashboard", { replace: true });
     }
-  }, [isLoading, isAuthenticated, navigate]);
+  }, [isLoading, isAuthenticated, navigate, redirectTo]);
 
   const [isSignUp, setIsSignUp] = useState(false);
   const [phase, setPhase] = useState<PanelPhase>("idle");
@@ -100,20 +102,34 @@ const Index = () => {
     };
   };
 
+  const [pendingEmail, setPendingEmail] = useState("");
+  const [pendingPassword, setPendingPassword] = useState("");
+
   const completeLogin = async (user: any, session: any) => {
     localStorage.setItem("auth_token", session.token);
     localStorage.setItem("auth_expires", session.expires_at);
     localStorage.setItem("auth_user", JSON.stringify(user));
+    // Mark 2FA validated for the OAuth consent flow
+    sessionStorage.setItem("twofa_validated", "1");
     setShow2FAModal(false);
     setShow2FASetup(false);
+
+    // Establish Supabase Auth session in parallel (for Grafana OAuth SSO)
+    if (pendingEmail && pendingPassword) {
+      await ensureSupabaseAuthSession(pendingEmail, pendingPassword);
+    }
+
     toast({ title: "Login realizado!", description: `Bem-vindo, ${user.nome}!` });
     await refreshUser();
-    navigate("/dashboard", { replace: true });
+    navigate(redirectTo || "/dashboard", { replace: true });
   };
+
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginLoading(true);
+    setPendingEmail(loginEmail);
+    setPendingPassword(loginPassword);
     try {
       const result = await login({ email: loginEmail, senha: loginPassword });
       if (result.success) {
@@ -140,6 +156,8 @@ const Index = () => {
       return;
     }
     setSignupLoading(true);
+    setPendingEmail(signupEmail);
+    setPendingPassword(signupPassword);
     try {
       const result = await signup({ nome: signupNome, email: signupEmail, senha: signupPassword });
       if (result.success) {
