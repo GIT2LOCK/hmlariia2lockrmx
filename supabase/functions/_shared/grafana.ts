@@ -205,7 +205,7 @@ export async function syncUserToGrafana(usuario_id: number, actor_id?: number | 
     await grafanaFetch(`/api/admin/users/${grafanaUserId}/permissions`, {
       method: "PUT", body: JSON.stringify({ isGrafanaAdmin: false }),
     });
-    const { data: orgs } = await svc.from("grafana_organizations").select("grafana_org_id");
+    const { data: orgs } = await svc.from("grafana_organizations").select("grafana_org_id").eq("active", true);
     for (const o of orgs || []) {
       await grafanaFetch(`/api/orgs/${o.grafana_org_id}/users/${grafanaUserId}`, { method: "DELETE" });
     }
@@ -228,7 +228,7 @@ export async function syncUserToGrafana(usuario_id: number, actor_id?: number | 
   const desiredByOrg = new Map<number, string>();
   for (const o of perms.orgs || []) desiredByOrg.set(o.grafana_org_id, o.role);
 
-  const { data: allOrgs } = await svc.from("grafana_organizations").select("grafana_org_id, active");
+  const { data: allOrgs } = await svc.from("grafana_organizations").select("grafana_org_id, active").eq("active", true);
 
   for (const o of allOrgs || []) {
     const orgId = o.grafana_org_id;
