@@ -6,14 +6,15 @@ Deno.serve(async (req) => {
     const actor = await assertAdmin(req);
     const r = await grafanaFetch("/api/orgs");
     const orgCount = Array.isArray(r.body) ? r.body.length : null;
+    const bodyPreview = typeof r.body === "string" ? r.body.slice(0, 300) : r.body;
     await logSync({
       actor_usuario_id: actor.id,
       action: "test_connection",
       status: r.ok ? "success" : "error",
-      response_payload: { status: r.status, orgCount, body: r.ok ? undefined : r.body },
+      response_payload: { status: r.status, url: r.url, orgCount, body: r.ok ? undefined : bodyPreview },
     });
     return new Response(
-      JSON.stringify({ ok: r.ok, status: r.status, orgCount, body: r.ok ? undefined : r.body }),
+      JSON.stringify({ ok: r.ok, status: r.status, url: r.url, orgCount, body: r.ok ? undefined : bodyPreview }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: r.ok ? 200 : 502,
