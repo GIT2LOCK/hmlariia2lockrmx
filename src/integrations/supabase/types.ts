@@ -330,6 +330,42 @@ export type Database = {
         }
         Relationships: []
       }
+      grafana_automation_rules: {
+        Row: {
+          active: boolean
+          atualizado_em: string
+          criado_em: string
+          criado_por: number | null
+          description: string | null
+          graph: Json
+          id: number
+          name: string
+          priority: number
+        }
+        Insert: {
+          active?: boolean
+          atualizado_em?: string
+          criado_em?: string
+          criado_por?: number | null
+          description?: string | null
+          graph?: Json
+          id?: number
+          name: string
+          priority?: number
+        }
+        Update: {
+          active?: boolean
+          atualizado_em?: string
+          criado_em?: string
+          criado_por?: number | null
+          description?: string | null
+          graph?: Json
+          id?: number
+          name?: string
+          priority?: number
+        }
+        Relationships: []
+      }
       grafana_group_org_permissions: {
         Row: {
           atualizado_em: string
@@ -1353,6 +1389,10 @@ export type Database = {
     Functions: {
       custom_access_token_hook: { Args: { event: Json }; Returns: Json }
       grafana_effective_permissions: {
+        Args: { _usuario_id: number }
+        Returns: Json
+      }
+      grafana_evaluate_automations: {
         Args: { _usuario_id: number }
         Returns: Json
       }

@@ -160,6 +160,47 @@ export async function syncUserToGrafana(usuario_id: number, actor_id?: number | 
     .eq("usuario_id", usuario_id)
     .maybeSingle();
 
+  const isFirstSync = !existingLink;
+
+  // First-sync: apply automation rules (manual perms always win — only insert where missing)
+  if (isFirstSync && u.ativo) {
+    try {
+      const { data: autoActions } = await svc.rpc("grafana_evaluate_automations", { _usuario_id: usuario_id });
+      const actions = Array.isArray(autoActions) ? autoActions : [];
+      if (actions.length) {
+        // Load existing direct perms to avoid overwriting manual ones
+        const { data: existingPerms } = await svc
+          .from("grafana_user_org_permissions")
+          .select("grafana_organization_id")
+          .eq("usuario_id", usuario_id);
+        const existingOrgIds = new Set((existingPerms || []).map((p: any) => p.grafana_organization_id));
+
+        const inserts = actions
+          .filter((a: any) => a.grafana_organization_id && !existingOrgIds.has(a.grafana_organization_id))
+          .map((a: any) => ({
+            usuario_id,
+            grafana_organization_id: a.grafana_organization_id,
+            role: a.role,
+            enabled: true,
+          }));
+        if (inserts.length) {
+          await svc.from("grafana_user_org_permissions").insert(inserts);
+          await logSync({
+            usuario_id, actor_usuario_id: actor_id,
+            action: "automation_applied", status: "success",
+            response_payload: { actions: inserts },
+          });
+        }
+      }
+    } catch (e) {
+      await logSync({
+        usuario_id, actor_usuario_id: actor_id,
+        action: "automation_applied", status: "error",
+        error_message: (e as Error).message,
+      });
+    }
+  }
+
   // Lookup or create Grafana user
   let grafanaUserId: number | null = existingLink?.grafana_user_id ?? null;
   let grafanaLogin: string = existingLink?.grafana_login ?? u.email;
