@@ -468,22 +468,22 @@ function UsersTab() {
     if (!editor) return;
     setEditor({ ...editor, saving: true });
     try {
-      const ops: Promise<any>[] = [];
+      const ops: Array<Promise<{ error: any }>> = [];
       for (const o of orgs) {
         const next = editor.roles[o.id] || "None";
         const prev = editor.initial[o.id] || "None";
         if (next === prev) continue;
         if (next === "None") {
           ops.push(
-            supabase
+            (supabase
               .from("grafana_user_org_permissions")
               .delete()
               .eq("usuario_id", editor.user.id)
-              .eq("grafana_organization_id", o.id),
+              .eq("grafana_organization_id", o.id) as unknown) as Promise<{ error: any }>,
           );
         } else {
           ops.push(
-            supabase.from("grafana_user_org_permissions").upsert(
+            (supabase.from("grafana_user_org_permissions").upsert(
               {
                 usuario_id: editor.user.id,
                 grafana_organization_id: o.id,
@@ -492,7 +492,7 @@ function UsersTab() {
                 atualizado_em: new Date().toISOString(),
               },
               { onConflict: "usuario_id,grafana_organization_id" },
-            ),
+            ) as unknown) as Promise<{ error: any }>,
           );
         }
       }
