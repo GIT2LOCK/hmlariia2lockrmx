@@ -108,33 +108,43 @@ export default function OAuthConsent() {
         return;
       }
 
-      // 5. Approve OAuth authorization
+      // 5. Approve OAuth authorization using official supabase-js methods
       setStatus("Autorizando acesso...");
       try {
-        const res = await fetch(
-          `${SUPABASE_URL}/auth/v1/oauth/authorizations/${encodeURIComponent(authorizationId)}/consent`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              apikey: ANON_KEY,
-              Authorization: `Bearer ${session.access_token}`,
-            },
-            body: JSON.stringify({ action: "approve" }),
-          },
-        );
-        const json = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          setError(json?.error_description || json?.error || "Falha ao aprovar autorização.");
+        const oauthApi: any = (supabase.auth as any).oauth;
+        if (!oauthApi?.getAuthorizationDetails || !oauthApi?.approveAuthorization) {
+          setError("Cliente Supabase não suporta OAuth Server. Atualize @supabase/supabase-js.");
           return;
         }
-        const redirectUrl = json?.redirect_url || json?.url;
-        if (!redirectUrl) {
-          setError("Resposta inválida do servidor OAuth.");
+
+        const { data: details, error: detailsError } =
+          await oauthApi.getAuthorizationDetails(authorizationId);
+        if (detailsError) {
+          console.error("[oauth-consent] getAuthorizationDetails error", detailsError);
+          setError(detailsError.message || "Falha ao obter detalhes da autorização.");
           return;
         }
-        window.location.replace(redirectUrl);
+
+        // If already approved, Supabase returns a redirect_url directly
+        if (details && !("authorization_id" in details) && (details as any).redirect_url) {
+          window.location.href = (details as any).redirect_url;
+          return;
+        }
+
+        const { data: approved, error: approveError } =
+          await oauthApi.approveAuthorization(authorizationId);
+        if (approveError) {
+          console.error("[oauth-consent] approveAuthorization error", approveError);
+          setError(approveError.message || "Falha ao aprovar autorização.");
+          return;
+        }
+        if (!approved?.redirect_url) {
+          setError("Resposta inválida do servidor OAuth (sem redirect_url).");
+          return;
+        }
+        window.location.href = approved.redirect_url;
       } catch (e: any) {
+        console.error("[oauth-consent] approve exception", e);
         setError(e?.message || "Erro ao aprovar autorização.");
       }
     };
