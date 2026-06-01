@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useUser } from "@/contexts/UserContext";
 import { Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, RefreshCw, Plus, Trash2, Activity, ShieldCheck } from "lucide-react";
+import { Loader2, RefreshCw, Plus, Trash2, ShieldCheck, ChevronDown, ChevronRight } from "lucide-react";
 import { getAuthToken } from "@/services/authService";
 
 type Role = "None" | "Viewer" | "Editor" | "Admin";
@@ -68,118 +68,33 @@ export default function GrafanaControle() {
         <p className="text-muted-foreground">Gestão centralizada de acesso ao Grafana via Ariia.</p>
       </div>
 
-      <Tabs defaultValue="dashboard" className="w-full">
-        <TabsList className="grid grid-cols-6 w-full max-w-3xl">
-          <TabsTrigger value="dashboard">Resumo</TabsTrigger>
+      <Tabs defaultValue="users" className="w-full">
+        <TabsList className="grid grid-cols-4 w-full max-w-2xl">
+          <TabsTrigger value="users">Usuários</TabsTrigger>
           <TabsTrigger value="orgs">Organizações</TabsTrigger>
           <TabsTrigger value="groups">Grupos</TabsTrigger>
-          <TabsTrigger value="users">Usuários</TabsTrigger>
-          <TabsTrigger value="direct">Permissões diretas</TabsTrigger>
           <TabsTrigger value="logs">Logs</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="dashboard"><DashboardTab /></TabsContent>
+        <TabsContent value="users"><UsersTab /></TabsContent>
         <TabsContent value="orgs"><OrgsTab /></TabsContent>
         <TabsContent value="groups"><GroupsTab /></TabsContent>
-        <TabsContent value="users"><UsersTab /></TabsContent>
-        <TabsContent value="direct"><DirectPermsTab /></TabsContent>
         <TabsContent value="logs"><LogsTab /></TabsContent>
       </Tabs>
     </div>
   );
 }
 
-// -------------------- Dashboard --------------------
-function DashboardTab() {
-  const { toast } = useToast();
-  const [stats, setStats] = useState({ orgs: 0, users: 0, groups: 0 });
-  const [recentErrors, setRecentErrors] = useState<SyncLog[]>([]);
-  const [busy, setBusy] = useState<string | null>(null);
 
-  const load = async () => {
-    const [o, u, g, l] = await Promise.all([
-      supabase.from("grafana_organizations").select("id", { count: "exact", head: true }).eq("active", true),
-      supabase.from("grafana_user_links").select("id", { count: "exact", head: true }),
-      supabase.from("grafana_access_groups").select("id", { count: "exact", head: true }),
-      supabase.from("grafana_sync_logs").select("*").eq("status", "error").order("criado_em", { ascending: false }).limit(5),
-    ]);
-    setStats({ orgs: o.count || 0, users: u.count || 0, groups: g.count || 0 });
-    setRecentErrors((l.data as SyncLog[]) || []);
-  };
-
-  useEffect(() => { load(); }, []);
-
-  const run = async (fn: "grafana-test-connection" | "grafana-sync-organizations" | "grafana-sync-all", label: string) => {
-    setBusy(fn);
-    try {
-      await invokeGrafanaFunction(fn);
-      toast({ title: label, description: "Concluído com sucesso." });
-      await load();
-    } catch (e: any) {
-      toast({ title: label, description: e?.message || "Erro", variant: "destructive" });
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  return (
-    <div className="space-y-4 mt-4">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <StatCard title="Organizações" value={stats.orgs} />
-        <StatCard title="Usuários vinculados" value={stats.users} />
-        <StatCard title="Grupos de acesso" value={stats.groups} />
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        <Button onClick={() => run("grafana-test-connection", "Teste de conexão")} disabled={!!busy}>
-          {busy === "grafana-test-connection" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Activity className="h-4 w-4" />}
-          Testar conexão
-        </Button>
-        <Button onClick={() => run("grafana-sync-organizations", "Sincronizar organizações")} disabled={!!busy}>
-          {busy === "grafana-sync-organizations" ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-          Sincronizar organizações
-        </Button>
-        <Button onClick={() => run("grafana-sync-all", "Sincronizar todos")} disabled={!!busy} variant="secondary">
-          {busy === "grafana-sync-all" ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-          Sincronizar todos os usuários
-        </Button>
-      </div>
-
-      <Card>
-        <CardHeader><CardTitle>Últimos erros</CardTitle></CardHeader>
-        <CardContent>
-          {recentErrors.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nenhum erro recente.</p>
-          ) : (
-            <ul className="space-y-2 text-sm">
-              {recentErrors.map(l => (
-                <li key={l.id} className="border-l-2 border-destructive pl-2">
-                  <span className="font-mono text-xs text-muted-foreground">{new Date(l.criado_em).toLocaleString()}</span>
-                  {" — "}<b>{l.action}</b>: {l.error_message}
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-function StatCard({ title, value }: { title: string; value: number }) {
-  return (
-    <Card>
-      <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">{title}</CardTitle></CardHeader>
-      <CardContent><div className="text-3xl font-bold">{value}</div></CardContent>
-    </Card>
-  );
-}
 
 // -------------------- Organizações --------------------
 function OrgsTab() {
   const { toast } = useToast();
   const [orgs, setOrgs] = useState<Org[]>([]);
   const [busy, setBusy] = useState(false);
+  const [expanded, setExpanded] = useState<number | null>(null);
+  const [orgUsers, setOrgUsers] = useState<Record<number, Array<{ id: number; nome: string; email: string; role: Role; source: "direct" | "group"; groupName?: string }>>>({});
+  const [loadingUsers, setLoadingUsers] = useState<number | null>(null);
 
   const load = async () => {
     const { data } = await supabase.from("grafana_organizations").select("*").eq("active", true).order("name");
@@ -198,6 +113,79 @@ function OrgsTab() {
     } finally { setBusy(false); }
   };
 
+  const loadOrgUsers = async (orgId: number) => {
+    setLoadingUsers(orgId);
+    try {
+      const rank: Record<string, number> = { None: 0, Viewer: 1, Editor: 2, Admin: 3 };
+
+      const [directRes, groupPermRes, usuariosRes, superRes] = await Promise.all([
+        supabase.from("grafana_user_org_permissions").select("usuario_id, role, enabled").eq("grafana_organization_id", orgId),
+        supabase.from("grafana_group_org_permissions").select("group_id, role, grafana_access_groups(name)").eq("grafana_organization_id", orgId),
+        supabase.from("usuarios").select("id, nome, email, permissao, ativo").eq("ativo", true).order("nome"),
+        supabase.from("usuarios").select("id, nome, email").eq("ativo", true).eq("permissao", "SUPERADMIN"),
+      ]);
+
+      const usuariosMap = new Map((usuariosRes.data || []).map((u: any) => [u.id, u]));
+      const merged = new Map<number, { id: number; nome: string; email: string; role: Role; source: "direct" | "group"; groupName?: string }>();
+
+      // SUPERADMINs (acesso total automático)
+      for (const s of (superRes.data || []) as any[]) {
+        merged.set(s.id, { id: s.id, nome: s.nome, email: s.email, role: "Admin", source: "direct" });
+      }
+
+      // Direct perms
+      for (const p of (directRes.data || []) as any[]) {
+        if (!p.enabled || p.role === "None") continue;
+        const u = usuariosMap.get(p.usuario_id);
+        if (!u) continue;
+        const existing = merged.get(p.usuario_id);
+        if (!existing || rank[p.role] > rank[existing.role]) {
+          merged.set(p.usuario_id, { id: u.id, nome: u.nome, email: u.email, role: p.role as Role, source: "direct" });
+        }
+      }
+
+      // Group perms — resolve members
+      const groupRows = (groupPermRes.data || []) as any[];
+      if (groupRows.length) {
+        const groupIds = groupRows.map((g) => g.group_id);
+        const { data: membersData } = await supabase
+          .from("grafana_access_group_members")
+          .select("group_id, usuario_id")
+          .in("group_id", groupIds);
+        const byGroup = new Map<number, number[]>();
+        for (const m of (membersData || []) as any[]) {
+          if (!byGroup.has(m.group_id)) byGroup.set(m.group_id, []);
+          byGroup.get(m.group_id)!.push(m.usuario_id);
+        }
+        for (const gp of groupRows) {
+          const userIds = byGroup.get(gp.group_id) || [];
+          for (const uid of userIds) {
+            const u = usuariosMap.get(uid);
+            if (!u) continue;
+            const existing = merged.get(uid);
+            if (!existing || rank[gp.role] > rank[existing.role]) {
+              merged.set(uid, {
+                id: u.id, nome: u.nome, email: u.email,
+                role: gp.role as Role, source: "group",
+                groupName: gp.grafana_access_groups?.name,
+              });
+            }
+          }
+        }
+      }
+
+      setOrgUsers((prev) => ({ ...prev, [orgId]: Array.from(merged.values()).sort((a, b) => a.nome.localeCompare(b.nome)) }));
+    } finally {
+      setLoadingUsers(null);
+    }
+  };
+
+  const toggleExpand = (orgId: number) => {
+    if (expanded === orgId) { setExpanded(null); return; }
+    setExpanded(orgId);
+    if (!orgUsers[orgId]) loadOrgUsers(orgId);
+  };
+
   return (
     <div className="space-y-4 mt-4">
       <Button onClick={sync} disabled={busy}>
@@ -209,20 +197,67 @@ function OrgsTab() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-8"></TableHead>
                 <TableHead>ID Grafana</TableHead><TableHead>Nome</TableHead>
                 <TableHead>Status</TableHead><TableHead>Última sync</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {orgs.map(o => (
-                <TableRow key={o.id}>
-                  <TableCell className="font-mono">{o.grafana_org_id}</TableCell>
-                  <TableCell>{o.name}</TableCell>
-                  <TableCell>{o.active ? <Badge>Ativa</Badge> : <Badge variant="outline">Inativa</Badge>}</TableCell>
-                  <TableCell className="text-xs">{o.synced_at ? new Date(o.synced_at).toLocaleString() : "—"}</TableCell>
-                </TableRow>
-              ))}
-              {orgs.length === 0 && <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">Nenhuma organização. Clique em "Sincronizar do Grafana".</TableCell></TableRow>}
+              {orgs.map(o => {
+                const isOpen = expanded === o.id;
+                const users = orgUsers[o.id];
+                return (
+                  <Fragment key={o.id}>
+                    <TableRow key={o.id} className="cursor-pointer hover:bg-accent/50" onClick={() => toggleExpand(o.id)}>
+                      <TableCell>{isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}</TableCell>
+                      <TableCell className="font-mono">{o.grafana_org_id}</TableCell>
+                      <TableCell>{o.name}</TableCell>
+                      <TableCell>{o.active ? <Badge>Ativa</Badge> : <Badge variant="outline">Inativa</Badge>}</TableCell>
+                      <TableCell className="text-xs">{o.synced_at ? new Date(o.synced_at).toLocaleString() : "—"}</TableCell>
+                    </TableRow>
+                    {isOpen && (
+                      <TableRow key={`${o.id}-detail`}>
+                        <TableCell colSpan={5} className="bg-muted/30">
+                          {loadingUsers === o.id ? (
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                              <Loader2 className="h-4 w-4 animate-spin" /> Carregando usuários…
+                            </div>
+                          ) : !users || users.length === 0 ? (
+                            <p className="text-sm text-muted-foreground py-2">Nenhum usuário com acesso a esta organização.</p>
+                          ) : (
+                            <div className="py-2">
+                              <div className="text-xs text-muted-foreground mb-2">{users.length} usuário(s) com acesso</div>
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead>Nome</TableHead>
+                                    <TableHead>Email</TableHead>
+                                    <TableHead>Role</TableHead>
+                                    <TableHead>Origem</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {users.map((u) => (
+                                    <TableRow key={u.id}>
+                                      <TableCell>{u.nome}</TableCell>
+                                      <TableCell className="text-sm">{u.email}</TableCell>
+                                      <TableCell><Badge>{u.role}</Badge></TableCell>
+                                      <TableCell className="text-xs text-muted-foreground">
+                                        {u.source === "group" ? `Grupo: ${u.groupName || "—"}` : "Direto"}
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </Fragment>
+                );
+              })}
+              {orgs.length === 0 && <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Nenhuma organização. Clique em "Sincronizar do Grafana".</TableCell></TableRow>}
             </TableBody>
           </Table>
         </CardContent>
@@ -618,96 +653,8 @@ function UsersTab() {
   );
 }
 
-// -------------------- Permissões diretas --------------------
-function DirectPermsTab() {
-  const { toast } = useToast();
-  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
-  const [orgs, setOrgs] = useState<Org[]>([]);
-  const [perms, setPerms] = useState<any[]>([]);
-  const [form, setForm] = useState({ usuario_id: "", org_id: "", role: "Viewer" as Role });
 
-  const load = async () => {
-    const [u, o, p] = await Promise.all([
-      supabase.from("usuarios").select("id, nome, email, permissao, ativo").order("nome"),
-      supabase.from("grafana_organizations").select("*").eq("active", true).order("name"),
-      supabase.from("grafana_user_org_permissions").select("*"),
-    ]);
-    setUsuarios((u.data as Usuario[]) || []);
-    setOrgs((o.data as Org[]) || []);
-    setPerms(p.data || []);
-  };
-  useEffect(() => { load(); }, []);
 
-  const save = async () => {
-    const uid = Number(form.usuario_id), oid = Number(form.org_id);
-    if (!uid || !oid) return;
-    if (form.role === "None") {
-      await supabase.from("grafana_user_org_permissions").delete().eq("usuario_id", uid).eq("grafana_organization_id", oid);
-    } else {
-      await supabase.from("grafana_user_org_permissions").upsert({
-        usuario_id: uid, grafana_organization_id: oid, role: form.role, enabled: true,
-        atualizado_em: new Date().toISOString(),
-      }, { onConflict: "usuario_id,grafana_organization_id" });
-    }
-    await invokeGrafanaFunction("grafana-sync-user", { body: { usuario_id: uid } });
-    toast({ title: "Permissão salva e sincronizada" });
-    await load();
-  };
-
-  const removePerm = async (id: number, uid: number) => {
-    await supabase.from("grafana_user_org_permissions").delete().eq("id", id);
-    await invokeGrafanaFunction("grafana-sync-user", { body: { usuario_id: uid } });
-    await load();
-  };
-
-  const nameOf = (uid: number) => usuarios.find(u => u.id === uid)?.nome || `#${uid}`;
-  const orgNameOf = (oid: number) => orgs.find(o => o.id === oid)?.name || `#${oid}`;
-
-  return (
-    <div className="space-y-4 mt-4">
-      <Card>
-        <CardHeader><CardTitle>Nova permissão direta</CardTitle></CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-4 gap-3">
-          <Select value={form.usuario_id} onValueChange={(v) => setForm({ ...form, usuario_id: v })}>
-            <SelectTrigger><SelectValue placeholder="Usuário" /></SelectTrigger>
-            <SelectContent>{usuarios.map(u => <SelectItem key={u.id} value={String(u.id)}>{u.nome}</SelectItem>)}</SelectContent>
-          </Select>
-          <Select value={form.org_id} onValueChange={(v) => setForm({ ...form, org_id: v })}>
-            <SelectTrigger><SelectValue placeholder="Organização" /></SelectTrigger>
-            <SelectContent>{orgs.map(o => <SelectItem key={o.id} value={String(o.id)}>{o.name}</SelectItem>)}</SelectContent>
-          </Select>
-          <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v as Role })}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>{ROLES.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
-          </Select>
-          <Button onClick={save}>Salvar e sincronizar</Button>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader><CardTitle>Permissões diretas atuais</CardTitle></CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader><TableRow><TableHead>Usuário</TableHead><TableHead>Organização</TableHead><TableHead>Role</TableHead><TableHead></TableHead></TableRow></TableHeader>
-            <TableBody>
-              {perms.map((p: any) => (
-                <TableRow key={p.id}>
-                  <TableCell>{nameOf(p.usuario_id)}</TableCell>
-                  <TableCell>{orgNameOf(p.grafana_organization_id)}</TableCell>
-                  <TableCell><Badge>{p.role}</Badge></TableCell>
-                  <TableCell className="text-right">
-                    <Button size="sm" variant="ghost" onClick={() => removePerm(p.id, p.usuario_id)}><Trash2 className="h-3 w-3" /></Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {perms.length === 0 && <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">Nenhuma permissão direta.</TableCell></TableRow>}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
 
 // -------------------- Logs --------------------
 function LogsTab() {
