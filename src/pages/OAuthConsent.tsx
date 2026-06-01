@@ -3,18 +3,21 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { getAuthToken } from "@/services/authService";
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 /**
  * Custom Authorization UI for the Supabase Auth OAuth Server.
- * Used by external clients (e.g. Grafana) to authenticate via 2LOCK.
  *
  * Flow:
- *   1. Read authorization_id from query string.
- *   2. Require a Supabase Auth session (redirect to /?redirect=...).
- *   3. Require the internal usuario (auth_user_id → public.usuarios).
- *   4. Require 2FA validation when totp_enabled.
- *   5. Approve the OAuth authorization via Supabase REST endpoint.
- *   6. Redirect to the redirect_url returned by Supabase.
+ *   1. Read authorization_id.
+ *   2. If Supabase Auth session exists → validate usuario → approve.
+ *   3. Else if custom Ariia session (auth_token) is valid →
+ *      bridge into a Supabase Auth session via edge function +
+ *      supabase.auth.verifyOtp, then approve.
+ *   4. Else redirect to /?redirect=...
  */
 export default function OAuthConsent() {
   const navigate = useNavigate();
@@ -32,14 +35,55 @@ export default function OAuthConsent() {
         return;
       }
 
-      // 1. Require Supabase Auth session
-      const { data: { session } } = await supabase.auth.getSession();
+      // 1. Try existing Supabase Auth session
+      let { data: { session } } = await supabase.auth.getSession();
+
+      // 2. If none, try to bridge from custom Ariia session
+      if (!session) {
+        const customToken = getAuthToken();
+        if (customToken) {
+          setStatus("Sincronizando sessão...");
+          try {
+            const res = await fetch(`${SUPABASE_URL}/functions/v1/bridge-supabase-session`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                apikey: ANON_KEY,
+                Authorization: `Bearer ${customToken}`,
+              },
+            });
+            const json = await res.json().catch(() => ({}));
+            if (res.ok && json?.token_hash) {
+              // Enforce 2FA if required
+              if (json.totp_enabled && sessionStorage.getItem("twofa_validated") !== "1") {
+                navigate(`/?redirect=${encodeURIComponent(currentUrl)}`, { replace: true });
+                return;
+              }
+              const { data: verifyData, error: verifyErr } = await supabase.auth.verifyOtp({
+                token_hash: json.token_hash,
+                type: "magiclink",
+              });
+              if (verifyErr || !verifyData?.session) {
+                console.error("[oauth-consent] verifyOtp failed", verifyErr);
+              } else {
+                session = verifyData.session;
+              }
+            } else {
+              console.warn("[oauth-consent] bridge failed", json);
+            }
+          } catch (e) {
+            console.error("[oauth-consent] bridge exception", e);
+          }
+        }
+      }
+
+      // 3. Still no session → login
       if (!session) {
         navigate(`/?redirect=${encodeURIComponent(currentUrl)}`, { replace: true });
         return;
       }
 
-      // 2. Load internal usuario by auth_user_id
+      // 4. Load internal usuario
       setStatus("Carregando perfil...");
       const { data: usuario, error: uErr } = await supabase
         .from("usuarios")
@@ -59,20 +103,14 @@ export default function OAuthConsent() {
         return;
       }
 
-      // 3. Require 2FA if enabled
-      if (usuario.totp_enabled) {
-        const twofaOk = sessionStorage.getItem("twofa_validated") === "1";
-        if (!twofaOk) {
-          navigate(`/?redirect=${encodeURIComponent(currentUrl)}`, { replace: true });
-          return;
-        }
+      if (usuario.totp_enabled && sessionStorage.getItem("twofa_validated") !== "1") {
+        navigate(`/?redirect=${encodeURIComponent(currentUrl)}`, { replace: true });
+        return;
       }
 
-      // 4. Approve the OAuth authorization
+      // 5. Approve OAuth authorization
       setStatus("Autorizando acesso...");
       try {
-        const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-        const ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
         const res = await fetch(
           `${SUPABASE_URL}/auth/v1/oauth/authorizations/${encodeURIComponent(authorizationId)}/consent`,
           {
