@@ -138,6 +138,21 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )}
+              {canManageUsers && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive("/dashboard/grafana")}
+                    tooltip="Controle Grafana"
+                    className="text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10 data-[active=true]:bg-primary-foreground/20 data-[active=true]:text-primary-foreground"
+                  >
+                    <NavLink to="/dashboard/grafana" className="flex items-center gap-3">
+                      <ShieldCheck className="h-5 w-5" />
+                      <span>Controle Grafana</span>
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
               <SidebarMenuItem>
                 <SidebarMenuButton
                   asChild
