@@ -114,9 +114,19 @@ const Index = () => {
     setShow2FAModal(false);
     setShow2FASetup(false);
 
-    // Establish Supabase Auth session in parallel (for Grafana OAuth SSO)
+    // Establish Supabase Auth session (required for Grafana OAuth SSO).
+    // Must complete BEFORE redirecting so /oauth/consent finds the session.
     if (pendingEmail && pendingPassword) {
-      await ensureSupabaseAuthSession(pendingEmail, pendingPassword);
+      try {
+        await ensureSupabaseAuthSession(pendingEmail, pendingPassword);
+      } catch (err: any) {
+        console.error("[completeLogin] ensureSupabaseAuthSession failed", err);
+        toast({
+          title: "Aviso",
+          description: "Login realizado, mas a sessão SSO (Grafana) não foi criada. Tente novamente se for usar o SSO.",
+          variant: "destructive",
+        });
+      }
     }
 
     toast({ title: "Login realizado!", description: `Bem-vindo, ${user.nome}!` });
