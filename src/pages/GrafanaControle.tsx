@@ -382,14 +382,26 @@ function GroupsTab() {
 function UsersTab() {
   const { toast } = useToast();
   const [rows, setRows] = useState<any[]>([]);
+  const [orgs, setOrgs] = useState<Org[]>([]);
   const [busy, setBusy] = useState<number | null>(null);
   const [permsModal, setPermsModal] = useState<{ user: Usuario; perms: any } | null>(null);
+  const [editor, setEditor] = useState<{
+    user: Usuario;
+    roles: Record<number, Role>;
+    initial: Record<number, Role>;
+    groupRoles: Record<number, Role>;
+    saving: boolean;
+  } | null>(null);
 
   const load = async () => {
-    const { data: users } = await supabase.from("usuarios").select("id, nome, email, permissao, ativo").order("nome");
-    const { data: links } = await supabase.from("grafana_user_links").select("*");
-    const linkMap = new Map((links || []).map((l: any) => [l.usuario_id, l]));
-    setRows((users || []).map((u: any) => ({ ...u, link: linkMap.get(u.id) })));
+    const [usersRes, linksRes, orgsRes] = await Promise.all([
+      supabase.from("usuarios").select("id, nome, email, permissao, ativo").order("nome"),
+      supabase.from("grafana_user_links").select("*"),
+      supabase.from("grafana_organizations").select("*").eq("active", true).order("name"),
+    ]);
+    const linkMap = new Map((linksRes.data || []).map((l: any) => [l.usuario_id, l]));
+    setRows((usersRes.data || []).map((u: any) => ({ ...u, link: linkMap.get(u.id) })));
+    setOrgs((orgsRes.data as Org[]) || []);
   };
   useEffect(() => { load(); }, []);
 
@@ -412,6 +424,92 @@ function UsersTab() {
     setPermsModal({ user: u, perms: json.perms });
   };
 
+  const openEditor = async (u: Usuario) => {
+    const [direct, groupMembers] = await Promise.all([
+      supabase.from("grafana_user_org_permissions").select("grafana_organization_id, role, enabled").eq("usuario_id", u.id),
+      supabase.from("grafana_access_group_members").select("group_id").eq("usuario_id", u.id),
+    ]);
+    const groupIds = (groupMembers.data || []).map((g: any) => g.group_id);
+    let groupPerms: any[] = [];
+    if (groupIds.length) {
+      const { data } = await supabase
+        .from("grafana_group_org_permissions")
+        .select("grafana_organization_id, role")
+        .in("group_id", groupIds);
+      groupPerms = data || [];
+    }
+    const rank: Record<string, number> = { None: 0, Viewer: 1, Editor: 2, Admin: 3 };
+    const groupRoles: Record<number, Role> = {};
+    for (const p of groupPerms) {
+      const prev = groupRoles[p.grafana_organization_id];
+      if (!prev || rank[p.role] > rank[prev]) groupRoles[p.grafana_organization_id] = p.role as Role;
+    }
+    const initial: Record<number, Role> = {};
+    for (const o of orgs) initial[o.id] = "None";
+    for (const p of (direct.data || []) as any[]) {
+      if (p.enabled) initial[p.grafana_organization_id] = p.role as Role;
+    }
+    setEditor({ user: u, roles: { ...initial }, initial, groupRoles, saving: false });
+  };
+
+  const setRole = (orgId: number, role: Role) => {
+    if (!editor) return;
+    setEditor({ ...editor, roles: { ...editor.roles, [orgId]: role } });
+  };
+
+  const bulkApply = (role: Role) => {
+    if (!editor) return;
+    const next: Record<number, Role> = {};
+    for (const o of orgs) next[o.id] = role;
+    setEditor({ ...editor, roles: next });
+  };
+
+  const saveEditor = async () => {
+    if (!editor) return;
+    setEditor({ ...editor, saving: true });
+    try {
+      const ops: Array<Promise<{ error: any }>> = [];
+      for (const o of orgs) {
+        const next = editor.roles[o.id] || "None";
+        const prev = editor.initial[o.id] || "None";
+        if (next === prev) continue;
+        if (next === "None") {
+          ops.push(
+            (supabase
+              .from("grafana_user_org_permissions")
+              .delete()
+              .eq("usuario_id", editor.user.id)
+              .eq("grafana_organization_id", o.id) as unknown) as Promise<{ error: any }>,
+          );
+        } else {
+          ops.push(
+            (supabase.from("grafana_user_org_permissions").upsert(
+              {
+                usuario_id: editor.user.id,
+                grafana_organization_id: o.id,
+                role: next,
+                enabled: true,
+                atualizado_em: new Date().toISOString(),
+              },
+              { onConflict: "usuario_id,grafana_organization_id" },
+            ) as unknown) as Promise<{ error: any }>,
+          );
+        }
+      }
+      const results = await Promise.all(ops);
+      const failed = results.find((r: any) => r?.error);
+      if (failed) throw new Error((failed as any).error.message);
+
+      await invokeGrafanaFunction("grafana-sync-user", { body: { usuario_id: editor.user.id } });
+      toast({ title: "Acessos atualizados", description: `${editor.user.nome} sincronizado com o Grafana.` });
+      setEditor(null);
+      await load();
+    } catch (e: any) {
+      toast({ title: "Erro ao salvar", description: e?.message, variant: "destructive" });
+      setEditor((prev) => prev ? { ...prev, saving: false } : prev);
+    }
+  };
+
   return (
     <div className="space-y-4 mt-4">
       <Card>
@@ -425,16 +523,25 @@ function UsersTab() {
             </TableHeader>
             <TableBody>
               {rows.map(r => {
-                const isAdmin = ["SUPERADMIN", "ADMIN"].includes(r.permissao);
+                const isSuper = r.permissao === "SUPERADMIN";
                 return (
                   <TableRow key={r.id}>
                     <TableCell>{r.nome}</TableCell>
                     <TableCell>{r.email}</TableCell>
-                    <TableCell><Badge variant={isAdmin ? "default" : "outline"}>{r.permissao}</Badge></TableCell>
-                    <TableCell>{isAdmin ? <Badge>Sim</Badge> : <Badge variant="outline">Não</Badge>}</TableCell>
+                    <TableCell><Badge variant={isSuper ? "default" : "outline"}>{r.permissao}</Badge></TableCell>
+                    <TableCell>{isSuper ? <Badge>Sim</Badge> : <Badge variant="outline">Não</Badge>}</TableCell>
                     <TableCell className="font-mono text-xs">{r.link?.grafana_user_id || "—"}</TableCell>
                     <TableCell className="text-xs">{r.link?.last_synced_at ? new Date(r.link.last_synced_at).toLocaleString() : "—"}</TableCell>
-                    <TableCell className="text-right space-x-1">
+                    <TableCell className="text-right space-x-1 whitespace-nowrap">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => openEditor(r)}
+                        disabled={isSuper}
+                        title={isSuper ? "SUPERADMIN tem acesso total automático" : "Gerenciar acessos"}
+                      >
+                        Gerenciar acessos
+                      </Button>
                       <Button size="sm" variant="ghost" onClick={() => viewPerms(r)}>Ver</Button>
                       <Button size="sm" onClick={() => syncUser(r.id)} disabled={busy === r.id}>
                         {busy === r.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
@@ -452,6 +559,59 @@ function UsersTab() {
         <DialogContent>
           <DialogHeader><DialogTitle>Permissões efetivas — {permsModal?.user.nome}</DialogTitle></DialogHeader>
           <pre className="text-xs bg-muted p-3 rounded overflow-auto max-h-96">{JSON.stringify(permsModal?.perms, null, 2)}</pre>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!editor} onOpenChange={(o) => { if (!o) setEditor(null); }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Acessos ao Grafana — {editor?.user.nome}</DialogTitle>
+          </DialogHeader>
+          {editor && (
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center gap-2 text-sm">
+                <span className="text-muted-foreground">Aplicar a todas:</span>
+                {ROLES.map((r) => (
+                  <Button key={r} size="sm" variant="outline" onClick={() => bulkApply(r)}>{r}</Button>
+                ))}
+              </div>
+              <div className="border rounded max-h-[420px] overflow-y-auto divide-y">
+                {orgs.map((o) => {
+                  const groupRole = editor.groupRoles[o.id];
+                  return (
+                    <div key={o.id} className="flex items-center justify-between gap-3 p-3">
+                      <div className="min-w-0">
+                        <div className="font-medium truncate">{o.name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          ID Grafana: {o.grafana_org_id}
+                          {groupRole && <> · via grupo: <b>{groupRole}</b></>}
+                        </div>
+                      </div>
+                      <Select value={editor.roles[o.id] || "None"} onValueChange={(v) => setRole(o.id, v as Role)}>
+                        <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+                        <SelectContent>{ROLES.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
+                  );
+                })}
+                {orgs.length === 0 && (
+                  <div className="p-4 text-sm text-muted-foreground text-center">
+                    Nenhuma organização ativa. Sincronize as organizações primeiro.
+                  </div>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                <b>None</b> remove o acesso direto. Papéis vindos de grupo permanecem (mostrados acima); para sobrescrever, defina um papel direto igual ou superior.
+              </p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setEditor(null)} disabled={editor?.saving}>Cancelar</Button>
+            <Button onClick={saveEditor} disabled={editor?.saving}>
+              {editor?.saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Salvar e sincronizar
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
