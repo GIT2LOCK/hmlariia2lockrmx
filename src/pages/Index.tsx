@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { login, signup } from "@/services/authService";
+import { login, signup, ensureSupabaseAuthSession } from "@/services/authService";
 import { useUser } from "@/contexts/UserContext";
 import { Eye, EyeOff, Mail, Lock, User } from "lucide-react";
 import PasswordChecklist from "@/components/PasswordChecklist";
@@ -17,13 +17,15 @@ const Index = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { refreshUser, isAuthenticated, isLoading } = useUser();
+  const [searchParams] = useSearchParams();
+  const redirectTo = searchParams.get("redirect");
 
-  // Redirect to dashboard if already authenticated
+  // Redirect to dashboard (or preserved redirect) if already authenticated
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
-      navigate("/dashboard", { replace: true });
+      navigate(redirectTo || "/dashboard", { replace: true });
     }
-  }, [isLoading, isAuthenticated, navigate]);
+  }, [isLoading, isAuthenticated, navigate, redirectTo]);
 
   const [isSignUp, setIsSignUp] = useState(false);
   const [phase, setPhase] = useState<PanelPhase>("idle");
