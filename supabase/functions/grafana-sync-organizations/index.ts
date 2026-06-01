@@ -1,5 +1,9 @@
 import { corsHeaders, assertAdmin, grafanaFetch, serviceClient, logSync } from "../_shared/grafana.ts";
 
+function isPersonalOrganizationName(name: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(name.trim());
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
@@ -20,16 +24,31 @@ Deno.serve(async (req) => {
     if (!list.ok) throw new Error(`list_orgs_failed: ${list.status}`);
     const orgs = list.body as Array<{ id: number; name: string }>;
 
+    const realOrgs = orgs.filter((o) => !isPersonalOrganizationName(o.name));
+    const skippedOrgs = orgs.filter((o) => isPersonalOrganizationName(o.name));
+
     const now = new Date().toISOString();
-    for (const o of orgs) {
+    for (const o of realOrgs) {
       await svc.from("grafana_organizations").upsert({
         grafana_org_id: o.id, name: o.name, active: true, synced_at: now, atualizado_em: now,
       }, { onConflict: "grafana_org_id" });
     }
 
-    await logSync({ actor_usuario_id: actor.id, action: "sync_organizations", status: "success", response_payload: { count: orgs.length } });
+    const activeGrafanaIds = realOrgs.map((o) => o.id);
+    let deactivateQuery = svc.from("grafana_organizations").update({ active: false, synced_at: now, atualizado_em: now });
+    if (activeGrafanaIds.length > 0) {
+      deactivateQuery = deactivateQuery.not("grafana_org_id", "in", `(${activeGrafanaIds.join(",")})`);
+    }
+    await deactivateQuery;
 
-    return new Response(JSON.stringify({ ok: true, count: orgs.length, organizations: orgs, created: createdOrg }), {
+    await logSync({
+      actor_usuario_id: actor.id,
+      action: "sync_organizations",
+      status: "success",
+      response_payload: { count: realOrgs.length, skipped_personal_orgs: skippedOrgs.map((o) => ({ id: o.id, name: o.name })) },
+    });
+
+    return new Response(JSON.stringify({ ok: true, count: realOrgs.length, organizations: realOrgs, skipped: skippedOrgs, created: createdOrg }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
