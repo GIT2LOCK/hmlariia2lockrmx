@@ -147,7 +147,7 @@ const Index = () => {
           setPending2FAUserId((result as any).userId);
           setShow2FAModal(true);
         } else if (result.session) {
-          completeLogin(result.user, result.session);
+          await completeLogin(result.user, result.session);
         }
       } else {
         toast({ title: "Erro no login", description: result.message, variant: "destructive" });
