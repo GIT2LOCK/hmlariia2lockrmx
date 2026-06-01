@@ -254,7 +254,7 @@ function OrgsTab() {
                         </TableCell>
                       </TableRow>
                     )}
-                  </>
+                  </Fragment>
                 );
               })}
               {orgs.length === 0 && <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Nenhuma organização. Clique em "Sincronizar do Grafana".</TableCell></TableRow>}
