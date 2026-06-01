@@ -267,6 +267,281 @@ export type Database = {
         }
         Relationships: []
       }
+      grafana_access_group_members: {
+        Row: {
+          criado_em: string
+          group_id: number
+          id: number
+          usuario_id: number
+        }
+        Insert: {
+          criado_em?: string
+          group_id: number
+          id?: number
+          usuario_id: number
+        }
+        Update: {
+          criado_em?: string
+          group_id?: number
+          id?: number
+          usuario_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "grafana_access_group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "grafana_access_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grafana_access_group_members_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      grafana_access_groups: {
+        Row: {
+          active: boolean
+          atualizado_em: string
+          criado_em: string
+          description: string | null
+          id: number
+          name: string
+        }
+        Insert: {
+          active?: boolean
+          atualizado_em?: string
+          criado_em?: string
+          description?: string | null
+          id?: number
+          name: string
+        }
+        Update: {
+          active?: boolean
+          atualizado_em?: string
+          criado_em?: string
+          description?: string | null
+          id?: number
+          name?: string
+        }
+        Relationships: []
+      }
+      grafana_group_org_permissions: {
+        Row: {
+          atualizado_em: string
+          criado_em: string
+          grafana_organization_id: number
+          group_id: number
+          id: number
+          role: Database["public"]["Enums"]["grafana_role"]
+        }
+        Insert: {
+          atualizado_em?: string
+          criado_em?: string
+          grafana_organization_id: number
+          group_id: number
+          id?: number
+          role?: Database["public"]["Enums"]["grafana_role"]
+        }
+        Update: {
+          atualizado_em?: string
+          criado_em?: string
+          grafana_organization_id?: number
+          group_id?: number
+          id?: number
+          role?: Database["public"]["Enums"]["grafana_role"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "grafana_group_org_permissions_grafana_organization_id_fkey"
+            columns: ["grafana_organization_id"]
+            isOneToOne: false
+            referencedRelation: "grafana_organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grafana_group_org_permissions_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "grafana_access_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      grafana_organizations: {
+        Row: {
+          active: boolean
+          atualizado_em: string
+          criado_em: string
+          grafana_org_id: number
+          id: number
+          name: string
+          slug: string | null
+          synced_at: string | null
+        }
+        Insert: {
+          active?: boolean
+          atualizado_em?: string
+          criado_em?: string
+          grafana_org_id: number
+          id?: number
+          name: string
+          slug?: string | null
+          synced_at?: string | null
+        }
+        Update: {
+          active?: boolean
+          atualizado_em?: string
+          criado_em?: string
+          grafana_org_id?: number
+          id?: number
+          name?: string
+          slug?: string | null
+          synced_at?: string | null
+        }
+        Relationships: []
+      }
+      grafana_sync_logs: {
+        Row: {
+          action: string
+          actor_usuario_id: number | null
+          criado_em: string
+          error_message: string | null
+          id: number
+          request_payload: Json | null
+          response_payload: Json | null
+          status: string
+          usuario_id: number | null
+        }
+        Insert: {
+          action: string
+          actor_usuario_id?: number | null
+          criado_em?: string
+          error_message?: string | null
+          id?: number
+          request_payload?: Json | null
+          response_payload?: Json | null
+          status: string
+          usuario_id?: number | null
+        }
+        Update: {
+          action?: string
+          actor_usuario_id?: number | null
+          criado_em?: string
+          error_message?: string | null
+          id?: number
+          request_payload?: Json | null
+          response_payload?: Json | null
+          status?: string
+          usuario_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "grafana_sync_logs_actor_usuario_id_fkey"
+            columns: ["actor_usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grafana_sync_logs_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      grafana_user_links: {
+        Row: {
+          atualizado_em: string
+          criado_em: string
+          grafana_email: string | null
+          grafana_login: string | null
+          grafana_user_id: number | null
+          id: number
+          last_synced_at: string | null
+          usuario_id: number
+        }
+        Insert: {
+          atualizado_em?: string
+          criado_em?: string
+          grafana_email?: string | null
+          grafana_login?: string | null
+          grafana_user_id?: number | null
+          id?: number
+          last_synced_at?: string | null
+          usuario_id: number
+        }
+        Update: {
+          atualizado_em?: string
+          criado_em?: string
+          grafana_email?: string | null
+          grafana_login?: string | null
+          grafana_user_id?: number | null
+          id?: number
+          last_synced_at?: string | null
+          usuario_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "grafana_user_links_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: true
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      grafana_user_org_permissions: {
+        Row: {
+          atualizado_em: string
+          criado_em: string
+          enabled: boolean
+          grafana_organization_id: number
+          id: number
+          role: Database["public"]["Enums"]["grafana_role"]
+          usuario_id: number
+        }
+        Insert: {
+          atualizado_em?: string
+          criado_em?: string
+          enabled?: boolean
+          grafana_organization_id: number
+          id?: number
+          role?: Database["public"]["Enums"]["grafana_role"]
+          usuario_id: number
+        }
+        Update: {
+          atualizado_em?: string
+          criado_em?: string
+          enabled?: boolean
+          grafana_organization_id?: number
+          id?: number
+          role?: Database["public"]["Enums"]["grafana_role"]
+          usuario_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "grafana_user_org_permissions_grafana_organization_id_fkey"
+            columns: ["grafana_organization_id"]
+            isOneToOne: false
+            referencedRelation: "grafana_organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grafana_user_org_permissions_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       links_internet: {
         Row: {
           atualizado_em: string | null
@@ -1077,9 +1352,15 @@ export type Database = {
     }
     Functions: {
       custom_access_token_hook: { Args: { event: Json }; Returns: Json }
+      grafana_effective_permissions: {
+        Args: { _usuario_id: number }
+        Returns: Json
+      }
+      is_ariia_admin: { Args: never; Returns: boolean }
     }
     Enums: {
       finalidade_link: "principal" | "backup"
+      grafana_role: "None" | "Viewer" | "Editor" | "Admin"
       ip_tipo: "dinamico" | "fixo"
       ip_visibilidade: "publico" | "privado"
       ticket_comment_type: "INTERNO" | "CLIENTE" | "AUTOMATICO"
@@ -1239,6 +1520,7 @@ export const Constants = {
   public: {
     Enums: {
       finalidade_link: ["principal", "backup"],
+      grafana_role: ["None", "Viewer", "Editor", "Admin"],
       ip_tipo: ["dinamico", "fixo"],
       ip_visibilidade: ["publico", "privado"],
       ticket_comment_type: ["INTERNO", "CLIENTE", "AUTOMATICO"],
