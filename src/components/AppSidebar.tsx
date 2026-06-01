@@ -15,6 +15,7 @@ import {
   Activity,
   BarChart3,
   Ticket,
+  ShieldCheck,
 } from "lucide-react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
