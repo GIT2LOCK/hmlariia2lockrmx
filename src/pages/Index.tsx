@@ -177,7 +177,7 @@ const Index = () => {
           setSetupToken(data.setupToken);
           setShow2FASetup(true);
         } else if (result.session) {
-          completeLogin(result.user!, result.session);
+          await completeLogin(result.user!, result.session);
         }
       } else {
         toast({ title: "Erro no cadastro", description: result.message, variant: "destructive" });
