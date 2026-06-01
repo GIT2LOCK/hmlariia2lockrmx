@@ -984,13 +984,14 @@ export type Database = {
           assinatura_email_url: string | null
           ativo: boolean | null
           atualizado_em: string | null
+          auth_user_id: string | null
           avatar_url: string | null
           criado_em: string | null
           email: string
           id: number
           nome: string
           permissao: string
-          senha_hash: string
+          senha_hash: string | null
           telefone: string | null
           totp_enabled: boolean | null
           totp_secret: string | null
@@ -1002,13 +1003,14 @@ export type Database = {
           assinatura_email_url?: string | null
           ativo?: boolean | null
           atualizado_em?: string | null
+          auth_user_id?: string | null
           avatar_url?: string | null
           criado_em?: string | null
           email: string
           id?: number
           nome: string
           permissao?: string
-          senha_hash: string
+          senha_hash?: string | null
           telefone?: string | null
           totp_enabled?: boolean | null
           totp_secret?: string | null
@@ -1020,13 +1022,14 @@ export type Database = {
           assinatura_email_url?: string | null
           ativo?: boolean | null
           atualizado_em?: string | null
+          auth_user_id?: string | null
           avatar_url?: string | null
           criado_em?: string | null
           email?: string
           id?: number
           nome?: string
           permissao?: string
-          senha_hash?: string
+          senha_hash?: string | null
           telefone?: string | null
           totp_enabled?: boolean | null
           totp_secret?: string | null
