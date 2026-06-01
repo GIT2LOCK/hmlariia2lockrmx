@@ -1,139 +1,74 @@
-# Controle Grafana no Ariia
+## Objetivo
 
-Transformar o Ariia no painel central de controle de acesso do Grafana. O Ariia define organizações, grupos, usuários e permissões; o Grafana apenas reflete via API. OAuth continua como hoje (scopes `profile email`, sem `openid`).
+Nova aba **Automações** dentro de Controle Grafana com um canvas visual de nós (estilo n8n) para criar regras que atribuem usuários a organizações Grafana automaticamente, com base em condições granulares (domínio, regex no email/nome, permissão Ariia, etc.).
 
-## 1. Secrets (Lovable Cloud)
+## Comportamento
 
-Adicionar (via `add_secret`) antes de qualquer Edge Function:
-- `GRAFANA_URL`
-- `GRAFANA_ADMIN_USER`
-- `GRAFANA_ADMIN_PASSWORD`
+- Regras rodam **apenas na criação/primeira sincronização** de cada usuário (novos usuários).
+- **Permissões manuais sempre vencem**: se já existir uma permissão direta em `grafana_user_org_permissions` para o par usuário+org, a regra não sobrescreve.
+- Múltiplas regras podem disparar — o resultado é unido (maior role por org).
+- Cada regra é um grafo: **Trigger → (Condições encadeadas com AND/OR/NOT) → Ações**.
 
-Basic Auth obrigatório (Server Admin), pois service accounts são por organização.
+## UI — Builder visual (React Flow)
 
-## 2. Schema Supabase (migration)
+Lib: `@xyflow/react` (React Flow v12) — canvas com pan/zoom, snap-to-grid, mini-mapa.
 
-Novas tabelas em `public` (com `GRANT` + RLS — leitura/escrita apenas via edge functions com service_role; frontend lê via select com policy restrita a SUPERADMIN/ADMIN do Ariia):
+Tipos de nó:
 
-- `grafana_organizations` (grafana_org_id int unique, name, slug, active, synced_at)
-- `grafana_user_links` (usuario_id unique → usuarios.id, grafana_user_id, grafana_login, grafana_email, last_synced_at)
-- `grafana_access_groups` (name, description, active)
-- `grafana_access_group_members` (group_id, usuario_id, unique(group_id, usuario_id))
-- `grafana_group_org_permissions` (group_id, grafana_organization_id, role enum)
-- `grafana_user_org_permissions` (usuario_id, grafana_organization_id, role enum, enabled)
-- `grafana_sync_logs` (usuario_id nullable, action, status, request_payload jsonb, response_payload jsonb, error_message, created_at)
+1. **Trigger** (1 por regra, fixo no início)
+   - "Novo usuário sincronizado"
 
-Enum `grafana_role`: `None | Viewer | Editor | Admin`.
+2. **Condition** (qualquer quantidade, encadeáveis)
+   - Campo: `email`, `email_domain`, `nome`, `permissao_ariia`
+   - Operador: `equals`, `not_equals`, `contains`, `not_contains`, `starts_with`, `ends_with`, `regex`, `in_list`
+   - Valor: texto livre / lista
+   - Conectores lógicos via portas: cada nó condição tem saída **TRUE** e **FALSE**
 
-Função SQL `public.grafana_effective_permissions(_usuario_id int)` retorna `{ is_grafana_admin, orgs: [{org_id, grafana_org_id, role}] }`:
-- Se `usuarios.permissao` ∈ {SUPERADMIN, ADMIN} e `ativo=true` → `is_grafana_admin=true`, `Admin` em todas as orgs ativas.
-- Senão, merge de `grafana_user_org_permissions` (enabled=true) com `grafana_group_org_permissions` via membership; maior role vence (Admin > Editor > Viewer > None); direta sobrescreve grupo quando definida.
-- Inativo → vazio.
+3. **Logic** (opcional)
+   - AND / OR / NOT — combina múltiplas condições antes de uma ação
 
-Policies de leitura: usar função `has_role`-equivalente baseada em `usuarios.permissao` via `auth_user_id = auth.uid()`.
+4. **Action** (uma ou mais no final)
+   - "Adicionar à organização X com role Y"
+   - "Adicionar ao grupo de acesso Z"
+   - "Parar execução" (early exit)
 
-## 3. Edge Functions
+Painel lateral direito: editor de propriedades do nó selecionado.
+Topo: nome da regra, toggle ativo/inativo, botão **Salvar**, **Testar com usuário…** (simula contra um usuário existente e mostra quais ações disparariam, sem aplicar).
 
-Todas com CORS, validam JWT do chamador via `SUPABASE_JWKS`, e exigem que `usuarios.permissao` do chamador seja SUPERADMIN/ADMIN (exceto `grafana-effective-permissions` que pode rodar para o próprio usuário):
+Lista de regras (lado esquerdo ou tab interna): criar nova, duplicar, deletar, ativar/desativar, reordenar prioridade.
 
-- `grafana-test-connection` — GET `/api/admin/settings` com Basic Auth; valida 200.
-- `grafana-sync-organizations` — GET `/api/orgs`, upsert em `grafana_organizations`. POST opcional para criar org.
-- `grafana-sync-user` — input `{ usuario_id }`:
-  1. Resolve email do usuário.
-  2. Lookup `/api/users/lookup?loginOrEmail=`. Se 404, cria via `/api/admin/users` com senha random (login = email).
-  3. Atualiza `grafana_user_links`.
-  4. Calcula permissões efetivas.
-  5. PUT `/api/admin/users/{id}/permissions` `{ isGrafanaAdmin }`.
-  6. Para cada org desejada: `POST /api/orgs/{orgId}/users` (add) ou `PATCH` (update role). Para orgs não desejadas onde está presente: `DELETE /api/orgs/{orgId}/users/{userId}`.
-  7. Se inativo no Ariia: desabilita (`PUT /api/admin/users/{id}/disable`) e remove de todas as orgs.
-  8. Loga tudo em `grafana_sync_logs`.
-- `grafana-sync-all` — itera `usuarios` ativos e chama lógica acima.
-- `grafana-effective-permissions` — retorna a saída da função SQL para um usuário.
+## Banco de dados
 
-## 4. OAuth Consent — gating
+Nova tabela `grafana_automation_rules`:
+- `id`, `name`, `description`, `active`, `priority` (int), `graph` (jsonb — nós e arestas do React Flow), `criado_em`, `atualizado_em`, `criado_por`
+- RLS: somente admins (`is_ariia_admin()`)
 
-Em `src/pages/OAuthConsent.tsx`, antes de `approveAuthorization`:
-1. Carrega `usuarios` por `auth_user_id`.
-2. Bloqueia se `ativo=false` ou 2FA pendente (já existe).
-3. Chama `grafana-effective-permissions`:
-   - SUPERADMIN/ADMIN → dispara `grafana-sync-user` (fire-and-forget com await curto) → aprova.
-   - USER/VIEWER/TV_VIEW com `orgs.length === 0` → mostra mensagem amigável: "Você ainda não possui acesso liberado ao Grafana. Solicite acesso ao administrador." e botão "Voltar". NÃO aprova.
-   - Caso contrário → sincroniza → aprova.
+Função SQL `grafana_evaluate_automations(_usuario_id int)` retorna `jsonb` com lista de ações `[{grafana_organization_id, role}, ...]` — avalia o grafo no Postgres percorrendo nós/arestas armazenados no JSON.
 
-## 5. Custom Access Token Hook (SQL migration)
+## Edge function / sync
 
-Atualizar `public.custom_access_token_hook` para incluir claims:
-- `ariia_usuario_id`, `ariia_permissao`
-- `grafana_role`: `GrafanaAdmin` (admins), `Viewer` (USER/VIEWER/TV_VIEW com ≥1 org), `None` (sem org)
-- `grafana_is_admin` boolean
-- `grafana_allowed_orgs`: array de `grafana_org_id`
-- `grafana_access_summary`: jsonb `{org_id: role}`
+`supabase/functions/_shared/grafana.ts` — em `syncUserToGrafana`:
+1. Detectar se é **primeiro sync** (sem registro em `grafana_user_links`).
+2. Se sim: chamar `grafana_evaluate_automations(usuario_id)` e fazer **upsert** em `grafana_user_org_permissions` (somente onde não houver registro prévio — manual vence).
+3. Continuar com o cálculo de permissões efetivas e sync com Grafana normalmente.
 
-Source of truth real continua sendo o sync via API; claims são apenas para `role_attribute_path` do Grafana.
+Nova edge function `grafana-test-automation`: recebe `usuario_id` + opcionalmente `graph` (regra ainda não salva) e devolve as ações que dispararíam — alimenta o botão **Testar**.
 
-## 6. UI — "Controle Grafana"
+## Arquivos
 
-Nova rota `/dashboard/grafana` protegida por `canManageUsers` (SUPERADMIN/ADMIN apenas). Entrada no `AppSidebar` em "Conta" com ícone Activity/Shield.
+- `supabase/migrations/...sql` — tabela + função de avaliação + RLS/GRANTs
+- `supabase/functions/_shared/grafana.ts` — hook de avaliação no first-sync
+- `supabase/functions/grafana-test-automation/index.ts` — simulação
+- `src/pages/GrafanaControle.tsx` — adicionar tab **Automações**
+- `src/components/grafana/AutomationsTab.tsx` — lista de regras + editor
+- `src/components/grafana/AutomationCanvas.tsx` — React Flow
+- `src/components/grafana/nodes/*` — componentes dos nós (Trigger, Condition, Logic, Action)
+- `package.json` — adicionar `@xyflow/react`
 
-Componente raiz com Tabs:
+## Fora do escopo desta entrega
 
-- **Dashboard**: cards (orgs sincronizadas, usuários com acesso, grupos, últimos erros), botões "Sincronizar organizações" e "Sincronizar todos".
-- **Organizações**: tabela (`grafana_org_id`, nome, status, última sync), botão refresh.
-- **Grupos**: CRUD de `grafana_access_groups`, membros (multi-select de usuários), permissões por org (matriz grupo×org com select de role).
-- **Usuários**: lista de `usuarios` com colunas: permissão Ariia, GrafanaAdmin (badge), orgs liberadas (count), grupos, último sync. Ações: "Sincronizar", "Ver permissões efetivas" (modal).
-- **Permissões diretas**: form (usuário, org, role) salva em `grafana_user_org_permissions` e dispara sync.
-- **Logs**: tabela paginada de `grafana_sync_logs` com filtro por status/usuário.
+- Reaplicar regras em usuários antigos em massa (pode ser adicionado depois como botão "Aplicar regras agora").
+- Triggers além de "novo usuário" (ex: agendado, ao mudar permissão).
+- Versionamento/histórico de regras.
 
-## 7. Segurança
-
-- Edge functions validam permissão do chamador.
-- RLS bloqueia leitura das tabelas Grafana para não-admins.
-- Credenciais Grafana só em secrets.
-- Toda mutação registra autor (do JWT) em `grafana_sync_logs`.
-- Trigger ou função impede remover último SUPERADMIN ativo.
-- Desativar usuário no Ariia → trigger enfileira sync (ou hook no `update-profile`/`usuarios` page chama `grafana-sync-user`).
-
-## 8. Documentação `grafana.ini`
-
-Atualizar `.lovable/plan.md` com bloco final:
-
-```ini
-[auth.generic_oauth]
-enabled = true
-name = 2LOCK
-allow_sign_up = true
-client_id = <CLIENT_ID>
-client_secret = <CLIENT_SECRET>
-scopes = profile email
-auth_url = https://jjemlhtyhnncqzpnskor.supabase.co/auth/v1/authorize
-token_url = https://jjemlhtyhnncqzpnskor.supabase.co/auth/v1/token
-api_url = https://jjemlhtyhnncqzpnskor.supabase.co/auth/v1/user
-use_pkce = true
-auth_style = InHeader
-email_attribute_path = email
-login_attribute_path = email
-name_attribute_path = name
-role_attribute_path = grafana_role
-role_attribute_strict = true
-allow_assign_grafana_admin = true
-auto_assign_org = false
-auto_assign_org_role = Viewer
-skip_org_role_sync = true
-```
-
-`skip_org_role_sync=true` evita que Grafana sobrescreva as orgs gerenciadas via API pelo Ariia.
-
-## 9. Ordem de execução
-
-1. Pedir secrets Grafana (`add_secret`).
-2. Migration: tabelas + enum + função SQL + atualização do hook.
-3. Edge functions (test, sync-orgs, sync-user, sync-all, effective-permissions).
-4. Atualizar `OAuthConsent.tsx` (gating).
-5. Criar página `GrafanaControle.tsx` + subcomponentes por aba, rota em `App.tsx`, item no `AppSidebar`.
-6. Smoke test: test-connection, sync-orgs, criar grupo, atribuir org, sync-user, login Grafana com usuário VIEWER sem acesso (bloqueio), com acesso (Viewer), e ADMIN (GrafanaAdmin).
-
-## Tradeoffs
-
-- Sync é on-demand (no consent + botões). Não há job periódico — pode ser adicionado depois.
-- Criação automática de usuário no Grafana usa senha random; usuário sempre entra via OAuth.
-- `role_attribute_strict=true` + `skip_org_role_sync=true` significa que o Ariia controla orgs; o claim `grafana_role` decide apenas o status global (GrafanaAdmin/Viewer/None).
+Confirma que posso seguir com essa estrutura?
