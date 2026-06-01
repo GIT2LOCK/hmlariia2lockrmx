@@ -68,21 +68,17 @@ export default function GrafanaControle() {
         <p className="text-muted-foreground">Gestão centralizada de acesso ao Grafana via Ariia.</p>
       </div>
 
-      <Tabs defaultValue="dashboard" className="w-full">
-        <TabsList className="grid grid-cols-6 w-full max-w-3xl">
-          <TabsTrigger value="dashboard">Resumo</TabsTrigger>
+      <Tabs defaultValue="users" className="w-full">
+        <TabsList className="grid grid-cols-4 w-full max-w-2xl">
+          <TabsTrigger value="users">Usuários</TabsTrigger>
           <TabsTrigger value="orgs">Organizações</TabsTrigger>
           <TabsTrigger value="groups">Grupos</TabsTrigger>
-          <TabsTrigger value="users">Usuários</TabsTrigger>
-          <TabsTrigger value="direct">Permissões diretas</TabsTrigger>
           <TabsTrigger value="logs">Logs</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="dashboard"><DashboardTab /></TabsContent>
+        <TabsContent value="users"><UsersTab /></TabsContent>
         <TabsContent value="orgs"><OrgsTab /></TabsContent>
         <TabsContent value="groups"><GroupsTab /></TabsContent>
-        <TabsContent value="users"><UsersTab /></TabsContent>
-        <TabsContent value="direct"><DirectPermsTab /></TabsContent>
         <TabsContent value="logs"><LogsTab /></TabsContent>
       </Tabs>
     </div>
