@@ -33,7 +33,9 @@ async function invokeGrafanaFunction<T = unknown>(
   const token = session?.access_token || getAuthToken();
   if (!token) throw new Error("Sessão expirada. Faça login novamente.");
 
-  const params = options.query ? `?${new URLSearchParams(Object.entries(options.query).map(([k, v]) => [k, String(v)]))}` : "";
+  const search = new URLSearchParams();
+  Object.entries(options.query || {}).forEach(([key, value]) => search.set(key, String(value)));
+  const params = search.size ? `?${search.toString()}` : "";
   const res = await fetch(
     `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${fn}${params}`,
     {
