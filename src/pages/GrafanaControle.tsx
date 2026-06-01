@@ -15,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, RefreshCw, Plus, Trash2, Activity, ShieldCheck } from "lucide-react";
+import { getAuthToken } from "@/services/authService";
 
 type Role = "None" | "Viewer" | "Editor" | "Admin";
 const ROLES: Role[] = ["None", "Viewer", "Editor", "Admin"];
@@ -23,6 +24,35 @@ interface Org { id: number; grafana_org_id: number; name: string; active: boolea
 interface Usuario { id: number; nome: string; email: string; permissao: string; ativo: boolean; }
 interface Group { id: number; name: string; description: string | null; active: boolean; }
 interface SyncLog { id: number; usuario_id: number | null; action: string; status: string; error_message: string | null; criado_em: string; }
+
+async function invokeGrafanaFunction<T = unknown>(
+  fn: string,
+  options: { body?: unknown; method?: "GET" | "POST"; query?: Record<string, string | number> } = {},
+): Promise<T> {
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token || getAuthToken();
+  if (!token) throw new Error("Sessão expirada. Faça login novamente.");
+
+  const search = new URLSearchParams();
+  Object.entries(options.query || {}).forEach(([key, value]) => search.set(key, String(value)));
+  const params = search.size ? `?${search.toString()}` : "";
+  const res = await fetch(
+    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${fn}${params}`,
+    {
+      method: options.method || "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+        apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+      },
+      body: options.method === "GET" ? undefined : JSON.stringify(options.body ?? {}),
+    },
+  );
+
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json?.error || `Edge Function falhou (${res.status})`);
+  return json as T;
+}
 
 export default function GrafanaControle() {
   const { canManageUsers, isLoading } = useUser();
@@ -82,8 +112,7 @@ function DashboardTab() {
   const run = async (fn: "grafana-test-connection" | "grafana-sync-organizations" | "grafana-sync-all", label: string) => {
     setBusy(fn);
     try {
-      const { data, error } = await supabase.functions.invoke(fn, { body: {} });
-      if (error) throw error;
+      await invokeGrafanaFunction(fn);
       toast({ title: label, description: "Concluído com sucesso." });
       await load();
     } catch (e: any) {
@@ -161,8 +190,7 @@ function OrgsTab() {
   const sync = async () => {
     setBusy(true);
     try {
-      const { error } = await supabase.functions.invoke("grafana-sync-organizations", { body: {} });
-      if (error) throw error;
+      await invokeGrafanaFunction("grafana-sync-organizations");
       toast({ title: "Organizações sincronizadas" });
       await load();
     } catch (e: any) {
@@ -368,8 +396,7 @@ function UsersTab() {
   const syncUser = async (id: number) => {
     setBusy(id);
     try {
-      const { error } = await supabase.functions.invoke("grafana-sync-user", { body: { usuario_id: id } });
-      if (error) throw error;
+      await invokeGrafanaFunction("grafana-sync-user", { body: { usuario_id: id } });
       toast({ title: "Usuário sincronizado" });
       await load();
     } catch (e: any) {
@@ -378,16 +405,10 @@ function UsersTab() {
   };
 
   const viewPerms = async (u: Usuario) => {
-    const { data } = await supabase.functions.invoke("grafana-effective-permissions", {
+    const json = await invokeGrafanaFunction<{ perms: unknown }>("grafana-effective-permissions", {
       method: "GET",
-    } as any);
-    // GET with query param via fetch fallback
-    const { data: { session } } = await supabase.auth.getSession();
-    const res = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/grafana-effective-permissions?usuario_id=${u.id}`,
-      { headers: { Authorization: `Bearer ${session?.access_token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY } }
-    );
-    const json = await res.json();
+      query: { usuario_id: u.id },
+    });
     setPermsModal({ user: u, perms: json.perms });
   };
 
@@ -468,14 +489,14 @@ function DirectPermsTab() {
         atualizado_em: new Date().toISOString(),
       }, { onConflict: "usuario_id,grafana_organization_id" });
     }
-    await supabase.functions.invoke("grafana-sync-user", { body: { usuario_id: uid } });
+    await invokeGrafanaFunction("grafana-sync-user", { body: { usuario_id: uid } });
     toast({ title: "Permissão salva e sincronizada" });
     await load();
   };
 
   const removePerm = async (id: number, uid: number) => {
     await supabase.from("grafana_user_org_permissions").delete().eq("id", id);
-    await supabase.functions.invoke("grafana-sync-user", { body: { usuario_id: uid } });
+    await invokeGrafanaFunction("grafana-sync-user", { body: { usuario_id: uid } });
     await load();
   };
 

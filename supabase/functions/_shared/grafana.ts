@@ -34,10 +34,29 @@ export async function getCallerUsuario(req: Request) {
   const jwt = authHeader.replace(/^Bearer\s+/i, "");
   if (!jwt) throw new Error("missing_auth");
 
-  const claims = decodeJwtClaims(jwt);
-  if (!claims) throw new Error("invalid_auth");
-
   const svc = serviceClient();
+  const claims = decodeJwtClaims(jwt);
+  if (!claims) {
+    const { data: session, error: sessionError } = await svc
+      .from("sessions")
+      .select("user_id, expires_at")
+      .eq("token", jwt)
+      .maybeSingle();
+
+    if (sessionError || !session) throw new Error("invalid_auth");
+    if (new Date(session.expires_at) < new Date()) throw new Error("session_expired");
+
+    const { data: u, error: userError } = await svc
+      .from("usuarios")
+      .select("id, nome, email, permissao, ativo, auth_user_id")
+      .eq("id", session.user_id)
+      .maybeSingle();
+
+    if (userError || !u) throw new Error("usuario_not_found");
+    if (!u.ativo) throw new Error("usuario_inativo");
+    return u;
+  }
+
   let query = svc.from("usuarios").select("id, nome, email, permissao, ativo, auth_user_id");
 
   if (claims.ariia_usuario_id) {
