@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, RefreshCw, Plus, Trash2, ShieldCheck, ChevronDown, ChevronRight } from "lucide-react";
 import { getAuthToken } from "@/services/authService";
+import { AutomationsTab } from "@/components/grafana/AutomationsTab";
 
 type Role = "None" | "Viewer" | "Editor" | "Admin";
 const ROLES: Role[] = ["None", "Viewer", "Editor", "Admin"];
@@ -69,16 +70,18 @@ export default function GrafanaControle() {
       </div>
 
       <Tabs defaultValue="users" className="w-full">
-        <TabsList className="grid grid-cols-4 w-full max-w-2xl">
+        <TabsList className="grid grid-cols-5 w-full max-w-3xl">
           <TabsTrigger value="users">Usuários</TabsTrigger>
           <TabsTrigger value="orgs">Organizações</TabsTrigger>
           <TabsTrigger value="groups">Grupos</TabsTrigger>
+          <TabsTrigger value="automations">Automações</TabsTrigger>
           <TabsTrigger value="logs">Logs</TabsTrigger>
         </TabsList>
 
         <TabsContent value="users"><UsersTab /></TabsContent>
         <TabsContent value="orgs"><OrgsTab /></TabsContent>
         <TabsContent value="groups"><GroupsTab /></TabsContent>
+        <TabsContent value="automations"><AutomationsTab /></TabsContent>
         <TabsContent value="logs"><LogsTab /></TabsContent>
       </Tabs>
     </div>
