@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, RefreshCw, Plus, Trash2, Activity, ShieldCheck } from "lucide-react";
+import { Loader2, RefreshCw, Plus, Trash2, ShieldCheck, ChevronDown, ChevronRight } from "lucide-react";
 import { getAuthToken } from "@/services/authService";
 
 type Role = "None" | "Viewer" | "Editor" | "Admin";
