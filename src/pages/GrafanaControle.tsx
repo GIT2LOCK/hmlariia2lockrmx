@@ -274,14 +274,18 @@ function GroupsTab() {
   const [orgs, setOrgs] = useState<Org[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
   const [members, setMembers] = useState<number[]>([]);
+  const [initialMembers, setInitialMembers] = useState<number[]>([]);
   const [groupPerms, setGroupPerms] = useState<Record<number, Role>>({});
+  const [initialPerms, setInitialPerms] = useState<Record<number, Role>>({});
   const [open, setOpen] = useState(false);
   const [newGroup, setNewGroup] = useState({ name: "", description: "" });
+  const [memberSearch, setMemberSearch] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const load = async () => {
     const [g, u, o] = await Promise.all([
       supabase.from("grafana_access_groups").select("*").order("name"),
-      supabase.from("usuarios").select("id, nome, email, permissao, ativo").order("nome"),
+      supabase.from("usuarios").select("id, nome, email, permissao, ativo").eq("ativo", true).order("nome"),
       supabase.from("grafana_organizations").select("*").eq("active", true).order("name"),
     ]);
     setGroups((g.data as Group[]) || []);
@@ -292,14 +296,18 @@ function GroupsTab() {
 
   const openGroup = async (g: Group) => {
     setSelectedGroup(g);
+    setMemberSearch("");
     const [m, p] = await Promise.all([
       supabase.from("grafana_access_group_members").select("usuario_id").eq("group_id", g.id),
       supabase.from("grafana_group_org_permissions").select("grafana_organization_id, role").eq("group_id", g.id),
     ]);
-    setMembers((m.data || []).map((x: any) => x.usuario_id));
+    const ms = (m.data || []).map((x: any) => x.usuario_id);
+    setMembers(ms);
+    setInitialMembers(ms);
     const map: Record<number, Role> = {};
     (p.data || []).forEach((x: any) => { map[x.grafana_organization_id] = x.role as Role; });
     setGroupPerms(map);
+    setInitialPerms(map);
   };
 
   const createGroup = async () => {
@@ -311,27 +319,99 @@ function GroupsTab() {
     await load();
   };
 
-  const toggleMember = async (userId: number, on: boolean) => {
-    if (!selectedGroup) return;
-    if (on) {
-      await supabase.from("grafana_access_group_members").insert({ group_id: selectedGroup.id, usuario_id: userId });
-      setMembers([...members, userId]);
-    } else {
-      await supabase.from("grafana_access_group_members").delete().eq("group_id", selectedGroup.id).eq("usuario_id", userId);
-      setMembers(members.filter(m => m !== userId));
-    }
+  const toggleMember = (userId: number, on: boolean) => {
+    setMembers((prev) => on ? [...prev, userId] : prev.filter((m) => m !== userId));
   };
 
-  const setOrgRole = async (orgId: number, role: Role) => {
+  const setOrgRole = (orgId: number, role: Role) => {
+    setGroupPerms((prev) => {
+      const next = { ...prev };
+      if (role === "None") delete next[orgId];
+      else next[orgId] = role;
+      return next;
+    });
+  };
+
+  const isDirty = (() => {
+    if (members.length !== initialMembers.length) return true;
+    const im = new Set(initialMembers);
+    for (const id of members) if (!im.has(id)) return true;
+    const allOrgIds = new Set([...Object.keys(groupPerms), ...Object.keys(initialPerms)]);
+    for (const k of allOrgIds) {
+      if ((groupPerms[Number(k)] || "None") !== (initialPerms[Number(k)] || "None")) return true;
+    }
+    return false;
+  })();
+
+  const saveGroup = async () => {
     if (!selectedGroup) return;
-    if (role === "None") {
-      await supabase.from("grafana_group_org_permissions").delete().eq("group_id", selectedGroup.id).eq("grafana_organization_id", orgId);
-      const c = { ...groupPerms }; delete c[orgId]; setGroupPerms(c);
-    } else {
-      await supabase.from("grafana_group_org_permissions").upsert({
-        group_id: selectedGroup.id, grafana_organization_id: orgId, role, atualizado_em: new Date().toISOString(),
-      }, { onConflict: "group_id,grafana_organization_id" });
-      setGroupPerms({ ...groupPerms, [orgId]: role });
+    setSaving(true);
+    try {
+      const im = new Set(initialMembers);
+      const cm = new Set(members);
+      const toAdd = members.filter((id) => !im.has(id));
+      const toRemove = initialMembers.filter((id) => !cm.has(id));
+
+      const ops: Array<Promise<any>> = [];
+      if (toAdd.length) {
+        ops.push(
+          Promise.resolve(supabase.from("grafana_access_group_members").insert(
+            toAdd.map((uid) => ({ group_id: selectedGroup.id, usuario_id: uid })),
+          )),
+        );
+      }
+      if (toRemove.length) {
+        ops.push(
+          Promise.resolve(supabase.from("grafana_access_group_members")
+            .delete()
+            .eq("group_id", selectedGroup.id)
+            .in("usuario_id", toRemove)),
+        );
+      }
+
+      const allOrgIds = new Set([...Object.keys(groupPerms), ...Object.keys(initialPerms)].map(Number));
+      const upserts: Array<{ group_id: number; grafana_organization_id: number; role: Role; atualizado_em: string }> = [];
+      const deletes: number[] = [];
+      for (const oid of allOrgIds) {
+        const next = groupPerms[oid] || "None";
+        const prev = initialPerms[oid] || "None";
+        if (next === prev) continue;
+        if (next === "None") deletes.push(oid);
+        else upserts.push({ group_id: selectedGroup.id, grafana_organization_id: oid, role: next, atualizado_em: new Date().toISOString() });
+      }
+      if (upserts.length) {
+        ops.push(Promise.resolve(supabase.from("grafana_group_org_permissions").upsert(upserts, { onConflict: "group_id,grafana_organization_id" })));
+      }
+      if (deletes.length) {
+        ops.push(
+          Promise.resolve(supabase.from("grafana_group_org_permissions")
+            .delete()
+            .eq("group_id", selectedGroup.id)
+            .in("grafana_organization_id", deletes)),
+        );
+      }
+
+      const results = await Promise.all(ops);
+      const failed = results.find((r: any) => r?.error);
+      if (failed) throw new Error((failed as any).error.message);
+
+      // Sync affected users (current members ∪ removed members) so Grafana reflects changes
+      const affected = Array.from(new Set([...members, ...toRemove]));
+      if (affected.length) {
+        await Promise.all(
+          affected.map((uid) =>
+            invokeGrafanaFunction("grafana-sync-user", { body: { usuario_id: uid } }).catch(() => null),
+          ),
+        );
+      }
+
+      setInitialMembers(members);
+      setInitialPerms(groupPerms);
+      toast({ title: "Grupo salvo", description: `${affected.length} usuário(s) sincronizado(s) com o Grafana.` });
+    } catch (e: any) {
+      toast({ title: "Erro ao salvar", description: e?.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -341,6 +421,12 @@ function GroupsTab() {
     setSelectedGroup(null);
     await load();
   };
+
+  const filteredUsuarios = usuarios.filter((u) => {
+    const q = memberSearch.trim().toLowerCase();
+    if (!q) return true;
+    return u.nome.toLowerCase().includes(q) || u.email.toLowerCase().includes(q);
+  });
 
   return (
     <div className="space-y-4 mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -373,26 +459,38 @@ function GroupsTab() {
 
       <Card className="md:col-span-2">
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>{selectedGroup ? selectedGroup.name : "Selecione um grupo"}</CardTitle>
+          <CardTitle>
+            {selectedGroup ? selectedGroup.name : "Selecione um grupo"}
+            {selectedGroup && isDirty && <span className="ml-2 text-xs text-amber-600">• alterações não salvas</span>}
+          </CardTitle>
           {selectedGroup && <Button size="sm" variant="ghost" onClick={() => deleteGroup(selectedGroup.id)}><Trash2 className="h-4 w-4" /></Button>}
         </CardHeader>
         <CardContent className="space-y-6">
           {selectedGroup ? (
             <>
               <section>
-                <h3 className="font-semibold mb-2">Membros</h3>
+                <div className="flex items-center justify-between mb-2 gap-2">
+                  <h3 className="font-semibold">Membros <span className="text-xs text-muted-foreground font-normal">({members.length})</span></h3>
+                  <Input
+                    placeholder="Buscar usuário…"
+                    value={memberSearch}
+                    onChange={(e) => setMemberSearch(e.target.value)}
+                    className="h-8 w-56"
+                  />
+                </div>
                 <div className="max-h-64 overflow-y-auto space-y-1 border rounded p-2">
-                  {usuarios.map(u => (
-                    <label key={u.id} className="flex items-center justify-between gap-2 p-1 hover:bg-accent rounded">
+                  {filteredUsuarios.map(u => (
+                    <label key={u.id} className="flex items-center justify-between gap-2 p-1 hover:bg-accent rounded cursor-pointer">
                       <span className="text-sm">{u.nome} <span className="text-muted-foreground">({u.email})</span></span>
                       <Switch checked={members.includes(u.id)} onCheckedChange={(v) => toggleMember(u.id, v)} />
                     </label>
                   ))}
+                  {filteredUsuarios.length === 0 && <p className="text-sm text-muted-foreground p-2">Nenhum usuário.</p>}
                 </div>
               </section>
               <section>
                 <h3 className="font-semibold mb-2">Permissões por organização</h3>
-                <div className="space-y-2">
+                <div className="space-y-2 max-h-72 overflow-y-auto border rounded p-2">
                   {orgs.map(o => (
                     <div key={o.id} className="flex items-center justify-between gap-2">
                       <span className="text-sm">{o.name}</span>
@@ -405,6 +503,19 @@ function GroupsTab() {
                   {orgs.length === 0 && <p className="text-sm text-muted-foreground">Sincronize organizações primeiro.</p>}
                 </div>
               </section>
+              <div className="flex justify-end gap-2 pt-2 border-t">
+                <Button
+                  variant="ghost"
+                  onClick={() => { setMembers(initialMembers); setGroupPerms(initialPerms); }}
+                  disabled={!isDirty || saving}
+                >
+                  Descartar
+                </Button>
+                <Button onClick={saveGroup} disabled={!isDirty || saving}>
+                  {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                  Salvar e sincronizar
+                </Button>
+              </div>
             </>
           ) : <p className="text-sm text-muted-foreground">Escolha um grupo à esquerda.</p>}
         </CardContent>
