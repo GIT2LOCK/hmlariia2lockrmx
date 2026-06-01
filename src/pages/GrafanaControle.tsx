@@ -355,17 +355,17 @@ function GroupsTab() {
       const ops: Array<Promise<any>> = [];
       if (toAdd.length) {
         ops.push(
-          supabase.from("grafana_access_group_members").insert(
+          Promise.resolve(supabase.from("grafana_access_group_members").insert(
             toAdd.map((uid) => ({ group_id: selectedGroup.id, usuario_id: uid })),
-          ),
+          )),
         );
       }
       if (toRemove.length) {
         ops.push(
-          supabase.from("grafana_access_group_members")
+          Promise.resolve(supabase.from("grafana_access_group_members")
             .delete()
             .eq("group_id", selectedGroup.id)
-            .in("usuario_id", toRemove),
+            .in("usuario_id", toRemove)),
         );
       }
 
@@ -380,14 +380,14 @@ function GroupsTab() {
         else upserts.push({ group_id: selectedGroup.id, grafana_organization_id: oid, role: next, atualizado_em: new Date().toISOString() });
       }
       if (upserts.length) {
-        ops.push(supabase.from("grafana_group_org_permissions").upsert(upserts, { onConflict: "group_id,grafana_organization_id" }));
+        ops.push(Promise.resolve(supabase.from("grafana_group_org_permissions").upsert(upserts, { onConflict: "group_id,grafana_organization_id" })));
       }
       if (deletes.length) {
         ops.push(
-          supabase.from("grafana_group_org_permissions")
+          Promise.resolve(supabase.from("grafana_group_org_permissions")
             .delete()
             .eq("group_id", selectedGroup.id)
-            .in("grafana_organization_id", deletes),
+            .in("grafana_organization_id", deletes)),
         );
       }
 
