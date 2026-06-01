@@ -95,17 +95,25 @@ export interface GrafanaRequestInit extends RequestInit {
 
 export async function grafanaFetch(path: string, init: GrafanaRequestInit = {}) {
   if (!GRAFANA_URL) throw new Error("GRAFANA_URL not configured");
+  const method = (init.method || "GET").toUpperCase();
   const headers = new Headers(init.headers || {});
   headers.set("Authorization", grafanaAuthHeader());
-  headers.set("Content-Type", "application/json");
   headers.set("Accept", "application/json");
+  headers.set("User-Agent", "Ariia-Grafana-Sync/1.0");
+  if (method !== "GET" && method !== "HEAD" && init.body) {
+    headers.set("Content-Type", "application/json");
+  }
   if (init.orgId) headers.set("X-Grafana-Org-Id", String(init.orgId));
 
-  const res = await fetch(`${GRAFANA_URL}${path}`, { ...init, headers });
+  const url = `${GRAFANA_URL}${path}`;
+  const res = await fetch(url, { ...init, method, headers, redirect: "follow" });
   const text = await res.text();
   let body: any = null;
   try { body = text ? JSON.parse(text) : null; } catch { body = text; }
-  return { ok: res.ok, status: res.status, body };
+  if (!res.ok) {
+    console.error(`grafanaFetch ${method} ${url} -> ${res.status}`, typeof body === "string" ? body.slice(0, 200) : body);
+  }
+  return { ok: res.ok, status: res.status, body, url };
 }
 
 export async function logSync(opts: {
