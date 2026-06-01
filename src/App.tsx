@@ -36,6 +36,7 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
+            <Route path="/oauth/consent" element={<OAuthConsent />} />
             <Route 
               path="/dashboard" 
               element={
