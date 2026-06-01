@@ -15,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, RefreshCw, Plus, Trash2, Activity, ShieldCheck } from "lucide-react";
+import { getAuthToken } from "@/services/authService";
 
 type Role = "None" | "Viewer" | "Editor" | "Admin";
 const ROLES: Role[] = ["None", "Viewer", "Editor", "Admin"];
@@ -23,6 +24,33 @@ interface Org { id: number; grafana_org_id: number; name: string; active: boolea
 interface Usuario { id: number; nome: string; email: string; permissao: string; ativo: boolean; }
 interface Group { id: number; name: string; description: string | null; active: boolean; }
 interface SyncLog { id: number; usuario_id: number | null; action: string; status: string; error_message: string | null; criado_em: string; }
+
+async function invokeGrafanaFunction<T = unknown>(
+  fn: string,
+  options: { body?: unknown; method?: "GET" | "POST"; query?: Record<string, string | number> } = {},
+): Promise<T> {
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token || getAuthToken();
+  if (!token) throw new Error("Sessão expirada. Faça login novamente.");
+
+  const params = options.query ? `?${new URLSearchParams(Object.entries(options.query).map(([k, v]) => [k, String(v)]))}` : "";
+  const res = await fetch(
+    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${fn}${params}`,
+    {
+      method: options.method || "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+        apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+      },
+      body: options.method === "GET" ? undefined : JSON.stringify(options.body ?? {}),
+    },
+  );
+
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json?.error || `Edge Function falhou (${res.status})`);
+  return json as T;
+}
 
 export default function GrafanaControle() {
   const { canManageUsers, isLoading } = useUser();
@@ -82,8 +110,7 @@ function DashboardTab() {
   const run = async (fn: "grafana-test-connection" | "grafana-sync-organizations" | "grafana-sync-all", label: string) => {
     setBusy(fn);
     try {
-      const { data, error } = await supabase.functions.invoke(fn, { body: {} });
-      if (error) throw error;
+      await invokeGrafanaFunction(fn);
       toast({ title: label, description: "Concluído com sucesso." });
       await load();
     } catch (e: any) {
@@ -161,8 +188,7 @@ function OrgsTab() {
   const sync = async () => {
     setBusy(true);
     try {
-      const { error } = await supabase.functions.invoke("grafana-sync-organizations", { body: {} });
-      if (error) throw error;
+      await invokeGrafanaFunction("grafana-sync-organizations");
       toast({ title: "Organizações sincronizadas" });
       await load();
     } catch (e: any) {
