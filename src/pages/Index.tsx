@@ -128,6 +128,8 @@ const Index = () => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginLoading(true);
+    setPendingEmail(loginEmail);
+    setPendingPassword(loginPassword);
     try {
       const result = await login({ email: loginEmail, senha: loginPassword });
       if (result.success) {
