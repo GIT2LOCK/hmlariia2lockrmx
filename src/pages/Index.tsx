@@ -102,16 +102,28 @@ const Index = () => {
     };
   };
 
+  const [pendingEmail, setPendingEmail] = useState("");
+  const [pendingPassword, setPendingPassword] = useState("");
+
   const completeLogin = async (user: any, session: any) => {
     localStorage.setItem("auth_token", session.token);
     localStorage.setItem("auth_expires", session.expires_at);
     localStorage.setItem("auth_user", JSON.stringify(user));
+    // Mark 2FA validated for the OAuth consent flow
+    sessionStorage.setItem("twofa_validated", "1");
     setShow2FAModal(false);
     setShow2FASetup(false);
+
+    // Establish Supabase Auth session in parallel (for Grafana OAuth SSO)
+    if (pendingEmail && pendingPassword) {
+      await ensureSupabaseAuthSession(pendingEmail, pendingPassword);
+    }
+
     toast({ title: "Login realizado!", description: `Bem-vindo, ${user.nome}!` });
     await refreshUser();
-    navigate("/dashboard", { replace: true });
+    navigate(redirectTo || "/dashboard", { replace: true });
   };
+
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
