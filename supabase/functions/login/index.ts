@@ -7,6 +7,64 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+/**
+ * Ensures the user has a corresponding entry in auth.users.
+ * - If auth_user_id is null (legacy user), creates one with the same password.
+ * - If auth_user_id exists, resets the auth.users password to match (keeps them in sync).
+ * Returns the auth_user_id (uuid) or null on failure.
+ */
+async function ensureAuthUser(
+  supabase: any,
+  userId: number,
+  email: string,
+  password: string,
+  currentAuthUserId: string | null,
+): Promise<string | null> {
+  try {
+    if (currentAuthUserId) {
+      // Keep password in sync (in case it was changed via the old flow)
+      await supabase.auth.admin.updateUserById(currentAuthUserId, { password });
+      return currentAuthUserId;
+    }
+
+    // Legacy migration: check if an auth.users already exists with this email
+    const { data: list } = await supabase.auth.admin.listUsers({
+      page: 1,
+      perPage: 200,
+    });
+    const existing = list?.users?.find(
+      (u: any) => (u.email || "").toLowerCase() === email.toLowerCase(),
+    );
+
+    let authUserId: string | null = existing?.id ?? null;
+
+    if (authUserId) {
+      await supabase.auth.admin.updateUserById(authUserId, { password });
+    } else {
+      const { data: created, error } = await supabase.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+      });
+      if (error || !created?.user) {
+        console.error("[login] migration createUser error:", error);
+        return null;
+      }
+      authUserId = created.user.id;
+    }
+
+    await supabase
+      .from("usuarios")
+      .update({ auth_user_id: authUserId })
+      .eq("id", userId);
+
+    return authUserId;
+  } catch (e) {
+    console.error("[login] ensureAuthUser error:", e);
+    return null;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -29,7 +87,7 @@ serve(async (req) => {
 
     const { data: userData, error: userError } = await supabase
       .from("usuarios")
-      .select("id, nome, email, senha_hash, ativo, permissao, totp_enabled")
+      .select("id, nome, email, senha_hash, ativo, permissao, totp_enabled, auth_user_id")
       .ilike("email", normalizedEmail)
       .maybeSingle();
 
@@ -49,7 +107,29 @@ serve(async (req) => {
       );
     }
 
-    const isValid = await verifyPassword(senha, userData.senha_hash);
+    // Validate password using legacy PBKDF2 (still the source of truth for login)
+    const hasLegacyHash = !!userData.senha_hash && userData.senha_hash !== "SUPABASE_AUTH";
+    let isValid = false;
+
+    if (hasLegacyHash) {
+      isValid = await verifyPassword(senha, userData.senha_hash);
+    }
+
+    // If no legacy hash (already migrated to Supabase Auth only), try Supabase Auth signIn server-side
+    if (!isValid && userData.auth_user_id) {
+      // Use anon client to sign in (won't return tokens here, just validates)
+      const anonClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!);
+      const { data: signInData, error: signInErr } = await anonClient.auth.signInWithPassword({
+        email: normalizedEmail,
+        password: senha,
+      });
+      if (!signInErr && signInData?.user) {
+        isValid = true;
+        // Sign out immediately — frontend will sign in on its own
+        await anonClient.auth.signOut();
+      }
+    }
+
     if (!isValid) {
       return new Response(
         JSON.stringify({ error: "E-mail ou senha incorretos" }),
@@ -57,7 +137,16 @@ serve(async (req) => {
       );
     }
 
-    // If 2FA is enabled, don't create session yet — require TOTP verification
+    // Ensure auth.users entry exists & password is in sync (migration progressiva)
+    await ensureAuthUser(
+      supabase,
+      userData.id,
+      normalizedEmail,
+      senha,
+      userData.auth_user_id ?? null,
+    );
+
+    // If 2FA is enabled, don't create session yet
     if (userData.totp_enabled) {
       return new Response(
         JSON.stringify({
@@ -70,7 +159,6 @@ serve(async (req) => {
       );
     }
 
-    // No 2FA — create session directly
     const session = await createSession(supabase, userData.id, req);
     if (!session) {
       return new Response(
