@@ -156,6 +156,8 @@ const Index = () => {
       return;
     }
     setSignupLoading(true);
+    setPendingEmail(signupEmail);
+    setPendingPassword(signupPassword);
     try {
       const result = await signup({ nome: signupNome, email: signupEmail, senha: signupPassword });
       if (result.success) {
