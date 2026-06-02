@@ -108,6 +108,8 @@ export default function ChamadoDetalhe() {
   const [attachments, setAttachments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [editOpen, setEditOpen] = useState(false);
+  const [encerrarOpen, setEncerrarOpen] = useState(false);
+  const [reabrirOpen, setReabrirOpen] = useState(false);
 
   const [novoComentario, setNovoComentario] = useState("");
   const [tipoComent, setTipoComent] = useState<"INTERNO" | "CLIENTE">("INTERNO");
