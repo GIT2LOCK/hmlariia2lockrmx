@@ -259,6 +259,12 @@ export default function ChamadoDetalhe() {
         mime_type: file.type || null,
         tamanho_bytes: file.size,
       });
+      await logTicketEvent({
+        ticketId,
+        campo: "anexo_add",
+        valorNovo: file.name,
+        user,
+      });
     }
     load();
   };
