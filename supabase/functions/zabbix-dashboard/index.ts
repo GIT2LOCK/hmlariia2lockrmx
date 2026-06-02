@@ -629,7 +629,8 @@ serve(async (req) => {
           };
         });
 
-        let filtered = result_events;
+        // Apenas alertas com duração >= 5 minutos (300s)
+        let filtered = result_events.filter((r: any) => r.duration_sec >= 300);
         if (search && search.trim()) {
           const s = search.trim().toLowerCase();
           filtered = filtered.filter((r: any) =>
@@ -688,11 +689,14 @@ serve(async (req) => {
         }
 
         const s = (search || "").trim().toLowerCase();
+        const nowSec = Math.floor(Date.now() / 1000);
         const filtered = problems.filter((p: any) => {
           const trg = triggerMap[p.objectid];
           if (!trg || !trg.hosts || trg.hosts.length === 0) return false;
           if (trg.hosts.every((h: any) => String(h.status) === "1")) return false;
           if (trg.hosts.some((h: any) => String(h.maintenance_status) === "1")) return false;
+          // Apenas problemas ativos há >= 5 minutos
+          if (nowSec - Number(p.clock || 0) < 300) return false;
           if (s) {
             const name = (trg.description || p.name || "").toLowerCase();
             const host = (trg.hosts[0]?.name || trg.hosts[0]?.host || "").toLowerCase();
