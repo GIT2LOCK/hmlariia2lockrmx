@@ -506,26 +506,50 @@ export default function ChamadoDetalhe() {
           </div>
         </TabsContent>
 
+        <TabsContent value="timeline" className="space-y-2">
+          <Card>
+            <CardContent className="pt-6">
+              <TicketTimeline
+                ticket={ticket}
+                history={history}
+                comments={comments}
+                attachments={attachments}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="historico" className="space-y-2">
           {history.length === 0 && (
             <p className="text-sm text-muted-foreground text-center py-6">Sem histórico</p>
           )}
           {history.map((h) => (
             <Card key={h.id}>
-              <CardContent className="pt-4 flex items-center gap-3 text-sm">
-                <History className="h-4 w-4 text-muted-foreground" />
-                <div className="flex-1">
-                  <span className="font-medium">{h.campo}</span>
-                  <span className="text-muted-foreground"> · </span>
-                  <span className="text-muted-foreground line-through">{h.valor_anterior || "—"}</span>
-                  <span className="mx-2">→</span>
-                  <span className="font-medium">{h.valor_novo || "—"}</span>
+              <CardContent className="pt-4 flex items-start gap-3 text-sm">
+                <History className="h-4 w-4 text-muted-foreground mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-baseline gap-2 flex-wrap">
+                    <span className="font-medium">{fieldLabel(h.campo)}</span>
+                    <span className="text-xs text-muted-foreground">
+                      · {h.autor_nome || "Sistema"} · {fmtDate(h.criado_em)}
+                    </span>
+                  </div>
+                  <div className="mt-1">
+                    <span className="text-muted-foreground line-through">{formatValue(h.campo, h.valor_anterior)}</span>
+                    <span className="mx-2">→</span>
+                    <span className="font-medium">{formatValue(h.campo, h.valor_novo)}</span>
+                  </div>
+                  {h.observacao && (
+                    <div className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap">
+                      {h.observacao}
+                    </div>
+                  )}
                 </div>
-                <span className="text-xs text-muted-foreground">{h.autor_nome || "Sistema"} · {fmtDate(h.criado_em)}</span>
               </CardContent>
             </Card>
           ))}
         </TabsContent>
+
 
         <TabsContent value="anexos" className="space-y-4">
           <Card>
