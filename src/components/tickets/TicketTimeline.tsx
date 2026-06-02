@@ -127,7 +127,7 @@ export function TicketTimeline({ ticket, history, comments, attachments }: Props
         case "anexo_remove":
           arr.push({
             ...base,
-            icon: <PaperclipIcon className="h-3.5 w-3.5" />,
+            icon: <Trash2 className="h-3.5 w-3.5" />,
             tone: "bg-destructive text-destructive-foreground",
             title: "Anexo removido",
             description: h.valor_anterior,
