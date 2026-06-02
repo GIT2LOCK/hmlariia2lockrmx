@@ -565,17 +565,14 @@ serve(async (req) => {
           object: 0,
           value: 1,
           severities,
-          time_from,
-          time_till,
           sortfield: ["clock"],
           sortorder: "DESC",
-          limit,
         };
         if (Array.isArray(hostgroup_ids) && hostgroup_ids.length > 0) {
           problemParams.groupids = hostgroup_ids;
         }
 
-        const events = await client("event.get", problemParams);
+        const { events, truncated } = await fetchEventsByTimeWindows(client, problemParams, Number(time_from), Number(time_till), Number(limit));
 
         const triggerIds = Array.from(new Set(events.map((e: any) => e.objectid).filter(Boolean)));
         const triggerMap: Record<string, any> = {};
@@ -642,7 +639,7 @@ serve(async (req) => {
           );
         }
 
-        result = { events: filtered, total: filtered.length };
+        result = { events: filtered, total: filtered.length, fetched_total: events.length, truncated };
         break;
       }
 
