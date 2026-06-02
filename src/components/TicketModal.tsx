@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
 import { Paperclip, X, Upload } from "lucide-react";
+import { logDiff } from "@/lib/ticketHistory";
 import {
   PRIORITY_LABELS,
   PRIORITY_ORDER,
@@ -259,7 +260,10 @@ export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
 
     let savedId = ticketId || null;
     let error;
+    let beforeRow: any = null;
     if (ticketId) {
+      const { data: cur } = await supabase.from("tickets").select("*").eq("id", ticketId).maybeSingle();
+      beforeRow = cur;
       ({ error } = await supabase.from("tickets").update(payload).eq("id", ticketId));
     } else {
       payload.criado_por = user?.id ? Number(user.id) : null;
@@ -272,6 +276,21 @@ export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
       toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
       return;
     }
+
+    // Log per-field diff on edit
+    if (ticketId && beforeRow) {
+      const trackedFields: (keyof typeof payload)[] = [
+        "titulo","descricao","prioridade","status","empresa_id","unidade_id",
+        "operadora_id","fila_id","categoria_id","tecnico_id","ativo",
+        "solicitante_nome","solicitante_email","solicitante_telefone",
+      ];
+      const diff: Record<string, { before: any; after: any }> = {};
+      for (const f of trackedFields) {
+        diff[f as string] = { before: (beforeRow as any)[f], after: (payload as any)[f] };
+      }
+      await logDiff(ticketId, user, diff);
+    }
+
     if (savedId) await uploadAttachments(savedId);
     setLoading(false);
     toast({ title: ticketId ? "Chamado atualizado" : "Chamado criado" });

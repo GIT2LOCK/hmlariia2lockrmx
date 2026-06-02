@@ -13,6 +13,7 @@ import { toast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
 import {
   ArrowLeft, Pencil, Paperclip, Upload, X, Download, Send, Clock, History,
+  CheckCircle2, RefreshCcw,
 } from "lucide-react";
 import {
   computeSlaSolucao,
@@ -25,6 +26,11 @@ import {
   SLA_ATENDIMENTO,
   SLA_SOLUCAO,
 } from "@/lib/ticketSla";
+import { TicketHeaderInfo } from "@/components/tickets/TicketHeaderInfo";
+import { TicketTimeline } from "@/components/tickets/TicketTimeline";
+import { EncerramentoModal } from "@/components/tickets/EncerramentoModal";
+import { ReaberturaModal } from "@/components/tickets/ReaberturaModal";
+import { logTicketEvent, fieldLabel, formatValue } from "@/lib/ticketHistory";
 import { TicketModal } from "@/components/TicketModal";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -102,6 +108,8 @@ export default function ChamadoDetalhe() {
   const [attachments, setAttachments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [editOpen, setEditOpen] = useState(false);
+  const [encerrarOpen, setEncerrarOpen] = useState(false);
+  const [reabrirOpen, setReabrirOpen] = useState(false);
 
   const [novoComentario, setNovoComentario] = useState("");
   const [tipoComent, setTipoComent] = useState<"INTERNO" | "CLIENTE">("INTERNO");
@@ -134,6 +142,18 @@ export default function ChamadoDetalhe() {
 
   const changeStatus = async (status: TicketStatus) => {
     if (!ticket) return;
+
+    // Intercept closing: require encerramento modal
+    if ((status === "RESOLVIDO" || status === "FECHADO") && !isClosed(ticket.status)) {
+      setEncerrarOpen(true);
+      return;
+    }
+    // Intercept reopening from closed states: require reabertura modal
+    if (isClosed(ticket.status) && !isClosed(status)) {
+      setReabrirOpen(true);
+      return;
+    }
+
     const now = new Date().toISOString();
     const update: any = { status };
     const wasPaused = ["AGUARDANDO_CLIENTE","AGUARDANDO_OPERADORA","AGUARDANDO_TERCEIRO","AGENDADO","TRIAGEM"].includes(ticket.status);
@@ -150,11 +170,10 @@ export default function ChamadoDetalhe() {
 
     const { error } = await supabase.from("tickets").update(update).eq("id", ticketId);
     if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
-    await supabase.from("ticket_history").insert({
-      ticket_id: ticketId, campo: "status",
-      valor_anterior: ticket.status, valor_novo: status,
-      autor_id: user?.id ? Number(user.id) : null,
-      autor_nome: user?.nome || null,
+    await logTicketEvent({
+      ticketId, campo: "status",
+      valorAnterior: ticket.status, valorNovo: status,
+      user,
     });
     toast({ title: "Status atualizado" });
     load();
@@ -172,6 +191,15 @@ export default function ChamadoDetalhe() {
     }).select("id").maybeSingle();
     setSalvandoComent(false);
     if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+
+    // History
+    await logTicketEvent({
+      ticketId,
+      campo: "comentario",
+      valorNovo: tipoComent,
+      observacao: novoComentario.trim().slice(0, 500),
+      user,
+    });
 
     // Notificar cliente por e-mail (via N8N) quando comentário público
     if (tipoComent === "CLIENTE") {
@@ -231,6 +259,12 @@ export default function ChamadoDetalhe() {
         mime_type: file.type || null,
         tamanho_bytes: file.size,
       });
+      await logTicketEvent({
+        ticketId,
+        campo: "anexo_add",
+        valorNovo: file.name,
+        user,
+      });
     }
     load();
   };
@@ -248,6 +282,12 @@ export default function ChamadoDetalhe() {
   const removeAttachment = async (att: any) => {
     await supabase.storage.from("ticket-attachments").remove([att.storage_path]);
     await supabase.from("ticket_attachments").delete().eq("id", att.id);
+    await logTicketEvent({
+      ticketId,
+      campo: "anexo_remove",
+      valorAnterior: att.file_name,
+      user,
+    });
     load();
   };
 
@@ -264,9 +304,14 @@ export default function ChamadoDetalhe() {
           </Button>
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded">{ticket.codigo}</span>
+              <span className="font-mono text-sm bg-primary text-primary-foreground px-2.5 py-1 rounded font-semibold">
+                {ticket.codigo}
+              </span>
               <Badge className={PRIORITY_COLORS[ticket.prioridade as TicketPriority]}>
                 {PRIORITY_LABELS[ticket.prioridade as TicketPriority]}
+              </Badge>
+              <Badge className={`${STATUS_COLORS[ticket.status as TicketStatus]} text-sm`}>
+                {STATUS_LABELS[ticket.status as TicketStatus]}
               </Badge>
               {sla && <Badge className={SLA_COLORS[sla.level]}>{sla.label}</Badge>}
             </div>
@@ -274,29 +319,44 @@ export default function ChamadoDetalhe() {
           </div>
         </div>
         <div className="flex gap-2 items-center">
-          <Select value={ticket.status} onValueChange={(v) => changeStatus(v as TicketStatus)}>
-            <SelectTrigger className="w-56">
-              <Badge className={STATUS_COLORS[ticket.status as TicketStatus]}>
-                {STATUS_LABELS[ticket.status as TicketStatus]}
-              </Badge>
-            </SelectTrigger>
-            <SelectContent>
-              {STATUS_ORDER.map((s) => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          {isClosed(ticket.status) ? (
+            <Button variant="outline" onClick={() => setReabrirOpen(true)}>
+              <RefreshCcw className="h-4 w-4 mr-1" /> Reabrir
+            </Button>
+          ) : (
+            <>
+              <Select value={ticket.status} onValueChange={(v) => changeStatus(v as TicketStatus)}>
+                <SelectTrigger className="w-56">
+                  <Badge className={STATUS_COLORS[ticket.status as TicketStatus]}>
+                    {STATUS_LABELS[ticket.status as TicketStatus]}
+                  </Badge>
+                </SelectTrigger>
+                <SelectContent>
+                  {STATUS_ORDER.map((s) => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Button variant="default" onClick={() => setEncerrarOpen(true)}>
+                <CheckCircle2 className="h-4 w-4 mr-1" /> Encerrar
+              </Button>
+            </>
+          )}
           <Button variant="outline" onClick={() => setEditOpen(true)}>
             <Pencil className="h-4 w-4 mr-1" /> Editar
           </Button>
         </div>
       </div>
 
+      <TicketHeaderInfo ticket={ticket} history={history} />
+
       <Tabs defaultValue="resumo" className="w-full">
         <TabsList>
           <TabsTrigger value="resumo">Conversa ({comments.length + 1})</TabsTrigger>
+          <TabsTrigger value="timeline">Timeline</TabsTrigger>
           <TabsTrigger value="sla">SLA</TabsTrigger>
           <TabsTrigger value="historico">Histórico ({history.length})</TabsTrigger>
           <TabsTrigger value="anexos">Anexos ({attachments.length})</TabsTrigger>
         </TabsList>
+
 
         <TabsContent value="resumo" className="space-y-4">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -446,26 +506,50 @@ export default function ChamadoDetalhe() {
           </div>
         </TabsContent>
 
+        <TabsContent value="timeline" className="space-y-2">
+          <Card>
+            <CardContent className="pt-6">
+              <TicketTimeline
+                ticket={ticket}
+                history={history}
+                comments={comments}
+                attachments={attachments}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="historico" className="space-y-2">
           {history.length === 0 && (
             <p className="text-sm text-muted-foreground text-center py-6">Sem histórico</p>
           )}
           {history.map((h) => (
             <Card key={h.id}>
-              <CardContent className="pt-4 flex items-center gap-3 text-sm">
-                <History className="h-4 w-4 text-muted-foreground" />
-                <div className="flex-1">
-                  <span className="font-medium">{h.campo}</span>
-                  <span className="text-muted-foreground"> · </span>
-                  <span className="text-muted-foreground line-through">{h.valor_anterior || "—"}</span>
-                  <span className="mx-2">→</span>
-                  <span className="font-medium">{h.valor_novo || "—"}</span>
+              <CardContent className="pt-4 flex items-start gap-3 text-sm">
+                <History className="h-4 w-4 text-muted-foreground mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-baseline gap-2 flex-wrap">
+                    <span className="font-medium">{fieldLabel(h.campo)}</span>
+                    <span className="text-xs text-muted-foreground">
+                      · {h.autor_nome || "Sistema"} · {fmtDate(h.criado_em)}
+                    </span>
+                  </div>
+                  <div className="mt-1">
+                    <span className="text-muted-foreground line-through">{formatValue(h.campo, h.valor_anterior)}</span>
+                    <span className="mx-2">→</span>
+                    <span className="font-medium">{formatValue(h.campo, h.valor_novo)}</span>
+                  </div>
+                  {h.observacao && (
+                    <div className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap">
+                      {h.observacao}
+                    </div>
+                  )}
                 </div>
-                <span className="text-xs text-muted-foreground">{h.autor_nome || "Sistema"} · {fmtDate(h.criado_em)}</span>
               </CardContent>
             </Card>
           ))}
         </TabsContent>
+
 
         <TabsContent value="anexos" className="space-y-4">
           <Card>
@@ -507,6 +591,8 @@ export default function ChamadoDetalhe() {
       </Tabs>
 
       <TicketModal open={editOpen} onOpenChange={setEditOpen} ticketId={ticketId} onSaved={load} />
+      <EncerramentoModal open={encerrarOpen} onOpenChange={setEncerrarOpen} ticket={ticket} onClosed={load} />
+      <ReaberturaModal open={reabrirOpen} onOpenChange={setReabrirOpen} ticket={ticket} onReopened={load} />
     </div>
   );
 }
