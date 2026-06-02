@@ -1,74 +1,107 @@
-## Objetivo
 
-Nova aba **Automações** dentro de Controle Grafana com um canvas visual de nós (estilo n8n) para criar regras que atribuem usuários a organizações Grafana automaticamente, com base em condições granulares (domínio, regex no email/nome, permissão Ariia, etc.).
+# Melhorias no Módulo de Chamados
 
-## Comportamento
+Vou expandir o módulo existente (`src/pages/ChamadoDetalhe.tsx`, `TicketModal`, edge functions e tabelas `tickets` / `ticket_history` / `ticket_comments` / `ticket_attachments`) sem recriar nada que já funciona.
 
-- Regras rodam **apenas na criação/primeira sincronização** de cada usuário (novos usuários).
-- **Permissões manuais sempre vencem**: se já existir uma permissão direta em `grafana_user_org_permissions` para o par usuário+org, a regra não sobrescreve.
-- Múltiplas regras podem disparar — o resultado é unido (maior role por org).
-- Cada regra é um grafo: **Trigger → (Condições encadeadas com AND/OR/NOT) → Ações**.
+## 1. Header de Acompanhamento Avançado
 
-## UI — Builder visual (React Flow)
+No topo do `ChamadoDetalhe`, montar um painel de "status atual" mais informativo:
+- Número do chamado em destaque (já existe, vira título principal).
+- Badge colorido do status atual (já existe, ampliar).
+- Data de abertura, última atualização, técnico responsável.
+- Tempo total em atendimento (agora - data_abertura, descontando pausas).
+- Tempo em cada status (agregado a partir de `ticket_history` para o campo `status`).
 
-Lib: `@xyflow/react` (React Flow v12) — canvas com pan/zoom, snap-to-grid, mini-mapa.
+Tudo no client — sem nova tabela.
 
-Tipos de nó:
+## 2. Histórico Completo de Alterações
 
-1. **Trigger** (1 por regra, fixo no início)
-   - "Novo usuário sincronizado"
+Hoje o histórico só registra mudanças manuais de status/técnico. Vou padronizar o registro em `ticket_history` para todos os eventos:
 
-2. **Condition** (qualquer quantidade, encadeáveis)
-   - Campo: `email`, `email_domain`, `nome`, `permissao_ariia`
-   - Operador: `equals`, `not_equals`, `contains`, `not_contains`, `starts_with`, `ends_with`, `regex`, `in_list`
-   - Valor: texto livre / lista
-   - Conectores lógicos via portas: cada nó condição tem saída **TRUE** e **FALSE**
+| Evento | campo |
+|---|---|
+| Status alterado | `status` |
+| Prioridade alterada | `prioridade` |
+| Responsável alterado | `tecnico_id` |
+| Comentário adicionado | `comentario` |
+| Anexo adicionado | `anexo_add` |
+| Anexo removido | `anexo_remove` |
+| Edição de campos (titulo, descricao, fila, categoria, empresa, unidade, etc.) | nome do campo |
+| Encerramento | `encerramento` |
+| Reabertura | `reabertura` |
 
-3. **Logic** (opcional)
-   - AND / OR / NOT — combina múltiplas condições antes de uma ação
+Para cada evento gravamos `valor_anterior`, `valor_novo`, `observacao` (descrição), `autor_id`, `autor_nome`, `criado_em` (já existem na tabela).
 
-4. **Action** (uma ou mais no final)
-   - "Adicionar à organização X com role Y"
-   - "Adicionar ao grupo de acesso Z"
-   - "Parar execução" (early exit)
+Implementação:
+- Helper `logTicketEvent()` no front (ou no `TicketModal`) chamado em cada mutação.
+- No upload/remoção de anexos e no `adicionarComentario`, inserir registro em `ticket_history`.
+- No `TicketModal` (edição), comparar diff antes/depois e gerar uma linha por campo alterado.
 
-Painel lateral direito: editor de propriedades do nó selecionado.
-Topo: nome da regra, toggle ativo/inativo, botão **Salvar**, **Testar com usuário…** (simula contra um usuário existente e mostra quais ações disparariam, sem aplicar).
+## 3. Timeline Visual
 
-Lista de regras (lado esquerdo ou tab interna): criar nova, duplicar, deletar, ativar/desativar, reordenar prioridade.
+Nova aba **Timeline** (ou substituindo "Histórico") no `ChamadoDetalhe`:
+- Lista cronológica unificada de `ticket_history` + `ticket_comments` + `ticket_attachments`.
+- Cada item: ícone (lucide) por tipo, data/hora, autor, descrição amigável.
+- Tipos visuais: criado, comentário, status, prioridade, responsável, anexo+, anexo−, edição, encerrado, reaberto.
+- Renderizada como vertical timeline com linha + bullets coloridos por tipo.
 
-## Banco de dados
+A aba "Histórico" tabular continua disponível para consulta administrativa.
 
-Nova tabela `grafana_automation_rules`:
-- `id`, `name`, `description`, `active`, `priority` (int), `graph` (jsonb — nós e arestas do React Flow), `criado_em`, `atualizado_em`, `criado_por`
-- RLS: somente admins (`is_ariia_admin()`)
+## 4. Encerramento padronizado
 
-Função SQL `grafana_evaluate_automations(_usuario_id int)` retorna `jsonb` com lista de ações `[{grafana_organization_id, role}, ...]` — avalia o grafo no Postgres percorrendo nós/arestas armazenados no JSON.
+Mudar a transição para `RESOLVIDO`/`FECHADO` para abrir um **modal de encerramento** obrigatório:
 
-## Edge function / sync
+Campos obrigatórios:
+- **Solução aplicada** (textarea com rótulos: Diagnóstico, Procedimentos, Correção, Resultado — um campo combinado com placeholder estruturado, ou 4 textareas pequenas).
+- **Motivo do encerramento** (select): Problema resolvido, Solicitação atendida, Ajuste realizado, Cancelado, Duplicidade, Outro.
+- Quando "Outro" → campo texto livre.
 
-`supabase/functions/_shared/grafana.ts` — em `syncUserToGrafana`:
-1. Detectar se é **primeiro sync** (sem registro em `grafana_user_links`).
-2. Se sim: chamar `grafana_evaluate_automations(usuario_id)` e fazer **upsert** em `grafana_user_org_permissions` (somente onde não houver registro prévio — manual vence).
-3. Continuar com o cálculo de permissões efetivas e sync com Grafana normalmente.
+Ao confirmar:
+- Update do ticket: `status = RESOLVIDO`, `data_solucao`, `motivo_encerramento`, `solucao_aplicada`.
+- Insert em `ticket_history` (campo `encerramento`, valor_novo = motivo, observacao = solução).
+- Insert em `ticket_comments` (tipo `INTERNO`) com a solução, para aparecer também na conversa/timeline.
 
-Nova edge function `grafana-test-automation`: recebe `usuario_id` + opcionalmente `graph` (regra ainda não salva) e devolve as ações que dispararíam — alimenta o botão **Testar**.
+## 5. Reabertura controlada
 
-## Arquivos
+Quando o status atual é `RESOLVIDO`, `FECHADO` ou `CANCELADO`, mostrar botão **"Reabrir chamado"** que abre modal:
+- Campo obrigatório **Motivo da reabertura**.
 
-- `supabase/migrations/...sql` — tabela + função de avaliação + RLS/GRANTs
-- `supabase/functions/_shared/grafana.ts` — hook de avaliação no first-sync
-- `supabase/functions/grafana-test-automation/index.ts` — simulação
-- `src/pages/GrafanaControle.tsx` — adicionar tab **Automações**
-- `src/components/grafana/AutomationsTab.tsx` — lista de regras + editor
-- `src/components/grafana/AutomationCanvas.tsx` — React Flow
-- `src/components/grafana/nodes/*` — componentes dos nós (Trigger, Condition, Logic, Action)
-- `package.json` — adicionar `@xyflow/react`
+Ao confirmar:
+- Update: `status = EM_ATENDIMENTO`, limpa `data_solucao` / `data_fechamento`.
+- Insert em `ticket_history` (campo `reabertura`, valor_anterior = status anterior, valor_novo = EM_ATENDIMENTO, observacao = motivo, autor preenchido).
+- Evento aparece automaticamente na timeline.
 
-## Fora do escopo desta entrega
+## 6. Auditoria completa
 
-- Reaplicar regras em usuários antigos em massa (pode ser adicionado depois como botão "Aplicar regras agora").
-- Triggers além de "novo usuário" (ex: agendado, ao mudar permissão).
-- Versionamento/histórico de regras.
+- Toda mutação no detalhe passa a registrar em `ticket_history` (item 2).
+- Nada é deletado fisicamente: ao remover anexo, mantemos a entrada `anexo_remove` no histórico mesmo após apagar o arquivo do storage.
+- Sem mudanças em RLS — `ticket_history` continua com policies existentes.
 
-Confirma que posso seguir com essa estrutura?
+## Detalhes técnicos
+
+**Migração SQL (mínima):**
+```sql
+ALTER TABLE public.tickets
+  ADD COLUMN IF NOT EXISTS solucao_aplicada text,
+  ADD COLUMN IF NOT EXISTS motivo_encerramento varchar(50),
+  ADD COLUMN IF NOT EXISTS motivo_encerramento_outro text;
+```
+Não criamos novas tabelas — `ticket_history` já cobre o requisito de auditoria.
+
+**Arquivos a criar:**
+- `src/components/tickets/EncerramentoModal.tsx`
+- `src/components/tickets/ReaberturaModal.tsx`
+- `src/components/tickets/TicketTimeline.tsx`
+- `src/components/tickets/TicketHeaderInfo.tsx` (cards de tempos)
+- `src/lib/ticketHistory.ts` — helper `logEvent(ticketId, campo, anterior, novo, observacao, user)` + utilitário `computeTimePerStatus(history)`.
+
+**Arquivos a editar:**
+- `src/pages/ChamadoDetalhe.tsx` — novo header, nova aba Timeline, integrar modais, usar `logEvent` em comentários/anexos.
+- `src/components/TicketModal.tsx` — calcular diff no submit e gravar histórico por campo.
+- `supabase/functions/tickets-api/index.ts` — registrar histórico nos endpoints `/status`, `/assign`, criação/edição (para manter API e UI consistentes).
+
+**Sem mudanças** em autenticação, RLS, organizações Grafana, ou no fluxo de e-mail/N8N existente.
+
+---
+
+Confirma esse plano para eu prosseguir com a migração + implementação?
