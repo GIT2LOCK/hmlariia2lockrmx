@@ -181,10 +181,22 @@ export default function RelatorioAlertasZabbix() {
         search: search || undefined,
       };
       if (hostgroupId !== "all") body.hostgroup_ids = [hostgroupId];
-      const { data, error } = await supabase.functions.invoke("zabbix-dashboard", { body });
-      if (error) throw error;
-      setEvents((data?.events as ZabbixEvent[]) || []);
-      toast.success(`${data?.total ?? 0} alertas encontrados`);
+      const [historyRes, openRes] = await Promise.all([
+        supabase.functions.invoke("zabbix-dashboard", { body }),
+        supabase.functions.invoke("zabbix-dashboard", {
+          body: {
+            action: "current_open_problems",
+            source: ambiente,
+            severities,
+            search: search || undefined,
+            ...(hostgroupId !== "all" ? { hostgroup_ids: [hostgroupId] } : {}),
+          },
+        }),
+      ]);
+      if (historyRes.error) throw historyRes.error;
+      setEvents((historyRes.data?.events as ZabbixEvent[]) || []);
+      setOpenCount(Number(openRes.data?.count ?? 0));
+      toast.success(`${historyRes.data?.total ?? 0} alertas encontrados`);
     } catch (e: any) {
       toast.error(e?.message || "Erro ao consultar Zabbix");
     } finally {
@@ -194,7 +206,7 @@ export default function RelatorioAlertasZabbix() {
 
   const total = events.length;
   const resolved = events.filter((e) => e.status === "RESOLVED").length;
-  const open = total - resolved;
+  const open = openCount;
   const avgDuration = total ? Math.round(events.reduce((s, e) => s + e.duration_sec, 0) / total) : 0;
 
   const monthly = useMemo(() => {
