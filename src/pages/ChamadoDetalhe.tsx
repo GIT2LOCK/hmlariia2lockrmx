@@ -591,6 +591,8 @@ export default function ChamadoDetalhe() {
       </Tabs>
 
       <TicketModal open={editOpen} onOpenChange={setEditOpen} ticketId={ticketId} onSaved={load} />
+      <EncerramentoModal open={encerrarOpen} onOpenChange={setEncerrarOpen} ticket={ticket} onClosed={load} />
+      <ReaberturaModal open={reabrirOpen} onOpenChange={setReabrirOpen} ticket={ticket} onReopened={load} />
     </div>
   );
 }
