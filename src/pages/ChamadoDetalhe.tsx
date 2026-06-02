@@ -192,6 +192,15 @@ export default function ChamadoDetalhe() {
     setSalvandoComent(false);
     if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
 
+    // History
+    await logTicketEvent({
+      ticketId,
+      campo: "comentario",
+      valorNovo: tipoComent,
+      observacao: novoComentario.trim().slice(0, 500),
+      user,
+    });
+
     // Notificar cliente por e-mail (via N8N) quando comentário público
     if (tipoComent === "CLIENTE") {
       if (!ticket?.solicitante_email) {
