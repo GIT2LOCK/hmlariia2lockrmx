@@ -26,6 +26,8 @@ import {
   CartesianGrid,
   Cell,
   Legend,
+  Line,
+  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -457,13 +459,13 @@ export default function RelatorioAlertasZabbix() {
           </CardHeader>
           <CardContent className="h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={monthly}>
+              <LineChart data={monthly}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                 <XAxis dataKey="month" />
                 <YAxis allowDecimals={false} domain={[0, monthlyYAxisMax]} ticks={monthlyTicks} />
                 <Tooltip />
-                <Bar dataKey="count" name="Alertas" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-              </BarChart>
+                <Line type="linear" dataKey="count" name="Alertas" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+              </LineChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
