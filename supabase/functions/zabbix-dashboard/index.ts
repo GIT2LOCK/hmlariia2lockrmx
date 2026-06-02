@@ -18,6 +18,48 @@ function createZabbixClient(url: string, token: string) {
   };
 }
 
+async function fetchEventsByTimeWindows(
+  client: ReturnType<typeof createZabbixClient>,
+  baseParams: Record<string, unknown>,
+  timeFrom: number,
+  timeTill: number,
+  perQueryLimit = 5000,
+) {
+  const events: any[] = [];
+  const seen = new Set<string>();
+  let truncated = false;
+  const safeLimit = Math.min(Math.max(Number(perQueryLimit) || 5000, 100), 5000);
+  const minWindowSeconds = 3600;
+
+  const fetchWindow = async (from: number, till: number): Promise<void> => {
+    const batch = await client("event.get", {
+      ...baseParams,
+      time_from: from,
+      time_till: till,
+      limit: safeLimit,
+    });
+
+    if (Array.isArray(batch) && batch.length >= safeLimit && till - from > minWindowSeconds) {
+      const mid = Math.floor((from + till) / 2);
+      await fetchWindow(mid + 1, till);
+      await fetchWindow(from, mid);
+      return;
+    }
+
+    if (Array.isArray(batch) && batch.length >= safeLimit) truncated = true;
+
+    for (const event of batch || []) {
+      if (!event?.eventid || seen.has(event.eventid)) continue;
+      seen.add(event.eventid);
+      events.push(event);
+    }
+  };
+
+  await fetchWindow(timeFrom, timeTill);
+  events.sort((a, b) => Number(b.clock || 0) - Number(a.clock || 0));
+  return { events, truncated };
+}
+
 function classifyZabbix2(description: string): string {
   const d = description.toLowerCase();
   if (d.includes("indisponibilidade de ctrl")) return "equipamentos";
@@ -523,17 +565,14 @@ serve(async (req) => {
           object: 0,
           value: 1,
           severities,
-          time_from,
-          time_till,
           sortfield: ["clock"],
           sortorder: "DESC",
-          limit,
         };
         if (Array.isArray(hostgroup_ids) && hostgroup_ids.length > 0) {
           problemParams.groupids = hostgroup_ids;
         }
 
-        const events = await client("event.get", problemParams);
+        const { events, truncated } = await fetchEventsByTimeWindows(client, problemParams, Number(time_from), Number(time_till), Number(limit));
 
         const triggerIds = Array.from(new Set(events.map((e: any) => e.objectid).filter(Boolean)));
         const triggerMap: Record<string, any> = {};
@@ -600,7 +639,7 @@ serve(async (req) => {
           );
         }
 
-        result = { events: filtered, total: filtered.length };
+        result = { events: filtered, total: filtered.length, fetched_total: events.length, truncated };
         break;
       }
 

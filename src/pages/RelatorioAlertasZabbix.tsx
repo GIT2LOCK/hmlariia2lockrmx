@@ -94,6 +94,11 @@ const fmtDuration = (sec: number) => {
 
 const fmtDate = (ts: number | null) => (ts ? format(new Date(ts * 1000), "dd/MM/yyyy HH:mm", { locale: ptBR }) : "-");
 
+const fmtMonthKey = (key: string) => {
+  const [year, month] = key.split("-").map(Number);
+  return format(new Date(year, month - 1, 1), "MMM/yy", { locale: ptBR });
+};
+
 const buildPositiveIntegerTicks = (maxValue: number) => {
   const safeMax = Math.max(0, Math.ceil(maxValue || 0));
   if (safeMax === 0) return [0, 1];
@@ -214,7 +219,7 @@ export default function RelatorioAlertasZabbix() {
     }
     return Object.entries(map)
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([k, v]) => ({ month: format(new Date(k + "-01"), "MMM/yy", { locale: ptBR }), count: v }));
+      .map(([k, v]) => ({ month: fmtMonthKey(k), count: v }));
   }, [events, period, customFrom, customTo]);
 
   const monthlyTicks = useMemo(
