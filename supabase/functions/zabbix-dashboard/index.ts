@@ -18,6 +18,48 @@ function createZabbixClient(url: string, token: string) {
   };
 }
 
+async function fetchEventsByTimeWindows(
+  client: ReturnType<typeof createZabbixClient>,
+  baseParams: Record<string, unknown>,
+  timeFrom: number,
+  timeTill: number,
+  perQueryLimit = 5000,
+) {
+  const events: any[] = [];
+  const seen = new Set<string>();
+  let truncated = false;
+  const safeLimit = Math.min(Math.max(Number(perQueryLimit) || 5000, 100), 5000);
+  const minWindowSeconds = 3600;
+
+  const fetchWindow = async (from: number, till: number): Promise<void> => {
+    const batch = await client("event.get", {
+      ...baseParams,
+      time_from: from,
+      time_till: till,
+      limit: safeLimit,
+    });
+
+    if (Array.isArray(batch) && batch.length >= safeLimit && till - from > minWindowSeconds) {
+      const mid = Math.floor((from + till) / 2);
+      await fetchWindow(mid + 1, till);
+      await fetchWindow(from, mid);
+      return;
+    }
+
+    if (Array.isArray(batch) && batch.length >= safeLimit) truncated = true;
+
+    for (const event of batch || []) {
+      if (!event?.eventid || seen.has(event.eventid)) continue;
+      seen.add(event.eventid);
+      events.push(event);
+    }
+  };
+
+  await fetchWindow(timeFrom, timeTill);
+  events.sort((a, b) => Number(b.clock || 0) - Number(a.clock || 0));
+  return { events, truncated };
+}
+
 function classifyZabbix2(description: string): string {
   const d = description.toLowerCase();
   if (d.includes("indisponibilidade de ctrl")) return "equipamentos";
