@@ -485,6 +485,141 @@ serve(async (req) => {
         }
       }
 
+      case "events_history": {
+        const {
+          source = "z1",
+          time_from,
+          time_till,
+          severities = [4],
+          hostgroup_ids,
+          search,
+          limit = 5000,
+        } = body as {
+          source?: string;
+          time_from: number;
+          time_till: number;
+          severities?: number[];
+          hostgroup_ids?: string[];
+          search?: string;
+          limit?: number;
+        };
+
+        if (!time_from || !time_till) {
+          return new Response(JSON.stringify({ error: "time_from and time_till are required" }), {
+            status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        const client = source === "z2" && zabbix2 ? zabbix2 : zabbix1;
+        if (!client) {
+          return new Response(JSON.stringify({ error: "Instância Zabbix não configurada" }), {
+            status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        const problemParams: Record<string, unknown> = {
+          output: ["eventid", "objectid", "name", "severity", "clock", "r_eventid", "acknowledged"],
+          source: 0,
+          object: 0,
+          value: 1,
+          severities,
+          time_from,
+          time_till,
+          sortfield: ["clock"],
+          sortorder: "DESC",
+          limit,
+        };
+        if (Array.isArray(hostgroup_ids) && hostgroup_ids.length > 0) {
+          problemParams.groupids = hostgroup_ids;
+        }
+
+        const events = await client("event.get", problemParams);
+
+        const triggerIds = Array.from(new Set(events.map((e: any) => e.objectid).filter(Boolean)));
+        const triggerMap: Record<string, any> = {};
+        if (triggerIds.length > 0) {
+          const chunks: string[][] = [];
+          for (let i = 0; i < triggerIds.length; i += 500) chunks.push(triggerIds.slice(i, i + 500) as string[]);
+          for (const chunk of chunks) {
+            const triggers = await client("trigger.get", {
+              output: ["triggerid", "description", "priority"],
+              triggerids: chunk,
+              selectHosts: ["hostid", "host", "name"],
+              selectGroups: ["groupid", "name"],
+            });
+            for (const t of triggers) triggerMap[t.triggerid] = t;
+          }
+        }
+
+        const recoveryIds = Array.from(
+          new Set(events.map((e: any) => e.r_eventid).filter((x: string) => x && x !== "0")),
+        );
+        const recoveryMap: Record<string, string> = {};
+        if (recoveryIds.length > 0) {
+          const chunks: string[][] = [];
+          for (let i = 0; i < recoveryIds.length; i += 1000) chunks.push(recoveryIds.slice(i, i + 1000) as string[]);
+          for (const chunk of chunks) {
+            const rEvents = await client("event.get", {
+              output: ["eventid", "clock"],
+              eventids: chunk,
+            });
+            for (const re of rEvents) recoveryMap[re.eventid] = re.clock;
+          }
+        }
+
+        const now = Math.floor(Date.now() / 1000);
+        const result_events = events.map((e: any) => {
+          const trg = triggerMap[e.objectid] || {};
+          const host = trg.hosts?.[0] || {};
+          const recoveryClock = e.r_eventid && e.r_eventid !== "0" ? recoveryMap[e.r_eventid] : null;
+          const startClock = Number(e.clock);
+          const endClock = recoveryClock ? Number(recoveryClock) : now;
+          return {
+            eventid: e.eventid,
+            clock: startClock,
+            name: trg.description || e.name,
+            severity: Number(e.severity),
+            hostid: host.hostid || null,
+            hostname: host.host || "",
+            host_visible: host.name || host.host || "",
+            groups: (trg.groups || []).map((g: any) => g.name),
+            duration_sec: Math.max(0, endClock - startClock),
+            status: recoveryClock ? "RESOLVED" : "OPEN",
+            resolved_at: recoveryClock ? Number(recoveryClock) : null,
+            acknowledged: e.acknowledged === "1",
+          };
+        });
+
+        let filtered = result_events;
+        if (search && search.trim()) {
+          const s = search.trim().toLowerCase();
+          filtered = filtered.filter((r: any) =>
+            r.name.toLowerCase().includes(s) ||
+            r.hostname.toLowerCase().includes(s) ||
+            r.host_visible.toLowerCase().includes(s),
+          );
+        }
+
+        result = { events: filtered, total: filtered.length };
+        break;
+      }
+
+      case "hostgroups_by_source": {
+        const { source = "z1" } = body as { source?: string };
+        const client = source === "z2" && zabbix2 ? zabbix2 : zabbix1;
+        if (!client) {
+          return new Response(JSON.stringify({ error: "Instância Zabbix não configurada" }), {
+            status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        result = await client("hostgroup.get", {
+          output: ["groupid", "name"],
+          real_hosts: true,
+          sortfield: "name",
+        });
+        break;
+      }
+
       default:
         return new Response(JSON.stringify({ error: "Invalid action" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
