@@ -13,6 +13,7 @@ import { toast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
 import {
   ArrowLeft, Pencil, Paperclip, Upload, X, Download, Send, Clock, History,
+  CheckCircle2, RefreshCcw,
 } from "lucide-react";
 import {
   computeSlaSolucao,
@@ -25,6 +26,11 @@ import {
   SLA_ATENDIMENTO,
   SLA_SOLUCAO,
 } from "@/lib/ticketSla";
+import { TicketHeaderInfo } from "@/components/tickets/TicketHeaderInfo";
+import { TicketTimeline } from "@/components/tickets/TicketTimeline";
+import { EncerramentoModal } from "@/components/tickets/EncerramentoModal";
+import { ReaberturaModal } from "@/components/tickets/ReaberturaModal";
+import { logTicketEvent, fieldLabel, formatValue } from "@/lib/ticketHistory";
 import { TicketModal } from "@/components/TicketModal";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
