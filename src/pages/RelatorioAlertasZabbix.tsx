@@ -26,8 +26,6 @@ import {
   CartesianGrid,
   Cell,
   Legend,
-  Line,
-  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -95,6 +93,20 @@ const fmtDuration = (sec: number) => {
 };
 
 const fmtDate = (ts: number | null) => (ts ? format(new Date(ts * 1000), "dd/MM/yyyy HH:mm", { locale: ptBR }) : "-");
+
+const buildPositiveIntegerTicks = (maxValue: number) => {
+  const safeMax = Math.max(0, Math.ceil(maxValue || 0));
+  if (safeMax === 0) return [0, 1];
+
+  const roughStep = Math.max(1, Math.ceil(safeMax / 4));
+  const magnitude = 10 ** Math.floor(Math.log10(roughStep));
+  const normalized = roughStep / magnitude;
+  const niceNormalized = normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10;
+  const step = niceNormalized * magnitude;
+  const top = Math.ceil(safeMax / step) * step;
+
+  return Array.from({ length: Math.floor(top / step) + 1 }, (_, i) => i * step);
+};
 
 export default function RelatorioAlertasZabbix() {
   const [ambiente, setAmbiente] = useState<string>("z1");
@@ -179,6 +191,23 @@ export default function RelatorioAlertasZabbix() {
 
   const monthly = useMemo(() => {
     const map: Record<string, number> = {};
+    const range = computeRange();
+
+    if (range) {
+      const cursor = new Date(range.from * 1000);
+      cursor.setDate(1);
+      cursor.setHours(0, 0, 0, 0);
+
+      const end = new Date(range.till * 1000);
+      end.setDate(1);
+      end.setHours(0, 0, 0, 0);
+
+      while (cursor <= end) {
+        map[format(cursor, "yyyy-MM")] = 0;
+        cursor.setMonth(cursor.getMonth() + 1);
+      }
+    }
+
     for (const e of events) {
       const key = format(new Date(e.clock * 1000), "yyyy-MM");
       map[key] = (map[key] || 0) + 1;
@@ -186,7 +215,13 @@ export default function RelatorioAlertasZabbix() {
     return Object.entries(map)
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([k, v]) => ({ month: format(new Date(k + "-01"), "MMM/yy", { locale: ptBR }), count: v }));
-  }, [events]);
+  }, [events, period, customFrom, customTo]);
+
+  const monthlyTicks = useMemo(
+    () => buildPositiveIntegerTicks(Math.max(0, ...monthly.map((m) => m.count))),
+    [monthly],
+  );
+  const monthlyYAxisMax = monthlyTicks[monthlyTicks.length - 1] || 1;
 
   const bySeverity = useMemo(() => {
     const map: Record<number, number> = {};
@@ -411,16 +446,19 @@ export default function RelatorioAlertasZabbix() {
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card className="lg:col-span-2">
-          <CardHeader><CardTitle className="text-base">Evolução mensal</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle className="text-base">Alertas por mês</CardTitle>
+            <p className="text-xs text-muted-foreground">Quantidade de eventos gerados em cada mês; não é saldo nem variação.</p>
+          </CardHeader>
           <CardContent className="h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={monthly}>
+              <BarChart data={monthly}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                 <XAxis dataKey="month" />
-                <YAxis allowDecimals={false} domain={[0, 'auto']} />
+                <YAxis allowDecimals={false} domain={[0, monthlyYAxisMax]} ticks={monthlyTicks} />
                 <Tooltip />
-                <Line type="monotone" dataKey="count" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 3 }} />
-              </LineChart>
+                <Bar dataKey="count" name="Alertas" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+              </BarChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
