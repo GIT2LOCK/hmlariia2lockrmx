@@ -127,6 +127,7 @@ export default function RelatorioAlertasZabbix() {
 
   const [loading, setLoading] = useState(false);
   const [events, setEvents] = useState<ZabbixEvent[]>([]);
+  const [openCount, setOpenCount] = useState<number>(0);
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [hostgroups, setHostgroups] = useState<HostGroup[]>([]);
 
