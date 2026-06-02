@@ -458,10 +458,14 @@ export default function RelatorioAlertasZabbix() {
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <KpiCard icon={<AlertTriangle className="h-5 w-5" />} label="Total de alertas" value={total} tone="primary" />
-        <KpiCard icon={<Activity className="h-5 w-5" />} label="Em aberto" value={open} tone="warning" />
+        <KpiCard icon={<Activity className="h-5 w-5" />} label="Em aberto (agora)" value={open} tone="warning" />
         <KpiCard icon={<CheckCircle2 className="h-5 w-5" />} label="Resolvidos" value={resolved} tone="success" />
         <KpiCard icon={<Activity className="h-5 w-5" />} label="Duração média" value={fmtDuration(avgDuration)} tone="muted" />
       </div>
+      <p className="text-xs text-muted-foreground -mt-2">
+        <strong>Total</strong> e <strong>Resolvidos</strong> referem-se ao período filtrado (eventos gerados/recuperados dentro do intervalo).
+        <strong> Em aberto (agora)</strong> mostra apenas os problemas ativos neste momento, ignorando hosts em manutenção/desabilitados — por isso <em>Total − Resolvidos</em> normalmente não é igual a <em>Em aberto</em> (a diferença inclui problemas iniciados antes/depois do período, ou recuperados fora dele).
+      </p>
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
