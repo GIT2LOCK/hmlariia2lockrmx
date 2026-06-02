@@ -417,7 +417,7 @@ export default function RelatorioAlertasZabbix() {
               <LineChart data={monthly}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                 <XAxis dataKey="month" />
-                <YAxis allowDecimals={false} />
+                <YAxis allowDecimals={false} domain={[0, 'auto']} />
                 <Tooltip />
                 <Line type="monotone" dataKey="count" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 3 }} />
               </LineChart>
