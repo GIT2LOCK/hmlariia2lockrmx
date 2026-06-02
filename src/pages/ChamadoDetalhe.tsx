@@ -142,6 +142,18 @@ export default function ChamadoDetalhe() {
 
   const changeStatus = async (status: TicketStatus) => {
     if (!ticket) return;
+
+    // Intercept closing: require encerramento modal
+    if ((status === "RESOLVIDO" || status === "FECHADO") && !isClosed(ticket.status)) {
+      setEncerrarOpen(true);
+      return;
+    }
+    // Intercept reopening from closed states: require reabertura modal
+    if (isClosed(ticket.status) && !isClosed(status)) {
+      setReabrirOpen(true);
+      return;
+    }
+
     const now = new Date().toISOString();
     const update: any = { status };
     const wasPaused = ["AGUARDANDO_CLIENTE","AGUARDANDO_OPERADORA","AGUARDANDO_TERCEIRO","AGENDADO","TRIAGEM"].includes(ticket.status);
@@ -158,11 +170,10 @@ export default function ChamadoDetalhe() {
 
     const { error } = await supabase.from("tickets").update(update).eq("id", ticketId);
     if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
-    await supabase.from("ticket_history").insert({
-      ticket_id: ticketId, campo: "status",
-      valor_anterior: ticket.status, valor_novo: status,
-      autor_id: user?.id ? Number(user.id) : null,
-      autor_nome: user?.nome || null,
+    await logTicketEvent({
+      ticketId, campo: "status",
+      valorAnterior: ticket.status, valorNovo: status,
+      user,
     });
     toast({ title: "Status atualizado" });
     load();
