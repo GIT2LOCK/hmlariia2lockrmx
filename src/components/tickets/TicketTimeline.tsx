@@ -4,14 +4,12 @@ import {
   Paperclip,
   PaperclipIcon,
   Pencil,
-  PlayCircle,
   CheckCircle2,
   RefreshCcw,
   UserCog,
   Flag,
   Activity,
   PlusCircle,
-  XCircle,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
