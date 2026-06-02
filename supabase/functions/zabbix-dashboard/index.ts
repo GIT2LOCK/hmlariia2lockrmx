@@ -643,6 +643,69 @@ serve(async (req) => {
         break;
       }
 
+      case "current_open_problems": {
+        const {
+          source = "z1",
+          severities = [4],
+          hostgroup_ids,
+          search,
+        } = body as {
+          source?: string;
+          severities?: number[];
+          hostgroup_ids?: string[];
+          search?: string;
+        };
+
+        const client = source === "z2" && zabbix2 ? zabbix2 : zabbix1;
+        if (!client) {
+          return new Response(JSON.stringify({ error: "Instância Zabbix não configurada" }), {
+            status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        const params: Record<string, unknown> = {
+          output: ["eventid", "objectid", "name", "severity", "clock"],
+          source: 0,
+          object: 0,
+          severities,
+          suppressed: false,
+        };
+        if (Array.isArray(hostgroup_ids) && hostgroup_ids.length > 0) {
+          params.groupids = hostgroup_ids;
+        }
+
+        const problems = await client("problem.get", params);
+        const triggerIds = Array.from(new Set(problems.map((p: any) => p.objectid).filter(Boolean)));
+        let triggerMap: Record<string, any> = {};
+        if (triggerIds.length > 0) {
+          const triggers = await client("trigger.get", {
+            output: ["triggerid", "description"],
+            triggerids: triggerIds,
+            monitored: true,
+            selectHosts: ["hostid", "host", "name", "status", "maintenance_status"],
+          });
+          triggerMap = Object.fromEntries(triggers.map((t: any) => [t.triggerid, t]));
+        }
+
+        const s = (search || "").trim().toLowerCase();
+        const filtered = problems.filter((p: any) => {
+          const trg = triggerMap[p.objectid];
+          if (!trg || !trg.hosts || trg.hosts.length === 0) return false;
+          if (trg.hosts.every((h: any) => String(h.status) === "1")) return false;
+          if (trg.hosts.some((h: any) => String(h.maintenance_status) === "1")) return false;
+          if (s) {
+            const name = (trg.description || p.name || "").toLowerCase();
+            const host = (trg.hosts[0]?.name || trg.hosts[0]?.host || "").toLowerCase();
+            const hostname = (trg.hosts[0]?.host || "").toLowerCase();
+            if (!name.includes(s) && !host.includes(s) && !hostname.includes(s)) return false;
+          }
+          return true;
+        });
+
+        result = { count: filtered.length };
+        break;
+      }
+
       case "hostgroups_by_source": {
         const { source = "z1" } = body as { source?: string };
         const client = source === "z2" && zabbix2 ? zabbix2 : zabbix1;
