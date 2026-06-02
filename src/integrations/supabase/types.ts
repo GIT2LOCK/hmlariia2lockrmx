@@ -1042,6 +1042,8 @@ export type Database = {
           fila_id: number | null
           id: number
           link_id: number | null
+          motivo_encerramento: string | null
+          motivo_encerramento_outro: string | null
           operadora_id: number | null
           origem: Database["public"]["Enums"]["ticket_origem"]
           prioridade: Database["public"]["Enums"]["ticket_priority"]
@@ -1052,6 +1054,7 @@ export type Database = {
           solicitante_email: string | null
           solicitante_nome: string | null
           solicitante_telefone: string | null
+          solucao_aplicada: string | null
           status: Database["public"]["Enums"]["ticket_status"]
           subcategoria_id: number | null
           tecnico_id: number | null
@@ -1074,6 +1077,8 @@ export type Database = {
           fila_id?: number | null
           id?: number
           link_id?: number | null
+          motivo_encerramento?: string | null
+          motivo_encerramento_outro?: string | null
           operadora_id?: number | null
           origem?: Database["public"]["Enums"]["ticket_origem"]
           prioridade?: Database["public"]["Enums"]["ticket_priority"]
@@ -1084,6 +1089,7 @@ export type Database = {
           solicitante_email?: string | null
           solicitante_nome?: string | null
           solicitante_telefone?: string | null
+          solucao_aplicada?: string | null
           status?: Database["public"]["Enums"]["ticket_status"]
           subcategoria_id?: number | null
           tecnico_id?: number | null
@@ -1106,6 +1112,8 @@ export type Database = {
           fila_id?: number | null
           id?: number
           link_id?: number | null
+          motivo_encerramento?: string | null
+          motivo_encerramento_outro?: string | null
           operadora_id?: number | null
           origem?: Database["public"]["Enums"]["ticket_origem"]
           prioridade?: Database["public"]["Enums"]["ticket_priority"]
@@ -1116,6 +1124,7 @@ export type Database = {
           solicitante_email?: string | null
           solicitante_nome?: string | null
           solicitante_telefone?: string | null
+          solucao_aplicada?: string | null
           status?: Database["public"]["Enums"]["ticket_status"]
           subcategoria_id?: number | null
           tecnico_id?: number | null
