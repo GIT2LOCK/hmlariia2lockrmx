@@ -61,6 +61,8 @@ const App = () => (
               <Route path="chamados/:id" element={<ChamadoDetalhe />} />
               <Route path="zabbix" element={<DashboardZabbix />} />
               <Route path="zabbix/tv" element={<ZabbixTvView />} />
+              <Route path="zabbix/relatorio-alertas" element={<RelatorioAlertasZabbix />} />
+              <Route path="grafana" element={<GrafanaControle />} />
               <Route path="grafana" element={<GrafanaControle />} />
               <Route path="perfil" element={<MeuPerfil />} />
             </Route>
