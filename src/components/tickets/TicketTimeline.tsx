@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import {
   MessageSquare,
   Paperclip,
-  PaperclipIcon,
+  Trash2,
   Pencil,
   CheckCircle2,
   RefreshCcw,
