@@ -304,9 +304,14 @@ export default function ChamadoDetalhe() {
           </Button>
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded">{ticket.codigo}</span>
+              <span className="font-mono text-sm bg-primary text-primary-foreground px-2.5 py-1 rounded font-semibold">
+                {ticket.codigo}
+              </span>
               <Badge className={PRIORITY_COLORS[ticket.prioridade as TicketPriority]}>
                 {PRIORITY_LABELS[ticket.prioridade as TicketPriority]}
+              </Badge>
+              <Badge className={`${STATUS_COLORS[ticket.status as TicketStatus]} text-sm`}>
+                {STATUS_LABELS[ticket.status as TicketStatus]}
               </Badge>
               {sla && <Badge className={SLA_COLORS[sla.level]}>{sla.label}</Badge>}
             </div>
@@ -314,29 +319,44 @@ export default function ChamadoDetalhe() {
           </div>
         </div>
         <div className="flex gap-2 items-center">
-          <Select value={ticket.status} onValueChange={(v) => changeStatus(v as TicketStatus)}>
-            <SelectTrigger className="w-56">
-              <Badge className={STATUS_COLORS[ticket.status as TicketStatus]}>
-                {STATUS_LABELS[ticket.status as TicketStatus]}
-              </Badge>
-            </SelectTrigger>
-            <SelectContent>
-              {STATUS_ORDER.map((s) => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          {isClosed(ticket.status) ? (
+            <Button variant="outline" onClick={() => setReabrirOpen(true)}>
+              <RefreshCcw className="h-4 w-4 mr-1" /> Reabrir
+            </Button>
+          ) : (
+            <>
+              <Select value={ticket.status} onValueChange={(v) => changeStatus(v as TicketStatus)}>
+                <SelectTrigger className="w-56">
+                  <Badge className={STATUS_COLORS[ticket.status as TicketStatus]}>
+                    {STATUS_LABELS[ticket.status as TicketStatus]}
+                  </Badge>
+                </SelectTrigger>
+                <SelectContent>
+                  {STATUS_ORDER.map((s) => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Button variant="default" onClick={() => setEncerrarOpen(true)}>
+                <CheckCircle2 className="h-4 w-4 mr-1" /> Encerrar
+              </Button>
+            </>
+          )}
           <Button variant="outline" onClick={() => setEditOpen(true)}>
             <Pencil className="h-4 w-4 mr-1" /> Editar
           </Button>
         </div>
       </div>
 
+      <TicketHeaderInfo ticket={ticket} history={history} />
+
       <Tabs defaultValue="resumo" className="w-full">
         <TabsList>
           <TabsTrigger value="resumo">Conversa ({comments.length + 1})</TabsTrigger>
+          <TabsTrigger value="timeline">Timeline</TabsTrigger>
           <TabsTrigger value="sla">SLA</TabsTrigger>
           <TabsTrigger value="historico">Histórico ({history.length})</TabsTrigger>
           <TabsTrigger value="anexos">Anexos ({attachments.length})</TabsTrigger>
         </TabsList>
+
 
         <TabsContent value="resumo" className="space-y-4">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
