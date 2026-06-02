@@ -282,6 +282,12 @@ export default function ChamadoDetalhe() {
   const removeAttachment = async (att: any) => {
     await supabase.storage.from("ticket-attachments").remove([att.storage_path]);
     await supabase.from("ticket_attachments").delete().eq("id", att.id);
+    await logTicketEvent({
+      ticketId,
+      campo: "anexo_remove",
+      valorAnterior: att.file_name,
+      user,
+    });
     load();
   };
 
