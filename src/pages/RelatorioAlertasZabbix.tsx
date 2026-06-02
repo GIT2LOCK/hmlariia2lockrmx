@@ -487,14 +487,14 @@ export default function RelatorioAlertasZabbix() {
 
         <Card className="lg:col-span-3">
           <CardHeader><CardTitle className="text-base">Top 10 hosts com mais alertas</CardTitle></CardHeader>
-          <CardContent className="h-72">
+          <CardContent style={{ height: Math.max(288, topHosts.length * 40 + 40) }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={topHosts} layout="vertical" margin={{ left: 100 }}>
+              <BarChart data={topHosts} layout="vertical" margin={{ left: 8, right: 16, top: 8, bottom: 8 }}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                 <XAxis type="number" allowDecimals={false} />
-                <YAxis type="category" dataKey="host" width={150} />
+                <YAxis type="category" dataKey="host" width={200} interval={0} tick={{ fontSize: 12 }} />
                 <Tooltip />
-                <Bar dataKey="count" fill="hsl(var(--primary))" />
+                <Bar dataKey="count" fill="hsl(var(--primary))" barSize={20} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
