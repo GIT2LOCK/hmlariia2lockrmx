@@ -23,6 +23,7 @@ import Chamados from "./pages/Chamados";
 import ChamadoDetalhe from "./pages/ChamadoDetalhe";
 import OAuthConsent from "./pages/OAuthConsent";
 import GrafanaControle from "./pages/GrafanaControle";
+import RelatorioAlertasZabbix from "./pages/RelatorioAlertasZabbix";
 import { UserProvider } from "./contexts/UserContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
