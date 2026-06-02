@@ -13,7 +13,6 @@ import {
   UserCheck,
   BookOpen,
   Activity,
-  BarChart3,
   Ticket,
   ShieldCheck,
   AlertTriangle,
