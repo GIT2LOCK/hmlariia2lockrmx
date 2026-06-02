@@ -629,7 +629,8 @@ serve(async (req) => {
           };
         });
 
-        let filtered = result_events;
+        // Apenas alertas com duração >= 5 minutos (300s)
+        let filtered = result_events.filter((r: any) => r.duration_sec >= 300);
         if (search && search.trim()) {
           const s = search.trim().toLowerCase();
           filtered = filtered.filter((r: any) =>
