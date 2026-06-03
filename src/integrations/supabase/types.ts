@@ -1012,6 +1012,7 @@ export type Database = {
           descricao: string | null
           id: number
           nome: string
+          pausa_sla: boolean
         }
         Insert: {
           ativo?: boolean
@@ -1020,6 +1021,7 @@ export type Database = {
           descricao?: string | null
           id?: number
           nome: string
+          pausa_sla?: boolean
         }
         Update: {
           ativo?: boolean
@@ -1028,6 +1030,7 @@ export type Database = {
           descricao?: string | null
           id?: number
           nome?: string
+          pausa_sla?: boolean
         }
         Relationships: []
       }
@@ -1112,6 +1115,241 @@ export type Database = {
         }
         Relationships: []
       }
+      ticket_sla_alerts: {
+        Row: {
+          criado_em: string
+          id: number
+          notification_id: number | null
+          sent_at: string
+          sent_to_group_id: number | null
+          sent_to_user_id: number | null
+          sla_type: string
+          threshold: string
+          ticket_id: number
+        }
+        Insert: {
+          criado_em?: string
+          id?: number
+          notification_id?: number | null
+          sent_at?: string
+          sent_to_group_id?: number | null
+          sent_to_user_id?: number | null
+          sla_type: string
+          threshold: string
+          ticket_id: number
+        }
+        Update: {
+          criado_em?: string
+          id?: number
+          notification_id?: number | null
+          sent_at?: string
+          sent_to_group_id?: number | null
+          sent_to_user_id?: number | null
+          sla_type?: string
+          threshold?: string
+          ticket_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_sla_alerts_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ticket_sla_business_hours: {
+        Row: {
+          ativo: boolean
+          atualizado_em: string
+          criado_em: string
+          dias_uteis: number[]
+          feriados: Json
+          hora_fim: string
+          hora_inicio: string
+          id: number
+          nome: string
+          padrao: boolean
+          timezone: string
+        }
+        Insert: {
+          ativo?: boolean
+          atualizado_em?: string
+          criado_em?: string
+          dias_uteis?: number[]
+          feriados?: Json
+          hora_fim?: string
+          hora_inicio?: string
+          id?: number
+          nome?: string
+          padrao?: boolean
+          timezone?: string
+        }
+        Update: {
+          ativo?: boolean
+          atualizado_em?: string
+          criado_em?: string
+          dias_uteis?: number[]
+          feriados?: Json
+          hora_fim?: string
+          hora_inicio?: string
+          id?: number
+          nome?: string
+          padrao?: boolean
+          timezone?: string
+        }
+        Relationships: []
+      }
+      ticket_sla_pauses: {
+        Row: {
+          criado_em: string
+          duration_minutes: number | null
+          fila_id: number | null
+          id: number
+          motivo: string | null
+          observacao: string | null
+          paused_at: string
+          paused_by: number | null
+          resumed_at: string | null
+          resumed_by: number | null
+          sla_type: string
+          status_pausa: string | null
+          ticket_id: number
+        }
+        Insert: {
+          criado_em?: string
+          duration_minutes?: number | null
+          fila_id?: number | null
+          id?: number
+          motivo?: string | null
+          observacao?: string | null
+          paused_at?: string
+          paused_by?: number | null
+          resumed_at?: string | null
+          resumed_by?: number | null
+          sla_type: string
+          status_pausa?: string | null
+          ticket_id: number
+        }
+        Update: {
+          criado_em?: string
+          duration_minutes?: number | null
+          fila_id?: number | null
+          id?: number
+          motivo?: string | null
+          observacao?: string | null
+          paused_at?: string
+          paused_by?: number | null
+          resumed_at?: string | null
+          resumed_by?: number | null
+          sla_type?: string
+          status_pausa?: string | null
+          ticket_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_sla_pauses_fila_id_fkey"
+            columns: ["fila_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_filas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_sla_pauses_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ticket_sla_policies: {
+        Row: {
+          ativo: boolean
+          atualizado_em: string
+          business_hours_only: boolean
+          categoria_id: number | null
+          criado_em: string
+          descricao: string | null
+          empresa_id: number | null
+          first_response_minutes: number
+          id: number
+          nome: string
+          prioridade: string | null
+          prioridade_ordem: number
+          resolution_minutes: number
+          support_group_id: number | null
+          tipo_chamado: string | null
+          unidade_id: number | null
+        }
+        Insert: {
+          ativo?: boolean
+          atualizado_em?: string
+          business_hours_only?: boolean
+          categoria_id?: number | null
+          criado_em?: string
+          descricao?: string | null
+          empresa_id?: number | null
+          first_response_minutes: number
+          id?: number
+          nome: string
+          prioridade?: string | null
+          prioridade_ordem?: number
+          resolution_minutes: number
+          support_group_id?: number | null
+          tipo_chamado?: string | null
+          unidade_id?: number | null
+        }
+        Update: {
+          ativo?: boolean
+          atualizado_em?: string
+          business_hours_only?: boolean
+          categoria_id?: number | null
+          criado_em?: string
+          descricao?: string | null
+          empresa_id?: number | null
+          first_response_minutes?: number
+          id?: number
+          nome?: string
+          prioridade?: string | null
+          prioridade_ordem?: number
+          resolution_minutes?: number
+          support_group_id?: number | null
+          tipo_chamado?: string | null
+          unidade_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_sla_policies_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_categorias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_sla_policies_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_sla_policies_support_group_id_fkey"
+            columns: ["support_group_id"]
+            isOneToOne: false
+            referencedRelation: "support_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_sla_policies_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tickets: {
         Row: {
           aguardando_cliente_desde: string | null
@@ -1132,6 +1370,13 @@ export type Database = {
           descricao: string | null
           empresa_id: number | null
           fila_id: number | null
+          first_response_alert_50_sent: boolean | null
+          first_response_alert_75_sent: boolean | null
+          first_response_alert_90_sent: boolean | null
+          first_response_breach_alert_sent: boolean | null
+          first_response_by: number | null
+          first_response_due_at: string | null
+          first_response_sla_status: string | null
           id: number
           link_id: number | null
           motivo_encerramento: string | null
@@ -1140,9 +1385,18 @@ export type Database = {
           operadora_id: number | null
           origem: Database["public"]["Enums"]["ticket_origem"]
           prioridade: Database["public"]["Enums"]["ticket_priority"]
+          resolution_alert_50_sent: boolean | null
+          resolution_alert_75_sent: boolean | null
+          resolution_alert_90_sent: boolean | null
+          resolution_breach_alert_sent: boolean | null
+          resolution_due_at: string | null
+          resolution_sla_status: string | null
+          resolved_by: number | null
           sla_atendimento_minutos: number
           sla_pausa_inicio: string | null
           sla_pausa_total_segundos: number
+          sla_pause_reason: string | null
+          sla_policy_id: number | null
           sla_solucao_minutos: number
           solicitante_email: string | null
           solicitante_nome: string | null
@@ -1174,6 +1428,13 @@ export type Database = {
           descricao?: string | null
           empresa_id?: number | null
           fila_id?: number | null
+          first_response_alert_50_sent?: boolean | null
+          first_response_alert_75_sent?: boolean | null
+          first_response_alert_90_sent?: boolean | null
+          first_response_breach_alert_sent?: boolean | null
+          first_response_by?: number | null
+          first_response_due_at?: string | null
+          first_response_sla_status?: string | null
           id?: number
           link_id?: number | null
           motivo_encerramento?: string | null
@@ -1182,9 +1443,18 @@ export type Database = {
           operadora_id?: number | null
           origem?: Database["public"]["Enums"]["ticket_origem"]
           prioridade?: Database["public"]["Enums"]["ticket_priority"]
+          resolution_alert_50_sent?: boolean | null
+          resolution_alert_75_sent?: boolean | null
+          resolution_alert_90_sent?: boolean | null
+          resolution_breach_alert_sent?: boolean | null
+          resolution_due_at?: string | null
+          resolution_sla_status?: string | null
+          resolved_by?: number | null
           sla_atendimento_minutos: number
           sla_pausa_inicio?: string | null
           sla_pausa_total_segundos?: number
+          sla_pause_reason?: string | null
+          sla_policy_id?: number | null
           sla_solucao_minutos: number
           solicitante_email?: string | null
           solicitante_nome?: string | null
@@ -1216,6 +1486,13 @@ export type Database = {
           descricao?: string | null
           empresa_id?: number | null
           fila_id?: number | null
+          first_response_alert_50_sent?: boolean | null
+          first_response_alert_75_sent?: boolean | null
+          first_response_alert_90_sent?: boolean | null
+          first_response_breach_alert_sent?: boolean | null
+          first_response_by?: number | null
+          first_response_due_at?: string | null
+          first_response_sla_status?: string | null
           id?: number
           link_id?: number | null
           motivo_encerramento?: string | null
@@ -1224,9 +1501,18 @@ export type Database = {
           operadora_id?: number | null
           origem?: Database["public"]["Enums"]["ticket_origem"]
           prioridade?: Database["public"]["Enums"]["ticket_priority"]
+          resolution_alert_50_sent?: boolean | null
+          resolution_alert_75_sent?: boolean | null
+          resolution_alert_90_sent?: boolean | null
+          resolution_breach_alert_sent?: boolean | null
+          resolution_due_at?: string | null
+          resolution_sla_status?: string | null
+          resolved_by?: number | null
           sla_atendimento_minutos?: number
           sla_pausa_inicio?: string | null
           sla_pausa_total_segundos?: number
+          sla_pause_reason?: string | null
+          sla_policy_id?: number | null
           sla_solucao_minutos?: number
           solicitante_email?: string | null
           solicitante_nome?: string | null
@@ -1280,6 +1566,13 @@ export type Database = {
             columns: ["operadora_id"]
             isOneToOne: false
             referencedRelation: "operadoras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_sla_policy_fk"
+            columns: ["sla_policy_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_sla_policies"
             referencedColumns: ["id"]
           },
           {
@@ -1505,6 +1798,40 @@ export type Database = {
     }
     Functions: {
       custom_access_token_hook: { Args: { event: Json }; Returns: Json }
+      fn_find_sla_policy: {
+        Args: {
+          _categoria_id: number
+          _empresa_id: number
+          _prioridade: string
+          _support_group_id: number
+          _tipo: string
+          _unidade_id: number
+        }
+        Returns: {
+          ativo: boolean
+          atualizado_em: string
+          business_hours_only: boolean
+          categoria_id: number | null
+          criado_em: string
+          descricao: string | null
+          empresa_id: number | null
+          first_response_minutes: number
+          id: number
+          nome: string
+          prioridade: string | null
+          prioridade_ordem: number
+          resolution_minutes: number
+          support_group_id: number | null
+          tipo_chamado: string | null
+          unidade_id: number | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ticket_sla_policies"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       grafana_effective_permissions: {
         Args: { _usuario_id: number }
         Returns: Json
