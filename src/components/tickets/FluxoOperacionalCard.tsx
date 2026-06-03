@@ -642,6 +642,14 @@ function NivelModal({ open, onClose, ticket, groups, tecnicos, novoNivel, user, 
   const submit = async () => {
     const motivoFinal = motivo === "Outro" ? outro.trim() : motivo;
     if (!motivoFinal) { toast({ title: "Motivo obrigatório", variant: "destructive" }); return; }
+    if (!grpId && !tecId) {
+      toast({
+        title: "Informe equipe ou técnico",
+        description: "Para escalonar/rebaixar é obrigatório definir ao menos uma equipe ou um técnico de destino.",
+        variant: "destructive",
+      });
+      return;
+    }
     if (grpId && equipeSemMembros && !tecId) {
       toast({
         title: "Equipe sem membros",
@@ -649,12 +657,6 @@ function NivelModal({ open, onClose, ticket, groups, tecnicos, novoNivel, user, 
         variant: "destructive",
       });
       return;
-    }
-    if (grpId && !tecId) {
-      const ok = window.confirm(
-        "Você está escalonando para esta equipe sem definir um técnico responsável. O chamado pode ficar sem responsável até alguém assumir. Deseja continuar?",
-      );
-      if (!ok) return;
     }
     try {
       await alterarNivel({
