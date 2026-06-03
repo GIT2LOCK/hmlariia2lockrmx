@@ -607,13 +607,55 @@ function NivelModal({ open, onClose, ticket, groups, tecnicos, novoNivel, user, 
   const [motivo, setMotivo] = useState("");
   const [outro, setOutro] = useState("");
   const [obs, setObs] = useState("");
-  useEffect(() => { if (open) { setGrpId(""); setTecId(""); setMotivo(""); setOutro(""); setObs(""); } }, [open]);
+  const [grpMembers, setGrpMembers] = useState<{ usuario_id: number; nome: string }[]>([]);
+  const [loadingMembers, setLoadingMembers] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setGrpId(""); setTecId(""); setMotivo(""); setOutro(""); setObs("");
+      setGrpMembers([]);
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (!grpId) { setGrpMembers([]); return; }
+    setLoadingMembers(true);
+    (async () => {
+      const { data } = await supabase
+        .from("support_group_members")
+        .select("usuario_id,usuarios:usuario_id(nome)")
+        .eq("group_id", Number(grpId))
+        .eq("ativo", true);
+      setGrpMembers(((data || []) as any[]).map((m) => ({ usuario_id: m.usuario_id, nome: m.usuarios?.nome || `#${m.usuario_id}` })));
+      setTecId("");
+      setLoadingMembers(false);
+    })();
+  }, [grpId]);
+
   if (!novoNivel) return null;
   const atual = (ticket.nivel_escalonamento || "N1") as TicketNivel;
   const isEscalonar = ["N1", "N2", "N3"].indexOf(novoNivel) > ["N1", "N2", "N3"].indexOf(atual);
+  const grupoSelecionado = groups.find((g: any) => g.id === Number(grpId));
+  const equipeSemMembros = !!grpId && !loadingMembers && grpMembers.length === 0;
+  const nivelDivergente = grupoSelecionado?.nivel && grupoSelecionado.nivel !== novoNivel;
+
   const submit = async () => {
     const motivoFinal = motivo === "Outro" ? outro.trim() : motivo;
     if (!motivoFinal) { toast({ title: "Motivo obrigatório", variant: "destructive" }); return; }
+    if (grpId && equipeSemMembros && !tecId) {
+      toast({
+        title: "Equipe sem membros",
+        description: "A equipe selecionada não tem membros. Cadastre membros em Equipes ou escolha outra equipe/técnico.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (grpId && !tecId) {
+      const ok = window.confirm(
+        "Você está escalonando para esta equipe sem definir um técnico responsável. O chamado pode ficar sem responsável até alguém assumir. Deseja continuar?",
+      );
+      if (!ok) return;
+    }
     try {
       await alterarNivel({
         ticket, novoNivel,
@@ -624,6 +666,12 @@ function NivelModal({ open, onClose, ticket, groups, tecnicos, novoNivel, user, 
       toast({ title: isEscalonar ? "Chamado escalonado" : "Nível rebaixado" }); onDone(); onClose();
     } catch (e: any) { toast({ title: "Erro", description: e.message, variant: "destructive" }); }
   };
+
+  // técnicos sugeridos: membros do grupo escolhido. Se nenhum grupo, mostra todos.
+  const tecnicoOptions = grpId
+    ? grpMembers.map((m) => ({ id: m.usuario_id, nome: m.nome }))
+    : tecnicos;
+
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
@@ -641,13 +689,30 @@ function NivelModal({ open, onClose, ticket, groups, tecnicos, novoNivel, user, 
                 {groups.map((g: any) => <SelectItem key={g.id} value={g.id.toString()}>{g.nome}{g.nivel ? ` (${g.nivel})` : ""}</SelectItem>)}
               </SelectContent>
             </Select>
+            {nivelDivergente && (
+              <p className="text-xs text-amber-600 mt-1">
+                Atenção: a equipe selecionada é nível {grupoSelecionado.nivel}, diferente de {novoNivel}.
+              </p>
+            )}
+            {equipeSemMembros && (
+              <p className="text-xs text-destructive mt-1">
+                Esta equipe não tem membros cadastrados. Cadastre em <strong>Equipes</strong> ou escolha outra.
+              </p>
+            )}
           </div>
           <div>
-            <Label>Técnico de destino (opcional)</Label>
+            <Label>
+              Técnico de destino {grpId ? "(membros da equipe)" : "(opcional)"}
+            </Label>
             <Select value={tecId} onValueChange={setTecId}>
-              <SelectTrigger><SelectValue placeholder="Deixar sem técnico" /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue placeholder={loadingMembers ? "Carregando…" : "Deixar sem técnico"} />
+              </SelectTrigger>
               <SelectContent>
-                {tecnicos.map((t: any) => <SelectItem key={t.id} value={t.id.toString()}>{t.nome}</SelectItem>)}
+                {tecnicoOptions.length === 0 && (
+                  <div className="px-2 py-1.5 text-sm text-muted-foreground">Nenhum técnico disponível</div>
+                )}
+                {tecnicoOptions.map((t: any) => <SelectItem key={t.id} value={t.id.toString()}>{t.nome}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -664,6 +729,7 @@ function NivelModal({ open, onClose, ticket, groups, tecnicos, novoNivel, user, 
     </Dialog>
   );
 }
+
 
 function AguardandoClienteModal({ open, onClose, ticket, user, onDone }: any) {
   const [motivo, setMotivo] = useState("");
