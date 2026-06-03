@@ -275,8 +275,9 @@ export async function alterarNivel(opts: {
       `Chamado ${isEscalonar ? "escalonado" : "rebaixado"} para ${novoNivel} e atribuído a você.`);
   } else if (destinoGrupoId) {
     const members = await getGroupMembers(destinoGrupoId);
+    const grpNome = await getGroupName(destinoGrupoId);
     await Promise.all(members.map((m) => notify(m, ticket.id, isEscalonar ? "escalated" : "demoted",
-      `Chamado ${isEscalonar ? "escalonado" : "rebaixado"} para ${novoNivel} (equipe ${await getGroupName(destinoGrupoId)}).`)));
+      `Chamado ${isEscalonar ? "escalonado" : "rebaixado"} para ${novoNivel} (equipe ${grpNome}).`)));
   }
 }
 
