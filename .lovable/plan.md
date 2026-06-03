@@ -1,185 +1,110 @@
-## Fluxo Operacional de Atendimento — Módulo Chamados
+# Sistema de SLA — Módulo de Chamados Ariia
 
-Evolução incremental do módulo atual (`tickets`, `ticket_history`, `ticket_comments`, `ticket_attachments`, `ticket_filas`, `ticket_categorias`, `ChamadoDetalhe.tsx`, `TicketModal.tsx`, `tickets-api`). Sem criar módulo novo, sem duplicar tabelas, reaproveitando ao máximo o que já existe.
+Implementação incremental do controle de SLA reaproveitando a estrutura atual de `tickets`, `ticket_filas`, `ticket_history`, `ticket_notifications` e permissões existentes.
 
----
+## Escopo
 
-### Mapeamento do que já existe vs. o que falta
+Adicionar controle automático de:
+- SLA de Primeiro Atendimento
+- SLA de Solução (com pausas)
+- Alertas progressivos (50%, 75%, 90%, estourado)
+- Histórico de eventos de SLA
+- Configuração de políticas por prioridade/tipo/categoria/cliente/equipe
+- Horário comercial / calendário útil
 
-| Necessidade | Já existe? | Ação |
-|---|---|---|
-| Técnico responsável | `tickets.tecnico_id` | Reaproveitar |
-| Fila operacional | `tickets.fila_id` → `ticket_filas` | Reaproveitar + semear filas operacionais |
-| Status | `tickets.status` (enum `ticket_status`) | Manter |
-| Histórico genérico | `ticket_history` (campo/valor_anterior/valor_novo/observação/autor) | Reaproveitar para TODOS os eventos operacionais (não criar `ticket_operational_logs` separado) |
-| Comentários internos | `ticket_comments` | Reaproveitar |
-| Equipes / grupos | Não existe | Criar `support_groups` + `support_group_members` |
-| Nível de escalonamento (N1/N2/N3) | Não existe | Adicionar coluna `nivel_escalonamento` em `tickets` |
-| Equipe responsável atual | Não existe | Adicionar `assigned_group_id` em `tickets` |
-| Quem atribuiu / quando | Não existe | Adicionar `assigned_by` + `assigned_at` em `tickets` |
-| Motivo "Aguardando cliente" | Não existe | Adicionar `aguardando_cliente_motivo` + `aguardando_cliente_desde` |
-| Permissões finas | `usuarios.permissao` (SUPERADMIN/ADMIN/USER/VIEWER) | Estender no front (gestor/coord/N1/N2/N3 ficam como membership em `support_group_members.role_in_group`) |
-| Notificações | Não há tabela própria | Criar `ticket_notifications` simples (in-app) |
+Não cria novo módulo. Não duplica telas. Reaproveita `ticket_history` para eventos.
 
-### 1. Migração de banco (uma única, incremental)
+## Fase 1 — Banco de dados (migração única)
 
-```sql
--- enums
-CREATE TYPE ticket_nivel AS ENUM ('N1','N2','N3');
-CREATE TYPE support_group_role AS ENUM ('MEMBRO','COORDENADOR','GESTOR');
+### Novas colunas em `tickets`
+```
+first_response_due_at        timestamptz
+first_response_at            timestamptz
+first_response_by            uuid
+first_response_sla_status    text  -- pending|in_progress|paused|met|breached
+first_response_sla_target_minutes  int
+first_response_sla_elapsed_minutes int
 
--- tickets: novas colunas (todas nullable, sem quebrar dados existentes)
-ALTER TABLE tickets
-  ADD COLUMN assigned_group_id int,
-  ADD COLUMN assigned_by int,
-  ADD COLUMN assigned_at timestamptz,
-  ADD COLUMN nivel_escalonamento ticket_nivel NOT NULL DEFAULT 'N1',
-  ADD COLUMN aguardando_cliente_motivo text,
-  ADD COLUMN aguardando_cliente_desde timestamptz;
+resolution_due_at            timestamptz
+resolved_at                  timestamptz
+resolved_by                  uuid
+resolution_sla_status        text
+resolution_sla_target_minutes  int
+resolution_sla_elapsed_minutes int
+resolution_sla_paused_minutes  int default 0
 
--- grupos / equipes
-CREATE TABLE support_groups (
-  id serial PRIMARY KEY,
-  nome varchar NOT NULL UNIQUE,
-  descricao text,
-  nivel ticket_nivel,           -- nível padrão da equipe (opcional)
-  ativo boolean NOT NULL DEFAULT true,
-  criado_em timestamptz DEFAULT now(),
-  atualizado_em timestamptz DEFAULT now()
-);
-GRANT SELECT ON support_groups TO anon;
-GRANT SELECT, INSERT, UPDATE, DELETE ON support_groups TO authenticated;
-GRANT ALL ON support_groups TO service_role;
-ALTER TABLE support_groups ENABLE ROW LEVEL SECURITY;
--- policies: anon/authenticated full access (segue padrão do projeto)
-
-CREATE TABLE support_group_members (
-  id serial PRIMARY KEY,
-  group_id int NOT NULL,
-  usuario_id int NOT NULL,
-  role_in_group support_group_role NOT NULL DEFAULT 'MEMBRO',
-  ativo boolean NOT NULL DEFAULT true,
-  criado_em timestamptz DEFAULT now(),
-  UNIQUE(group_id, usuario_id)
-);
--- mesmos GRANT/RLS
-
--- notificações internas
-CREATE TABLE ticket_notifications (
-  id serial PRIMARY KEY,
-  ticket_id int NOT NULL,
-  usuario_id int NOT NULL,         -- destinatário
-  tipo varchar NOT NULL,           -- assigned, transferred, escalated, demoted, awaiting_client, client_replied, etc
-  mensagem text NOT NULL,
-  lida boolean NOT NULL DEFAULT false,
-  criado_em timestamptz DEFAULT now()
-);
--- mesmos GRANT/RLS
+sla_paused_at                timestamptz
+sla_pause_reason             text
+sla_policy_id                uuid
 ```
 
-Filas operacionais (seed em `ticket_filas`, sem alterar schema): "Novos", "Em atendimento", "Aguardando cliente", "Escalados". Ações registradas em `ticket_history` com `campo` padronizado.
+### Novas tabelas
+- `ticket_sla_policies` — regras configuráveis (prioridade, tipo, categoria, cliente, organização, equipe, minutos primeiro atendimento, minutos solução, horário comercial sim/não, ativa)
+- `ticket_sla_business_hours` — calendário (dias úteis, horário início/fim, fuso, feriados em JSON)
+- `ticket_sla_pauses` — histórico de pausas (ticket, tipo SLA, motivo, status/fila, início, fim, duração, usuário)
+- `ticket_sla_alerts` — alertas disparados (ticket, sla_type, threshold, sent_at, sent_to) com UNIQUE(ticket, sla_type, threshold) para evitar duplicação
 
-### 2. Convenção de eventos em `ticket_history`
+### Triggers / funções
+- `fn_apply_sla_policy(ticket)` — na criação aplica política e calcula `*_due_at`
+- `fn_ticket_sla_on_status_change` — pausa/retoma SLA conforme fila (Aguardando cliente/fornecedor/terceiros)
+- `fn_ticket_sla_on_first_response` — marca first_response_at na primeira mensagem/atribuição válida
+- `fn_ticket_sla_on_resolve` — marca resolved_at quando fila/status = resolvido/fechado
+- Inserção em `ticket_history` em cada evento (sla_paused, sla_resumed, sla_first_response_met, sla_resolution_breached, etc.)
 
-Mantém a tabela atual. Novos valores de `campo`:
+### RLS e GRANTs
+- Policies: leitura para authenticated; escrita de políticas restrita a ADMIN/SUPERADMIN via `is_ariia_admin()`
+- `ticket_sla_pauses` e `ticket_sla_alerts` graváveis apenas via triggers (service_role) + leitura por authenticated
 
-| campo | uso |
-|---|---|
-| `assigned` | atribuição inicial / assumir |
-| `tecnico_id` | troca de responsável (já existe) |
-| `assigned_group_id` | troca de equipe |
-| `transferred_user` | transferência técnico→técnico |
-| `transferred_group` | transferência equipe→equipe |
-| `escalated` | N1→N2, N2→N3 |
-| `demoted` | N3→N2, N2→N1 |
-| `fila_id` | mudança de fila (já existe) |
-| `aguardando_cliente` | entrou/saiu da fila aguardando cliente |
-| `client_replied` | resposta do cliente registrada |
+## Fase 2 — Edge function de monitoramento (cron)
 
-`observacao` carrega o motivo obrigatório. Reuso total — sem nova tabela de log.
+`sla-monitor` invocada via `pg_cron` a cada minuto:
+- Recalcula `*_elapsed_minutes` e percentual consumido
+- Dispara alertas 50/75/90/breached gravando em `ticket_sla_alerts` (UNIQUE evita repetição) e em `ticket_notifications`
+- Notifica responsável, equipe, gestor conforme threshold
 
-### 3. Frontend — nova seção "Fluxo Operacional"
+## Fase 3 — Frontend
 
-**Em `src/pages/ChamadoDetalhe.tsx`**, novo card acima do conteúdo atual:
-- Técnico atual, Equipe atual, Fila atual, Status, Nível, Atribuído por/em.
-- Estado vazio: "Sem técnico atribuído" + botão **Assumir** / **Atribuir**.
-- Botões condicionados por permissão: Assumir, Atribuir, Alterar responsável, Transferir, Escalonar, Rebaixar, Mover fila, Aguardando cliente, Retomar atendimento.
+### Configuração (nova aba dentro de Configurações de Chamados)
+- `src/pages/configuracoes/SlaPolicies.tsx` — CRUD de políticas
+- `src/pages/configuracoes/SlaBusinessHours.tsx` — horário comercial e feriados
 
-**Novos componentes em `src/components/tickets/`:**
-- `FluxoOperacionalCard.tsx` — header com infos + botões.
-- `AssumirAtribuirModal.tsx` — assumir ou atribuir técnico/equipe.
-- `AlterarResponsavelModal.tsx` — motivo obrigatório (select + "Outro").
-- `TransferirChamadoModal.tsx` — origem/destino técnico, motivo, manter ou trocar fila, notificar.
-- `TransferirEquipeModal.tsx` — equipe destino, técnico opcional, motivo.
-- `EscalonarModal.tsx` — escalonar/rebaixar + motivo + equipe/técnico destino opcional.
-- `AguardandoClienteModal.tsx` — entra na fila com motivo; **Retomar atendimento** limpa motivo e volta status.
+### Listagem de chamados (`src/pages/Chamados.tsx` ou equivalente)
+- Coluna "SLA 1º Atend." e "SLA Solução" com badge colorido
+- Tempo restante / % consumido
+- Filtros: dentro do prazo / atenção / crítico / estourado / pausado
 
-**Helpers em `src/lib/ticketWorkflow.ts`:**
-- `assumirChamado`, `atribuirResponsavel`, `alterarResponsavel`, `transferirTecnico`, `transferirGrupo`, `escalonar`, `rebaixar`, `moverFila`, `marcarAguardandoCliente`, `retomarAtendimento`.
-- Cada função: update em `tickets`, insert em `ticket_history`, insert em `ticket_notifications` para destinatário(s).
-- `canPerformAction(user, ticket, action)` — regras de permissão (Superadmin/Admin tudo; Gestor/Coordenador na própria equipe; N1/N2/N3 conforme nível; Viewer leitura).
+### Detalhes do chamado
+- Novo componente `src/components/tickets/SlaCard.tsx`
+  - Seção Primeiro Atendimento (status, prazo, tempo restante, %, cumprido por/quando)
+  - Seção Solução (status, prazo, %, tempo pausado, resolvido por/quando)
+  - Seção Pausas (lista do histórico de `ticket_sla_pauses`)
+- Botão "Recalcular SLA" (ADMIN/SUPERADMIN) chamando edge function `sla-recalculate`
 
-**Listagem `src/pages/Chamados.tsx`:**
-- Adicionar filtros: Responsável, Equipe, Fila, Status, Nível, "Sem responsável", "Aguardando cliente", "Escalados".
-- Adicionar colunas: Equipe, Fila, Nível (responsável/status/prioridade/última atualização já existem ou serão garantidas).
+### Hooks
+- `src/hooks/useTicketSla.ts` — busca dados de SLA do ticket + realtime
+- `src/lib/sla.ts` — helpers de cálculo (cor por %, formato HH:MM, status visual)
 
-**Timeline (`TicketTimeline.tsx`):** mapear os novos `campo` para ícones/labels amigáveis em `ticketHistory.ts → fieldLabel/formatValue`.
+## Fase 4 — Permissões
 
-### 4. Gestão de equipes
+Reaproveitar enum `permissao` em `usuarios`:
+- SUPERADMIN/ADMIN: configurar políticas, recalcular
+- Demais: leitura conforme RLS existente de tickets
 
-Tela simples nova `src/pages/SupportGroups.tsx` (admin only) para CRUD de `support_groups` + membros. Linkada no sidebar dentro da seção Chamados. Mantém o estilo do projeto (navy/light blue).
+## Detalhes técnicos
 
-### 5. Notificações
+- Cálculo de "horas úteis": função SQL `fn_business_minutes_between(start, end, policy_id)` percorre intervalos do calendário descontando finais de semana e feriados
+- Pausa de SLA: ao entrar em fila configurada como pausa (flag `pausa_sla` em `ticket_filas`), grava `sla_paused_at` + linha em `ticket_sla_pauses`; ao sair, calcula duração e soma a `resolution_sla_paused_minutes`, recalcula `resolution_due_at = resolution_due_at + duracao`
+- Primeira resposta válida: primeira inserção em `ticket_comments` por usuário não-cliente OU mudança para fila "Em atendimento"
+- Realtime: tickets já usa Supabase Realtime, o SlaCard reage automaticamente
+- Idempotência dos alertas garantida por `UNIQUE(ticket_id, sla_type, threshold)` em `ticket_sla_alerts`
 
-- `useTicketNotifications` hook + indicador no header (badge). Realtime via canal Supabase em `ticket_notifications` para o `usuario_id` logado.
-- Gatilhos disparados pelos helpers de workflow.
+## Entrega incremental
 
-### 6. Regras de negócio aplicadas
+1. Migração de schema + triggers básicos
+2. Hook + SlaCard nos detalhes
+3. Indicadores na listagem + filtros
+4. Configuração de políticas e horário comercial
+5. Edge function de monitoramento + alertas
+6. Ação "Recalcular SLA"
 
-Validadas no helper antes de salvar:
-- "Em atendimento" exige `tecnico_id`.
-- "Aguardando cliente" exige motivo.
-- Transferência/Escalonamento/Alteração de responsável exigem motivo.
-- N1 não assume chamado nível ≠ N1 sem ser ADMIN/SUPERADMIN ou gestor/coord da equipe destino.
-- Viewer/Cliente: somente leitura nas ações.
-- Histórico sempre preserva responsável anterior (já garantido pelo `valor_anterior`).
-
-### 7. Edge function `tickets-api`
-
-Apenas estender com endpoints opcionais (`/transfer`, `/escalate`, `/awaiting-client`) usados pelo n8n/integrations. Front pode operar direto via `supabase-js` (RLS atual já permite). Sem refatorar fluxos existentes.
-
-### 8. Entregáveis
-
-**Migração:** 1 arquivo SQL conforme item 1.
-**Novos arquivos:**
-- `src/lib/ticketWorkflow.ts`
-- `src/lib/ticketPermissions.ts`
-- `src/components/tickets/FluxoOperacionalCard.tsx`
-- `src/components/tickets/AssumirAtribuirModal.tsx`
-- `src/components/tickets/AlterarResponsavelModal.tsx`
-- `src/components/tickets/TransferirChamadoModal.tsx`
-- `src/components/tickets/TransferirEquipeModal.tsx`
-- `src/components/tickets/EscalonarModal.tsx`
-- `src/components/tickets/AguardandoClienteModal.tsx`
-- `src/pages/SupportGroups.tsx`
-- `src/hooks/useTicketNotifications.ts`
-- `src/components/NotificationsBell.tsx`
-
-**Arquivos editados:**
-- `src/pages/ChamadoDetalhe.tsx` — integrar card + modais.
-- `src/pages/Chamados.tsx` — filtros + colunas.
-- `src/components/tickets/TicketTimeline.tsx` + `src/lib/ticketHistory.ts` — novos rótulos.
-- `src/components/AppSidebar.tsx` — link "Equipes".
-- `src/components/DashboardLayout.tsx` — sino de notificações.
-- `supabase/functions/tickets-api/index.ts` — endpoints adicionais (opcional).
-
-### O que NÃO vou mudar
-
-- Não substituo o enum `ticket_status` atual.
-- Não removo/renomeio colunas existentes.
-- Não mexo no fluxo de e-mail/N8N/SmartSigma existente.
-- Não toco em RLS atuais (mantém o padrão `Anon/Authenticated full access`).
-
----
-
-Confirma que posso seguir com a migração + implementação nesses moldes? Se quiser, posso fatiar a entrega em ondas (Onda 1: migração + Fluxo Operacional básico no detalhe; Onda 2: equipes/grupos + transferência por equipe; Onda 3: filtros na listagem + notificações). Me diz a preferência.
+Confirma para eu começar pela Fase 1 (migração do banco)?
