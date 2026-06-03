@@ -31,6 +31,7 @@ import { TicketTimeline } from "@/components/tickets/TicketTimeline";
 import { EncerramentoModal } from "@/components/tickets/EncerramentoModal";
 import { ReaberturaModal } from "@/components/tickets/ReaberturaModal";
 import { FluxoOperacionalCard } from "@/components/tickets/FluxoOperacionalCard";
+import { SlaCard } from "@/components/tickets/SlaCard";
 import { logTicketEvent, fieldLabel, formatValue } from "@/lib/ticketHistory";
 import { TicketModal } from "@/components/TicketModal";
 import { format } from "date-fns";
