@@ -642,6 +642,14 @@ function NivelModal({ open, onClose, ticket, groups, tecnicos, novoNivel, user, 
   const submit = async () => {
     const motivoFinal = motivo === "Outro" ? outro.trim() : motivo;
     if (!motivoFinal) { toast({ title: "Motivo obrigatório", variant: "destructive" }); return; }
+    if (!grpId && !tecId) {
+      toast({
+        title: "Informe equipe ou técnico",
+        description: "Para escalonar/rebaixar é obrigatório definir ao menos uma equipe ou um técnico de destino.",
+        variant: "destructive",
+      });
+      return;
+    }
     if (grpId && equipeSemMembros && !tecId) {
       toast({
         title: "Equipe sem membros",
@@ -649,12 +657,6 @@ function NivelModal({ open, onClose, ticket, groups, tecnicos, novoNivel, user, 
         variant: "destructive",
       });
       return;
-    }
-    if (grpId && !tecId) {
-      const ok = window.confirm(
-        "Você está escalonando para esta equipe sem definir um técnico responsável. O chamado pode ficar sem responsável até alguém assumir. Deseja continuar?",
-      );
-      if (!ok) return;
     }
     try {
       await alterarNivel({
@@ -681,8 +683,11 @@ function NivelModal({ open, onClose, ticket, groups, tecnicos, novoNivel, user, 
         </DialogHeader>
         <div className="space-y-3">
           <MotivoSelect options={MOTIVOS_ESCALONAMENTO} value={motivo} onChange={setMotivo} outroValue={outro} onOutroChange={setOutro} />
+          <p className="text-xs text-muted-foreground">
+            Informe ao menos <strong>equipe</strong> ou <strong>técnico</strong> de destino.
+          </p>
           <div>
-            <Label>Equipe de destino (opcional)</Label>
+            <Label>Equipe de destino {!tecId && <span className="text-destructive">*</span>}</Label>
             <Select value={grpId} onValueChange={setGrpId}>
               <SelectTrigger><SelectValue placeholder="Manter equipe atual" /></SelectTrigger>
               <SelectContent>
@@ -702,7 +707,7 @@ function NivelModal({ open, onClose, ticket, groups, tecnicos, novoNivel, user, 
           </div>
           <div>
             <Label>
-              Técnico de destino {grpId ? "(membros da equipe)" : "(opcional)"}
+              Técnico de destino {!grpId && <span className="text-destructive">*</span>} {grpId ? "(membros da equipe)" : ""}
             </Label>
             <Select value={tecId} onValueChange={setTecId}>
               <SelectTrigger>
