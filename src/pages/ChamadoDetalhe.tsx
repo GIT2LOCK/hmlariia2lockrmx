@@ -30,6 +30,7 @@ import { TicketHeaderInfo } from "@/components/tickets/TicketHeaderInfo";
 import { TicketTimeline } from "@/components/tickets/TicketTimeline";
 import { EncerramentoModal } from "@/components/tickets/EncerramentoModal";
 import { ReaberturaModal } from "@/components/tickets/ReaberturaModal";
+import { FluxoOperacionalCard } from "@/components/tickets/FluxoOperacionalCard";
 import { logTicketEvent, fieldLabel, formatValue } from "@/lib/ticketHistory";
 import { TicketModal } from "@/components/TicketModal";
 import { format } from "date-fns";
@@ -347,6 +348,7 @@ export default function ChamadoDetalhe() {
       </div>
 
       <TicketHeaderInfo ticket={ticket} history={history} />
+      <FluxoOperacionalCard ticket={ticket} onChanged={load} />
 
       <Tabs defaultValue="resumo" className="w-full">
         <TabsList>

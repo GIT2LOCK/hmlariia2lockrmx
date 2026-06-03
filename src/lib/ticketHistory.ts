@@ -80,6 +80,14 @@ export function fieldLabel(campo: string): string {
     anexo_remove: "Anexo removido",
     encerramento: "Encerramento",
     reabertura: "Reabertura",
+    assigned: "Atribuição",
+    assigned_group_id: "Equipe responsável",
+    transferred_user: "Transferência (técnico)",
+    transferred_group: "Transferência (equipe)",
+    escalated: "Escalonamento",
+    demoted: "Rebaixamento de nível",
+    aguardando_cliente: "Aguardando cliente",
+    client_replied: "Resposta do cliente",
   };
   return map[campo] || campo;
 }
