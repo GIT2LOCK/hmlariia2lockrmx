@@ -80,6 +80,7 @@ export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
     solicitante_telefone: "",
     ativo: "",
     origem: "MANUAL" as string,
+    tipo_chamado: "T" as string,
   });
 
   const unidadesFiltered = useMemo(() => {
@@ -143,6 +144,7 @@ export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
             solicitante_telefone: data.solicitante_telefone || "",
             ativo: data.ativo || "",
             origem: data.origem || "MANUAL",
+            tipo_chamado: (data as any).tipo_chamado || "T",
           });
         }
         const { data: atts } = await supabase
@@ -157,7 +159,7 @@ export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
           empresa_id: "", unidade_id: "", operadora_id: "", fila_id: "",
           categoria_id: "", tecnico_id: "", solicitante_id: "",
           solicitante_nome: "", solicitante_email: "", solicitante_telefone: "",
-          ativo: "", origem: "MANUAL",
+          ativo: "", origem: "MANUAL", tipo_chamado: "T",
         });
         setExistingAttachments([]);
       }
@@ -254,6 +256,7 @@ export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
       solicitante_telefone: form.solicitante_telefone || null,
       ativo: form.ativo || null,
       origem: form.origem,
+      tipo_chamado: (form.tipo_chamado || "T").toUpperCase().slice(0, 1),
       sla_atendimento_minutos: SLA_ATENDIMENTO[form.prioridade],
       sla_solucao_minutos: SLA_SOLUCAO[form.prioridade],
     };
@@ -327,6 +330,27 @@ export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
                 ))}
               </SelectContent>
             </Select>
+          </div>
+          <div>
+            <Label>Tipo do chamado</Label>
+            <Select
+              value={form.tipo_chamado}
+              onValueChange={(v) => setForm({ ...form, tipo_chamado: v })}
+              disabled={!!ticketId}
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="T">T — Chamado (padrão)</SelectItem>
+                <SelectItem value="I">I — Incidente</SelectItem>
+                <SelectItem value="R">R — Requisição</SelectItem>
+                <SelectItem value="P">P — Problema</SelectItem>
+                <SelectItem value="M">M — Mudança</SelectItem>
+                <SelectItem value="A">A — Atendimento</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Define a letra do código (ex.: 2L<b>{form.tipo_chamado || "T"}</b>AAMM0001). Não pode ser alterado após criação.
+            </p>
           </div>
           <div>
             <Label>Status</Label>
