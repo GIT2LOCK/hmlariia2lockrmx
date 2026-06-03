@@ -16,6 +16,7 @@ import {
   Ticket,
   ShieldCheck,
   AlertTriangle,
+  Gauge,
 } from "lucide-react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -45,6 +46,7 @@ const menuItems = [
   { title: "Responsáveis", url: "/dashboard/responsaveis", icon: UserCheck },
   { title: "Base de Conhecimento", url: "/dashboard/base-conhecimento", icon: BookOpen },
   { title: "Chamados", url: "/dashboard/chamados", icon: Ticket },
+  { title: "Dashboard Atendimento", url: "/dashboard/atendimento", icon: Gauge },
   { title: "Equipes", url: "/dashboard/equipes", icon: Users },
   { title: "Relatórios Zabbix", url: "/dashboard/zabbix/relatorio-alertas", icon: AlertTriangle },
   { title: "Monitoramento", url: "/dashboard/zabbix", icon: Activity },
