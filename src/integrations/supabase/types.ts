@@ -1798,6 +1798,75 @@ export type Database = {
     }
     Functions: {
       custom_access_token_hook: { Args: { event: Json }; Returns: Json }
+      fn_dashboard_by_fila: {
+        Args: never
+        Returns: {
+          fila_id: number
+          fila_nome: string
+          total: number
+        }[]
+      }
+      fn_dashboard_by_status: {
+        Args: never
+        Returns: {
+          status: string
+          total: number
+        }[]
+      }
+      fn_dashboard_current_usuario: {
+        Args: never
+        Returns: {
+          id: number
+          permissao: string
+        }[]
+      }
+      fn_dashboard_kpis: { Args: { _from: string; _to: string }; Returns: Json }
+      fn_dashboard_pontos_atencao: {
+        Args: never
+        Returns: {
+          codigo: string
+          data_abertura: string
+          id: number
+          motivo: string
+          pct_sla: number
+          prioridade: string
+          resolution_due_at: string
+          resolution_sla_status: string
+          status: string
+          tecnico_nome: string
+          titulo: string
+        }[]
+      }
+      fn_dashboard_serie_diaria: {
+        Args: { _from: string; _to: string }
+        Returns: {
+          abertos: number
+          dia: string
+          fechados: number
+        }[]
+      }
+      fn_dashboard_tecnicos: {
+        Args: { _from: string; _to: string }
+        Returns: {
+          abertos: number
+          aguardando_cliente: number
+          avatar_url: string
+          em_atendimento: number
+          fechados_periodo: number
+          sla_cumprido: number
+          sla_violado: number
+          tecnico_id: number
+          tecnico_nome: string
+          tma_minutos: number
+          tms_minutos: number
+        }[]
+      }
+      fn_dashboard_ticket_ids: {
+        Args: never
+        Returns: {
+          ticket_id: number
+        }[]
+      }
       fn_find_sla_policy: {
         Args: {
           _categoria_id: number
