@@ -59,12 +59,12 @@ function RichContent({ value }: { value?: string | null }) {
     });
     return (
       <div
-        className="email-html prose prose-sm max-w-none dark:prose-invert [&_img]:inline-block [&_img]:max-w-full [&_img]:h-auto"
+        className="email-html prose prose-sm max-w-none dark:prose-invert break-words [overflow-wrap:anywhere] [&_img]:inline-block [&_img]:max-w-full [&_img]:h-auto [&_pre]:whitespace-pre-wrap [&_pre]:break-words"
         dangerouslySetInnerHTML={{ __html: clean }}
       />
     );
   }
-  return <div className="whitespace-pre-wrap">{value}</div>;
+  return <div className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{value}</div>;
 }
 
 const PRIORITY_COLORS: Record<TicketPriority, string> = {
