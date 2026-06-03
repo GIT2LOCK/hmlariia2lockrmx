@@ -59,12 +59,12 @@ function RichContent({ value }: { value?: string | null }) {
     });
     return (
       <div
-        className="email-html prose prose-sm max-w-none dark:prose-invert [&_img]:inline-block [&_img]:max-w-full [&_img]:h-auto"
+        className="email-html prose prose-sm max-w-none dark:prose-invert break-words [overflow-wrap:anywhere] [&_img]:inline-block [&_img]:max-w-full [&_img]:h-auto [&_pre]:whitespace-pre-wrap [&_pre]:break-words"
         dangerouslySetInnerHTML={{ __html: clean }}
       />
     );
   }
-  return <div className="whitespace-pre-wrap">{value}</div>;
+  return <div className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{value}</div>;
 }
 
 const PRIORITY_COLORS: Record<TicketPriority, string> = {
@@ -414,11 +414,15 @@ export default function ChamadoDetalhe() {
                   </div>
                   <Textarea
                     rows={4}
+                    maxLength={2500}
                     placeholder="Escreva uma resposta ou nota..."
                     value={novoComentario}
-                    onChange={(e) => setNovoComentario(e.target.value)}
+                    onChange={(e) => setNovoComentario(e.target.value.slice(0, 2500))}
                   />
-                  <div className="flex justify-end">
+                  <div className="flex justify-between items-center">
+                    <span className={`text-xs ${novoComentario.length >= 2500 ? "text-destructive" : "text-muted-foreground"}`}>
+                      {novoComentario.length}/2500 caracteres
+                    </span>
                     <Button onClick={adicionarComentario} disabled={salvandoComent || !novoComentario.trim()}>
                       <Send className="h-4 w-4 mr-1" /> Enviar
                     </Button>
