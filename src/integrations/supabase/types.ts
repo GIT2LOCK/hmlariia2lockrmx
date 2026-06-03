@@ -1151,6 +1151,7 @@ export type Database = {
           status: Database["public"]["Enums"]["ticket_status"]
           subcategoria_id: number | null
           tecnico_id: number | null
+          tipo_chamado: string
           titulo: string
           unidade_id: number | null
         }
@@ -1192,6 +1193,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["ticket_status"]
           subcategoria_id?: number | null
           tecnico_id?: number | null
+          tipo_chamado?: string
           titulo: string
           unidade_id?: number | null
         }
@@ -1233,6 +1235,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["ticket_status"]
           subcategoria_id?: number | null
           tecnico_id?: number | null
+          tipo_chamado?: string
           titulo?: string
           unidade_id?: number | null
         }
