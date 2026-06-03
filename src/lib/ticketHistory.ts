@@ -86,7 +86,6 @@ export function fieldLabel(campo: string): string {
     transferred_group: "Transferência (equipe)",
     escalated: "Escalonamento",
     demoted: "Rebaixamento de nível",
-    fila_id: "Fila",
     aguardando_cliente: "Aguardando cliente",
     client_replied: "Resposta do cliente",
   };
