@@ -21,6 +21,7 @@ import ZabbixTvView from "./pages/ZabbixTvView";
 import Relatorios from "./pages/Relatorios";
 import Chamados from "./pages/Chamados";
 import ChamadoDetalhe from "./pages/ChamadoDetalhe";
+import Equipes from "./pages/Equipes";
 import OAuthConsent from "./pages/OAuthConsent";
 import GrafanaControle from "./pages/GrafanaControle";
 import RelatorioAlertasZabbix from "./pages/RelatorioAlertasZabbix";
@@ -59,6 +60,7 @@ const App = () => (
               <Route path="relatorios" element={<Relatorios />} />
               <Route path="chamados" element={<Chamados />} />
               <Route path="chamados/:id" element={<ChamadoDetalhe />} />
+              <Route path="equipes" element={<Equipes />} />
               <Route path="zabbix" element={<DashboardZabbix />} />
               <Route path="zabbix/tv" element={<ZabbixTvView />} />
               <Route path="zabbix/relatorio-alertas" element={<RelatorioAlertasZabbix />} />
