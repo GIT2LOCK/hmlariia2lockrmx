@@ -414,11 +414,15 @@ export default function ChamadoDetalhe() {
                   </div>
                   <Textarea
                     rows={4}
+                    maxLength={2500}
                     placeholder="Escreva uma resposta ou nota..."
                     value={novoComentario}
-                    onChange={(e) => setNovoComentario(e.target.value)}
+                    onChange={(e) => setNovoComentario(e.target.value.slice(0, 2500))}
                   />
-                  <div className="flex justify-end">
+                  <div className="flex justify-between items-center">
+                    <span className={`text-xs ${novoComentario.length >= 2500 ? "text-destructive" : "text-muted-foreground"}`}>
+                      {novoComentario.length}/2500 caracteres
+                    </span>
                     <Button onClick={adicionarComentario} disabled={salvandoComent || !novoComentario.trim()}>
                       <Send className="h-4 w-4 mr-1" /> Enviar
                     </Button>
