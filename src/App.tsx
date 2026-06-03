@@ -20,6 +20,7 @@ import DashboardZabbix from "./pages/DashboardZabbix";
 import ZabbixTvView from "./pages/ZabbixTvView";
 import Relatorios from "./pages/Relatorios";
 import Chamados from "./pages/Chamados";
+import DashboardAtendimento from "./pages/DashboardAtendimento";
 import ChamadoDetalhe from "./pages/ChamadoDetalhe";
 import Equipes from "./pages/Equipes";
 import OAuthConsent from "./pages/OAuthConsent";
