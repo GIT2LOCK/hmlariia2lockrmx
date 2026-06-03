@@ -462,54 +462,7 @@ export default function ChamadoDetalhe() {
               <Send className="h-4 w-4 mr-1" /> Testar webhook N8N
             </Button>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Card>
-              <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Clock className="h-4 w-4" /> SLA Solução</CardTitle></CardHeader>
-              <CardContent className="space-y-2">
-                {sla && <Badge className={SLA_COLORS[sla.level]}>{sla.label}</Badge>}
-                <DetailRow label="Meta" value={`${SLA_SOLUCAO[ticket.prioridade as TicketPriority]} min`} />
-                <DetailRow label="Pausa acumulada" value={`${Math.round((ticket.sla_pausa_total_segundos || 0) / 60)} min`} />
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader><CardTitle className="text-sm">Marcos</CardTitle></CardHeader>
-              <CardContent className="space-y-2 text-sm">
-                <DetailRow label="Abertura" value={fmtDate(ticket.data_abertura)} />
-                <DetailRow label="1º Atendimento" value={fmtDate(ticket.data_primeiro_atendimento)} />
-                <DetailRow label="Solução" value={fmtDate(ticket.data_solucao)} />
-                <DetailRow label="Fechamento" value={fmtDate(ticket.data_fechamento)} />
-                <DetailRow label="SLA Atendimento" value={`${SLA_ATENDIMENTO[ticket.prioridade as TicketPriority]} min`} />
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="sla" className="space-y-4">
-          <div className="flex justify-end">
-            <Button variant="outline" size="sm" onClick={testarWebhookN8N}>
-              <Send className="h-4 w-4 mr-1" /> Testar webhook N8N
-            </Button>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Card>
-              <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Clock className="h-4 w-4" /> SLA Solução</CardTitle></CardHeader>
-              <CardContent className="space-y-2">
-                {sla && <Badge className={SLA_COLORS[sla.level]}>{sla.label}</Badge>}
-                <DetailRow label="Meta" value={`${SLA_SOLUCAO[ticket.prioridade as TicketPriority]} min`} />
-                <DetailRow label="Pausa acumulada" value={`${Math.round((ticket.sla_pausa_total_segundos || 0) / 60)} min`} />
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader><CardTitle className="text-sm">Marcos</CardTitle></CardHeader>
-              <CardContent className="space-y-2 text-sm">
-                <DetailRow label="Abertura" value={fmtDate(ticket.data_abertura)} />
-                <DetailRow label="1º Atendimento" value={fmtDate(ticket.data_primeiro_atendimento)} />
-                <DetailRow label="Solução" value={fmtDate(ticket.data_solucao)} />
-                <DetailRow label="Fechamento" value={fmtDate(ticket.data_fechamento)} />
-                <DetailRow label="SLA Atendimento" value={`${SLA_ATENDIMENTO[ticket.prioridade as TicketPriority]} min`} />
-              </CardContent>
-            </Card>
-          </div>
+          <SlaCard ticket={ticket} />
         </TabsContent>
 
         <TabsContent value="timeline" className="space-y-2">
