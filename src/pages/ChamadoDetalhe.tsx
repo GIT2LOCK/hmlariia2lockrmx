@@ -348,6 +348,7 @@ export default function ChamadoDetalhe() {
       </div>
 
       <TicketHeaderInfo ticket={ticket} history={history} />
+      <FluxoOperacionalCard ticket={ticket} onChanged={load} />
 
       <Tabs defaultValue="resumo" className="w-full">
         <TabsList>
