@@ -45,6 +45,7 @@ const menuItems = [
   { title: "Responsáveis", url: "/dashboard/responsaveis", icon: UserCheck },
   { title: "Base de Conhecimento", url: "/dashboard/base-conhecimento", icon: BookOpen },
   { title: "Chamados", url: "/dashboard/chamados", icon: Ticket },
+  { title: "Equipes", url: "/dashboard/equipes", icon: Users },
   { title: "Relatórios Zabbix", url: "/dashboard/zabbix/relatorio-alertas", icon: AlertTriangle },
   { title: "Monitoramento", url: "/dashboard/zabbix", icon: Activity },
 ];
