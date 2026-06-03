@@ -816,6 +816,63 @@ export type Database = {
           },
         ]
       }
+      support_group_members: {
+        Row: {
+          ativo: boolean
+          criado_em: string
+          group_id: number
+          id: number
+          role_in_group: Database["public"]["Enums"]["support_group_role"]
+          usuario_id: number
+        }
+        Insert: {
+          ativo?: boolean
+          criado_em?: string
+          group_id: number
+          id?: number
+          role_in_group?: Database["public"]["Enums"]["support_group_role"]
+          usuario_id: number
+        }
+        Update: {
+          ativo?: boolean
+          criado_em?: string
+          group_id?: number
+          id?: number
+          role_in_group?: Database["public"]["Enums"]["support_group_role"]
+          usuario_id?: number
+        }
+        Relationships: []
+      }
+      support_groups: {
+        Row: {
+          ativo: boolean
+          atualizado_em: string
+          criado_em: string
+          descricao: string | null
+          id: number
+          nivel: Database["public"]["Enums"]["ticket_nivel"] | null
+          nome: string
+        }
+        Insert: {
+          ativo?: boolean
+          atualizado_em?: string
+          criado_em?: string
+          descricao?: string | null
+          id?: number
+          nivel?: Database["public"]["Enums"]["ticket_nivel"] | null
+          nome: string
+        }
+        Update: {
+          ativo?: boolean
+          atualizado_em?: string
+          criado_em?: string
+          descricao?: string | null
+          id?: number
+          nivel?: Database["public"]["Enums"]["ticket_nivel"] | null
+          nome?: string
+        }
+        Relationships: []
+      }
       ticket_attachments: {
         Row: {
           autor_id: number | null
@@ -1025,8 +1082,43 @@ export type Database = {
           },
         ]
       }
+      ticket_notifications: {
+        Row: {
+          criado_em: string
+          id: number
+          lida: boolean
+          mensagem: string
+          ticket_id: number
+          tipo: string
+          usuario_id: number
+        }
+        Insert: {
+          criado_em?: string
+          id?: number
+          lida?: boolean
+          mensagem: string
+          ticket_id: number
+          tipo: string
+          usuario_id: number
+        }
+        Update: {
+          criado_em?: string
+          id?: number
+          lida?: boolean
+          mensagem?: string
+          ticket_id?: number
+          tipo?: string
+          usuario_id?: number
+        }
+        Relationships: []
+      }
       tickets: {
         Row: {
+          aguardando_cliente_desde: string | null
+          aguardando_cliente_motivo: string | null
+          assigned_at: string | null
+          assigned_by: number | null
+          assigned_group_id: number | null
           ativo: string | null
           atualizado_em: string
           categoria_id: number | null
@@ -1044,6 +1136,7 @@ export type Database = {
           link_id: number | null
           motivo_encerramento: string | null
           motivo_encerramento_outro: string | null
+          nivel_escalonamento: Database["public"]["Enums"]["ticket_nivel"]
           operadora_id: number | null
           origem: Database["public"]["Enums"]["ticket_origem"]
           prioridade: Database["public"]["Enums"]["ticket_priority"]
@@ -1062,6 +1155,11 @@ export type Database = {
           unidade_id: number | null
         }
         Insert: {
+          aguardando_cliente_desde?: string | null
+          aguardando_cliente_motivo?: string | null
+          assigned_at?: string | null
+          assigned_by?: number | null
+          assigned_group_id?: number | null
           ativo?: string | null
           atualizado_em?: string
           categoria_id?: number | null
@@ -1079,6 +1177,7 @@ export type Database = {
           link_id?: number | null
           motivo_encerramento?: string | null
           motivo_encerramento_outro?: string | null
+          nivel_escalonamento?: Database["public"]["Enums"]["ticket_nivel"]
           operadora_id?: number | null
           origem?: Database["public"]["Enums"]["ticket_origem"]
           prioridade?: Database["public"]["Enums"]["ticket_priority"]
@@ -1097,6 +1196,11 @@ export type Database = {
           unidade_id?: number | null
         }
         Update: {
+          aguardando_cliente_desde?: string | null
+          aguardando_cliente_motivo?: string | null
+          assigned_at?: string | null
+          assigned_by?: number | null
+          assigned_group_id?: number | null
           ativo?: string | null
           atualizado_em?: string
           categoria_id?: number | null
@@ -1114,6 +1218,7 @@ export type Database = {
           link_id?: number | null
           motivo_encerramento?: string | null
           motivo_encerramento_outro?: string | null
+          nivel_escalonamento?: Database["public"]["Enums"]["ticket_nivel"]
           operadora_id?: number | null
           origem?: Database["public"]["Enums"]["ticket_origem"]
           prioridade?: Database["public"]["Enums"]["ticket_priority"]
@@ -1412,7 +1517,9 @@ export type Database = {
       grafana_role: "None" | "Viewer" | "Editor" | "Admin"
       ip_tipo: "dinamico" | "fixo"
       ip_visibilidade: "publico" | "privado"
+      support_group_role: "MEMBRO" | "COORDENADOR" | "GESTOR"
       ticket_comment_type: "INTERNO" | "CLIENTE" | "AUTOMATICO"
+      ticket_nivel: "N1" | "N2" | "N3"
       ticket_origem:
         | "MANUAL"
         | "EMAIL"
@@ -1572,7 +1679,9 @@ export const Constants = {
       grafana_role: ["None", "Viewer", "Editor", "Admin"],
       ip_tipo: ["dinamico", "fixo"],
       ip_visibilidade: ["publico", "privado"],
+      support_group_role: ["MEMBRO", "COORDENADOR", "GESTOR"],
       ticket_comment_type: ["INTERNO", "CLIENTE", "AUTOMATICO"],
+      ticket_nivel: ["N1", "N2", "N3"],
       ticket_origem: [
         "MANUAL",
         "EMAIL",
