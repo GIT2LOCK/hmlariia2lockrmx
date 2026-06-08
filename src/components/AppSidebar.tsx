@@ -67,9 +67,10 @@ export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const currentPath = location.pathname;
-  const { user, refreshUser, canManageUsers } = useUser();
+  const { user, refreshUser, canManageUsers, can } = useUser();
 
   const isActive = (path: string) => currentPath === path;
+  const visibleItems = menuItems.filter((it) => !it.permission || can(it.permission));
 
   const handleLogout = async (e: React.MouseEvent) => {
     e.preventDefault();
