@@ -26,6 +26,7 @@ import Equipes from "./pages/Equipes";
 import OAuthConsent from "./pages/OAuthConsent";
 import GrafanaControle from "./pages/GrafanaControle";
 import RelatorioAlertasZabbix from "./pages/RelatorioAlertasZabbix";
+import Permissoes from "./pages/Permissoes";
 import { UserProvider } from "./contexts/UserContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
@@ -57,6 +58,7 @@ const App = () => (
               <Route path="pessoas" element={<Pessoas />} />
               <Route path="responsaveis" element={<Responsaveis />} />
               <Route path="usuarios" element={<Usuarios />} />
+              <Route path="permissoes" element={<Permissoes />} />
               <Route path="base-conhecimento" element={<BaseConhecimento />} />
               <Route path="relatorios" element={<Relatorios />} />
               <Route path="chamados" element={<Chamados />} />

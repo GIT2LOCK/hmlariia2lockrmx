@@ -966,6 +966,7 @@ export type Database = {
           conteudo: string
           criado_em: string
           id: number
+          interno: boolean
           ticket_id: number
           tipo: Database["public"]["Enums"]["ticket_comment_type"]
         }
@@ -975,6 +976,7 @@ export type Database = {
           conteudo: string
           criado_em?: string
           id?: number
+          interno?: boolean
           ticket_id: number
           tipo?: Database["public"]["Enums"]["ticket_comment_type"]
         }
@@ -984,6 +986,7 @@ export type Database = {
           conteudo?: string
           criado_em?: string
           id?: number
+          interno?: boolean
           ticket_id?: number
           tipo?: Database["public"]["Enums"]["ticket_comment_type"]
         }
@@ -1709,6 +1712,7 @@ export type Database = {
           avatar_url: string | null
           criado_em: string | null
           email: string
+          empresa_id: number | null
           id: number
           nome: string
           permissao: string
@@ -1728,6 +1732,7 @@ export type Database = {
           avatar_url?: string | null
           criado_em?: string | null
           email: string
+          empresa_id?: number | null
           id?: number
           nome: string
           permissao?: string
@@ -1747,6 +1752,7 @@ export type Database = {
           avatar_url?: string | null
           criado_em?: string | null
           email?: string
+          empresa_id?: number | null
           id?: number
           nome?: string
           permissao?: string
@@ -1757,7 +1763,15 @@ export type Database = {
           zabbix_token_z1?: string | null
           zabbix_token_z2?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "usuarios_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       zabbix_contatos: {
         Row: {
@@ -1798,6 +1812,15 @@ export type Database = {
     }
     Functions: {
       custom_access_token_hook: { Args: { event: Json }; Returns: Json }
+      fn_can_view_ticket: { Args: { _ticket_id: number }; Returns: boolean }
+      fn_current_usuario: {
+        Args: never
+        Returns: {
+          empresa_id: number
+          id: number
+          permissao: string
+        }[]
+      }
       fn_dashboard_by_fila: {
         Args: never
         Returns: {

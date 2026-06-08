@@ -1,24 +1,23 @@
 import { useEffect } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useUser } from "@/contexts/UserContext";
+import { Permission, denyMessage } from "@/lib/permissions";
 import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
+  requirePermission?: Permission;
 }
 
-export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { isAuthenticated, isLoading, syncFromDatabase } = useUser();
+export function ProtectedRoute({ children, requirePermission }: ProtectedRouteProps) {
+  const { isAuthenticated, isLoading, syncFromDatabase, can } = useUser();
   const location = useLocation();
 
-  // Sync user data from database on route change to get latest permissions
   useEffect(() => {
-    if (isAuthenticated) {
-      syncFromDatabase();
-    }
+    if (isAuthenticated) syncFromDatabase();
   }, [isAuthenticated, location.pathname]);
 
-  // Show loading spinner while checking authentication
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -30,10 +29,13 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     );
   }
 
-  // Redirect to login if not authenticated
   if (!isAuthenticated) {
-    // Save the attempted URL so we can redirect back after login
     return <Navigate to="/" state={{ from: location }} replace />;
+  }
+
+  if (requirePermission && !can(requirePermission)) {
+    toast.error(denyMessage(requirePermission));
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <>{children}</>;

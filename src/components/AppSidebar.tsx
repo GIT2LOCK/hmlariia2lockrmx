@@ -37,19 +37,28 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-const menuItems = [
+import { Permission } from "@/lib/permissions";
+
+interface MenuItem {
+  title: string;
+  url: string;
+  icon: any;
+  permission?: Permission;
+}
+
+const menuItems: MenuItem[] = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Empresas", url: "/dashboard/empresas", icon: Building2 },
-  { title: "Unidades", url: "/dashboard/unidades", icon: MapPin },
-  { title: "Operadoras", url: "/dashboard/operadoras", icon: Radio },
-  { title: "Pessoas", url: "/dashboard/pessoas", icon: Contact },
-  { title: "Responsáveis", url: "/dashboard/responsaveis", icon: UserCheck },
+  { title: "Empresas", url: "/dashboard/empresas", icon: Building2, permission: "registry.view" },
+  { title: "Unidades", url: "/dashboard/unidades", icon: MapPin, permission: "registry.view" },
+  { title: "Operadoras", url: "/dashboard/operadoras", icon: Radio, permission: "registry.view" },
+  { title: "Pessoas", url: "/dashboard/pessoas", icon: Contact, permission: "registry.view" },
+  { title: "Responsáveis", url: "/dashboard/responsaveis", icon: UserCheck, permission: "registry.view" },
   { title: "Base de Conhecimento", url: "/dashboard/base-conhecimento", icon: BookOpen },
-  { title: "Chamados", url: "/dashboard/chamados", icon: Ticket },
-  { title: "Dashboard Atendimento", url: "/dashboard/atendimento", icon: Gauge },
-  { title: "Equipes", url: "/dashboard/equipes", icon: Users },
-  { title: "Relatórios Zabbix", url: "/dashboard/zabbix/relatorio-alertas", icon: AlertTriangle },
-  { title: "Monitoramento", url: "/dashboard/zabbix", icon: Activity },
+  { title: "Chamados", url: "/dashboard/chamados", icon: Ticket, permission: "tickets.view_own" },
+  { title: "Dashboard Atendimento", url: "/dashboard/atendimento", icon: Gauge, permission: "dashboard.team" },
+  { title: "Equipes", url: "/dashboard/equipes", icon: Users, permission: "team.view" },
+  { title: "Relatórios Zabbix", url: "/dashboard/zabbix/relatorio-alertas", icon: AlertTriangle, permission: "registry.view" },
+  { title: "Monitoramento", url: "/dashboard/zabbix", icon: Activity, permission: "registry.view" },
 ];
 
 export function AppSidebar() {
@@ -58,9 +67,10 @@ export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const currentPath = location.pathname;
-  const { user, refreshUser, canManageUsers } = useUser();
+  const { user, refreshUser, canManageUsers, can } = useUser();
 
   const isActive = (path: string) => currentPath === path;
+  const visibleItems = menuItems.filter((it) => !it.permission || can(it.permission));
 
   const handleLogout = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -101,7 +111,7 @@ export function AppSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {menuItems.map((item) => (
+              {visibleItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton 
                     asChild 
@@ -137,6 +147,21 @@ export function AppSidebar() {
                     <NavLink to="/dashboard/usuarios" className="flex items-center gap-3">
                       <Users className="h-5 w-5" />
                       <span>Usuários</span>
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+              {can("users.manage_permissions") && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive("/dashboard/permissoes")}
+                    tooltip="Permissões"
+                    className="text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10 data-[active=true]:bg-primary-foreground/20 data-[active=true]:text-primary-foreground"
+                  >
+                    <NavLink to="/dashboard/permissoes" className="flex items-center gap-3">
+                      <ShieldCheck className="h-5 w-5" />
+                      <span>Permissões</span>
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
