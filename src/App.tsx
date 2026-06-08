@@ -26,6 +26,7 @@ import Equipes from "./pages/Equipes";
 import OAuthConsent from "./pages/OAuthConsent";
 import GrafanaControle from "./pages/GrafanaControle";
 import RelatorioAlertasZabbix from "./pages/RelatorioAlertasZabbix";
+import Permissoes from "./pages/Permissoes";
 import { UserProvider } from "./contexts/UserContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
