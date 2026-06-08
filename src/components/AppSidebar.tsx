@@ -37,19 +37,28 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-const menuItems = [
+import { Permission } from "@/lib/permissions";
+
+interface MenuItem {
+  title: string;
+  url: string;
+  icon: any;
+  permission?: Permission;
+}
+
+const menuItems: MenuItem[] = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Empresas", url: "/dashboard/empresas", icon: Building2 },
-  { title: "Unidades", url: "/dashboard/unidades", icon: MapPin },
-  { title: "Operadoras", url: "/dashboard/operadoras", icon: Radio },
-  { title: "Pessoas", url: "/dashboard/pessoas", icon: Contact },
-  { title: "Responsáveis", url: "/dashboard/responsaveis", icon: UserCheck },
+  { title: "Empresas", url: "/dashboard/empresas", icon: Building2, permission: "registry.view" },
+  { title: "Unidades", url: "/dashboard/unidades", icon: MapPin, permission: "registry.view" },
+  { title: "Operadoras", url: "/dashboard/operadoras", icon: Radio, permission: "registry.view" },
+  { title: "Pessoas", url: "/dashboard/pessoas", icon: Contact, permission: "registry.view" },
+  { title: "Responsáveis", url: "/dashboard/responsaveis", icon: UserCheck, permission: "registry.view" },
   { title: "Base de Conhecimento", url: "/dashboard/base-conhecimento", icon: BookOpen },
-  { title: "Chamados", url: "/dashboard/chamados", icon: Ticket },
-  { title: "Dashboard Atendimento", url: "/dashboard/atendimento", icon: Gauge },
-  { title: "Equipes", url: "/dashboard/equipes", icon: Users },
-  { title: "Relatórios Zabbix", url: "/dashboard/zabbix/relatorio-alertas", icon: AlertTriangle },
-  { title: "Monitoramento", url: "/dashboard/zabbix", icon: Activity },
+  { title: "Chamados", url: "/dashboard/chamados", icon: Ticket, permission: "tickets.view_own" },
+  { title: "Dashboard Atendimento", url: "/dashboard/atendimento", icon: Gauge, permission: "dashboard.team" },
+  { title: "Equipes", url: "/dashboard/equipes", icon: Users, permission: "team.view" },
+  { title: "Relatórios Zabbix", url: "/dashboard/zabbix/relatorio-alertas", icon: AlertTriangle, permission: "registry.view" },
+  { title: "Monitoramento", url: "/dashboard/zabbix", icon: Activity, permission: "registry.view" },
 ];
 
 export function AppSidebar() {
