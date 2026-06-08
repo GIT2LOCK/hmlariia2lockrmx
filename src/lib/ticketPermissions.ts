@@ -4,7 +4,7 @@
 
 import { TicketNivel } from "./ticketWorkflow";
 
-export type GlobalRole = "SUPERADMIN" | "ADMIN" | "USER" | "VIEWER" | "TV_VIEW";
+export type GlobalRole = "SUPERADMIN" | "ADMIN" | "USER" | "CLIENTE" | "VIEWER" | "TV_VIEW";
 export type GroupRole = "MEMBRO" | "COORDENADOR" | "GESTOR";
 
 export interface UserContextLite {
