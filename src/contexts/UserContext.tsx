@@ -1,7 +1,8 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { getStoredUser, syncUserFromDatabase, AuthUser } from "@/services/authService";
+import { can as permCan, Permission, Role } from "@/lib/permissions";
 
-export type UserRole = "SUPERADMIN" | "ADMIN" | "USER" | "VIEWER" | "TV_VIEW";
+export type UserRole = Role;
 
 interface User {
   id: number;
@@ -11,6 +12,7 @@ interface User {
   cargo: string;
   role: UserRole;
   avatar: string;
+  empresa_id: number | null;
 }
 
 interface UserContextType {
@@ -26,6 +28,9 @@ interface UserContextType {
   hasFullAccess: boolean;
   isViewer: boolean;
   isTvView: boolean;
+  isCliente: boolean;
+  isAdmin: boolean;
+  can: (p: Permission) => boolean;
 }
 
 const splitName = (fullName: string): { nome: string; sobrenome: string } => {
