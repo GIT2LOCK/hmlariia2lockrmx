@@ -41,7 +41,7 @@ const splitName = (fullName: string): { nome: string; sobrenome: string } => {
 
 const defaultUser: User = {
   id: 0, nome: "Visitante", sobrenome: "", email: "",
-  cargo: "Não autenticado", role: "VIEWER", avatar: "",
+  cargo: "Não autenticado", role: "VIEWER", avatar: "", empresa_id: null,
 };
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -60,16 +60,22 @@ export function UserProvider({ children }: { children: ReactNode }) {
     if (storedUser) {
       const { nome, sobrenome } = splitName(storedUser.nome);
       const role = (storedUser.permissao as UserRole) || "VIEWER";
-      // Fetch avatar from database
       let avatarUrl = "";
+      let empresaId: number | null = null;
       try {
         const { supabase } = await import("@/integrations/supabase/client");
-        const { data } = await supabase.from("usuarios").select("avatar_url").eq("id", storedUser.id).single();
-        avatarUrl = data?.avatar_url || "";
+        const { data } = await supabase
+          .from("usuarios")
+          .select("avatar_url, empresa_id")
+          .eq("id", storedUser.id)
+          .single();
+        avatarUrl = (data as any)?.avatar_url || "";
+        empresaId = (data as any)?.empresa_id ?? null;
       } catch {}
       setUser({
         id: storedUser.id, nome, sobrenome,
         email: storedUser.email || "", cargo: role, role, avatar: avatarUrl,
+        empresa_id: empresaId,
       });
       setIsAuthenticated(true);
     } else {
@@ -84,10 +90,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
     if (updatedUser) {
       const { nome, sobrenome } = splitName(updatedUser.nome);
       const role = (updatedUser.permissao as UserRole) || "VIEWER";
-      setUser({
+      setUser(prev => ({
+        ...prev,
         id: updatedUser.id, nome, sobrenome,
-        email: updatedUser.email || "", cargo: role, role, avatar: user.avatar,
-      });
+        email: updatedUser.email || "", cargo: role, role,
+      }));
     }
   };
 
@@ -102,7 +109,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
-  // Realtime subscription to detect permission/role changes
   useEffect(() => {
     if (!isAuthenticated || user.id === 0) return;
 
@@ -126,8 +132,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
                 role: newRole,
                 cargo: newRole,
                 avatar: newData.avatar_url || prev.avatar,
+                empresa_id: newData.empresa_id ?? prev.empresa_id,
               }));
-              // Also update localStorage
               const stored = getStoredUser();
               if (stored) {
                 localStorage.setItem("auth_user", JSON.stringify({
@@ -153,17 +159,22 @@ export function UserProvider({ children }: { children: ReactNode }) {
   }, [isAuthenticated, user.id]);
 
   const refreshUser = () => loadUser();
-  const canEdit = user.role === "SUPERADMIN" || user.role === "ADMIN" || user.role === "USER";
-  const canManageUsers = user.role === "SUPERADMIN" || user.role === "ADMIN";
+  const isAdmin = user.role === "SUPERADMIN" || user.role === "ADMIN";
+  const canEdit = isAdmin || user.role === "USER";
+  const canManageUsers = isAdmin;
   const canManageAdmins = user.role === "SUPERADMIN";
   const hasFullAccess = user.role === "SUPERADMIN";
   const isViewer = user.role === "VIEWER";
   const isTvView = user.role === "TV_VIEW";
+  const isCliente = user.role === "CLIENTE";
+  const can = (p: Permission) =>
+    permCan({ role: user.role, id: user.id, empresa_id: user.empresa_id }, p);
 
   return (
-    <UserContext.Provider value={{ 
+    <UserContext.Provider value={{
       user, isLoading, isAuthenticated, refreshUser, syncFromDatabase,
-      updateAvatar, canEdit, canManageUsers, canManageAdmins, hasFullAccess, isViewer, isTvView
+      updateAvatar, canEdit, canManageUsers, canManageAdmins, hasFullAccess,
+      isViewer, isTvView, isCliente, isAdmin, can,
     }}>
       {children}
     </UserContext.Provider>
@@ -176,7 +187,9 @@ export function useUser(): UserContextType {
     return {
       user: defaultUser, isLoading: true, isAuthenticated: false,
       refreshUser: async () => {}, syncFromDatabase: async () => {}, updateAvatar: () => {},
-      canEdit: false, canManageUsers: false, canManageAdmins: false, hasFullAccess: false, isViewer: true, isTvView: false,
+      canEdit: false, canManageUsers: false, canManageAdmins: false, hasFullAccess: false,
+      isViewer: true, isTvView: false, isCliente: false, isAdmin: false,
+      can: () => false,
     };
   }
   return context;
