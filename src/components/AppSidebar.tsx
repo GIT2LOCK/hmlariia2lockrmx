@@ -151,6 +151,21 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )}
+              {can("users.manage_permissions") && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive("/dashboard/permissoes")}
+                    tooltip="Permissões"
+                    className="text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10 data-[active=true]:bg-primary-foreground/20 data-[active=true]:text-primary-foreground"
+                  >
+                    <NavLink to="/dashboard/permissoes" className="flex items-center gap-3">
+                      <ShieldCheck className="h-5 w-5" />
+                      <span>Permissões</span>
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
               {canManageUsers && (
                 <SidebarMenuItem>
                   <SidebarMenuButton
