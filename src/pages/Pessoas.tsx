@@ -94,6 +94,7 @@ const Pessoas = () => {
       empresa_id: empresaId ? String(empresaId) : "",
       unidade_ids: links.map(l => l.unidade_id),
     });
+    setUnidadeSearch("");
     setDialogOpen(true);
   };
 
