@@ -83,7 +83,7 @@ const Pessoas = () => {
     );
   }, [pessoas, search]);
 
-  const openNew = () => { setEditId(null); setForm(emptyForm); setDialogOpen(true); };
+  const openNew = () => { setEditId(null); setForm(emptyForm); setUnidadeSearch(""); setDialogOpen(true); };
   const openEdit = (p: Contato) => {
     setEditId(p.id);
     const links = p.contato_unidades || [];
@@ -232,7 +232,7 @@ const Pessoas = () => {
             </div>
             <div>
               <Label>Empresa *</Label>
-              <Select value={form.empresa_id} onValueChange={v => setForm({ ...form, empresa_id: v, unidade_ids: [] })}>
+              <Select value={form.empresa_id} onValueChange={v => { setForm({ ...form, empresa_id: v, unidade_ids: [] }); setUnidadeSearch(""); }}>
                 <SelectTrigger><SelectValue placeholder="Selecione a empresa" /></SelectTrigger>
                 <SelectContent>
                   {empresas.map(e => <SelectItem key={e.id} value={String(e.id)}>{e.nome_fantasia}</SelectItem>)}
@@ -248,6 +248,15 @@ const Pessoas = () => {
                       {filteredUnidades.every(u => form.unidade_ids.includes(u.id)) ? "Limpar" : "Selecionar todas"}
                     </Button>
                   )}
+                </div>
+                <div className="relative mb-2">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar unidade..."
+                    value={unidadeSearch}
+                    onChange={(e) => setUnidadeSearch(e.target.value)}
+                    className="pl-9 h-9"
+                  />
                 </div>
                 <ScrollArea className="h-48 border rounded-md p-2">
                   {filteredUnidades.length === 0 ? (
