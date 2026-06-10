@@ -34,6 +34,7 @@ const Pessoas = () => {
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [unidadeSearch, setUnidadeSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   const [form, setForm] = useState(emptyForm);
@@ -66,8 +67,11 @@ const Pessoas = () => {
 
   const filteredUnidades = useMemo(() => {
     if (!form.empresa_id) return [];
-    return unidades.filter(u => u.empresa_id === Number(form.empresa_id));
-  }, [unidades, form.empresa_id]);
+    const base = unidades.filter(u => u.empresa_id === Number(form.empresa_id));
+    const q = unidadeSearch.trim().toLowerCase();
+    if (!q) return base;
+    return base.filter(u => u.nome_unidade.toLowerCase().includes(q));
+  }, [unidades, form.empresa_id, unidadeSearch]);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return pessoas;
@@ -79,7 +83,7 @@ const Pessoas = () => {
     );
   }, [pessoas, search]);
 
-  const openNew = () => { setEditId(null); setForm(emptyForm); setDialogOpen(true); };
+  const openNew = () => { setEditId(null); setForm(emptyForm); setUnidadeSearch(""); setDialogOpen(true); };
   const openEdit = (p: Contato) => {
     setEditId(p.id);
     const links = p.contato_unidades || [];
@@ -90,6 +94,7 @@ const Pessoas = () => {
       empresa_id: empresaId ? String(empresaId) : "",
       unidade_ids: links.map(l => l.unidade_id),
     });
+    setUnidadeSearch("");
     setDialogOpen(true);
   };
 
@@ -228,7 +233,7 @@ const Pessoas = () => {
             </div>
             <div>
               <Label>Empresa *</Label>
-              <Select value={form.empresa_id} onValueChange={v => setForm({ ...form, empresa_id: v, unidade_ids: [] })}>
+              <Select value={form.empresa_id} onValueChange={v => { setForm({ ...form, empresa_id: v, unidade_ids: [] }); setUnidadeSearch(""); }}>
                 <SelectTrigger><SelectValue placeholder="Selecione a empresa" /></SelectTrigger>
                 <SelectContent>
                   {empresas.map(e => <SelectItem key={e.id} value={String(e.id)}>{e.nome_fantasia}</SelectItem>)}
@@ -244,6 +249,15 @@ const Pessoas = () => {
                       {filteredUnidades.every(u => form.unidade_ids.includes(u.id)) ? "Limpar" : "Selecionar todas"}
                     </Button>
                   )}
+                </div>
+                <div className="relative mb-2">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar unidade..."
+                    value={unidadeSearch}
+                    onChange={(e) => setUnidadeSearch(e.target.value)}
+                    className="pl-9 h-9"
+                  />
                 </div>
                 <ScrollArea className="h-48 border rounded-md p-2">
                   {filteredUnidades.length === 0 ? (

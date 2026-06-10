@@ -9,6 +9,10 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -17,7 +21,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
 import { Role, ROLE_LABELS } from "@/lib/permissions";
-import { Loader2, Search, ShieldCheck, Users as UsersIcon } from "lucide-react";
+import { Loader2, Search, ShieldCheck, Users as UsersIcon, X } from "lucide-react";
 
 interface Usuario {
   id: number;
@@ -36,7 +40,15 @@ interface Membership {
   ativo: boolean;
 }
 
-const ROLES_EDITAVEIS: Role[] = ["ADMIN", "USER", "CLIENTE", "VIEWER"];
+// Hierarquia (maior = mais poder). Usuário só pode editar/promover para níveis ESTRITAMENTE menores que o seu.
+const ROLE_RANK: Record<Role, number> = {
+  SUPERADMIN: 100,
+  ADMIN: 80,
+  USER: 50,
+  CLIENTE: 20,
+  VIEWER: 10,
+  TV_VIEW: 5,
+};
 
 const roleBadgeVariant = (role: string): "default" | "secondary" | "destructive" | "outline" => {
   switch (role) {
@@ -50,7 +62,9 @@ const roleBadgeVariant = (role: string): "default" | "secondary" | "destructive"
 
 export default function Permissoes() {
   const { toast } = useToast();
-  const { user, hasFullAccess, canManageUsers } = useUser();
+  const { user, canManageUsers } = useUser();
+
+  const myRank = ROLE_RANK[user.role] ?? 0;
 
   const [loading, setLoading] = useState(true);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
@@ -70,6 +84,8 @@ export default function Permissoes() {
   const [editGrupo, setEditGrupo] = useState<string>("");
   const [editPapel, setEditPapel] = useState<"MEMBRO" | "COORDENADOR" | "GESTOR">("MEMBRO");
   const [saving, setSaving] = useState(false);
+
+  const [removeTarget, setRemoveTarget] = useState<{ groupId: number; nome: string } | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -109,11 +125,18 @@ export default function Permissoes() {
     });
   }, [usuarios, search, filtroPerfil, filtroEmpresa, filtroStatus]);
 
+  // Regra central: pode editar quem está ESTRITAMENTE abaixo do meu nível. Nunca a si mesmo.
   const canEditUser = (target: Usuario) => {
     if (target.id === user.id) return false;
-    if (hasFullAccess) return true;
-    return target.permissao !== "SUPERADMIN" && target.permissao !== "ADMIN";
+    const targetRank = ROLE_RANK[target.permissao] ?? 0;
+    return myRank > targetRank;
   };
+
+  // Perfis que posso atribuir: somente os ESTRITAMENTE abaixo do meu nível.
+  const assignableRoles = useMemo<Role[]>(() => {
+    return (["ADMIN", "USER", "CLIENTE", "VIEWER"] as Role[])
+      .filter((r) => (ROLE_RANK[r] ?? 0) < myRank);
+  }, [myRank]);
 
   const openEdit = (u: Usuario) => {
     setEditing(u);
@@ -126,6 +149,22 @@ export default function Permissoes() {
 
   const handleSave = async () => {
     if (!editing) return;
+
+    // Defesa em profundidade: bloquear promoção para nível >= ao meu
+    const newRank = ROLE_RANK[editPerfil] ?? 0;
+    if (newRank >= myRank) {
+      toast({
+        title: "Operação não permitida",
+        description: "Você não pode atribuir um perfil de nível igual ou superior ao seu.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (editPerfil === "CLIENTE" && !editEmpresa) {
+      toast({ title: "Selecione a empresa do cliente", variant: "destructive" });
+      return;
+    }
+
     setSaving(true);
     const payload: any = {
       permissao: editPerfil,
@@ -139,7 +178,6 @@ export default function Permissoes() {
       return;
     }
 
-    // adicionar a grupo (se informado e não-CLIENTE)
     if (editPerfil !== "CLIENTE" && editGrupo) {
       const existing = (memberships[editing.id] || []).find((m) => m.group_id === Number(editGrupo));
       if (existing) {
@@ -163,6 +201,26 @@ export default function Permissoes() {
     load();
   };
 
+  const handleRemoveGroup = async () => {
+    if (!editing || !removeTarget) return;
+    const { error } = await supabase
+      .from("support_group_members")
+      .delete()
+      .eq("usuario_id", editing.id)
+      .eq("group_id", removeTarget.groupId);
+    if (error) {
+      toast({ title: "Erro ao remover do grupo", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Usuário removido do grupo" });
+      // Atualiza memberships local sem fechar modal
+      setMemberships((prev) => ({
+        ...prev,
+        [editing.id]: (prev[editing.id] || []).filter((m) => m.group_id !== removeTarget.groupId),
+      }));
+    }
+    setRemoveTarget(null);
+  };
+
   if (!canManageUsers) {
     return (
       <div className="min-h-[40vh] flex items-center justify-center">
@@ -178,6 +236,8 @@ export default function Permissoes() {
       </div>
     );
   }
+
+  const editingMemberships = editing ? (memberships[editing.id] || []) : [];
 
   return (
     <div className="space-y-6">
@@ -302,10 +362,12 @@ export default function Permissoes() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        {canEditUser(u) && (
+                        {canEditUser(u) ? (
                           <Button size="sm" variant="outline" onClick={() => openEdit(u)}>
                             Editar
                           </Button>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
                         )}
                       </TableCell>
                     </TableRow>
@@ -339,16 +401,19 @@ export default function Permissoes() {
               <Select value={editPerfil} onValueChange={(v) => setEditPerfil(v as Role)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {ROLES_EDITAVEIS.map((r) => (
+                  {assignableRoles.map((r) => (
                     <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">
+                Você só pode atribuir perfis abaixo do seu nível.
+              </p>
             </div>
 
             {editPerfil === "CLIENTE" && (
               <div className="space-y-2">
-                <Label>Empresa vinculada</Label>
+                <Label>Empresa vinculada *</Label>
                 <Select value={editEmpresa} onValueChange={setEditEmpresa}>
                   <SelectTrigger><SelectValue placeholder="Selecione a empresa" /></SelectTrigger>
                   <SelectContent>
@@ -364,32 +429,63 @@ export default function Permissoes() {
             )}
 
             {editPerfil !== "CLIENTE" && (
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2 col-span-2">
-                  <Label>Adicionar a equipe</Label>
-                  <Select value={editGrupo} onValueChange={setEditGrupo}>
-                    <SelectTrigger><SelectValue placeholder="Selecione uma equipe (opcional)" /></SelectTrigger>
-                    <SelectContent>
-                      {grupos.map((g) => (
-                        <SelectItem key={g.id} value={String(g.id)}>{g.nome}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                {editGrupo && (
+              <>
+                {editingMemberships.length > 0 && (
+                  <div className="space-y-2">
+                    <Label>Equipes atuais</Label>
+                    <div className="flex flex-wrap gap-2 rounded-md border p-2">
+                      {editingMemberships.map((m) => {
+                        const g = grupos.find((x) => x.id === m.group_id);
+                        return (
+                          <Badge key={m.group_id} variant="secondary" className="gap-1 pr-1">
+                            <span>
+                              {g?.nome ?? `#${m.group_id}`}
+                              {m.role_in_group !== "MEMBRO" && ` · ${m.role_in_group}`}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setRemoveTarget({ groupId: m.group_id, nome: g?.nome ?? `#${m.group_id}` })}
+                              className="ml-1 rounded-sm hover:bg-destructive/20 p-0.5"
+                              aria-label={`Remover de ${g?.nome ?? "grupo"}`}
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2 col-span-2">
-                    <Label>Papel na equipe</Label>
-                    <Select value={editPapel} onValueChange={(v) => setEditPapel(v as any)}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
+                    <Label>Adicionar a equipe</Label>
+                    <Select value={editGrupo} onValueChange={setEditGrupo}>
+                      <SelectTrigger><SelectValue placeholder="Selecione uma equipe (opcional)" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="MEMBRO">Técnico (Membro)</SelectItem>
-                        <SelectItem value="COORDENADOR">Supervisor (Coordenador)</SelectItem>
-                        <SelectItem value="GESTOR">Gestor</SelectItem>
+                        {grupos
+                          .filter((g) => !editingMemberships.some((m) => m.group_id === g.id))
+                          .map((g) => (
+                            <SelectItem key={g.id} value={String(g.id)}>{g.nome}</SelectItem>
+                          ))}
                       </SelectContent>
                     </Select>
                   </div>
-                )}
-              </div>
+                  {editGrupo && (
+                    <div className="space-y-2 col-span-2">
+                      <Label>Papel na equipe</Label>
+                      <Select value={editPapel} onValueChange={(v) => setEditPapel(v as any)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="MEMBRO">Técnico (Membro)</SelectItem>
+                          <SelectItem value="COORDENADOR">Supervisor (Coordenador)</SelectItem>
+                          <SelectItem value="GESTOR">Gestor</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
+              </>
             )}
 
             <div className="flex items-center justify-between rounded-md border p-3">
@@ -412,6 +508,25 @@ export default function Permissoes() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!removeTarget} onOpenChange={(o) => !o && setRemoveTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover do grupo?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja remover <strong>{editing?.nome}</strong> do grupo{" "}
+              <strong>{removeTarget?.nome}</strong>? O usuário e o grupo continuam existindo —
+              apenas o vínculo será removido.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRemoveGroup} className="bg-destructive hover:bg-destructive/90">
+              Remover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
