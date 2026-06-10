@@ -34,6 +34,7 @@ const Pessoas = () => {
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [unidadeSearch, setUnidadeSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   const [form, setForm] = useState(emptyForm);
@@ -66,8 +67,11 @@ const Pessoas = () => {
 
   const filteredUnidades = useMemo(() => {
     if (!form.empresa_id) return [];
-    return unidades.filter(u => u.empresa_id === Number(form.empresa_id));
-  }, [unidades, form.empresa_id]);
+    const base = unidades.filter(u => u.empresa_id === Number(form.empresa_id));
+    const q = unidadeSearch.trim().toLowerCase();
+    if (!q) return base;
+    return base.filter(u => u.nome_unidade.toLowerCase().includes(q));
+  }, [unidades, form.empresa_id, unidadeSearch]);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return pessoas;
