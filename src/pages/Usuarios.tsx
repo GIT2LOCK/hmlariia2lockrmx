@@ -7,7 +7,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useUser, UserRole } from "@/contexts/UserContext";
-import { Search, Shield, Users as UsersIcon, Loader2, KeyRound, CheckCircle2, XCircle, MinusCircle } from "lucide-react";
+import { Search, Shield, Users as UsersIcon, Loader2, KeyRound, CheckCircle2, XCircle, MinusCircle, Trash2 } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -58,6 +62,28 @@ const Usuarios = () => {
   const [saving, setSaving] = useState(false);
   const [results, setResults] = useState<Record<number, TestResult>>({});
   const [testingAll, setTestingAll] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Usuario | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    // Limpa vínculos que não cascateiam para evitar FK errors
+    await supabase.from("support_group_members").delete().eq("usuario_id", deleteTarget.id);
+    await supabase.from("grafana_user_org_permissions").delete().eq("usuario_id", deleteTarget.id);
+    await supabase.from("grafana_access_group_members").delete().eq("usuario_id", deleteTarget.id);
+    await supabase.from("grafana_user_links").delete().eq("usuario_id", deleteTarget.id);
+    await supabase.from("sessions").delete().eq("user_id", deleteTarget.id);
+    const { error } = await supabase.from("usuarios").delete().eq("id", deleteTarget.id);
+    setDeleting(false);
+    if (error) {
+      toast({ title: "Erro ao excluir usuário", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Usuário excluído com sucesso" });
+    setUsuarios((prev) => prev.filter((u) => u.id !== deleteTarget.id));
+    setDeleteTarget(null);
+  };
 
   const load = async () => {
     setLoading(true);
@@ -321,6 +347,16 @@ const Usuarios = () => {
                                 >
                                   {u.ativo ? "Desativar" : "Ativar"}
                                 </Button>
+                                {hasFullAccess && (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => setDeleteTarget(u)}
+                                    title="Excluir usuário"
+                                  >
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                  </Button>
+                                )}
                               </>
                             )}
                           </div>
@@ -341,6 +377,28 @@ const Usuarios = () => {
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir usuário</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir <strong>{deleteTarget?.nome}</strong> ({deleteTarget?.email})?
+              Esta ação é permanente e remove o usuário, seus vínculos com equipes e suas permissões do Grafana.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleDelete(); }}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
