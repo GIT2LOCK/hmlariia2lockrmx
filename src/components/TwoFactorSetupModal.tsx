@@ -13,9 +13,10 @@ interface TwoFactorSetupModalProps {
   userId: number;
   setupToken: string;
   onComplete: (user: any, session: any) => void;
+  onSkip?: () => void;
 }
 
-export default function TwoFactorSetupModal({ open, userId, setupToken, onComplete }: TwoFactorSetupModalProps) {
+export default function TwoFactorSetupModal({ open, userId, setupToken, onComplete, onSkip }: TwoFactorSetupModalProps) {
   const { toast } = useToast();
   const [qrCodeUrl, setQrCodeUrl] = useState("");
   const [secret, setSecret] = useState("");
