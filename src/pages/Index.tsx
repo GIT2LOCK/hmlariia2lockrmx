@@ -334,7 +334,17 @@ const Index = () => {
       </div>
 
       <TwoFactorModal open={show2FAModal} userId={pending2FAUserId} onComplete={completeLogin} onCancel={() => setShow2FAModal(false)} />
-      <TwoFactorSetupModal open={show2FASetup} userId={pending2FAUserId} setupToken={setupToken} onComplete={completeLogin} />
+      <TwoFactorSetupModal
+        open={show2FASetup}
+        userId={pending2FAUserId}
+        setupToken={setupToken}
+        onComplete={completeLogin}
+        onSkip={() => {
+          if (pendingSignupUser && setupToken) {
+            completeLogin(pendingSignupUser, { token: setupToken, expires_at: setupTokenExpires });
+          }
+        }}
+      />
     </div>
   );
 };
