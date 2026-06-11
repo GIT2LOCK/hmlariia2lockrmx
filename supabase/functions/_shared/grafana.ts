@@ -160,15 +160,12 @@ export async function syncUserToGrafana(usuario_id: number, actor_id?: number | 
     .eq("usuario_id", usuario_id)
     .maybeSingle();
 
-  const isFirstSync = !existingLink;
-
-  // First-sync: apply automation rules (manual perms always win — only insert where missing)
-  if (isFirstSync && u.ativo) {
+  // Sempre reavalia automações (regras manuais existentes têm prioridade — não sobrescrevemos).
+  if (u.ativo) {
     try {
       const { data: autoActions } = await svc.rpc("grafana_evaluate_automations", { _usuario_id: usuario_id });
       const actions = Array.isArray(autoActions) ? autoActions : [];
       if (actions.length) {
-        // Load existing direct perms to avoid overwriting manual ones
         const { data: existingPerms } = await svc
           .from("grafana_user_org_permissions")
           .select("grafana_organization_id")
@@ -190,6 +187,22 @@ export async function syncUserToGrafana(usuario_id: number, actor_id?: number | 
             action: "automation_applied", status: "success",
             response_payload: { actions: inserts },
           });
+        }
+
+        // Vincula a grupos de acesso definidos pela automação
+        const groupActions = actions.filter((a: any) => a.group_id);
+        if (groupActions.length) {
+          const { data: existingGroups } = await svc
+            .from("grafana_access_group_members")
+            .select("group_id")
+            .eq("usuario_id", usuario_id);
+          const existingGroupIds = new Set((existingGroups || []).map((g: any) => g.group_id));
+          const groupInserts = groupActions
+            .filter((a: any) => !existingGroupIds.has(a.group_id))
+            .map((a: any) => ({ usuario_id, group_id: a.group_id }));
+          if (groupInserts.length) {
+            await svc.from("grafana_access_group_members").insert(groupInserts);
+          }
         }
       }
     } catch (e) {
