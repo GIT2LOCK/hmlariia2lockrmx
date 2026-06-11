@@ -177,6 +177,9 @@ const Index = () => {
         if (data.requiresSetup2FA) {
           setPending2FAUserId(data.user.id);
           setSetupToken(data.setupToken);
+          setPendingSignupUser(data.user);
+          // setupToken vale 30 min — usado se o usuário pular o 2FA
+          setSetupTokenExpires(new Date(Date.now() + 30 * 60 * 1000).toISOString());
           setShow2FASetup(true);
         } else if (result.session) {
           await completeLogin(result.user!, result.session);
