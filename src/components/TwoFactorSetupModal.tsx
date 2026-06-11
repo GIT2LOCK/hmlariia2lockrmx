@@ -13,9 +13,10 @@ interface TwoFactorSetupModalProps {
   userId: number;
   setupToken: string;
   onComplete: (user: any, session: any) => void;
+  onSkip?: () => void;
 }
 
-export default function TwoFactorSetupModal({ open, userId, setupToken, onComplete }: TwoFactorSetupModalProps) {
+export default function TwoFactorSetupModal({ open, userId, setupToken, onComplete, onSkip }: TwoFactorSetupModalProps) {
   const { toast } = useToast();
   const [qrCodeUrl, setQrCodeUrl] = useState("");
   const [secret, setSecret] = useState("");
@@ -119,6 +120,14 @@ export default function TwoFactorSetupModal({ open, userId, setupToken, onComple
           <Button onClick={handleVerify} disabled={code.length !== 6 || loading} className="w-full">
             {loading ? "Verificando..." : "Ativar 2FA"}
           </Button>
+          {onSkip && (
+            <Button variant="ghost" onClick={onSkip} className="w-full" disabled={loading}>
+              Agora não
+            </Button>
+          )}
+          <p className="text-xs text-muted-foreground text-center">
+            Você pode configurar o 2FA mais tarde em Meu Perfil.
+          </p>
         </div>
       </DialogContent>
     </Dialog>

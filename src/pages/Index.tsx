@@ -48,6 +48,8 @@ const Index = () => {
   const [show2FASetup, setShow2FASetup] = useState(false);
   const [pending2FAUserId, setPending2FAUserId] = useState<number>(0);
   const [setupToken, setSetupToken] = useState("");
+  const [pendingSignupUser, setPendingSignupUser] = useState<any>(null);
+  const [setupTokenExpires, setSetupTokenExpires] = useState<string>("");
 
   const handleToggle = (toSignUp: boolean) => {
     if (animating.current) return;
@@ -175,6 +177,9 @@ const Index = () => {
         if (data.requiresSetup2FA) {
           setPending2FAUserId(data.user.id);
           setSetupToken(data.setupToken);
+          setPendingSignupUser(data.user);
+          // setupToken vale 30 min — usado se o usuário pular o 2FA
+          setSetupTokenExpires(new Date(Date.now() + 30 * 60 * 1000).toISOString());
           setShow2FASetup(true);
         } else if (result.session) {
           await completeLogin(result.user!, result.session);
@@ -329,7 +334,17 @@ const Index = () => {
       </div>
 
       <TwoFactorModal open={show2FAModal} userId={pending2FAUserId} onComplete={completeLogin} onCancel={() => setShow2FAModal(false)} />
-      <TwoFactorSetupModal open={show2FASetup} userId={pending2FAUserId} setupToken={setupToken} onComplete={completeLogin} />
+      <TwoFactorSetupModal
+        open={show2FASetup}
+        userId={pending2FAUserId}
+        setupToken={setupToken}
+        onComplete={completeLogin}
+        onSkip={() => {
+          if (pendingSignupUser && setupToken) {
+            completeLogin(pendingSignupUser, { token: setupToken, expires_at: setupTokenExpires });
+          }
+        }}
+      />
     </div>
   );
 };
