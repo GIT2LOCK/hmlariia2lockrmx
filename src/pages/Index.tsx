@@ -48,6 +48,8 @@ const Index = () => {
   const [show2FASetup, setShow2FASetup] = useState(false);
   const [pending2FAUserId, setPending2FAUserId] = useState<number>(0);
   const [setupToken, setSetupToken] = useState("");
+  const [pendingSignupUser, setPendingSignupUser] = useState<any>(null);
+  const [setupTokenExpires, setSetupTokenExpires] = useState<string>("");
 
   const handleToggle = (toSignUp: boolean) => {
     if (animating.current) return;
