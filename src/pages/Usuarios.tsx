@@ -62,6 +62,28 @@ const Usuarios = () => {
   const [saving, setSaving] = useState(false);
   const [results, setResults] = useState<Record<number, TestResult>>({});
   const [testingAll, setTestingAll] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Usuario | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    // Limpa vínculos que não cascateiam para evitar FK errors
+    await supabase.from("support_group_members").delete().eq("usuario_id", deleteTarget.id);
+    await supabase.from("grafana_user_org_permissions").delete().eq("usuario_id", deleteTarget.id);
+    await supabase.from("grafana_access_group_members").delete().eq("usuario_id", deleteTarget.id);
+    await supabase.from("grafana_user_links").delete().eq("usuario_id", deleteTarget.id);
+    await supabase.from("sessions").delete().eq("user_id", deleteTarget.id);
+    const { error } = await supabase.from("usuarios").delete().eq("id", deleteTarget.id);
+    setDeleting(false);
+    if (error) {
+      toast({ title: "Erro ao excluir usuário", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Usuário excluído com sucesso" });
+    setUsuarios((prev) => prev.filter((u) => u.id !== deleteTarget.id));
+    setDeleteTarget(null);
+  };
 
   const load = async () => {
     setLoading(true);
