@@ -195,6 +195,13 @@ export default function Permissoes() {
       }
     }
 
+    // Sincroniza com Grafana (não bloqueia em caso de erro)
+    try {
+      await supabase.functions.invoke("grafana-sync-user", { body: { usuario_id: editing.id } });
+    } catch (e) {
+      console.warn("grafana-sync-user falhou:", e);
+    }
+
     toast({ title: "Permissões atualizadas com sucesso" });
     setEditing(null);
     setSaving(false);

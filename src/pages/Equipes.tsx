@@ -229,11 +229,18 @@ function MembersDialog({ open, group, onClose }: { open: boolean; group: Group; 
   const [novoRole, setNovoRole] = useState<RoleGrp>("MEMBRO");
 
   const load = async () => {
-    const { data } = await supabase
+    const { data: rows } = await supabase
       .from("support_group_members")
-      .select("id,group_id,usuario_id,role_in_group,ativo,usuarios:usuario_id(nome)")
+      .select("id,group_id,usuario_id,role_in_group,ativo")
       .eq("group_id", group.id);
-    setMembers(((data || []) as any[]).map((m) => ({ ...m, usuario_nome: m.usuarios?.nome })));
+    const list = (rows || []) as any[];
+    const ids = Array.from(new Set(list.map((m) => m.usuario_id)));
+    let nameMap: Record<number, string> = {};
+    if (ids.length) {
+      const { data: us } = await supabase.from("usuarios").select("id,nome").in("id", ids);
+      nameMap = Object.fromEntries(((us as any[]) || []).map((u) => [u.id, u.nome]));
+    }
+    setMembers(list.map((m) => ({ ...m, usuario_nome: nameMap[m.usuario_id] })));
   };
 
   useEffect(() => {
