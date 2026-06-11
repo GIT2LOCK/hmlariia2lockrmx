@@ -347,6 +347,16 @@ const Usuarios = () => {
                                 >
                                   {u.ativo ? "Desativar" : "Ativar"}
                                 </Button>
+                                {hasFullAccess && (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => setDeleteTarget(u)}
+                                    title="Excluir usuário"
+                                  >
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                  </Button>
+                                )}
                               </>
                             )}
                           </div>
