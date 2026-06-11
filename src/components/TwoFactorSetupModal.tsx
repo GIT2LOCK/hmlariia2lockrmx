@@ -120,6 +120,14 @@ export default function TwoFactorSetupModal({ open, userId, setupToken, onComple
           <Button onClick={handleVerify} disabled={code.length !== 6 || loading} className="w-full">
             {loading ? "Verificando..." : "Ativar 2FA"}
           </Button>
+          {onSkip && (
+            <Button variant="ghost" onClick={onSkip} className="w-full" disabled={loading}>
+              Agora não
+            </Button>
+          )}
+          <p className="text-xs text-muted-foreground text-center">
+            Você pode configurar o 2FA mais tarde em Meu Perfil.
+          </p>
         </div>
       </DialogContent>
     </Dialog>
