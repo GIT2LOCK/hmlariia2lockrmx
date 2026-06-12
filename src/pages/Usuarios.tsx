@@ -68,21 +68,46 @@ const Usuarios = () => {
   const handleDelete = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
-    // Limpa vínculos que não cascateiam para evitar FK errors
-    await supabase.from("support_group_members").delete().eq("usuario_id", deleteTarget.id);
-    await supabase.from("grafana_user_org_permissions").delete().eq("usuario_id", deleteTarget.id);
-    await supabase.from("grafana_access_group_members").delete().eq("usuario_id", deleteTarget.id);
-    await supabase.from("grafana_user_links").delete().eq("usuario_id", deleteTarget.id);
-    await supabase.from("sessions").delete().eq("user_id", deleteTarget.id);
-    const { error } = await supabase.from("usuarios").delete().eq("id", deleteTarget.id);
-    setDeleting(false);
-    if (error) {
-      toast({ title: "Erro ao excluir usuário", description: error.message, variant: "destructive" });
-      return;
+    try {
+      const { data, error } = await supabase.functions.invoke("delete-usuario", {
+        body: { usuario_id: deleteTarget.id },
+      });
+      const steps = (data as any)?.steps as Record<string, { ok: boolean; error?: string }> | undefined;
+
+      if (error || (data as any)?.error) {
+        const detail = steps
+          ? Object.entries(steps)
+              .filter(([, v]) => !v.ok)
+              .map(([k, v]) => `${k}: ${v.error}`)
+              .join(" · ")
+          : (error?.message ?? (data as any)?.error);
+        toast({ title: "Falha ao excluir usuário", description: detail, variant: "destructive" });
+        return;
+      }
+
+      const allOk = steps ? Object.values(steps).every((s) => s.ok) : true;
+      if (!allOk && steps) {
+        const detail = Object.entries(steps)
+          .filter(([, v]) => !v.ok)
+          .map(([k, v]) => `${k}: ${v.error}`)
+          .join(" · ");
+        toast({
+          title: "Usuário excluído parcialmente",
+          description: `Algumas etapas falharam — ${detail}`,
+          variant: "destructive",
+        });
+      } else {
+        toast({ title: "Usuário excluído com sucesso" });
+      }
+
+      // Refresh from DB instead of optimistic removal
+      await load();
+      setDeleteTarget(null);
+    } catch (e: any) {
+      toast({ title: "Erro inesperado", description: e?.message ?? String(e), variant: "destructive" });
+    } finally {
+      setDeleting(false);
     }
-    toast({ title: "Usuário excluído com sucesso" });
-    setUsuarios((prev) => prev.filter((u) => u.id !== deleteTarget.id));
-    setDeleteTarget(null);
   };
 
   const load = async () => {
