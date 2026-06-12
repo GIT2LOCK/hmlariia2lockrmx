@@ -127,11 +127,11 @@ serve(async (req) => {
         requiresSetup2FA: true,
         setupToken,
         user: {
-          id: userData.id,
-          nome: userData.nome,
-          email: userData.email,
-          permissao: userData.permissao,
-          auth_user_id: userData.auth_user_id,
+          id: finalUser.id,
+          nome: finalUser.nome,
+          email: finalUser.email,
+          permissao: finalUser.permissao,
+          auth_user_id: finalUser.auth_user_id,
         },
       }),
       { status: 201, headers: { ...corsHeaders, "Content-Type": "application/json" } }
