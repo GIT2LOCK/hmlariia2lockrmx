@@ -87,7 +87,28 @@ serve(async (req) => {
       );
     }
 
-    // Create a temporary setupToken (custom session) for 2FA mandatory setup flow
+    // Apply domain rule (may set empresa_id + override permissao to CLIENTE/etc.)
+    let finalUser = userData;
+    try {
+      await supabase.rpc("apply_domain_rule", { _usuario_id: userData.id });
+      const { data: refreshed } = await supabase
+        .from("usuarios")
+        .select("id, nome, email, permissao, auth_user_id, empresa_id")
+        .eq("id", userData.id)
+        .maybeSingle();
+      if (refreshed) finalUser = refreshed as any;
+    } catch (e) {
+      console.warn("[signup] apply_domain_rule failed:", e);
+    }
+
+    // Trigger Grafana sync in background (don't block signup)
+    try {
+      await supabase.functions.invoke("grafana-sync-user", { body: { usuario_id: userData.id } });
+    } catch (e) {
+      console.warn("[signup] grafana sync failed:", e);
+    }
+
+    // Create a temporary setupToken (custom session) for 2FA optional setup flow
     const setupToken = Array.from(crypto.getRandomValues(new Uint8Array(32)))
       .map((b) => b.toString(16).padStart(2, "0")).join("");
 
