@@ -1,89 +1,89 @@
-## Controle de Permissões — Chamados Ariia
+## Objetivo
+Tornar consistente e definitivo o fluxo de **cadastro, login, automação por domínio, alteração de cargo/permissão, sincronização com Grafana e exclusão de usuários** no Ariia.
 
-### Mapeamento de perfis
+---
 
-Hoje o Ariia usa: `SUPERADMIN`, `ADMIN`, `USER`, `VIEWER`, `TV_VIEW`.
-Os 4 perfis solicitados serão mapeados sem quebrar o que já existe:
+## Diagnóstico (resumo)
 
-| Perfil solicitado | Implementação                                                                  |
-| ----------------- | ------------------------------------------------------------------------------ |
-| Administrador     | `SUPERADMIN` + `ADMIN` (já existem)                                            |
-| Supervisor        | `USER` com papel `COORDENADOR` ou `GESTOR` em uma `support_group` (já existe)  |
-| Técnico           | `USER` com papel `MEMBRO` em uma `support_group` (já existe)                   |
-| Cliente           | **Novo perfil `CLIENTE`** vinculado a uma `empresa_id` na tabela `usuarios`    |
+1. **Automação por domínio** hoje só adiciona o usuário a uma org do Grafana. Ela **não** define `empresa_id` nem `permissao` na tabela `usuarios`. Por isso `usuario@goodstorage.com.br` entrou como `VIEWER` em vez de `CLIENTE` da GoodStorage.
+2. **Mapeamento Ariia → Grafana** atual: `SUPERADMIN` vira `GrafanaAdmin`; demais perfis dependem 100% de permissões manuais/grupo. Não há regra automática "CLIENTE → Viewer na org da empresa", e nada impede o sync de tentar enviar a role `Cliente` indiretamente (causa do `User sync failed`).
+3. **Alteração de cargo/permissão "não persiste"**: o `update` em `usuarios` retorna sucesso, mas o `grafana-sync-user` em seguida pode reaplicar automações de domínio e regravar `grafana_user_org_permissions`, dando a impressão de "voltou ao Cliente". Além disso, faltam logs/erros visíveis quando o sync falha.
+4. **Exclusão de usuário**: a função `handleDelete` em `Usuarios.tsx` apaga registros do app, **mas não remove o usuário do `auth.users` nem do Grafana**. Como o login agora cria o usuário em `auth.users` via signup, se o registro em `auth.users` permanecer e o usuário tentar logar de novo, um trigger/fluxo pode recriar a linha em `public.usuarios`.
 
-VIEWER e TV_VIEW continuam intocados (somente leitura / dashboards de TV).
+---
 
-### Backend (migration única)
+## Mudanças
 
-1. **`usuarios`**
-   - Adicionar coluna `empresa_id INTEGER REFERENCES empresas(id)` (nullable, usada só por CLIENTE).
-   - Ampliar valores aceitos em `permissao` para incluir `CLIENTE`.
+### 1. Banco de dados (migration)
 
-2. **Helpers SECURITY DEFINER** (centralizam toda a lógica):
-   - `fn_current_usuario()` → `(id, permissao, empresa_id)` do `auth.uid()`.
-   - `fn_is_admin()` → true para SUPERADMIN/ADMIN.
-   - `fn_is_supervisor_of(group_id)` → COORDENADOR/GESTOR em alguma group.
-   - `fn_can_view_ticket(ticket_id)` → centraliza toda regra:
-     - ADMIN: tudo
-     - CLIENTE: somente tickets da `empresa_id` ou onde `criado_por = self`
-     - Supervisor: tickets de groups onde é COORDENADOR/GESTOR
-     - Técnico: tickets onde `tecnico_id = self` ou `criado_por = self`
-   - `fn_can_edit_ticket(ticket_id)` — mesma matriz para escrita.
+- **Nova tabela `domain_rules`**
+  - `domain` (citext, unique), `empresa_id` (fk empresas, nullable), `default_permissao` (CHECK ∈ roles válidos), `grafana_organization_id` (fk, nullable), `grafana_role` (Viewer/Editor/Admin), `ativo`.
+  - Grants + RLS: leitura authenticated, escrita só SUPERADMIN/ADMIN.
+- **Função `public.apply_domain_rule(_usuario_id int)`** (SECURITY DEFINER)
+  - Olha `lower(split_part(email,'@',2))`, encontra rule ativa.
+  - Se `usuarios.permissao = 'VIEWER'` (padrão pós-signup) **ou** o usuário ainda não tem `empresa_id`, aplica `empresa_id` + `permissao` da regra.
+  - Não sobrescreve quem já é `SUPERADMIN/ADMIN/USER` manualmente.
+- **Função `public.fn_delete_usuario_cascade(_usuario_id int)`** (SECURITY DEFINER, restrita a SUPERADMIN via check interno)
+  - Limpa `support_group_members`, `grafana_user_org_permissions`, `grafana_access_group_members`, `grafana_user_links`, `sessions`, `ticket_notifications`, `contato_unidades` etc., depois `delete from usuarios`. Retorna `auth_user_id` para o caller apagar em `auth.users`.
+- **Seed**: criar uma row em `domain_rules` para `goodstorage.com.br` → empresa GoodStorage, `CLIENTE`, org Grafana 3 / Viewer.
 
-3. **RLS de `tickets` reescrita** com `fn_can_view_ticket` / `fn_can_edit_ticket`. Aplicar regra equivalente em `ticket_comments`, `ticket_attachments`, `ticket_history`, `ticket_notifications` (CLIENTE vê só do próprio ticket; comentários internos ficam ocultos para CLIENTE via flag `interno`).
-   - Adicionar coluna `interno BOOLEAN DEFAULT false` em `ticket_comments` se ainda não existir, e filtrar na RLS para CLIENTE.
+### 2. Edge Functions
 
-4. **Atualizar `fn_dashboard_ticket_ids()`** para incluir o caso CLIENTE (filtro por `empresa_id`).
+- **`_shared/grafana.ts`**
+  - Novo helper `mapAriiaToGrafanaRole(permissao)`: `CLIENTE → Viewer`, `VIEWER → Viewer`, `USER → Editor`, `ADMIN → Admin`, `SUPERADMIN → Admin (+ isGrafanaAdmin)`.
+  - Em `syncUserToGrafana`:
+    - Antes de tudo, chamar `apply_domain_rule` via RPC.
+    - Para `CLIENTE`, garantir que ele só tenha permissão na org Grafana vinculada à empresa dele (campo novo `empresas.grafana_organization_id` — adicionado na migration). Remove de todas as outras orgs.
+    - Para `SUPERADMIN`, manter comportamento atual.
+    - Nunca enviar string "Cliente" para Grafana — toda role passa pelo mapper.
+  - Logs claros via `logSync` quando o mapeamento ou a sync falhar.
+- **`signup/index.ts`** e **`login/index.ts`** (e bridge-supabase-session): após autenticar, chamar `apply_domain_rule(usuario.id)` e em seguida `syncUserToGrafana`.
+- **Nova função `delete-usuario`** (POST `{ usuario_id }`):
+  - Auth: SUPERADMIN.
+  - 1) Remove no Grafana (`/api/admin/users/:id`).
+  - 2) `fn_delete_usuario_cascade` no Postgres.
+  - 3) `supabase.auth.admin.deleteUser(auth_user_id)`.
+  - Resposta agrega status de cada etapa; em caso de falha parcial, retorna 207 com detalhes.
 
-### Frontend
+### 3. Frontend
 
-1. **`src/lib/permissions.ts` (novo — matriz central)**
-   - Exporta `Permission` enum: `tickets.view_own`, `tickets.view_team`, `tickets.view_all`, `tickets.create`, `tickets.assign`, `tickets.transfer`, `tickets.close`, `users.manage`, `users.manage_permissions`, `system.configure`, `dashboard.admin`, `dashboard.team`.
-   - `PERMISSION_MATRIX: Record<Role, Permission[]>`.
-   - `can(user, permission, ctx?)` único ponto de verificação.
-   - Mensagens amigáveis: `PERMISSION_DENIED_MESSAGES`.
+- **`src/pages/Permissoes.tsx`** (`handleSave`)
+  - Após `update`, faz `select` da linha atualizada e **só mostra toast de sucesso se `permissao`/`empresa_id` realmente bateram com o payload**. Caso contrário, mostra erro com a diferença.
+  - Aguarda a resposta do `grafana-sync-user`; se vier erro, mostra toast destrutivo com o `error`.
+- **`src/pages/Usuarios.tsx`** (`handleDelete`)
+  - Substitui as chamadas diretas por `supabase.functions.invoke("delete-usuario", { body: { usuario_id } })`.
+  - Mostra erros por etapa quando o backend retorna 207.
+- **Adicionar página/aba "Regras de Domínio"** (simples CRUD em `Permissoes.tsx` ou nova rota `/dashboard/regras-dominio`) para gerenciar `domain_rules`. *(Mínimo viável: incluir CRUD básico.)*
 
-2. **`UserContext`** — adicionar `empresa_id`, `role` agora pode ser `CLIENTE`, e helpers `can()`, `isCliente`, `isTecnico`, `isSupervisor`, `isAdmin`.
+### 4. Patchnote
+Ao final, postar no chat um patchnote com tudo que mudou.
 
-3. **`AppSidebar`** — esconder itens conforme `can()`:
-   - CLIENTE vê apenas: Meus Chamados, Abrir Chamado, Meu Perfil.
-   - Técnico: Chamados (filtrado), Dashboard Atendimento (próprio recorte), Base de Conhecimento.
-   - Supervisor: + Equipes, Relatórios da equipe.
-   - Admin: tudo.
+---
 
-4. **`ProtectedRoute`** — aceita `requirePermission` e redireciona com toast amigável quando negado.
+## Detalhes técnicos
 
-5. **Páginas de chamados (`Chamados.tsx`, `ChamadoDetalhe.tsx`, `AbrirChamadoModal`)**:
-   - Ocultar/condicionar botões (Atribuir, Transferir, Alterar SLA, Mudar prioridade, Comentário interno) via `can()`.
-   - Para CLIENTE: esconder fluxo operacional, técnico responsável (mostrar só "Equipe responsável"), comentários internos.
-   - Tela de "acesso negado" amigável quando o ticket existe mas a RLS retorna vazio.
+```text
+fluxo de signup/login
+──────────────────────
+auth (supabase) ──► usuarios row (VIEWER default)
+                         │
+                         ▼
+                 apply_domain_rule(uid)
+                         │
+                         ▼
+            empresa_id + permissao da regra
+                         │
+                         ▼
+                syncUserToGrafana(uid)
+                         │
+                         ▼
+       mapAriiaToGrafanaRole + org da empresa
+```
 
-6. **Nova página `/admin/permissoes` (`Permissoes.tsx`)** — substitui/expande a aba atual de `Usuarios.tsx`:
-   - Tabela: Nome, E-mail, Perfil, Equipe(s), Empresa (se CLIENTE), Status, Ações.
-   - Filtros: perfil, equipe, empresa, status. Busca por nome/e-mail.
-   - Modal de edição:
-     - Alterar `permissao` (Admin/Supervisor/Técnico/Cliente/Viewer).
-     - Vincular a uma ou mais `support_groups` com papel (membro/coordenador/gestor).
-     - Vincular a uma `empresa` (visível apenas se perfil = CLIENTE).
-     - Ativar/desativar.
-     - Bloquear edição do próprio usuário (exceto SUPERADMIN editando outro SUPERADMIN com confirmação).
-   - Acesso restrito por `can('users.manage_permissions')`.
+Constraints/grants seguem o padrão do projeto (GRANT ... TO authenticated/service_role + RLS).
 
-7. **Sidebar/Header** — link "Permissões" só para Admin.
+---
 
-### Entrega incremental
-
-1. Migration: coluna `empresa_id`, helpers, RLS, dashboard ids.
-2. `permissions.ts` + UserContext atualizado.
-3. Sidebar + ProtectedRoute aplicando matriz.
-4. Ajustes em `Chamados.tsx` / `ChamadoDetalhe.tsx` (CLIENTE-safe).
-5. Nova tela `/admin/permissoes` com edição completa.
-6. Mensagens de erro amigáveis (toast utilitário `denyToast(permission)`).
-
-### Pontos a confirmar antes de implementar
-
-1. **Perfil "Cliente" é novo** — o sistema hoje não tem usuários CLIENTE. Confirma criar o perfil e vincular via `empresa_id` em `usuarios`?
-2. **Comentários internos x cliente** — adicionar flag `interno` em `ticket_comments` para esconder do CLIENTE? (recomendado)
-3. **Supervisor = papel na equipe** (já existe COORDENADOR/GESTOR) — manter assim ou criar um perfil `SUPERVISOR` separado em `permissao`?
-4. **CLIENTE pode ver técnico responsável?** — proponho mostrar apenas "Equipe" e não o nome do técnico.
+## Fora de escopo
+- Reescrita do editor visual de automações.
+- UI completa de gerenciamento de orgs Grafana (apenas o vínculo `empresas.grafana_organization_id` será exposto via select existente).
