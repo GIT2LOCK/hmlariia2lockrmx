@@ -237,11 +237,50 @@ export type Database = {
           },
         ]
       }
+      domain_rules: {
+        Row: {
+          ativo: boolean
+          atualizado_em: string
+          criado_em: string
+          default_permissao: string
+          domain: string
+          empresa_id: number | null
+          id: number
+        }
+        Insert: {
+          ativo?: boolean
+          atualizado_em?: string
+          criado_em?: string
+          default_permissao?: string
+          domain: string
+          empresa_id?: number | null
+          id?: number
+        }
+        Update: {
+          ativo?: boolean
+          atualizado_em?: string
+          criado_em?: string
+          default_permissao?: string
+          domain?: string
+          empresa_id?: number | null
+          id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "domain_rules_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       empresas: {
         Row: {
           atualizado_em: string | null
           cnpj: string | null
           criado_em: string | null
+          grafana_organization_id: number | null
           id: number
           nome_fantasia: string
           observacoes: string | null
@@ -251,6 +290,7 @@ export type Database = {
           atualizado_em?: string | null
           cnpj?: string | null
           criado_em?: string | null
+          grafana_organization_id?: number | null
           id?: number
           nome_fantasia: string
           observacoes?: string | null
@@ -260,12 +300,21 @@ export type Database = {
           atualizado_em?: string | null
           cnpj?: string | null
           criado_em?: string | null
+          grafana_organization_id?: number | null
           id?: number
           nome_fantasia?: string
           observacoes?: string | null
           razao_social?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "empresas_grafana_organization_id_fkey"
+            columns: ["grafana_organization_id"]
+            isOneToOne: false
+            referencedRelation: "grafana_organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       grafana_access_group_members: {
         Row: {
@@ -1811,6 +1860,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      apply_domain_rule: { Args: { _usuario_id: number }; Returns: Json }
       custom_access_token_hook: { Args: { event: Json }; Returns: Json }
       fn_can_view_ticket: { Args: { _ticket_id: number }; Returns: boolean }
       fn_current_usuario: {
@@ -1889,6 +1939,10 @@ export type Database = {
         Returns: {
           ticket_id: number
         }[]
+      }
+      fn_delete_usuario_cascade: {
+        Args: { _usuario_id: number }
+        Returns: Json
       }
       fn_find_sla_policy: {
         Args: {

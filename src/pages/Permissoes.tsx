@@ -178,6 +178,30 @@ export default function Permissoes() {
       return;
     }
 
+    // Re-read to confirm persistence (RLS, triggers etc. could silently revert)
+    const { data: confirm } = await supabase
+      .from("usuarios")
+      .select("permissao, ativo, empresa_id")
+      .eq("id", editing.id)
+      .maybeSingle();
+
+    if (
+      !confirm ||
+      confirm.permissao !== payload.permissao ||
+      confirm.ativo !== payload.ativo ||
+      (confirm.empresa_id ?? null) !== (payload.empresa_id ?? null)
+    ) {
+      toast({
+        title: "Alteração não persistida",
+        description:
+          "O banco não confirmou as mudanças. Verifique as políticas RLS / constraints e tente novamente.",
+        variant: "destructive",
+      });
+      setSaving(false);
+      load();
+      return;
+    }
+
     if (editPerfil !== "CLIENTE" && editGrupo) {
       const existing = (memberships[editing.id] || []).find((m) => m.group_id === Number(editGrupo));
       if (existing) {
@@ -195,11 +219,25 @@ export default function Permissoes() {
       }
     }
 
-    // Sincroniza com Grafana (não bloqueia em caso de erro)
+    // Sincroniza com Grafana — surface failures to the admin
     try {
-      await supabase.functions.invoke("grafana-sync-user", { body: { usuario_id: editing.id } });
-    } catch (e) {
-      console.warn("grafana-sync-user falhou:", e);
+      const { data: syncData, error: syncErr } = await supabase.functions.invoke(
+        "grafana-sync-user",
+        { body: { usuario_id: editing.id } },
+      );
+      if (syncErr || (syncData as any)?.error) {
+        toast({
+          title: "Permissão salva, mas sincronização com Grafana falhou",
+          description: syncErr?.message || (syncData as any)?.error,
+          variant: "destructive",
+        });
+      }
+    } catch (e: any) {
+      toast({
+        title: "Permissão salva, mas erro ao chamar Grafana",
+        description: e?.message ?? String(e),
+        variant: "destructive",
+      });
     }
 
     toast({ title: "Permissões atualizadas com sucesso" });

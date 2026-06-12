@@ -146,6 +146,27 @@ serve(async (req) => {
       userData.auth_user_id ?? null,
     );
 
+    // Apply domain rule + sync Grafana (best-effort, never blocks login)
+    try {
+      await supabase.rpc("apply_domain_rule", { _usuario_id: userData.id });
+    } catch (e) {
+      console.warn("[login] apply_domain_rule failed:", e);
+    }
+    try {
+      await supabase.functions.invoke("grafana-sync-user", { body: { usuario_id: userData.id } });
+    } catch (e) {
+      console.warn("[login] grafana sync failed:", e);
+    }
+
+    // Re-read final permissao in case domain rule changed it
+    const { data: refreshed } = await supabase
+      .from("usuarios")
+      .select("permissao")
+      .eq("id", userData.id)
+      .maybeSingle();
+    if (refreshed?.permissao) userData.permissao = refreshed.permissao;
+
+
     // If 2FA is enabled, don't create session yet
     if (userData.totp_enabled) {
       return new Response(
