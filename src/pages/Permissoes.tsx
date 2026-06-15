@@ -221,9 +221,13 @@ export default function Permissoes() {
 
     // Sincroniza com Grafana — surface failures to the admin
     try {
+      const ariiaToken = localStorage.getItem("auth_token");
       const { data: syncData, error: syncErr } = await supabase.functions.invoke(
         "grafana-sync-user",
-        { body: { usuario_id: editing.id } },
+        {
+          body: { usuario_id: editing.id },
+          headers: ariiaToken ? { "x-ariia-token": ariiaToken } : undefined,
+        },
       );
       if (syncErr || (syncData as any)?.error) {
         toast({
