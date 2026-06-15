@@ -30,47 +30,65 @@ function decodeJwtClaims(jwt: string): Record<string, any> | null {
 export async function getCallerUsuario(req: Request) {
   const authHeader = req.headers.get("Authorization") || "";
   const jwt = authHeader.replace(/^Bearer\s+/i, "");
-  if (!jwt) throw new Error("missing_auth");
+  const ariiaToken = req.headers.get("x-ariia-token") || "";
+  if (!jwt && !ariiaToken) throw new Error("missing_auth");
 
   const svc = serviceClient();
-  const claims = decodeJwtClaims(jwt);
-  if (!claims) {
-    const { data: session, error: sessionError } = await svc
+
+  async function lookupBySession(token: string) {
+    const { data: session } = await svc
       .from("sessions")
       .select("user_id, expires_at")
-      .eq("token", jwt)
+      .eq("token", token)
       .maybeSingle();
-
-    if (sessionError || !session) throw new Error("invalid_auth");
+    if (!session) return null;
     if (new Date(session.expires_at) < new Date()) throw new Error("session_expired");
-
-    const { data: u, error: userError } = await svc
+    const { data: u } = await svc
       .from("usuarios")
       .select("id, nome, email, permissao, ativo, auth_user_id")
       .eq("id", session.user_id)
       .maybeSingle();
+    return u || null;
+  }
 
-    if (userError || !u) throw new Error("usuario_not_found");
+  // 1) Legacy Ariia token via custom header
+  if (ariiaToken) {
+    const u = await lookupBySession(ariiaToken);
+    if (u) {
+      if (!u.ativo) throw new Error("usuario_inativo");
+      return u;
+    }
+  }
+
+  const claims = jwt ? decodeJwtClaims(jwt) : null;
+
+  // 2) Non-JWT bearer → try sessions table
+  if (jwt && !claims) {
+    const u = await lookupBySession(jwt);
+    if (!u) throw new Error("invalid_auth");
     if (!u.ativo) throw new Error("usuario_inativo");
     return u;
   }
 
-  let query = svc.from("usuarios").select("id, nome, email, permissao, ativo, auth_user_id");
-
-  if (claims.ariia_usuario_id) {
-    query = query.eq("id", claims.ariia_usuario_id);
-  } else if (claims.sub) {
-    query = query.eq("auth_user_id", claims.sub);
-  } else if (claims.email) {
-    query = query.eq("email", claims.email);
-  } else {
-    throw new Error("invalid_auth");
+  // 3) JWT decoded
+  if (claims) {
+    let query = svc.from("usuarios").select("id, nome, email, permissao, ativo, auth_user_id");
+    if (claims.ariia_usuario_id) {
+      query = query.eq("id", claims.ariia_usuario_id);
+    } else if (claims.sub && claims.role !== "anon") {
+      query = query.eq("auth_user_id", claims.sub);
+    } else if (claims.email) {
+      query = query.eq("email", claims.email);
+    } else {
+      throw new Error("invalid_auth");
+    }
+    const { data: u, error: e2 } = await query.maybeSingle();
+    if (e2 || !u) throw new Error("usuario_not_found");
+    if (!u.ativo) throw new Error("usuario_inativo");
+    return u;
   }
 
-  const { data: u, error: e2 } = await query.maybeSingle();
-  if (e2 || !u) throw new Error("usuario_not_found");
-  if (!u.ativo) throw new Error("usuario_inativo");
-  return u;
+  throw new Error("invalid_auth");
 }
 
 export async function assertAdmin(req: Request) {
