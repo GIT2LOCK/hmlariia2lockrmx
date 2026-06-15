@@ -170,6 +170,7 @@ export default function Permissoes() {
       permissao: editPerfil,
       ativo: editAtivo,
       empresa_id: editPerfil === "CLIENTE" && editEmpresa ? Number(editEmpresa) : null,
+      permissao_manual: true,
     };
     const { error } = await supabase.from("usuarios").update(payload).eq("id", editing.id);
     if (error) {

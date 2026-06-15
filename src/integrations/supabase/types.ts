@@ -1765,6 +1765,7 @@ export type Database = {
           id: number
           nome: string
           permissao: string
+          permissao_manual: boolean
           senha_hash: string | null
           telefone: string | null
           totp_enabled: boolean | null
@@ -1785,6 +1786,7 @@ export type Database = {
           id?: number
           nome: string
           permissao?: string
+          permissao_manual?: boolean
           senha_hash?: string | null
           telefone?: string | null
           totp_enabled?: boolean | null
@@ -1805,6 +1807,7 @@ export type Database = {
           id?: number
           nome?: string
           permissao?: string
+          permissao_manual?: boolean
           senha_hash?: string | null
           telefone?: string | null
           totp_enabled?: boolean | null
