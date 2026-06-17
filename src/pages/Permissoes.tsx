@@ -21,7 +21,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
 import { Role, ROLE_LABELS } from "@/lib/permissions";
-import { Loader2, Search, ShieldCheck, Users as UsersIcon, X } from "lucide-react";
+import { Loader2, RefreshCw, Search, ShieldCheck, Users as UsersIcon, X } from "lucide-react";
 
 interface Usuario {
   id: number;
@@ -84,6 +84,59 @@ export default function Permissoes() {
   const [editGrupo, setEditGrupo] = useState<string>("");
   const [editPapel, setEditPapel] = useState<"MEMBRO" | "COORDENADOR" | "GESTOR">("MEMBRO");
   const [saving, setSaving] = useState(false);
+  const [syncingAll, setSyncingAll] = useState(false);
+  const [syncingId, setSyncingId] = useState<number | null>(null);
+
+  const ariiaHeaders = () => {
+    const t = localStorage.getItem("auth_token");
+    return t ? { "x-ariia-token": t } : undefined;
+  };
+
+  const handleResyncOne = async (u: Usuario) => {
+    setSyncingId(u.id);
+    try {
+      const { data, error } = await supabase.functions.invoke("grafana-sync-user", {
+        body: { usuario_id: u.id }, headers: ariiaHeaders(),
+      });
+      if (error || (data as any)?.error) {
+        toast({
+          title: `Falha ao ressincronizar ${u.nome}`,
+          description: error?.message || (data as any)?.error,
+          variant: "destructive",
+        });
+      } else {
+        toast({ title: `Ressincronizado: ${u.nome}` });
+      }
+    } finally {
+      setSyncingId(null);
+    }
+  };
+
+  const handleResyncAll = async () => {
+    setSyncingAll(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("grafana-sync-all", {
+        body: {}, headers: ariiaHeaders(),
+      });
+      if (error || (data as any)?.error) {
+        toast({
+          title: "Erro na ressincronização em lote",
+          description: error?.message || (data as any)?.error,
+          variant: "destructive",
+        });
+      } else {
+        const total = (data as any)?.total ?? 0;
+        const failed = ((data as any)?.results || []).filter((r: any) => !r.ok).length;
+        toast({
+          title: `Sincronização concluída`,
+          description: `${total} usuários processados${failed ? ` · ${failed} com erro` : ""}`,
+        });
+      }
+    } finally {
+      setSyncingAll(false);
+    }
+  };
+
 
   const [removeTarget, setRemoveTarget] = useState<{ groupId: number; nome: string } | null>(null);
 
@@ -301,7 +354,12 @@ export default function Permissoes() {
             Gerencie perfis, equipes, vínculo com empresa e status dos usuários.
           </p>
         </div>
+        <Button onClick={handleResyncAll} disabled={syncingAll} variant="outline">
+          {syncingAll ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+          Ressincronizar Grafana (todos)
+        </Button>
       </div>
+
 
       <Card>
         <CardHeader>
@@ -413,9 +471,21 @@ export default function Permissoes() {
                       </TableCell>
                       <TableCell>
                         {canEditUser(u) ? (
-                          <Button size="sm" variant="outline" onClick={() => openEdit(u)}>
-                            Editar
-                          </Button>
+                          <div className="flex gap-1">
+                            <Button size="sm" variant="outline" onClick={() => openEdit(u)}>
+                              Editar
+                            </Button>
+                            <Button
+                              size="sm" variant="ghost"
+                              title="Ressincronizar com Grafana"
+                              onClick={() => handleResyncOne(u)}
+                              disabled={syncingId === u.id}
+                            >
+                              {syncingId === u.id
+                                ? <Loader2 className="h-4 w-4 animate-spin" />
+                                : <RefreshCw className="h-4 w-4" />}
+                            </Button>
+                          </div>
                         ) : (
                           <span className="text-xs text-muted-foreground">—</span>
                         )}
