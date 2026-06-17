@@ -21,7 +21,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
 import { Role, ROLE_LABELS } from "@/lib/permissions";
-import { Loader2, Search, ShieldCheck, Users as UsersIcon, X } from "lucide-react";
+import { Loader2, RefreshCw, Search, ShieldCheck, Users as UsersIcon, X } from "lucide-react";
 
 interface Usuario {
   id: number;
