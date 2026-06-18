@@ -290,6 +290,31 @@ export async function syncUserToGrafana(usuario_id: number, actor_id?: number | 
       atualizado_em: new Date().toISOString(),
     }, { onConflict: "usuario_id" });
 
+    // 3.5) Clean up "personal organizations" auto-created by Grafana on first OAuth login
+    //      (Grafana cria uma org com nome = email quando o usuário não é auto-atribuído.)
+    const isPersonalOrgName = (name: string) =>
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((name || "").trim());
+    try {
+      const myOrgsRes = await grafanaFetch(`/api/users/${grafanaUserId}/orgs`);
+      const myOrgs = Array.isArray(myOrgsRes.body) ? myOrgsRes.body : [];
+      const personalOrgs = myOrgs.filter((o: any) => isPersonalOrgName(o.name));
+      const cleanupResults: any[] = [];
+      for (const o of personalOrgs) {
+        const leaveRes = await grafanaFetch(`/api/orgs/${o.orgId}/users/${grafanaUserId}`, { method: "DELETE" });
+        const membersRes = await grafanaFetch(`/api/orgs/${o.orgId}/users`);
+        const remaining = Array.isArray(membersRes.body) ? membersRes.body : [];
+        let orgDeleted = false;
+        if (remaining.length === 0) {
+          const delRes = await grafanaFetch(`/api/orgs/${o.orgId}`, { method: "DELETE" });
+          orgDeleted = delRes.ok;
+        }
+        cleanupResults.push({ orgId: o.orgId, name: o.name, left: leaveRes.ok, orgDeleted, remaining: remaining.length });
+      }
+      if (personalOrgs.length) step("personal_orgs_cleanup", { cleanupResults });
+    } catch (e) {
+      step("personal_orgs_cleanup_error", { error: (e as Error).message });
+    }
+
     // 4) Inactive: disable + remove from all orgs
     if (!u.ativo) {
       await grafanaFetch(`/api/admin/users/${grafanaUserId}/disable`, { method: "POST" });
@@ -305,50 +330,54 @@ export async function syncUserToGrafana(usuario_id: number, actor_id?: number | 
       return { is_grafana_admin: false, orgs: [] };
     }
 
-    // 5) Determine effective desired permissions
-    // CLIENTE (ou VIEWER vinculado a empresa): só a org da empresa, como Viewer.
-    let desired: Array<{ grafana_org_id: number; role: "Viewer" | "Editor" | "Admin" }> = [];
+    // 5) Determinar permissões desejadas
+    //    Mescla (a) org da empresa vinculada como Viewer mínimo
+    //           (b) permissões individuais + grupos via grafana_effective_permissions
+    //           (c) SUPERADMIN vira Admin em todas as orgs (já feito pela RPC)
     let isGrafanaAdmin = false;
-    const clienteLike = u.permissao === "CLIENTE" || (u.permissao === "VIEWER" && !!u.empresa_id);
+    const desiredMap = new Map<number, "Viewer" | "Editor" | "Admin">();
+    const rank: Record<string, number> = { Viewer: 1, Editor: 2, Admin: 3 };
+    const setMax = (orgId: number, role: "Viewer" | "Editor" | "Admin") => {
+      const cur = desiredMap.get(orgId);
+      if (!cur || rank[role] > rank[cur]) desiredMap.set(orgId, role);
+    };
 
-    if (clienteLike) {
-      if (u.empresa_id) {
-        const { data: emp } = await svc
-          .from("empresas")
-          .select("id, nome_fantasia, grafana_organization_id")
-          .eq("id", u.empresa_id)
+    if (u.empresa_id) {
+      const { data: emp } = await svc
+        .from("empresas")
+        .select("id, nome_fantasia, grafana_organization_id")
+        .eq("id", u.empresa_id)
+        .maybeSingle();
+      step("empresa_lookup", { empresa: emp });
+      if (emp?.grafana_organization_id) {
+        const { data: org } = await svc
+          .from("grafana_organizations")
+          .select("grafana_org_id, name, active")
+          .eq("id", emp.grafana_organization_id)
           .maybeSingle();
-        step("empresa_lookup", { empresa: emp });
-        if (emp?.grafana_organization_id) {
-          const { data: org } = await svc
-            .from("grafana_organizations")
-            .select("grafana_org_id, name")
-            .eq("id", emp.grafana_organization_id)
-            .maybeSingle();
-          step("grafana_org_lookup", { org });
-          if (org?.grafana_org_id) {
-            desired = [{ grafana_org_id: org.grafana_org_id, role: "Viewer" }];
-          } else {
-            step("warning", { msg: "empresa.grafana_organization_id aponta para org inexistente" });
-          }
+        step("grafana_org_lookup", { org });
+        if (org?.grafana_org_id && org.active) {
+          setMax(org.grafana_org_id, "Viewer");
         } else {
-          step("warning", { msg: "empresa sem grafana_organization_id vinculada" });
+          step("warning", { msg: "empresa.grafana_organization_id inválida ou inativa" });
         }
       } else {
-        step("warning", { msg: "CLIENTE sem empresa_id — nenhuma org Grafana atribuída" });
+        step("warning", { msg: "empresa sem grafana_organization_id vinculada" });
       }
-    } else {
-      const { data: permsRaw, error: pe } = await svc.rpc("grafana_effective_permissions", { _usuario_id: usuario_id });
-      if (pe) throw new Error(`perms_failed: ${pe.message}`);
-      const perms = permsRaw as { is_grafana_admin: boolean; orgs: Array<{ grafana_org_id: number; role: string }> };
-      isGrafanaAdmin = !!perms.is_grafana_admin;
-      desired = (perms.orgs || []).map((o) => ({
-        grafana_org_id: o.grafana_org_id,
-        role: mapAriiaToGrafanaRole(o.role) || (o.role as any),
-      }));
-      step("effective_perms", { isGrafanaAdmin, desired });
+    } else if (u.permissao === "CLIENTE") {
+      step("warning", { msg: "CLIENTE sem empresa_id — nenhuma org Grafana atribuída" });
     }
 
+    const { data: permsRaw, error: pe } = await svc.rpc("grafana_effective_permissions", { _usuario_id: usuario_id });
+    if (pe) throw new Error(`perms_failed: ${pe.message}`);
+    const perms = permsRaw as { is_grafana_admin: boolean; orgs: Array<{ grafana_org_id: number; role: string }> };
+    isGrafanaAdmin = !!perms.is_grafana_admin;
+    for (const o of (perms.orgs || [])) {
+      if (o.grafana_org_id) setMax(o.grafana_org_id, mapAriiaToGrafanaRole(o.role));
+    }
+    step("effective_perms", { isGrafanaAdmin, orgs: perms.orgs });
+
+    const desired = Array.from(desiredMap.entries()).map(([grafana_org_id, role]) => ({ grafana_org_id, role }));
     step("desired_state", { isGrafanaAdmin, desired });
 
     // 6) Set isGrafanaAdmin
@@ -357,19 +386,19 @@ export async function syncUserToGrafana(usuario_id: number, actor_id?: number | 
       body: JSON.stringify({ isGrafanaAdmin }),
     });
 
-    // 7) Reconcile orgs — add/patch wanted, remove all others (inclui Main Org id=1 quando não desejada)
-    const desiredByOrg = new Map<number, string>();
-    for (const o of desired) desiredByOrg.set(o.grafana_org_id, o.role);
-
-    const { data: allOrgs } = await svc.from("grafana_organizations").select("grafana_org_id, active").eq("active", true);
-    const knownIds = new Set<number>((allOrgs || []).map((o: any) => o.grafana_org_id));
-    // Sempre considerar Main Org (id=1) para garantir que CLIENTE não fique nela.
+    // 7) Reconcile orgs — união(orgs ativas no banco, desejadas, orgs atuais no Grafana, Main Org)
+    const knownIds = new Set<number>();
     knownIds.add(1);
-    for (const id of desiredByOrg.keys()) knownIds.add(id);
+    for (const id of desiredMap.keys()) knownIds.add(id);
+    const { data: allOrgs } = await svc.from("grafana_organizations").select("grafana_org_id").eq("active", true);
+    for (const o of allOrgs || []) knownIds.add((o as any).grafana_org_id);
+    const currentOrgsRes = await grafanaFetch(`/api/users/${grafanaUserId}/orgs`);
+    const currentOrgs = Array.isArray(currentOrgsRes.body) ? currentOrgsRes.body : [];
+    for (const o of currentOrgs) knownIds.add(o.orgId);
 
     const reconcileResults: any[] = [];
     for (const orgId of knownIds) {
-      const wanted = desiredByOrg.get(orgId);
+      const wanted = desiredMap.get(orgId);
       const orgUsers = await grafanaFetch(`/api/orgs/${orgId}/users`);
       const currentMember = Array.isArray(orgUsers.body)
         ? orgUsers.body.find((m: any) => m.userId === grafanaUserId)
