@@ -11,9 +11,15 @@ Deno.serve(async (req) => {
     const svc = serviceClient();
 
     let createdOrg: any = null;
+    let cleanupResult: any = null;
+    let cleanupPersonal = false;
     if (req.method === "POST") {
       const body = await req.json().catch(() => ({}));
+      cleanupPersonal = !!body?.cleanup_personal_orgs;
       if (body?.create_name) {
+        if (isPersonalOrganizationName(body.create_name)) {
+          throw new Error("invalid_org_name: cannot create org with email-like name");
+        }
         const r = await grafanaFetch("/api/orgs", { method: "POST", body: JSON.stringify({ name: body.create_name }) });
         if (!r.ok) throw new Error(`create_org_failed: ${JSON.stringify(r.body)}`);
         createdOrg = r.body;
