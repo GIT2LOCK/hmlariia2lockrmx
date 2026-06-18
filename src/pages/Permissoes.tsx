@@ -273,7 +273,9 @@ export default function Permissoes() {
       }
     }
 
-    // Sincroniza com Grafana — surface failures to the admin
+    // Sincroniza com Grafana — só mostra sucesso se a sync confirmar
+    let syncOk = true;
+    let syncErrorMsg: string | null = null;
     try {
       const ariiaToken = localStorage.getItem("auth_token");
       const { data: syncData, error: syncErr } = await supabase.functions.invoke(
@@ -284,25 +286,28 @@ export default function Permissoes() {
         },
       );
       if (syncErr || (syncData as any)?.error) {
-        toast({
-          title: "Permissão salva, mas sincronização com Grafana falhou",
-          description: syncErr?.message || (syncData as any)?.error,
-          variant: "destructive",
-        });
+        syncOk = false;
+        syncErrorMsg = syncErr?.message || (syncData as any)?.error || "Falha desconhecida";
       }
     } catch (e: any) {
+      syncOk = false;
+      syncErrorMsg = e?.message ?? String(e);
+    }
+
+    if (syncOk) {
+      toast({ title: "Permissões atualizadas e sincronizadas com o Grafana" });
+    } else {
       toast({
-        title: "Permissão salva, mas erro ao chamar Grafana",
-        description: e?.message ?? String(e),
+        title: "Alteração salva no banco, mas Grafana não foi sincronizado",
+        description: syncErrorMsg ?? undefined,
         variant: "destructive",
       });
     }
-
-    toast({ title: "Permissões atualizadas com sucesso" });
     setEditing(null);
     setSaving(false);
     load();
   };
+
 
   const handleRemoveGroup = async () => {
     if (!editing || !removeTarget) return;
