@@ -1,89 +1,62 @@
-## Objetivo
-Tornar consistente e definitivo o fluxo de **cadastro, login, automação por domínio, alteração de cargo/permissão, sincronização com Grafana e exclusão de usuários** no Ariia.
+## Diagnóstico
 
----
+### 1. "Organização sendo criada com o e-mail do usuário"
+Nenhum código no projeto chama `POST /api/orgs` com o e-mail. A causa real é a configuração do **próprio Grafana**: quando um usuário entra via OAuth e `auto_assign_org=false` (ou o usuário não é atribuído a nenhuma org), o Grafana **cria automaticamente uma "personal organization"** com o nome = login/email do usuário. Esse é o comportamento padrão do Grafana, não do Ariia.
 
-## Diagnóstico (resumo)
+O `grafana-sync-organizations` já filtra essas orgs para não persistir no banco (`isPersonalOrganizationName`), mas elas continuam existindo dentro do Grafana.
 
-1. **Automação por domínio** hoje só adiciona o usuário a uma org do Grafana. Ela **não** define `empresa_id` nem `permissao` na tabela `usuarios`. Por isso `usuario@goodstorage.com.br` entrou como `VIEWER` em vez de `CLIENTE` da GoodStorage.
-2. **Mapeamento Ariia → Grafana** atual: `SUPERADMIN` vira `GrafanaAdmin`; demais perfis dependem 100% de permissões manuais/grupo. Não há regra automática "CLIENTE → Viewer na org da empresa", e nada impede o sync de tentar enviar a role `Cliente` indiretamente (causa do `User sync failed`).
-3. **Alteração de cargo/permissão "não persiste"**: o `update` em `usuarios` retorna sucesso, mas o `grafana-sync-user` em seguida pode reaplicar automações de domínio e regravar `grafana_user_org_permissions`, dando a impressão de "voltou ao Cliente". Além disso, faltam logs/erros visíveis quando o sync falha.
-4. **Exclusão de usuário**: a função `handleDelete` em `Usuarios.tsx` apaga registros do app, **mas não remove o usuário do `auth.users` nem do Grafana**. Como o login agora cria o usuário em `auth.users` via signup, se o registro em `auth.users` permanecer e o usuário tentar logar de novo, um trigger/fluxo pode recriar a linha em `public.usuarios`.
+### 2. "Alterações no painel não refletem"
+- `handleSave` em `Permissoes.tsx` só salva `permissao / empresa_id / ativo / grupo`. **Não toca em `grafana_user_org_permissions` (acessos por organização) nem em `grafana_access_group_members` (grupos de acesso Grafana)** — o painel hoje não tem UI para editar esses vínculos individualmente.
+- Em `syncUserToGrafana`, para usuário `CLIENTE/VIEWER+empresa`, a única org desejada é a da `empresas.grafana_organization_id`. Se a empresa não tem esse vínculo, o array `desired` fica vazio → o usuário é removido de tudo. Sem feedback de "empresa sem org vinculada".
+- O laço de reconciliação **percorre apenas `grafana_organizations` ativas + Main Org**. As "personal orgs" criadas pelo Grafana não estão em `grafana_organizations`, então **nunca são limpas** — o usuário permanece como Admin da própria personal org.
+
+### 3. Sucesso falso no frontend
+`handleSave` chama `grafana-sync-user`, mas se a sync falhar, mostra **dois toasts** (um destrutivo + "Permissões atualizadas com sucesso"). O segundo deve ser suprimido em caso de falha.
 
 ---
 
 ## Mudanças
 
-### 1. Banco de dados (migration)
+### A. Edge function `_shared/grafana.ts` — `syncUserToGrafana`
+1. **Limpar personal orgs do usuário.** Após resolver `grafanaUserId`, chamar `GET /api/users/:id/orgs` e, para cada org cujo nome bate o padrão de e-mail (`isPersonalOrganizationName`) E onde o usuário é o único membro, executar:
+   - `DELETE /api/orgs/:orgId/users/:grafanaUserId` (sai da org)
+   - `DELETE /api/orgs/:orgId` (apaga a org órfã)
+   Logar cada deleção no `trace`.
+2. **Determinar `desired` para qualquer usuário com `empresa_id` (não só CLIENTE):** se a empresa tem `grafana_organization_id` válido, garantir presença como Viewer (ou role mais alta vinda do painel manual).
+3. **Mesclar com permissões manuais** (`grafana_user_org_permissions`) e **grupos** (`grafana_access_groups → grafana_group_org_permissions`) via `grafana_effective_permissions`, escolhendo sempre a role mais alta por org.
+4. **Reconciliação**: percorrer união de `(orgs em grafana_organizations ativas) ∪ (orgs onde o usuário está hoje no Grafana) ∪ Main Org`. Isso garante que orgs antigas sejam removidas mesmo se foram desativadas no banco.
+5. **Sem permissões → remover de Main Org e de todas as orgs**, mas **não** desabilitar o usuário (a regra é "vê tela de sem acesso", não "conta bloqueada"). Manter `disable` apenas quando `ativo=false`.
+6. Retornar `trace` no payload em caso de erro para o frontend mostrar.
 
-- **Nova tabela `domain_rules`**
-  - `domain` (citext, unique), `empresa_id` (fk empresas, nullable), `default_permissao` (CHECK ∈ roles válidos), `grafana_organization_id` (fk, nullable), `grafana_role` (Viewer/Editor/Admin), `ativo`.
-  - Grants + RLS: leitura authenticated, escrita só SUPERADMIN/ADMIN.
-- **Função `public.apply_domain_rule(_usuario_id int)`** (SECURITY DEFINER)
-  - Olha `lower(split_part(email,'@',2))`, encontra rule ativa.
-  - Se `usuarios.permissao = 'VIEWER'` (padrão pós-signup) **ou** o usuário ainda não tem `empresa_id`, aplica `empresa_id` + `permissao` da regra.
-  - Não sobrescreve quem já é `SUPERADMIN/ADMIN/USER` manualmente.
-- **Função `public.fn_delete_usuario_cascade(_usuario_id int)`** (SECURITY DEFINER, restrita a SUPERADMIN via check interno)
-  - Limpa `support_group_members`, `grafana_user_org_permissions`, `grafana_access_group_members`, `grafana_user_links`, `sessions`, `ticket_notifications`, `contato_unidades` etc., depois `delete from usuarios`. Retorna `auth_user_id` para o caller apagar em `auth.users`.
-- **Seed**: criar uma row em `domain_rules` para `goodstorage.com.br` → empresa GoodStorage, `CLIENTE`, org Grafana 3 / Viewer.
+### B. Edge function `grafana-sync-organizations`
+- Já evita salvar personal orgs no banco. Adicionar opção `cleanup_personal_orgs=true` no body: lista todas as personal orgs e, para cada uma com **0 ou 1 membro**, executa `DELETE /api/orgs/:id`. Útil para limpeza histórica.
 
-### 2. Edge Functions
+### C. Frontend — `src/pages/Permissoes.tsx`
+1. **Suprimir toast de sucesso** quando `grafana-sync-user` retorna erro. Hoje os dois aparecem.
+2. **Recarregar dados (`load()`) sempre antes de fechar o modal** mesmo em caminho de sucesso — já faz, mas garantir ordem.
+3. **Nova seção no modal: "Acessos no Grafana"** com:
+   - Lista de orgs vinculadas via `grafana_user_org_permissions` (org + role), com botões de adicionar/editar role/remover.
+   - Lista de grupos de acesso Grafana (`grafana_access_group_members`), com adicionar/remover.
+   - Combobox com busca para escolher org/grupo (lida bem com listas grandes).
+4. **Filtro/busca na tabela de usuários** (já existe input? confirmar; se não, adicionar busca por nome/email/perfil).
+5. **Indicador "Empresa sem org Grafana vinculada"** ao lado do select de empresa quando o cliente está sem `grafana_organization_id`, para o admin saber por que a sincronização ficaria vazia.
 
-- **`_shared/grafana.ts`**
-  - Novo helper `mapAriiaToGrafanaRole(permissao)`: `CLIENTE → Viewer`, `VIEWER → Viewer`, `USER → Editor`, `ADMIN → Admin`, `SUPERADMIN → Admin (+ isGrafanaAdmin)`.
-  - Em `syncUserToGrafana`:
-    - Antes de tudo, chamar `apply_domain_rule` via RPC.
-    - Para `CLIENTE`, garantir que ele só tenha permissão na org Grafana vinculada à empresa dele (campo novo `empresas.grafana_organization_id` — adicionado na migration). Remove de todas as outras orgs.
-    - Para `SUPERADMIN`, manter comportamento atual.
-    - Nunca enviar string "Cliente" para Grafana — toda role passa pelo mapper.
-  - Logs claros via `logSync` quando o mapeamento ou a sync falhar.
-- **`signup/index.ts`** e **`login/index.ts`** (e bridge-supabase-session): após autenticar, chamar `apply_domain_rule(usuario.id)` e em seguida `syncUserToGrafana`.
-- **Nova função `delete-usuario`** (POST `{ usuario_id }`):
-  - Auth: SUPERADMIN.
-  - 1) Remove no Grafana (`/api/admin/users/:id`).
-  - 2) `fn_delete_usuario_cascade` no Postgres.
-  - 3) `supabase.auth.admin.deleteUser(auth_user_id)`.
-  - Resposta agrega status de cada etapa; em caso de falha parcial, retorna 207 com detalhes.
-
-### 3. Frontend
-
-- **`src/pages/Permissoes.tsx`** (`handleSave`)
-  - Após `update`, faz `select` da linha atualizada e **só mostra toast de sucesso se `permissao`/`empresa_id` realmente bateram com o payload**. Caso contrário, mostra erro com a diferença.
-  - Aguarda a resposta do `grafana-sync-user`; se vier erro, mostra toast destrutivo com o `error`.
-- **`src/pages/Usuarios.tsx`** (`handleDelete`)
-  - Substitui as chamadas diretas por `supabase.functions.invoke("delete-usuario", { body: { usuario_id } })`.
-  - Mostra erros por etapa quando o backend retorna 207.
-- **Adicionar página/aba "Regras de Domínio"** (simples CRUD em `Permissoes.tsx` ou nova rota `/dashboard/regras-dominio`) para gerenciar `domain_rules`. *(Mínimo viável: incluir CRUD básico.)*
-
-### 4. Patchnote
-Ao final, postar no chat um patchnote com tudo que mudou.
+### D. Não alteramos
+- Schema do banco: as tabelas `grafana_user_org_permissions`, `grafana_access_group_members`, `domain_rules`, `empresas.grafana_organization_id` já existem e estão corretas. Sem migration nova.
+- Fluxo de signup/login: já chama `apply_domain_rule` + `syncUserToGrafana`.
+- A constraint `permissao` aceita `CLIENTE/VIEWER/USER/ADMIN/SUPERADMIN`.
 
 ---
 
-## Detalhes técnicos
-
-```text
-fluxo de signup/login
-──────────────────────
-auth (supabase) ──► usuarios row (VIEWER default)
-                         │
-                         ▼
-                 apply_domain_rule(uid)
-                         │
-                         ▼
-            empresa_id + permissao da regra
-                         │
-                         ▼
-                syncUserToGrafana(uid)
-                         │
-                         ▼
-       mapAriiaToGrafanaRole + org da empresa
-```
-
-Constraints/grants seguem o padrão do projeto (GRANT ... TO authenticated/service_role + RLS).
+## Critérios de aceite cobertos
+- Personal orgs com nome de e-mail são apagadas no Grafana durante a sync (A.1) + endpoint de limpeza histórica (B).
+- Toda alteração no painel persiste no banco e dispara sync; falha de sync **suprime** o toast de sucesso (C.1).
+- Acessos individuais e grupos passam a ser editáveis pelo painel (C.3).
+- Empresa com `grafana_organization_id` vinculada → usuário entra naquela org como Viewer; sem vínculo, fica fora de todas (A.2/A.5).
+- Mapeamento de roles `mapAriiaToGrafanaRole` já está correto e é aplicado em todos os caminhos.
 
 ---
 
 ## Fora de escopo
-- Reescrita do editor visual de automações.
-- UI completa de gerenciamento de orgs Grafana (apenas o vínculo `empresas.grafana_organization_id` será exposto via select existente).
+- CRUD de organizações Grafana pelo painel (mencionado no pedido como "quando essa função existir") — apenas o vínculo `empresa → org` continua editável em `Empresas`.
+- Redesign visual amplo; foco em filtros/busca e responsividade do modal de permissões.
