@@ -69,8 +69,10 @@ const Usuarios = () => {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
+      const ariiaToken = localStorage.getItem("auth_token");
       const { data, error } = await supabase.functions.invoke("delete-usuario", {
         body: { usuario_id: deleteTarget.id },
+        headers: ariiaToken ? { "x-ariia-token": ariiaToken } : undefined,
       });
       const steps = (data as any)?.steps as Record<string, { ok: boolean; error?: string }> | undefined;
 
