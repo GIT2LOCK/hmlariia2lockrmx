@@ -38,27 +38,29 @@ import {
 } from "@/components/ui/sidebar";
 
 import { Permission } from "@/lib/permissions";
+import { useAllowedTabs, type TabKey } from "@/hooks/useAllowedTabs";
 
 interface MenuItem {
   title: string;
   url: string;
   icon: any;
   permission?: Permission;
+  tabKey?: TabKey;
 }
 
 const menuItems: MenuItem[] = [
-  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Empresas", url: "/dashboard/empresas", icon: Building2, permission: "registry.view" },
-  { title: "Unidades", url: "/dashboard/unidades", icon: MapPin, permission: "registry.view" },
-  { title: "Operadoras", url: "/dashboard/operadoras", icon: Radio, permission: "registry.view" },
-  { title: "Pessoas", url: "/dashboard/pessoas", icon: Contact, permission: "registry.view" },
-  { title: "Responsáveis", url: "/dashboard/responsaveis", icon: UserCheck, permission: "registry.view" },
-  { title: "Base de Conhecimento", url: "/dashboard/base-conhecimento", icon: BookOpen },
-  { title: "Chamados", url: "/dashboard/chamados", icon: Ticket, permission: "tickets.view_own" },
-  { title: "Dashboard Atendimento", url: "/dashboard/atendimento", icon: Gauge, permission: "dashboard.team" },
-  { title: "Equipes", url: "/dashboard/equipes", icon: Users, permission: "team.view" },
-  { title: "Relatórios Zabbix", url: "/dashboard/zabbix/relatorio-alertas", icon: AlertTriangle, permission: "registry.view" },
-  { title: "Monitoramento", url: "/dashboard/zabbix", icon: Activity, permission: "registry.view" },
+  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, tabKey: "dashboard" },
+  { title: "Chamados", url: "/dashboard/chamados", icon: Ticket, permission: "tickets.view_own", tabKey: "chamados" },
+  { title: "Dashboard Atendimento", url: "/dashboard/atendimento", icon: Gauge, permission: "dashboard.team", tabKey: "atendimento" },
+  { title: "Empresas", url: "/dashboard/empresas", icon: Building2, permission: "registry.view", tabKey: "empresas" },
+  { title: "Unidades", url: "/dashboard/unidades", icon: MapPin, permission: "registry.view", tabKey: "unidades" },
+  { title: "Operadoras", url: "/dashboard/operadoras", icon: Radio, permission: "registry.view", tabKey: "operadoras" },
+  { title: "Pessoas", url: "/dashboard/pessoas", icon: Contact, permission: "registry.view", tabKey: "pessoas" },
+  { title: "Responsáveis", url: "/dashboard/responsaveis", icon: UserCheck, permission: "registry.view", tabKey: "responsaveis" },
+  { title: "Base de Conhecimento", url: "/dashboard/base-conhecimento", icon: BookOpen, tabKey: "base_conhecimento" },
+  { title: "Equipes", url: "/dashboard/equipes", icon: Users, permission: "team.view", tabKey: "equipes" },
+  { title: "Relatórios Zabbix", url: "/dashboard/zabbix/relatorio-alertas", icon: AlertTriangle, permission: "registry.view", tabKey: "zabbix" },
+  { title: "Monitoramento", url: "/dashboard/zabbix", icon: Activity, permission: "registry.view", tabKey: "zabbix" },
 ];
 
 export function AppSidebar() {
@@ -68,9 +70,12 @@ export function AppSidebar() {
   const navigate = useNavigate();
   const currentPath = location.pathname;
   const { user, refreshUser, canManageUsers, can } = useUser();
+  const { allows } = useAllowedTabs();
 
   const isActive = (path: string) => currentPath === path;
-  const visibleItems = menuItems.filter((it) => !it.permission || can(it.permission));
+  const visibleItems = menuItems.filter((it) =>
+    (!it.permission || can(it.permission)) && allows(it.tabKey)
+  );
 
   const handleLogout = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -136,7 +141,7 @@ export function AppSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {canManageUsers && (
+              {canManageUsers && allows("usuarios") && (
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     asChild
@@ -151,7 +156,7 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )}
-              {can("users.manage_permissions") && (
+              {can("users.manage_permissions") && allows("permissoes") && (
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     asChild
@@ -166,7 +171,7 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )}
-              {canManageUsers && (
+              {canManageUsers && allows("grafana") && (
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     asChild

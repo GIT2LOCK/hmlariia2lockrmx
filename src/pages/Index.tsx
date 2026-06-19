@@ -263,6 +263,15 @@ const Index = () => {
               disabled={loginLoading}>
               {loginLoading ? "Entrando..." : "ENTRAR"}
             </Button>
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => navigate("/forgot-password")}
+                className="text-sm text-secondary hover:underline font-medium"
+              >
+                Esqueci minha senha
+              </button>
+            </div>
           </form>
           <div className="md:hidden text-center">
             <p className="text-sm text-muted-foreground">
