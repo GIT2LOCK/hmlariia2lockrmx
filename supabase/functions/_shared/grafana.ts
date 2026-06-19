@@ -42,7 +42,7 @@ export async function getCallerUsuario(req: Request) {
       .eq("token", token)
       .maybeSingle();
     if (!session) return null;
-    if (new Date(session.expires_at) < new Date()) throw new Error("session_expired");
+    if (new Date(session.expires_at) < new Date()) return null;
     const { data: u } = await svc
       .from("usuarios")
       .select("id, nome, email, permissao, ativo, auth_user_id")
@@ -51,7 +51,7 @@ export async function getCallerUsuario(req: Request) {
     return u || null;
   }
 
-  // 1) Legacy Ariia token via custom header
+  // 1) Legacy Ariia token via custom header (best-effort; fall back to JWT)
   if (ariiaToken) {
     const u = await lookupBySession(ariiaToken);
     if (u) {
