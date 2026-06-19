@@ -1751,6 +1751,41 @@ export type Database = {
           },
         ]
       }
+      user_tab_permissions: {
+        Row: {
+          allowed: boolean
+          created_at: string
+          id: string
+          tab_key: string
+          updated_at: string
+          usuario_id: number
+        }
+        Insert: {
+          allowed?: boolean
+          created_at?: string
+          id?: string
+          tab_key: string
+          updated_at?: string
+          usuario_id: number
+        }
+        Update: {
+          allowed?: boolean
+          created_at?: string
+          id?: string
+          tab_key?: string
+          updated_at?: string
+          usuario_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_tab_permissions_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       usuarios: {
         Row: {
           assinatura_email: string | null
@@ -1981,12 +2016,24 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      fn_user_allowed_tabs: {
+        Args: { _usuario_id?: number }
+        Returns: string[]
+      }
       grafana_effective_permissions: {
         Args: { _usuario_id: number }
         Returns: Json
       }
       grafana_evaluate_automations: {
         Args: { _usuario_id: number }
+        Returns: Json
+      }
+      grafana_set_user_org_role: {
+        Args: {
+          _grafana_organization_id: number
+          _role: string
+          _usuario_id: number
+        }
         Returns: Json
       }
       is_ariia_admin: { Args: never; Returns: boolean }
