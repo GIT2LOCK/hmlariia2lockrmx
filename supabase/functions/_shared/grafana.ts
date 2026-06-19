@@ -331,9 +331,9 @@ export async function syncUserToGrafana(usuario_id: number, actor_id?: number | 
     }
 
     // 5) Determinar permissões desejadas
-    //    Mescla (a) org da empresa vinculada como Viewer mínimo
-    //           (b) permissões individuais + grupos via grafana_effective_permissions
-    //           (c) SUPERADMIN vira Admin em todas as orgs (já feito pela RPC)
+    //    Fonte ÚNICA: grafana_effective_permissions (Gerenciar Acessos + grupos + SUPERADMIN).
+    //    O cargo Ariia (CLIENTE, USER, ADMIN, VIEWER) NÃO concede acesso ao Grafana.
+    //    A vinculação empresa→organização é apenas referência visual em "Gerenciar Acessos".
     let isGrafanaAdmin = false;
     const desiredMap = new Map<number, "Viewer" | "Editor" | "Admin">();
     const rank: Record<string, number> = { Viewer: 1, Editor: 2, Admin: 3 };
@@ -342,40 +342,16 @@ export async function syncUserToGrafana(usuario_id: number, actor_id?: number | 
       if (!cur || rank[role] > rank[cur]) desiredMap.set(orgId, role);
     };
 
-    if (u.empresa_id) {
-      const { data: emp } = await svc
-        .from("empresas")
-        .select("id, nome_fantasia, grafana_organization_id")
-        .eq("id", u.empresa_id)
-        .maybeSingle();
-      step("empresa_lookup", { empresa: emp });
-      if (emp?.grafana_organization_id) {
-        const { data: org } = await svc
-          .from("grafana_organizations")
-          .select("grafana_org_id, name, active")
-          .eq("id", emp.grafana_organization_id)
-          .maybeSingle();
-        step("grafana_org_lookup", { org });
-        if (org?.grafana_org_id && org.active) {
-          setMax(org.grafana_org_id, "Viewer");
-        } else {
-          step("warning", { msg: "empresa.grafana_organization_id inválida ou inativa" });
-        }
-      } else {
-        step("warning", { msg: "empresa sem grafana_organization_id vinculada" });
-      }
-    } else if (u.permissao === "CLIENTE") {
-      step("warning", { msg: "CLIENTE sem empresa_id — nenhuma org Grafana atribuída" });
-    }
-
     const { data: permsRaw, error: pe } = await svc.rpc("grafana_effective_permissions", { _usuario_id: usuario_id });
     if (pe) throw new Error(`perms_failed: ${pe.message}`);
     const perms = permsRaw as { is_grafana_admin: boolean; orgs: Array<{ grafana_org_id: number; role: string }> };
     isGrafanaAdmin = !!perms.is_grafana_admin;
     for (const o of (perms.orgs || [])) {
-      if (o.grafana_org_id) setMax(o.grafana_org_id, mapAriiaToGrafanaRole(o.role));
+      if (o.grafana_org_id && ["Viewer","Editor","Admin"].includes(o.role)) {
+        setMax(o.grafana_org_id, o.role as "Viewer" | "Editor" | "Admin");
+      }
     }
-    step("effective_perms", { isGrafanaAdmin, orgs: perms.orgs });
+    step("effective_perms", { isGrafanaAdmin, orgs: perms.orgs, source: "manage_access_only" });
 
     const desired = Array.from(desiredMap.entries()).map(([grafana_org_id, role]) => ({ grafana_org_id, role }));
     step("desired_state", { isGrafanaAdmin, desired });

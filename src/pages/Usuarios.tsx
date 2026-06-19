@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useUser, UserRole } from "@/contexts/UserContext";
-import { Search, Shield, Users as UsersIcon, Loader2, KeyRound, CheckCircle2, XCircle, MinusCircle, Trash2 } from "lucide-react";
+import { Search, Shield, Users as UsersIcon, Loader2, KeyRound, CheckCircle2, XCircle, MinusCircle, Trash2, LayoutGrid } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -15,6 +15,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { UserTabPermissionsDialog } from "@/components/UserTabPermissionsDialog";
 
 interface Usuario {
   id: number;
@@ -41,6 +42,7 @@ const roleLabels: Record<string, string> = {
   ADMIN: "Administrador",
   USER: "Usuário",
   VIEWER: "Visualizador",
+  CLIENTE: "Cliente",
 };
 
 const roleBadgeVariant = (role: string): "default" | "secondary" | "destructive" | "outline" => {
@@ -64,6 +66,7 @@ const Usuarios = () => {
   const [testingAll, setTestingAll] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Usuario | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [tabsTarget, setTabsTarget] = useState<Usuario | null>(null);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -187,24 +190,34 @@ const Usuarios = () => {
   };
 
   const getAvailableRoles = (targetUser: Usuario): UserRole[] => {
-    // SUPERADMIN can assign any role
-    if (hasFullAccess) return ["SUPERADMIN", "ADMIN", "USER", "VIEWER"];
-    // ADMIN can only assign USER and VIEWER
-    return ["USER", "VIEWER"];
+    // SUPERADMIN can assign any role (inclui CLIENTE)
+    if (hasFullAccess) return ["SUPERADMIN", "ADMIN", "USER", "VIEWER", "CLIENTE"] as any;
+    // ADMIN can only assign USER, VIEWER, CLIENTE
+    return ["USER", "VIEWER", "CLIENTE"] as any;
   };
 
   const handleRoleChange = async (userId: number, newRole: string) => {
     setSaving(true);
-    const { error } = await supabase
+    // Re-read primeiro para garantir que o usuário existe (corrige "banco ainda não reconheceu")
+    const { data: fresh } = await supabase.from("usuarios").select("id").eq("id", userId).maybeSingle();
+    if (!fresh) {
+      await load();
+      toast({ title: "Usuário não encontrado", description: "Atualizando lista…", variant: "destructive" });
+      setSaving(false); setEditingId(null); return;
+    }
+
+    const { data, error } = await supabase
       .from("usuarios")
-      .update({ permissao: newRole })
-      .eq("id", userId);
+      .update({ permissao: newRole, permissao_manual: true })
+      .eq("id", userId)
+      .select("id, nome, email, permissao, ativo, avatar_url, criado_em, zabbix_token_z1, zabbix_token_z2")
+      .single();
 
     if (error) {
       toast({ title: "Erro ao atualizar permissão", description: error.message, variant: "destructive" });
-    } else {
+    } else if (data) {
       toast({ title: "Permissão atualizada com sucesso!" });
-      setUsuarios(prev => prev.map(u => u.id === userId ? { ...u, permissao: newRole } : u));
+      setUsuarios(prev => prev.map(u => u.id === userId ? (data as any) : u));
     }
     setEditingId(null);
     setSaving(false);
@@ -374,6 +387,15 @@ const Usuarios = () => {
                                 >
                                   {u.ativo ? "Desativar" : "Ativar"}
                                 </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => setTabsTarget(u)}
+                                  title="Abas permitidas"
+                                  className="gap-1"
+                                >
+                                  <LayoutGrid className="h-3 w-3" /> Abas
+                                </Button>
                                 {hasFullAccess && (
                                   <Button
                                     size="sm"
@@ -426,6 +448,12 @@ const Usuarios = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <UserTabPermissionsDialog
+        open={!!tabsTarget}
+        onClose={() => setTabsTarget(null)}
+        usuario={tabsTarget}
+      />
     </div>
   );
 };

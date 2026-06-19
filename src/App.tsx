@@ -4,6 +4,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 import { DashboardLayout } from "./components/DashboardLayout";
 import Dashboard from "./pages/Dashboard";
@@ -41,35 +43,36 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/oauth/consent" element={<OAuthConsent />} />
-            <Route 
-              path="/dashboard" 
+            <Route
+              path="/dashboard"
               element={
                 <ProtectedRoute>
                   <DashboardLayout />
                 </ProtectedRoute>
               }
             >
-              <Route index element={<Dashboard />} />
-              <Route path="empresas" element={<Empresas />} />
-              <Route path="unidades" element={<Unidades />} />
-              <Route path="unidades/:id" element={<UnidadeDetalhe />} />
-              <Route path="operadoras" element={<Operadoras />} />
-              <Route path="pessoas" element={<Pessoas />} />
-              <Route path="responsaveis" element={<Responsaveis />} />
-              <Route path="usuarios" element={<Usuarios />} />
-              <Route path="permissoes" element={<Permissoes />} />
-              <Route path="base-conhecimento" element={<BaseConhecimento />} />
-              <Route path="relatorios" element={<Relatorios />} />
-              <Route path="chamados" element={<Chamados />} />
-              <Route path="atendimento" element={<DashboardAtendimento />} />
-              <Route path="chamados/:id" element={<ChamadoDetalhe />} />
-              <Route path="equipes" element={<Equipes />} />
-              <Route path="zabbix" element={<DashboardZabbix />} />
-              <Route path="zabbix/tv" element={<ZabbixTvView />} />
-              <Route path="zabbix/relatorio-alertas" element={<RelatorioAlertasZabbix />} />
-              <Route path="grafana" element={<GrafanaControle />} />
-              <Route path="grafana" element={<GrafanaControle />} />
+              <Route index element={<ProtectedRoute tabKey="dashboard"><Dashboard /></ProtectedRoute>} />
+              <Route path="empresas" element={<ProtectedRoute tabKey="empresas"><Empresas /></ProtectedRoute>} />
+              <Route path="unidades" element={<ProtectedRoute tabKey="unidades"><Unidades /></ProtectedRoute>} />
+              <Route path="unidades/:id" element={<ProtectedRoute tabKey="unidades"><UnidadeDetalhe /></ProtectedRoute>} />
+              <Route path="operadoras" element={<ProtectedRoute tabKey="operadoras"><Operadoras /></ProtectedRoute>} />
+              <Route path="pessoas" element={<ProtectedRoute tabKey="pessoas"><Pessoas /></ProtectedRoute>} />
+              <Route path="responsaveis" element={<ProtectedRoute tabKey="responsaveis"><Responsaveis /></ProtectedRoute>} />
+              <Route path="usuarios" element={<ProtectedRoute tabKey="usuarios"><Usuarios /></ProtectedRoute>} />
+              <Route path="permissoes" element={<ProtectedRoute tabKey="permissoes"><Permissoes /></ProtectedRoute>} />
+              <Route path="base-conhecimento" element={<ProtectedRoute tabKey="base_conhecimento"><BaseConhecimento /></ProtectedRoute>} />
+              <Route path="relatorios" element={<ProtectedRoute tabKey="relatorios"><Relatorios /></ProtectedRoute>} />
+              <Route path="chamados" element={<ProtectedRoute tabKey="chamados"><Chamados /></ProtectedRoute>} />
+              <Route path="atendimento" element={<ProtectedRoute tabKey="atendimento"><DashboardAtendimento /></ProtectedRoute>} />
+              <Route path="chamados/:id" element={<ProtectedRoute tabKey="chamados"><ChamadoDetalhe /></ProtectedRoute>} />
+              <Route path="equipes" element={<ProtectedRoute tabKey="equipes"><Equipes /></ProtectedRoute>} />
+              <Route path="zabbix" element={<ProtectedRoute tabKey="zabbix"><DashboardZabbix /></ProtectedRoute>} />
+              <Route path="zabbix/tv" element={<ProtectedRoute tabKey="zabbix"><ZabbixTvView /></ProtectedRoute>} />
+              <Route path="zabbix/relatorio-alertas" element={<ProtectedRoute tabKey="zabbix"><RelatorioAlertasZabbix /></ProtectedRoute>} />
+              <Route path="grafana" element={<ProtectedRoute tabKey="grafana"><GrafanaControle /></ProtectedRoute>} />
               <Route path="perfil" element={<MeuPerfil />} />
             </Route>
             <Route path="*" element={<NotFound />} />
