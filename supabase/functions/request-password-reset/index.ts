@@ -149,8 +149,10 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
     const email = String(body?.email ?? "").trim().toLowerCase();
+    console.log("[request-password-reset] received request for email:", email);
 
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      console.warn("[request-password-reset] invalid email format");
       return new Response(JSON.stringify({ error: "invalid_email" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -170,19 +172,22 @@ Deno.serve(async (req) => {
       .ilike("email", email)
       .gte("created_at", since);
 
-    if ((recentCount ?? 0) >= 3) {
-      // Mensagem genérica mesmo no rate-limit
+    console.log("[request-password-reset] recent token count (15m):", recentCount);
+    if ((recentCount ?? 0) >= 5) {
+      console.warn("[request-password-reset] rate-limit hit for", email);
       return genericResponse();
     }
 
-    const { data: user } = await supabase
+    const { data: user, error: userErr } = await supabase
       .from("usuarios")
       .select("id, nome, email, ativo, auth_user_id")
       .ilike("email", email)
       .maybeSingle();
 
+    if (userErr) console.error("[request-password-reset] user lookup error", userErr);
+    console.log("[request-password-reset] user found?", !!user, "ativo?", user?.ativo);
+
     if (!user || !user.ativo) {
-      // Não revelar existência
       return genericResponse();
     }
 
