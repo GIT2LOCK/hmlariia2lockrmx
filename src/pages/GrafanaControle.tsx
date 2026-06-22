@@ -69,21 +69,25 @@ export default function GrafanaControle() {
         <p className="text-muted-foreground">Gestão centralizada de acesso ao Grafana via Ariia.</p>
       </div>
 
-      <Tabs defaultValue="users" className="w-full">
-        <TabsList className="grid grid-cols-5 w-full max-w-3xl">
-          <TabsTrigger value="users">Usuários</TabsTrigger>
+      <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-sm">
+        A edição de permissões por usuário foi movida para a tela <strong>Usuários</strong>. Esta área
+        concentra apenas configurações globais do Grafana, automações, organizações, grupos e logs.
+      </div>
+
+      <Tabs defaultValue="orgs" className="w-full">
+        <TabsList className="grid grid-cols-4 w-full max-w-2xl">
           <TabsTrigger value="orgs">Organizações</TabsTrigger>
           <TabsTrigger value="groups">Grupos</TabsTrigger>
           <TabsTrigger value="automations">Automações</TabsTrigger>
           <TabsTrigger value="logs">Logs</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="users"><UsersTab /></TabsContent>
         <TabsContent value="orgs"><OrgsTab /></TabsContent>
         <TabsContent value="groups"><GroupsTab /></TabsContent>
         <TabsContent value="automations"><AutomationsTab /></TabsContent>
         <TabsContent value="logs"><LogsTab /></TabsContent>
       </Tabs>
+
     </div>
   );
 }
