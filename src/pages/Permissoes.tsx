@@ -403,16 +403,6 @@ export default function Permissoes() {
                             <Button size="sm" variant="outline" onClick={() => openEdit(u)}>
                               Editar
                             </Button>
-                            <Button
-                              size="sm" variant="ghost"
-                              title="Ressincronizar com Grafana"
-                              onClick={() => handleResyncOne(u)}
-                              disabled={syncingId === u.id}
-                            >
-                              {syncingId === u.id
-                                ? <Loader2 className="h-4 w-4 animate-spin" />
-                                : <RefreshCw className="h-4 w-4" />}
-                            </Button>
                           </div>
                         ) : (
                           <span className="text-xs text-muted-foreground">—</span>
