@@ -37,6 +37,7 @@ import { TicketModal } from "@/components/TicketModal";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import DOMPurify from "dompurify";
+import { isCliente as isClienteRole, clientStatusLabel } from "@/lib/permissions";
 
 function isHtmlContent(s?: string | null): boolean {
   if (!s) return false;
@@ -102,6 +103,7 @@ export default function ChamadoDetalhe() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useUser();
+  const isCliente = isClienteRole(user.role);
   const ticketId = Number(id);
 
   const [ticket, setTicket] = useState<any>(null);
@@ -114,7 +116,7 @@ export default function ChamadoDetalhe() {
   const [reabrirOpen, setReabrirOpen] = useState(false);
 
   const [novoComentario, setNovoComentario] = useState("");
-  const [tipoComent, setTipoComent] = useState<"INTERNO" | "CLIENTE">("INTERNO");
+  const [tipoComent, setTipoComent] = useState<"INTERNO" | "CLIENTE">(isCliente ? "CLIENTE" : "INTERNO");
   const [salvandoComent, setSalvandoComent] = useState(false);
 
   const load = async () => {
@@ -297,6 +299,16 @@ export default function ChamadoDetalhe() {
     return <div className="p-8 text-muted-foreground">Carregando...</div>;
   }
 
+  const confirmarResolucao = async () => {
+    const { error } = await supabase.rpc("fn_cliente_encerrar_ticket", { _ticket_id: ticketId } as any);
+    if (error) {
+      toast({ title: "Não foi possível encerrar", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Chamado encerrado", description: "Obrigado por confirmar a resolução." });
+    load();
+  };
+
   return (
     <div className="space-y-4 p-4">
       <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -309,19 +321,27 @@ export default function ChamadoDetalhe() {
               <span className="font-mono text-sm bg-primary text-primary-foreground px-2.5 py-1 rounded font-semibold">
                 {ticket.codigo}
               </span>
-              <Badge className={PRIORITY_COLORS[ticket.prioridade as TicketPriority]}>
-                {PRIORITY_LABELS[ticket.prioridade as TicketPriority]}
-              </Badge>
+              {!isCliente && (
+                <Badge className={PRIORITY_COLORS[ticket.prioridade as TicketPriority]}>
+                  {PRIORITY_LABELS[ticket.prioridade as TicketPriority]}
+                </Badge>
+              )}
               <Badge className={`${STATUS_COLORS[ticket.status as TicketStatus]} text-sm`}>
-                {STATUS_LABELS[ticket.status as TicketStatus]}
+                {isCliente ? clientStatusLabel(ticket.status) : STATUS_LABELS[ticket.status as TicketStatus]}
               </Badge>
-              {sla && <Badge className={SLA_COLORS[sla.level]}>{sla.label}</Badge>}
+              {!isCliente && sla && <Badge className={SLA_COLORS[sla.level]}>{sla.label}</Badge>}
             </div>
             <h1 className="text-xl font-bold mt-1">{ticket.titulo}</h1>
           </div>
         </div>
         <div className="flex gap-2 items-center">
-          {isClosed(ticket.status) ? (
+          {isCliente ? (
+            ticket.status === "RESOLVIDO" && (
+              <Button variant="default" onClick={confirmarResolucao}>
+                <CheckCircle2 className="h-4 w-4 mr-1" /> Confirmar resolução
+              </Button>
+            )
+          ) : isClosed(ticket.status) ? (
             <Button variant="outline" onClick={() => setReabrirOpen(true)}>
               <RefreshCcw className="h-4 w-4 mr-1" /> Reabrir
             </Button>
@@ -342,21 +362,23 @@ export default function ChamadoDetalhe() {
               </Button>
             </>
           )}
-          <Button variant="outline" onClick={() => setEditOpen(true)}>
-            <Pencil className="h-4 w-4 mr-1" /> Editar
-          </Button>
+          {!isCliente && (
+            <Button variant="outline" onClick={() => setEditOpen(true)}>
+              <Pencil className="h-4 w-4 mr-1" /> Editar
+            </Button>
+          )}
         </div>
       </div>
 
-      <TicketHeaderInfo ticket={ticket} history={history} />
-      <FluxoOperacionalCard ticket={ticket} onChanged={load} />
+      {!isCliente && <TicketHeaderInfo ticket={ticket} history={history} />}
+      {!isCliente && <FluxoOperacionalCard ticket={ticket} onChanged={load} />}
 
       <Tabs defaultValue="resumo" className="w-full">
         <TabsList>
           <TabsTrigger value="resumo">Conversa ({comments.length + 1})</TabsTrigger>
-          <TabsTrigger value="timeline">Timeline</TabsTrigger>
-          <TabsTrigger value="sla">SLA</TabsTrigger>
-          <TabsTrigger value="historico">Histórico ({history.length})</TabsTrigger>
+          {!isCliente && <TabsTrigger value="timeline">Timeline</TabsTrigger>}
+          {!isCliente && <TabsTrigger value="sla">SLA</TabsTrigger>}
+          {!isCliente && <TabsTrigger value="historico">Histórico ({history.length})</TabsTrigger>}
           <TabsTrigger value="anexos">Anexos ({attachments.length})</TabsTrigger>
         </TabsList>
 
@@ -379,40 +401,44 @@ export default function ChamadoDetalhe() {
               </ConversationBubble>
 
               {/* Conversa */}
-              {comments.map((c) => {
-                const isInterno = c.tipo === "INTERNO";
-                return (
-                  <ConversationBubble
-                    key={c.id}
-                    side={isInterno ? "right" : "right"}
-                    authorName={c.autor_nome || "Sistema"}
-                    createdAt={c.criado_em}
-                    createdLabel="Respondido em"
-                    badge={isInterno ? "Nota interna" : "Resposta"}
-                    tone={isInterno ? "internal" : "default"}
-                  >
-                    <RichContent value={c.conteudo} />
-                  </ConversationBubble>
-                );
-              })}
+              {comments
+                .filter((c) => !isCliente || c.tipo !== "INTERNO")
+                .map((c) => {
+                  const isInterno = c.tipo === "INTERNO";
+                  return (
+                    <ConversationBubble
+                      key={c.id}
+                      side={isInterno ? "right" : "right"}
+                      authorName={c.autor_nome || "Sistema"}
+                      createdAt={c.criado_em}
+                      createdLabel="Respondido em"
+                      badge={isInterno ? "Nota interna" : "Resposta"}
+                      tone={isInterno ? "internal" : "default"}
+                    >
+                      <RichContent value={c.conteudo} />
+                    </ConversationBubble>
+                  );
+                })}
 
               {/* Compositor */}
               <Card className="border-dashed">
                 <CardContent className="pt-4 space-y-3">
-                  <div className="flex gap-2 items-center flex-wrap">
-                    <Select value={tipoComent} onValueChange={(v) => setTipoComent(v as any)}>
-                      <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="CLIENTE">Resposta (cliente)</SelectItem>
-                        <SelectItem value="INTERNO">Nota interna</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <span className="text-xs text-muted-foreground">
-                      {tipoComent === "CLIENTE"
-                        ? "Visível ao cliente · dispara e-mail"
-                        : "Visível apenas à equipe"}
-                    </span>
-                  </div>
+                  {!isCliente && (
+                    <div className="flex gap-2 items-center flex-wrap">
+                      <Select value={tipoComent} onValueChange={(v) => setTipoComent(v as any)}>
+                        <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="CLIENTE">Resposta (cliente)</SelectItem>
+                          <SelectItem value="INTERNO">Nota interna</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <span className="text-xs text-muted-foreground">
+                        {tipoComent === "CLIENTE"
+                          ? "Visível ao cliente · dispara e-mail"
+                          : "Visível apenas à equipe"}
+                      </span>
+                    </div>
+                  )}
                   <Textarea
                     rows={4}
                     maxLength={2500}
@@ -448,11 +474,13 @@ export default function ChamadoDetalhe() {
                 <DetailRow label="Ativo" value={ticket.ativo} />
               </DetailGroup>
 
-              <DetailGroup title="Atribuição">
-                <DetailRow label="Fila" value={ticket.ticket_filas?.nome} />
-                <DetailRow label="Categoria" value={ticket.ticket_categorias?.nome} />
-                <DetailRow label="Técnico" value={ticket.usuarios?.nome} />
-              </DetailGroup>
+              {!isCliente && (
+                <DetailGroup title="Atribuição">
+                  <DetailRow label="Fila" value={ticket.ticket_filas?.nome} />
+                  <DetailRow label="Categoria" value={ticket.ticket_categorias?.nome} />
+                  <DetailRow label="Técnico" value={ticket.usuarios?.nome} />
+                </DetailGroup>
+              )}
             </div>
           </div>
         </TabsContent>

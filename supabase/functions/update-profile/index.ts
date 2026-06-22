@@ -49,6 +49,20 @@ serve(async (req) => {
 
     if (action === "change-password") {
       const { current_password, new_password } = body;
+
+      if (!current_password || !new_password) {
+        return new Response(JSON.stringify({ error: "Senha atual e nova senha são obrigatórias." }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      if (typeof new_password !== "string" || new_password.length < 8) {
+        return new Response(JSON.stringify({ error: "A nova senha deve ter no mínimo 8 caracteres." }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      if (current_password === new_password) {
+        return new Response(JSON.stringify({ error: "A nova senha não pode ser igual à senha atual." }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
       const { data: userData } = await supabase.from("usuarios")
         .select("senha_hash").eq("id", userId).single();
 
@@ -59,6 +73,13 @@ serve(async (req) => {
       if (!isValid) {
         return new Response(JSON.stringify({ error: "Senha atual incorreta" }),
           { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      // Garante via hash que a nova senha não bate com a antiga (proteção extra)
+      const sameAsOld = await verifyPassword(new_password, userData.senha_hash);
+      if (sameAsOld) {
+        return new Response(JSON.stringify({ error: "A nova senha não pode ser igual à senha atual." }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
       const newHash = await hashPassword(new_password);

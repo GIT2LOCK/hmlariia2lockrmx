@@ -72,10 +72,15 @@ export function AppSidebar() {
   const { user, refreshUser, canManageUsers, can, isGrafanaOnly, isBlocked } = useUser();
   const { allows } = useAllowedTabs();
 
+  const isCliente = user.role === "CLIENTE";
   const isActive = (path: string) => currentPath === path;
-  const visibleItems = (isGrafanaOnly || isBlocked) ? [] : menuItems.filter((it) =>
-    (!it.permission || can(it.permission)) && allows(it.tabKey)
-  );
+  const visibleItems = (isGrafanaOnly || isBlocked)
+    ? []
+    : isCliente
+      ? menuItems.filter((it) => it.url === "/dashboard/chamados")
+      : menuItems.filter((it) =>
+          (!it.permission || can(it.permission)) && allows(it.tabKey)
+        );
 
 
   const handleLogout = async (e: React.MouseEvent) => {
@@ -142,7 +147,7 @@ export function AppSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {!isGrafanaOnly && !isBlocked && canManageUsers && allows("usuarios") && (
+              {!isCliente && !isGrafanaOnly && !isBlocked && canManageUsers && allows("usuarios") && (
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     asChild
@@ -157,7 +162,7 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )}
-              {!isGrafanaOnly && !isBlocked && can("users.manage_permissions") && allows("permissoes") && (
+              {!isCliente && !isGrafanaOnly && !isBlocked && can("users.manage_permissions") && allows("permissoes") && (
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     asChild
@@ -172,7 +177,7 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )}
-              {!isGrafanaOnly && !isBlocked && canManageUsers && allows("grafana") && (
+              {!isCliente && !isGrafanaOnly && !isBlocked && canManageUsers && allows("grafana") && (
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     asChild

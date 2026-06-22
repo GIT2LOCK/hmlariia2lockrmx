@@ -2023,6 +2023,10 @@ export type Database = {
       apply_domain_rule: { Args: { _usuario_id: number }; Returns: Json }
       custom_access_token_hook: { Args: { event: Json }; Returns: Json }
       fn_can_view_ticket: { Args: { _ticket_id: number }; Returns: boolean }
+      fn_cliente_encerrar_ticket: {
+        Args: { _ticket_id: number }
+        Returns: Json
+      }
       fn_current_usuario: {
         Args: never
         Returns: {
