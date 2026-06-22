@@ -28,14 +28,21 @@ Deno.serve(async (req) => {
     const svc = serviceClient();
     const steps: Record<string, { ok: boolean; error?: string }> = {};
 
-    // 1) Look up grafana link (before deletion clears it)
+    // 1) Look up external/internal identities before deletion clears them.
+    const { data: usuario } = await svc
+      .from("usuarios")
+      .select("auth_user_id")
+      .eq("id", usuario_id)
+      .maybeSingle();
+    const authUserId = (usuario as any)?.auth_user_id ?? null;
+
     const { data: link } = await svc
       .from("grafana_user_links")
       .select("grafana_user_id")
       .eq("usuario_id", usuario_id)
       .maybeSingle();
 
-    // 2) Delete from Grafana
+    // 2) Delete from Grafana.
     if (link?.grafana_user_id) {
       try {
         const r = await grafanaFetch(`/api/admin/users/${link.grafana_user_id}`, { method: "DELETE" });
@@ -48,12 +55,37 @@ Deno.serve(async (req) => {
       steps.grafana = { ok: true };
     }
 
-    // 3) Cascade delete in Ariia DB
-    let authUserId: string | null = null;
+    // 3) Delete from auth.users before public DB, so the email is reusable.
+    if (authUserId) {
+      try {
+        const adm = createClient(
+          Deno.env.get("SUPABASE_URL")!,
+          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+        );
+        const { error } = await adm.auth.admin.deleteUser(authUserId);
+        const alreadyGone = error?.message?.toLowerCase().includes("not found") ?? false;
+        steps.auth = (!error || alreadyGone) ? { ok: true } : { ok: false, error: error.message };
+      } catch (e) {
+        steps.auth = { ok: false, error: (e as Error).message };
+      }
+    } else {
+      steps.auth = { ok: true };
+    }
+
+    if (!steps.auth.ok) {
+      await logSync({
+        actor_usuario_id: caller.id, usuario_id, action: "delete_user", status: "error",
+        error_message: `auth: ${steps.auth.error}`,
+      });
+      return new Response(JSON.stringify({ error: "auth_delete_failed", steps }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // 4) Cascade delete in Ariia DB.
     try {
       const { data, error } = await svc.rpc("fn_delete_usuario_cascade", { _usuario_id: usuario_id });
       if (error) throw error;
-      authUserId = (data as any)?.auth_user_id ?? null;
       steps.db = { ok: true };
     } catch (e) {
       steps.db = { ok: false, error: (e as Error).message };
@@ -64,22 +96,6 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "db_delete_failed", steps }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
-    }
-
-    // 4) Delete from auth.users
-    if (authUserId) {
-      try {
-        const adm = createClient(
-          Deno.env.get("SUPABASE_URL")!,
-          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-        );
-        const { error } = await adm.auth.admin.deleteUser(authUserId);
-        steps.auth = error ? { ok: false, error: error.message } : { ok: true };
-      } catch (e) {
-        steps.auth = { ok: false, error: (e as Error).message };
-      }
-    } else {
-      steps.auth = { ok: true };
     }
 
     const allOk = Object.values(steps).every((s) => s.ok);
