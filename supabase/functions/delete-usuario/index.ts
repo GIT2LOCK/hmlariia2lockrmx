@@ -39,7 +39,8 @@ Deno.serve(async (req) => {
     if (link?.grafana_user_id) {
       try {
         const r = await grafanaFetch(`/api/admin/users/${link.grafana_user_id}`, { method: "DELETE" });
-        steps.grafana = r.ok ? { ok: true } : { ok: false, error: `status ${r.status}` };
+        // 404 = already gone in Grafana, treat as success
+        steps.grafana = (r.ok || r.status === 404) ? { ok: true } : { ok: false, error: `status ${r.status}` };
       } catch (e) {
         steps.grafana = { ok: false, error: (e as Error).message };
       }
