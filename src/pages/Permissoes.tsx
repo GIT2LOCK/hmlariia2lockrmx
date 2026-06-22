@@ -84,58 +84,10 @@ export default function Permissoes() {
   const [editGrupo, setEditGrupo] = useState<string>("");
   const [editPapel, setEditPapel] = useState<"MEMBRO" | "COORDENADOR" | "GESTOR">("MEMBRO");
   const [saving, setSaving] = useState(false);
-  const [syncingAll, setSyncingAll] = useState(false);
-  const [syncingId, setSyncingId] = useState<number | null>(null);
 
-  const ariiaHeaders = () => {
-    const t = localStorage.getItem("auth_token");
-    return t ? { "x-ariia-token": t } : undefined;
-  };
+  // Grafana sync foi movida para a aba "Grafana". Esta página agora cuida apenas
+  // de perfis, vínculos com empresa e equipes (sem efeitos colaterais no Grafana).
 
-  const handleResyncOne = async (u: Usuario) => {
-    setSyncingId(u.id);
-    try {
-      const { data, error } = await supabase.functions.invoke("grafana-sync-user", {
-        body: { usuario_id: u.id }, headers: ariiaHeaders(),
-      });
-      if (error || (data as any)?.error) {
-        toast({
-          title: `Falha ao ressincronizar ${u.nome}`,
-          description: error?.message || (data as any)?.error,
-          variant: "destructive",
-        });
-      } else {
-        toast({ title: `Ressincronizado: ${u.nome}` });
-      }
-    } finally {
-      setSyncingId(null);
-    }
-  };
-
-  const handleResyncAll = async () => {
-    setSyncingAll(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("grafana-sync-all", {
-        body: {}, headers: ariiaHeaders(),
-      });
-      if (error || (data as any)?.error) {
-        toast({
-          title: "Erro na ressincronização em lote",
-          description: error?.message || (data as any)?.error,
-          variant: "destructive",
-        });
-      } else {
-        const total = (data as any)?.total ?? 0;
-        const failed = ((data as any)?.results || []).filter((r: any) => !r.ok).length;
-        toast({
-          title: `Sincronização concluída`,
-          description: `${total} usuários processados${failed ? ` · ${failed} com erro` : ""}`,
-        });
-      }
-    } finally {
-      setSyncingAll(false);
-    }
-  };
 
 
   const [removeTarget, setRemoveTarget] = useState<{ groupId: number; nome: string } | null>(null);
