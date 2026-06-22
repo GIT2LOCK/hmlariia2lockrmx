@@ -44,7 +44,7 @@ const TAB_DEFS = [
   { key: "grafana", label: "Controle Grafana" },
 ];
 
-interface Empresa { id: number; razao_social: string }
+interface Empresa { id: number; nome_fantasia: string | null; razao_social: string | null }
 interface Org { id: number; grafana_org_id: number; name: string }
 interface Group { id: number; name: string }
 interface AuditRow { id: number; acao: string; criado_em?: string; created_at: string; detalhe: any; actor_usuario_id: number | null }
