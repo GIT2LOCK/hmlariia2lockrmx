@@ -84,7 +84,8 @@ Deno.serve(async (req) => {
 
     const allOk = Object.values(steps).every((s) => s.ok);
     await logSync({
-      actor_usuario_id: caller.id, usuario_id, action: "delete_user",
+      // Do not write usuario_id after deletion: the user must leave no target-user trace in public tables.
+      actor_usuario_id: caller.id, action: "delete_user",
       status: allOk ? "success" : "error",
       response_payload: steps,
     });
