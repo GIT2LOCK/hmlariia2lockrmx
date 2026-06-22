@@ -47,6 +47,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/redefinir-senha" element={<ResetPassword />} />
             <Route path="/oauth/consent" element={<OAuthConsent />} />
             <Route
               path="/dashboard"
