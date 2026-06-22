@@ -58,12 +58,13 @@ export async function getCallerUsuario(req: Request) {
     return { user: u, expired: false };
   }
 
-  // 1) Legacy Ariia token via custom header (best-effort; fall back to JWT)
+  // 1) Legacy Ariia token via custom header
   if (ariiaToken) {
-    const u = await lookupBySession(ariiaToken);
-    if (u) {
-      if (!u.ativo) throw new Error("usuario_inativo");
-      return u;
+    const r = await lookupBySession(ariiaToken);
+    if (r?.expired) throw new Error("session_expired");
+    if (r?.user) {
+      if (!r.user.ativo) throw new Error("usuario_inativo");
+      return r.user;
     }
   }
 
@@ -71,10 +72,11 @@ export async function getCallerUsuario(req: Request) {
 
   // 2) Non-JWT bearer → try sessions table
   if (jwt && !claims) {
-    const u = await lookupBySession(jwt);
-    if (!u) throw new Error("invalid_auth");
-    if (!u.ativo) throw new Error("usuario_inativo");
-    return u;
+    const r = await lookupBySession(jwt);
+    if (r?.expired) throw new Error("session_expired");
+    if (!r?.user) throw new Error("invalid_auth");
+    if (!r.user.ativo) throw new Error("usuario_inativo");
+    return r.user;
   }
 
   // 3) JWT decoded
