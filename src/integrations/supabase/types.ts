@@ -724,6 +724,48 @@ export type Database = {
           },
         ]
       }
+      module_permissions: {
+        Row: {
+          can_create: boolean
+          can_delete: boolean
+          can_manage: boolean
+          can_update: boolean
+          can_view: boolean
+          created_at: string
+          id: number
+          module_key: string
+          target_key: string
+          target_type: string
+          updated_at: string
+        }
+        Insert: {
+          can_create?: boolean
+          can_delete?: boolean
+          can_manage?: boolean
+          can_update?: boolean
+          can_view?: boolean
+          created_at?: string
+          id?: number
+          module_key: string
+          target_key: string
+          target_type: string
+          updated_at?: string
+        }
+        Update: {
+          can_create?: boolean
+          can_delete?: boolean
+          can_manage?: boolean
+          can_update?: boolean
+          can_view?: boolean
+          created_at?: string
+          id?: number
+          module_key?: string
+          target_key?: string
+          target_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       nfse_app_logs: {
         Row: {
           acao: string
@@ -1751,6 +1793,83 @@ export type Database = {
           },
         ]
       }
+      user_audit_log: {
+        Row: {
+          acao: string
+          actor_usuario_id: number | null
+          created_at: string
+          detalhe: Json | null
+          id: number
+          usuario_id: number
+        }
+        Insert: {
+          acao: string
+          actor_usuario_id?: number | null
+          created_at?: string
+          detalhe?: Json | null
+          id?: number
+          usuario_id: number
+        }
+        Update: {
+          acao?: string
+          actor_usuario_id?: number | null
+          created_at?: string
+          detalhe?: Json | null
+          id?: number
+          usuario_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_audit_log_actor_usuario_id_fkey"
+            columns: ["actor_usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_audit_log_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_sync_status: {
+        Row: {
+          last_grafana_sync_at: string | null
+          last_grafana_sync_error: string | null
+          last_grafana_sync_payload: Json | null
+          last_grafana_sync_status: string | null
+          updated_at: string
+          usuario_id: number
+        }
+        Insert: {
+          last_grafana_sync_at?: string | null
+          last_grafana_sync_error?: string | null
+          last_grafana_sync_payload?: Json | null
+          last_grafana_sync_status?: string | null
+          updated_at?: string
+          usuario_id: number
+        }
+        Update: {
+          last_grafana_sync_at?: string | null
+          last_grafana_sync_error?: string | null
+          last_grafana_sync_payload?: Json | null
+          last_grafana_sync_status?: string | null
+          updated_at?: string
+          usuario_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_sync_status_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: true
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_tab_permissions: {
         Row: {
           allowed: boolean
@@ -1788,6 +1907,7 @@ export type Database = {
       }
       usuarios: {
         Row: {
+          access_scope: Database["public"]["Enums"]["access_scope"]
           assinatura_email: string | null
           assinatura_email_url: string | null
           ativo: boolean | null
@@ -1809,6 +1929,7 @@ export type Database = {
           zabbix_token_z2: string | null
         }
         Insert: {
+          access_scope?: Database["public"]["Enums"]["access_scope"]
           assinatura_email?: string | null
           assinatura_email_url?: string | null
           ativo?: boolean | null
@@ -1830,6 +1951,7 @@ export type Database = {
           zabbix_token_z2?: string | null
         }
         Update: {
+          access_scope?: Database["public"]["Enums"]["access_scope"]
           assinatura_email?: string | null
           assinatura_email_url?: string | null
           ativo?: boolean | null
@@ -2020,6 +2142,18 @@ export type Database = {
         Args: { _usuario_id?: number }
         Returns: string[]
       }
+      fn_user_context: { Args: never; Returns: Json }
+      fn_user_module_perms: {
+        Args: { _usuario_id: number }
+        Returns: {
+          can_create: boolean
+          can_delete: boolean
+          can_manage: boolean
+          can_update: boolean
+          can_view: boolean
+          module_key: string
+        }[]
+      }
       grafana_effective_permissions: {
         Args: { _usuario_id: number }
         Returns: Json
@@ -2039,6 +2173,11 @@ export type Database = {
       is_ariia_admin: { Args: never; Returns: boolean }
     }
     Enums: {
+      access_scope:
+        | "ARIIA_ONLY"
+        | "GRAFANA_ONLY"
+        | "ARIIA_AND_GRAFANA"
+        | "BLOCKED"
       finalidade_link: "principal" | "backup"
       grafana_role: "None" | "Viewer" | "Editor" | "Admin"
       ip_tipo: "dinamico" | "fixo"
@@ -2201,6 +2340,12 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      access_scope: [
+        "ARIIA_ONLY",
+        "GRAFANA_ONLY",
+        "ARIIA_AND_GRAFANA",
+        "BLOCKED",
+      ],
       finalidade_link: ["principal", "backup"],
       grafana_role: ["None", "Viewer", "Editor", "Admin"],
       ip_tipo: ["dinamico", "fixo"],
