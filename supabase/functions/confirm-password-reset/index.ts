@@ -88,6 +88,31 @@ Deno.serve(async (req) => {
       authUserId = created.user.id;
       await supabase.from("usuarios").update({ auth_user_id: authUserId }).eq("id", row.usuario_id);
     } else {
+      // Bloqueia reutilização da senha atual: tenta autenticar com a nova senha.
+      try {
+        const anonClient = createClient(
+          Deno.env.get("SUPABASE_URL")!,
+          Deno.env.get("SUPABASE_ANON_KEY")!,
+          { auth: { persistSession: false, autoRefreshToken: false } },
+        );
+        const { data: signInData } = await anonClient.auth.signInWithPassword({
+          email: row.email,
+          password,
+        });
+        if (signInData?.session) {
+          await anonClient.auth.signOut().catch(() => {});
+          return new Response(
+            JSON.stringify({
+              error: "same_password",
+              message: "A nova senha não pode ser igual à senha atual. Escolha uma senha diferente.",
+            }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+      } catch (_) {
+        // Falha no signIn = senha diferente (ou outro erro): segue o fluxo normal.
+      }
+
       const { error: updErr } = await supabase.auth.admin.updateUserById(authUserId, { password });
       if (updErr) {
         console.error("[confirm-password-reset] updateUserById error", updErr);
