@@ -1,79 +1,91 @@
+Vou aplicar restrições ao perfil **CLIENTE** em duas camadas: **frontend** (esconder UI/ações) e **backend** (RLS/políticas/funções) para impedir bypass via API.
 
-Este é um escopo grande (itens 2 a 17). Para entregar com qualidade e sem quebrar o sistema, proponho dividir em **5 fases independentes**, cada uma testável antes da próxima. Você aprova fase por fase, ou autoriza tudo de uma vez.
+## 1. Helper único de perfil
+Centralizar checagens em `src/lib/permissions.ts`:
+- `isCliente(user)`, `isInternalStaff(user)` (USER/VIEWER/ADMIN/SUPERADMIN), `canManageTicketAssignment(user)`.
+- Usar em todas as telas/componentes para evitar drift.
+
+## 2. Tela de detalhes do chamado (`ChamadoDetalhe.tsx`, `TicketHeaderInfo.tsx`, `FluxoOperacionalCard.tsx`)
+Para CLIENTE, ocultar:
+- Status interno (mostrar status simplificado: Aberto / Em atendimento / Aguardando você / Resolvido / Encerrado)
+- Prioridade, Fila, Categoria interna
+- Operador, Quem deve analisar, Técnico de triagem, Técnico responsável
+- Cards de roteamento/SLA interno/Fluxo operacional
+- Histórico de mudanças de atribuição
+
+Manter para CLIENTE: número/código, título, descrição, empresa, data abertura, status simplificado, comentários públicos, anexos, botão Responder, botão **Encerrar/Confirmar resolução** (somente se ticket pertence à empresa e status ∈ {RESOLVIDO, EM_ATENDIMENTO conforme regra}).
+
+## 3. Lista de chamados (`Chamados.tsx`)
+Para CLIENTE:
+- Esconder colunas/filtros: Técnico, Fila, Responsável, Prioridade interna, Atribuir/Trocar técnico
+- Esconder ações em lote (atribuição, troca de fila)
+- Manter: código, título, status simplificado, empresa, data abertura, ações "Ver detalhes" e "Responder"
+
+## 4. Tela de Senhas (`MeuPerfil.tsx` ou componente de senha)
+- Validar via Supabase Auth `signInWithPassword` com a senha atual antes de trocar
+- Comparar nova vs atual: se igual → erro `"A nova senha não pode ser igual à senha atual."`
+- Manter validações de senha forte existentes
+
+## 5. Assinatura de e-mail
+- Ocultar a seção/aba para CLIENTE em `MeuPerfil.tsx` (ou onde estiver)
+- `ProtectedRoute` bloqueia rota direta
+- Bucket `email-signatures` — adicionar RLS para impedir upload/leitura por CLIENTE
+
+## 6. Tokens da API do Zabbix
+- Ocultar seção/aba para CLIENTE
+- `ProtectedRoute` bloqueia rota direta
+- Já estão em secrets (não em tabela), só preciso garantir que a UI não exponha
+
+## 7. Sidebar/Menu (`AppSidebar.tsx`)
+Para CLIENTE, mostrar apenas:
+- Meus Chamados
+- Abrir Chamado
+- Meu Perfil (sem aba de assinatura)
+Esconder: Dashboard interno, Unidades, Empresas (admin), Operadoras, Pessoas, Responsáveis, Equipes, Zabbix, Usuários, Permissões, Grafana, Base de Conhecimento (a menos que negócio queira manter).
+
+## 8. Segurança backend (migração SQL)
+
+### 8.1 Tickets — UPDATE seletivo
+Substituir a policy atual de UPDATE em `tickets` por duas:
+- **CLIENTE**: pode UPDATE somente se `empresa_id = sua empresa` E somente nas colunas funcionais via função RPC `fn_cliente_update_ticket(_id, _action, _payload)` que aceita apenas:
+  - `responder` (insere comentário)
+  - `encerrar` (muda status para FECHADO/CONFIRMADO quando status atual = RESOLVIDO)
+- **Internos** (USER/ADMIN/SUPERADMIN/técnicos): policy ampla atual.
+
+Bloquear no banco a alteração direta por CLIENTE de: `tecnico_id`, `assigned_by`, `assigned_group_id`, `fila_id`, `prioridade`, `operadora_id`, `categoria_id`, `status` (exceto via RPC controlada).
+
+Implementação: trigger `BEFORE UPDATE` em `tickets` que, quando o usuário corrente é CLIENTE, rejeita qualquer alteração de campos restritos (`RAISE EXCEPTION 'cliente_cannot_modify_internal_fields'`).
+
+### 8.2 RPC `fn_cliente_encerrar_ticket(_ticket_id)`
+- Verifica que `auth.uid()` é CLIENTE da `empresa_id` do ticket
+- Verifica status ∈ {RESOLVIDO}
+- Atualiza status → FECHADO, `data_fechamento = now()`, registra em `ticket_history`
+
+### 8.3 Comments
+Manter policy atual de comments (CLIENTE pode inserir comentário em ticket da sua empresa).
+
+### 8.4 Storage `email-signatures`
+- Policy: somente perfis internos podem INSERT/UPDATE/DELETE/SELECT objetos
+
+### 8.5 Confirmar `fn_can_view_ticket` (já restringe CLIENTE a `empresa_id`) — OK
+### 8.6 Confirmar `fn_dashboard_ticket_ids` (já filtra por empresa para CLIENTE) — OK
+
+## 9. Rotas protegidas (`App.tsx` / `ProtectedRoute.tsx`)
+Adicionar `forbidRoles={['CLIENTE']}` (ou `requireRoles`) em:
+- `/dashboard/usuarios`, `/permissoes`, `/grafana-controle`, `/operadoras`, `/equipes`, `/responsaveis`, `/pessoas`, `/unidades` (admin), `/empresas` (admin), `/zabbix-config`, rota de assinatura de e-mail.
+
+Para CLIENTE que cair em rota proibida → redirect para `/dashboard/chamados`.
+
+## 10. Validação
+- Após migração: testar via supabase--read_query como CLIENTE (simulando) que UPDATE direto em `tecnico_id` falha.
+- Testar via UI que CLIENTE não vê os elementos.
+- Rodar `supabase--linter`.
 
 ---
 
-## Fase 1 — Fundação no banco (migrations)
+### Pergunta antes de começar
+1. Para **encerramento de chamado por CLIENTE**: só permitir quando status = `RESOLVIDO` (cliente "confirma resolução")? Ou também `EM_ATENDIMENTO` (cliente desiste)?
+2. **Base de Conhecimento** — manter visível para CLIENTE ou esconder?
+3. **Prioridade** — o CLIENTE deve poder *escolher* prioridade ao abrir chamado, mas não *ver* depois? Ou esconder em todos os fluxos?
 
-Criar a base de dados que sustenta tudo o que vem depois.
-
-- Adicionar coluna `access_scope` em `usuarios` (enum: `ARIIA_ONLY`, `GRAFANA_ONLY`, `ARIIA_AND_GRAFANA`, `BLOCKED`), default `ARIIA_AND_GRAFANA`, backfill conforme `permissao` e `ativo`.
-- Criar tabela `module_permissions` (perfil ou usuário → módulo → `can_view/create/update/delete/manage`).
-- Criar tabela `user_sync_status` (último sync Grafana, status, erro, timestamp).
-- Criar tabela `user_audit_log` (histórico de alterações de permissões/scope/role).
-- Função `fn_user_module_perms(_usuario_id, _module)` retornando permissões efetivas (perfil + grupo + individual, com override individual).
-- Atualizar `custom_access_token_hook` para incluir `access_scope` e `module_permissions` nas claims.
-- Atualizar `grafana_effective_permissions` para retornar vazio quando `access_scope` ∉ (`GRAFANA_ONLY`, `ARIIA_AND_GRAFANA`).
-
-## Fase 2 — RLS estrita de chamados para Cliente (item 8)
-
-- Reescrever policies de `tickets`, `ticket_comments`, `ticket_history`, `ticket_attachments`, `ticket_notifications` para que `permissao = 'CLIENTE'` só veja registros onde `empresa_id = usuario.empresa_id`.
-- Atualizar `fn_can_view_ticket`, `fn_dashboard_ticket_ids`, todas as RPCs de dashboard para filtrar por empresa do cliente.
-- Garantir que contadores, relatórios e notificações respeitem isso no backend.
-
-## Fase 3 — Sync Grafana correta (itens 2, 3, 6, 7)
-
-Reescrever `supabase/functions/grafana-sync-user`:
-
-1. Buscar usuário + `access_scope` + `ativo`.
-2. Se `BLOCKED` / `ARIIA_ONLY` / inativo → remover de todas as orgs Grafana, retornar `ok`.
-3. Calcular `desiredMap` via `grafana_effective_permissions` (direto + grupo + automações).
-4. Se `desiredMap` vazio e pode acessar Grafana → adicionar fallback `orgId=1` como `Viewer`.
-5. Mapeamento de roles: `CLIENTE→Viewer`, `VIEWER→Viewer`, `USER→Editor`, `ADMIN→Admin`, `SUPERADMIN→GrafanaAdmin` global.
-6. Remover de orgs que não estão no `desiredMap`.
-7. Bloquear criação de org pessoal/com email (já existente, validar).
-8. Gravar resultado em `user_sync_status` e `grafana_sync_logs`.
-9. **Retornar erro 500 com detalhes se qualquer etapa falhar** — o front não pode mais mostrar sucesso falso.
-
-Edge functions a revisar: `grafana-sync-user`, `grafana-sync-all`, `delete-usuario`, `usuario-update`, `signup-2fa`.
-
-## Fase 4 — Frontend: AuthContext, ProtectedRoute, menu e fallback dashboard (itens 4, 10, 11)
-
-- `AuthContext` carrega `access_scope`, `module_permissions`, `grafana_permissions`, `sync_status` via uma única RPC `fn_user_context()`.
-- Helpers: `canViewModule()`, `canCreateModule()`, etc.
-- `ProtectedRoute` aceita `requirePermission="modulo.acao"` e valida via contexto.
-- Menu lateral renderizado a partir de `module_permissions` reais (não hardcoded por perfil).
-- Rota Grafana usuário-fallback abre `https://painel.2lock.app.br/d/ad8nmt9/2lock-home?orgId=1&from=now-6h&to=now&kiosk` quando `desiredMap` resultou só em Default.
-- Toasts de sucesso só após confirmação banco + Grafana; em falha, toast destrutivo + reload dos dados reais.
-
-## Fase 5 — Reorganização UI de Usuários (itens 12, 13)
-
-- Modal/drawer de edição de usuário com tabs internas: **Dados**, **Empresa & Perfil**, **Escopo de acesso**, **Abas & Módulos**, **Grupos**, **Grafana (orgs + roles + sync)**, **Histórico**.
-- Tela `Usuários` ganha: busca, filtros (empresa, perfil, status, acesso Ariia/Grafana, org Grafana), paginação, responsivo.
-- Aba `Grafana` (global) reduz escopo para: organizações, vínculo empresa↔org, sync geral, logs, limpeza de personal orgs, diagnóstico, teste de conexão.
-
----
-
-## Detalhes técnicos
-
-**Edge Functions modificadas:** `grafana-sync-user`, `grafana-sync-all`, `delete-usuario`, `usuario-update`, `signup-2fa`, `fn_user_context` (nova RPC).
-
-**Migrations criadas:** 1 por fase 1; fase 2 cria policies novas; fase 3 não exige migration; fase 4 cria RPC `fn_user_context`; fase 5 só frontend.
-
-**Configuração externa Grafana que você precisará aplicar manualmente:**
-- Garantir que `users.allow_org_create = false` no `grafana.ini`.
-- Garantir que `auth.disable_signout_menu = false` mas `auto_assign_org = true` + `auto_assign_org_id = 1` + `auto_assign_org_role = Viewer`.
-- Embeds via iframe precisam de `allow_embedding = true` e `auth.anonymous` desativado.
-- Dashboard `ad8nmt9/2lock-home` precisa estar publicado na org 1 com permissão Viewer.
-
----
-
-## Como prosseguir
-
-Responda uma das opções:
-
-1. **"vai com tudo"** — executo as 5 fases em sequência, cada uma com sua migration/PR, sem parar.
-2. **"só fase X"** — executo apenas a fase indicada (ex.: "só fase 2 e 3").
-3. **Ajustes no plano** — me diga o que mudar antes de começar.
-
-Sobre a regra do fallback Default quando o usuário também tem org específica: o plano atual **remove o Default quando há org específica** (fallback puro). Confirme se prefere assim, ou se quer Default **sempre presente** somado às específicas.
+Posso seguir com defaults (1: somente RESOLVIDO; 2: esconder; 3: esconder em todos os fluxos) se preferir.
