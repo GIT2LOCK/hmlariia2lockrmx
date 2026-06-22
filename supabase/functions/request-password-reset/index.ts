@@ -237,8 +237,9 @@ Deno.serve(async (req) => {
     });
 
     // Webhook (não bloqueia a resposta em caso de falha)
+    console.log("[request-password-reset] dispatching webhook to:", WEBHOOK_URL);
     try {
-      await fetch(WEBHOOK_URL, {
+      const whRes = await fetch(WEBHOOK_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -256,8 +257,13 @@ Deno.serve(async (req) => {
           text: textBody,
         }),
       });
+      const whText = await whRes.text().catch(() => "");
+      console.log("[request-password-reset] webhook response status:", whRes.status, "body:", whText.slice(0, 500));
+      if (!whRes.ok && whRes.status === 404) {
+        console.error("[request-password-reset] webhook 404 — provavelmente é uma URL 'webhook-test' do n8n que não está em modo 'Listen for test event' ou já consumiu o disparo único. Use a URL de produção (webhook/<id>) e configure-a no secret RESET_WEBHOOK_URL.");
+      }
     } catch (e) {
-      console.error("[request-password-reset] webhook error", e);
+      console.error("[request-password-reset] webhook fetch error", e);
     }
 
     return genericResponse();
