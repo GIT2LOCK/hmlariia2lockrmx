@@ -866,6 +866,45 @@ export type Database = {
         }
         Relationships: []
       }
+      password_reset_tokens: {
+        Row: {
+          auth_user_id: string | null
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          request_ip: string | null
+          token_hash: string
+          used_at: string | null
+          user_agent: string | null
+          usuario_id: string | null
+        }
+        Insert: {
+          auth_user_id?: string | null
+          created_at?: string
+          email: string
+          expires_at: string
+          id?: string
+          request_ip?: string | null
+          token_hash: string
+          used_at?: string | null
+          user_agent?: string | null
+          usuario_id?: string | null
+        }
+        Update: {
+          auth_user_id?: string | null
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          request_ip?: string | null
+          token_hash?: string
+          used_at?: string | null
+          user_agent?: string | null
+          usuario_id?: string | null
+        }
+        Relationships: []
+      }
       sessions: {
         Row: {
           criado_em: string | null
