@@ -286,10 +286,6 @@ export default function Permissoes() {
             Gerencie perfis, equipes, vínculo com empresa e status dos usuários.
           </p>
         </div>
-        <Button onClick={handleResyncAll} disabled={syncingAll} variant="outline">
-          {syncingAll ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-          Ressincronizar Grafana (todos)
-        </Button>
       </div>
 
 
