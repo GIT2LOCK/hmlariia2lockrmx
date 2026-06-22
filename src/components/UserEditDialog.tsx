@@ -260,7 +260,22 @@ export function UserEditDialog({ open, onClose, usuario, onSaved }: Props) {
         await supabase.from("grafana_user_org_permissions").insert(orgRows);
       }
 
-      toast({ title: "Usuário salvo com sucesso" });
+      // 5) Sincroniza com Grafana automaticamente (auto-aplicação)
+      const needsGrafanaSync = scope === "ARIIA_AND_GRAFANA" || scope === "GRAFANA_ONLY" || scope === "BLOCKED";
+      if (needsGrafanaSync) {
+        try {
+          await invokeGrafanaFunction("grafana-sync-user", { usuario_id: usuario.id });
+          toast({ title: "Usuário salvo e sincronizado com Grafana" });
+        } catch (syncErr: any) {
+          toast({
+            title: "Salvo no banco, mas falhou no Grafana",
+            description: syncErr?.message || "Sincronização não concluída",
+            variant: "destructive",
+          });
+        }
+      } else {
+        toast({ title: "Usuário salvo com sucesso" });
+      }
       onSaved?.();
       onClose();
     } catch (e: any) {
