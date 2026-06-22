@@ -877,7 +877,7 @@ export type Database = {
           token_hash: string
           used_at: string | null
           user_agent: string | null
-          usuario_id: string | null
+          usuario_id: number | null
         }
         Insert: {
           auth_user_id?: string | null
@@ -889,7 +889,7 @@ export type Database = {
           token_hash: string
           used_at?: string | null
           user_agent?: string | null
-          usuario_id?: string | null
+          usuario_id?: number | null
         }
         Update: {
           auth_user_id?: string | null
@@ -901,9 +901,17 @@ export type Database = {
           token_hash?: string
           used_at?: string | null
           user_agent?: string | null
-          usuario_id?: string | null
+          usuario_id?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "password_reset_tokens_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sessions: {
         Row: {
