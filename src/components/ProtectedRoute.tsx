@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import { useUser } from "@/contexts/UserContext";
+import { useUser, ModuleAction } from "@/contexts/UserContext";
 import { Permission, denyMessage } from "@/lib/permissions";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -9,11 +9,23 @@ import { useAllowedTabs, type TabKey } from "@/hooks/useAllowedTabs";
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requirePermission?: Permission;
+  requireModule?: { key: string; action?: ModuleAction };
   tabKey?: TabKey;
+  /** Rota acessível por usuário GRAFANA_ONLY (ex: kiosk, perfil). */
+  allowGrafanaOnly?: boolean;
 }
 
-export function ProtectedRoute({ children, requirePermission, tabKey }: ProtectedRouteProps) {
-  const { isAuthenticated, isLoading, syncFromDatabase, can } = useUser();
+export function ProtectedRoute({
+  children,
+  requirePermission,
+  requireModule,
+  tabKey,
+  allowGrafanaOnly,
+}: ProtectedRouteProps) {
+  const {
+    isAuthenticated, isLoading, syncFromDatabase, can, canModule,
+    isBlocked, isGrafanaOnly,
+  } = useUser();
   const location = useLocation();
   const { allows, loading: tabsLoading } = useAllowedTabs();
 
@@ -36,8 +48,24 @@ export function ProtectedRoute({ children, requirePermission, tabKey }: Protecte
     return <Navigate to="/" state={{ from: location }} replace />;
   }
 
+  // Usuário bloqueado: sem acesso a nada.
+  if (isBlocked) {
+    toast.error("Seu acesso foi bloqueado. Procure um administrador.");
+    return <Navigate to="/" replace />;
+  }
+
+  // Usuário só de Grafana: tudo redireciona para kiosk, salvo rotas explicitamente permitidas.
+  if (isGrafanaOnly && !allowGrafanaOnly) {
+    return <Navigate to="/dashboard/grafana-kiosk" replace />;
+  }
+
   if (requirePermission && !can(requirePermission)) {
     toast.error(denyMessage(requirePermission));
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  if (requireModule && !canModule(requireModule.key, requireModule.action || "view")) {
+    toast.error("Você não tem acesso a essa área.");
     return <Navigate to="/dashboard" replace />;
   }
 
