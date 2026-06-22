@@ -225,39 +225,14 @@ export default function Permissoes() {
       }
     }
 
-    // Sincroniza com Grafana — só mostra sucesso se a sync confirmar
-    let syncOk = true;
-    let syncErrorMsg: string | null = null;
-    try {
-      const ariiaToken = localStorage.getItem("auth_token");
-      const { data: syncData, error: syncErr } = await supabase.functions.invoke(
-        "grafana-sync-user",
-        {
-          body: { usuario_id: editing.id },
-          headers: ariiaToken ? { "x-ariia-token": ariiaToken } : undefined,
-        },
-      );
-      if (syncErr || (syncData as any)?.error) {
-        syncOk = false;
-        syncErrorMsg = syncErr?.message || (syncData as any)?.error || "Falha desconhecida";
-      }
-    } catch (e: any) {
-      syncOk = false;
-      syncErrorMsg = e?.message ?? String(e);
-    }
-
-    if (syncOk) {
-      toast({ title: "Permissões atualizadas e sincronizadas com o Grafana" });
-    } else {
-      toast({
-        title: "Alteração salva no banco, mas Grafana não foi sincronizado",
-        description: syncErrorMsg ?? undefined,
-        variant: "destructive",
-      });
-    }
+    toast({
+      title: "Permissões atualizadas",
+      description: "Para ajustar acessos no Grafana, use a aba Grafana.",
+    });
     setEditing(null);
     setSaving(false);
     load();
+
   };
 
 
