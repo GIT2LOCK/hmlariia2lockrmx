@@ -104,6 +104,20 @@ Deno.serve(async (req) => {
     }
 
     const resetUrl = `${APP_BASE_URL}/redefinir-senha?token=${token}`;
+    const expiresInMinutes = TOKEN_TTL_MINUTES;
+    const subject = "Redefinição de senha — Ariia 2lock";
+    const htmlBody = buildResetEmailHtml({
+      nome: user.nome || user.email,
+      email: user.email,
+      resetUrl,
+      expiresInMinutes,
+    });
+    const textBody = buildResetEmailText({
+      nome: user.nome || user.email,
+      email: user.email,
+      resetUrl,
+      expiresInMinutes,
+    });
 
     // Webhook (não bloqueia a resposta em caso de falha)
     try {
@@ -112,12 +126,17 @@ Deno.serve(async (req) => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           event: "password_reset_requested",
+          to: user.email,
           email: user.email,
           nome: user.nome,
           usuario_id: user.id,
           reset_url: resetUrl,
           expires_at: expiresAt,
+          expires_in_minutes: expiresInMinutes,
           requested_at: requestedAt,
+          subject,
+          html: htmlBody,
+          text: textBody,
         }),
       });
     } catch (e) {
