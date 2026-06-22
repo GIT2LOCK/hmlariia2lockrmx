@@ -31,6 +31,117 @@ async function sha256Hex(input: string) {
   return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+function escapeHtml(s: string) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function buildResetEmailText(p: { nome: string; email: string; resetUrl: string; expiresInMinutes: number }) {
+  return [
+    `Olá, ${p.nome}.`,
+    ``,
+    `Recebemos uma solicitação para redefinir a senha da conta vinculada a ${p.email}.`,
+    `Acesse o link abaixo para criar uma nova senha. Este link expira em ${p.expiresInMinutes} minutos e só pode ser utilizado uma vez.`,
+    ``,
+    p.resetUrl,
+    ``,
+    `Se você não solicitou esta redefinição, ignore este e-mail — sua senha atual continua válida.`,
+    ``,
+    `Ariia 2lock — Plataforma de Gestão Técnica`,
+  ].join("\n");
+}
+
+function buildResetEmailHtml(p: { nome: string; email: string; resetUrl: string; expiresInMinutes: number }) {
+  const nome = escapeHtml(p.nome);
+  const email = escapeHtml(p.email);
+  const url = escapeHtml(p.resetUrl);
+  const mins = p.expiresInMinutes;
+  // Cores da marca: Navy #00205B, Light Blue #5B9BF0
+  return `<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Redefinição de senha — Ariia 2lock</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f3f5fa;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1a2138;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f3f5fa;padding:32px 12px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(0,32,91,0.08);">
+          <tr>
+            <td style="background-color:#00205B;padding:28px 32px;" align="left">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="background-color:#5B9BF0;color:#ffffff;font-weight:700;font-size:18px;border-radius:8px;padding:8px 12px;letter-spacing:0.5px;">A</td>
+                  <td style="padding-left:12px;color:#ffffff;font-size:20px;font-weight:600;letter-spacing:0.3px;">Ariia <span style="color:#5B9BF0;">2lock</span></td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px;">
+              <h1 style="margin:0 0 16px 0;font-size:22px;color:#00205B;font-weight:600;">Redefinição de senha</h1>
+              <p style="margin:0 0 16px 0;font-size:15px;line-height:1.55;">Olá, <strong>${nome}</strong>.</p>
+              <p style="margin:0 0 16px 0;font-size:15px;line-height:1.55;">
+                Recebemos uma solicitação para redefinir a senha da conta vinculada a
+                <strong style="color:#00205B;">${email}</strong>.
+              </p>
+              <p style="margin:0 0 24px 0;font-size:15px;line-height:1.55;">
+                Clique no botão abaixo para criar uma nova senha. Por segurança, este link
+                <strong>expira em ${mins} minutos</strong> e só pode ser utilizado <strong>uma única vez</strong>.
+              </p>
+
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 28px 0;">
+                <tr>
+                  <td align="center" bgcolor="#00205B" style="border-radius:8px;">
+                    <a href="${url}"
+                       style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:8px;background-color:#00205B;">
+                      Redefinir minha senha
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:0 0 8px 0;font-size:13px;color:#5a627a;">Se o botão não funcionar, copie e cole este link no navegador:</p>
+              <p style="margin:0 0 24px 0;font-size:13px;word-break:break-all;">
+                <a href="${url}" style="color:#5B9BF0;text-decoration:underline;">${url}</a>
+              </p>
+
+              <div style="border-top:1px solid #e5e9f2;margin:8px 0 20px 0;"></div>
+
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                <tr>
+                  <td style="font-size:13px;color:#5a627a;line-height:1.5;">
+                    <strong style="color:#00205B;">Conta:</strong> ${email}<br/>
+                    <strong style="color:#00205B;">Validade do link:</strong> ${mins} minutos<br/>
+                    <strong style="color:#00205B;">Uso:</strong> único
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:24px 0 0 0;font-size:13px;color:#5a627a;line-height:1.55;">
+                Se você não solicitou esta redefinição, ignore este e-mail — sua senha atual permanece válida.
+                Recomendamos verificar o acesso à sua conta caso receba várias mensagens como esta.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background-color:#f7f9fc;padding:18px 32px;font-size:12px;color:#7a8299;" align="center">
+              © Ariia 2lock — Plataforma de Gestão Técnica. Mensagem automática, não responda este e-mail.
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
