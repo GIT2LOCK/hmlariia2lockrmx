@@ -675,45 +675,47 @@ const MeuPerfil = () => {
             </CardContent>
           </Card>
 
-          {/* Zabbix Tokens */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Monitor className="h-5 w-5" /> Tokens da API do Zabbix</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Configure seu token pessoal de cada instância Zabbix. Quando você adicionar um update em um problema, ele será registrado em seu nome no Zabbix.
-              </p>
-              {([
-                { key: "z1" as const, label: "Token Zabbix — Brava (z1)" },
-                { key: "z2" as const, label: "Token Zabbix — 2lock (z2)" },
-              ]).map(({ key, label }) => (
-                <div key={key}>
-                  <Label>{label}</Label>
-                  <div className="relative">
-                    <Input
-                      type={showZabbixTokens[key] ? "text" : "password"}
-                      value={zabbixTokens[key]}
-                      onChange={(e) => setZabbixTokens({ ...zabbixTokens, [key]: e.target.value })}
-                      placeholder="Cole aqui seu API token"
-                      className="font-mono pr-10"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowZabbixTokens({ ...showZabbixTokens, [key]: !showZabbixTokens[key] })}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    >
-                      {showZabbixTokens[key] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
+          {/* Zabbix Tokens — somente equipe interna */}
+          {profile.permissao !== "CLIENTE" && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Monitor className="h-5 w-5" /> Tokens da API do Zabbix</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Configure seu token pessoal de cada instância Zabbix. Quando você adicionar um update em um problema, ele será registrado em seu nome no Zabbix.
+                </p>
+                {([
+                  { key: "z1" as const, label: "Token Zabbix — Brava (z1)" },
+                  { key: "z2" as const, label: "Token Zabbix — 2lock (z2)" },
+                ]).map(({ key, label }) => (
+                  <div key={key}>
+                    <Label>{label}</Label>
+                    <div className="relative">
+                      <Input
+                        type={showZabbixTokens[key] ? "text" : "password"}
+                        value={zabbixTokens[key]}
+                        onChange={(e) => setZabbixTokens({ ...zabbixTokens, [key]: e.target.value })}
+                        placeholder="Cole aqui seu API token"
+                        className="font-mono pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowZabbixTokens({ ...showZabbixTokens, [key]: !showZabbixTokens[key] })}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        {showZabbixTokens[key] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
-              <Button onClick={handleSaveZabbixTokens} disabled={savingZabbix} className="gap-2">
-                {savingZabbix ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                Salvar tokens
-              </Button>
-            </CardContent>
-          </Card>
+                ))}
+                <Button onClick={handleSaveZabbixTokens} disabled={savingZabbix} className="gap-2">
+                  {savingZabbix ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  Salvar tokens
+                </Button>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         {/* TAB: Dispositivos */}
