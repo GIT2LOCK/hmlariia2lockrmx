@@ -137,6 +137,7 @@ function buildResetEmailHtml(p: { nome: string; email: string; resetUrl: string;
   </table>
 </body>
 </html>`;
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
