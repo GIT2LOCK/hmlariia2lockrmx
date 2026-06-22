@@ -9,6 +9,7 @@ const corsHeaders = {
 const DEFAULT_WEBHOOK_URL = "https://autom.2lock.app.br/webhook-test/8133acad-5def-4bf4-9c6a-c6df08ec969d";
 const WEBHOOK_URL = Deno.env.get("RESET_WEBHOOK_URL") || DEFAULT_WEBHOOK_URL;
 const APP_BASE_URL = Deno.env.get("APP_BASE_URL") || "https://ariia.2lock.com.br";
+const LOGO_URL = "https://zptbkovdogbxkqzvmffj.supabase.co/storage/v1/object/public/2locks3/2lockLogoFHD.png";
 const TOKEN_TTL_MINUTES = 30;
 
 function genericResponse() {
@@ -76,7 +77,7 @@ function buildResetEmailHtml(p: { nome: string; email: string; resetUrl: string;
         <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(0,32,91,0.08);">
           <tr>
             <td style="background-color:#00205B;padding:24px 32px;" align="center">
-              <img src="${escapeHtml(APP_BASE_URL)}/email-logo.png" alt="Ariia 2lock" height="56" style="display:block;height:56px;width:auto;border:0;outline:none;text-decoration:none;" />
+              <img src="${LOGO_URL}" alt="Ariia 2lock" height="56" style="display:block;height:56px;width:auto;border:0;outline:none;text-decoration:none;background:transparent;" />
             </td>
           </tr>
           <tr>
