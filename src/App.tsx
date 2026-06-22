@@ -29,8 +29,10 @@ import OAuthConsent from "./pages/OAuthConsent";
 import GrafanaControle from "./pages/GrafanaControle";
 import RelatorioAlertasZabbix from "./pages/RelatorioAlertasZabbix";
 import Permissoes from "./pages/Permissoes";
+import GrafanaKiosk from "./pages/GrafanaKiosk";
 import { UserProvider } from "./contexts/UserContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+
 
 const queryClient = new QueryClient();
 
@@ -73,7 +75,8 @@ const App = () => (
               <Route path="zabbix/tv" element={<ProtectedRoute tabKey="zabbix"><ZabbixTvView /></ProtectedRoute>} />
               <Route path="zabbix/relatorio-alertas" element={<ProtectedRoute tabKey="zabbix"><RelatorioAlertasZabbix /></ProtectedRoute>} />
               <Route path="grafana" element={<ProtectedRoute tabKey="grafana"><GrafanaControle /></ProtectedRoute>} />
-              <Route path="perfil" element={<MeuPerfil />} />
+              <Route path="grafana-kiosk" element={<ProtectedRoute allowGrafanaOnly><GrafanaKiosk /></ProtectedRoute>} />
+              <Route path="perfil" element={<ProtectedRoute allowGrafanaOnly><MeuPerfil /></ProtectedRoute>} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
