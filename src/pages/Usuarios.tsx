@@ -80,12 +80,20 @@ const Usuarios = () => {
       const steps = (data as any)?.steps as Record<string, { ok: boolean; error?: string }> | undefined;
 
       if (error || (data as any)?.error) {
+        const errCode = (data as any)?.error;
+        if (errCode === "session_expired" || error?.message?.includes("session_expired")) {
+          toast({ title: "Sessão expirada", description: "Faça login novamente para continuar.", variant: "destructive" });
+          localStorage.removeItem("auth_token");
+          await supabase.auth.signOut().catch(() => {});
+          window.location.href = "/login";
+          return;
+        }
         const detail = steps
           ? Object.entries(steps)
               .filter(([, v]) => !v.ok)
               .map(([k, v]) => `${k}: ${v.error}`)
               .join(" · ")
-          : (error?.message ?? (data as any)?.error);
+          : (error?.message ?? errCode);
         toast({ title: "Falha ao excluir usuário", description: detail, variant: "destructive" });
         return;
       }

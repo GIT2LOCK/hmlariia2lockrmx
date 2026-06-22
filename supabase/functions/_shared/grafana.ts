@@ -35,28 +35,36 @@ export async function getCallerUsuario(req: Request) {
 
   const svc = serviceClient();
 
-  async function lookupBySession(token: string) {
+  async function lookupBySession(token: string): Promise<{ user: any; expired: boolean } | null> {
     const { data: session } = await svc
       .from("sessions")
       .select("user_id, expires_at")
       .eq("token", token)
       .maybeSingle();
     if (!session) return null;
-    if (new Date(session.expires_at) < new Date()) return null;
+    if (new Date(session.expires_at) < new Date()) return { user: null, expired: true };
     const { data: u } = await svc
       .from("usuarios")
       .select("id, nome, email, permissao, ativo, auth_user_id")
       .eq("id", session.user_id)
       .maybeSingle();
-    return u || null;
+    if (!u) return null;
+    // Sliding expiration: extend 24h on each successful use
+    const newExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    svc.from("sessions")
+      .update({ expires_at: newExpiry, last_activity: new Date().toISOString() })
+      .eq("token", token)
+      .then(() => {}, () => {});
+    return { user: u, expired: false };
   }
 
-  // 1) Legacy Ariia token via custom header (best-effort; fall back to JWT)
+  // 1) Legacy Ariia token via custom header
   if (ariiaToken) {
-    const u = await lookupBySession(ariiaToken);
-    if (u) {
-      if (!u.ativo) throw new Error("usuario_inativo");
-      return u;
+    const r = await lookupBySession(ariiaToken);
+    if (r?.expired) throw new Error("session_expired");
+    if (r?.user) {
+      if (!r.user.ativo) throw new Error("usuario_inativo");
+      return r.user;
     }
   }
 
@@ -64,10 +72,11 @@ export async function getCallerUsuario(req: Request) {
 
   // 2) Non-JWT bearer → try sessions table
   if (jwt && !claims) {
-    const u = await lookupBySession(jwt);
-    if (!u) throw new Error("invalid_auth");
-    if (!u.ativo) throw new Error("usuario_inativo");
-    return u;
+    const r = await lookupBySession(jwt);
+    if (r?.expired) throw new Error("session_expired");
+    if (!r?.user) throw new Error("invalid_auth");
+    if (!r.user.ativo) throw new Error("usuario_inativo");
+    return r.user;
   }
 
   // 3) JWT decoded
