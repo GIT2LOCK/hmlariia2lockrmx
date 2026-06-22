@@ -119,3 +119,41 @@ export const PERMISSION_DENIED_MESSAGES: Partial<Record<Permission, string>> = {
 export function denyMessage(permission: Permission): string {
   return PERMISSION_DENIED_MESSAGES[permission] ?? "Seu perfil não permite executar esta ação.";
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// Helpers de perfil — usar em UI para esconder/mostrar áreas
+// (a fonte de verdade continua sendo backend: RLS + triggers + RPCs)
+// ─────────────────────────────────────────────────────────────────────
+export type RoleLike = Role | string | null | undefined;
+
+export function isCliente(role: RoleLike): boolean {
+  return role === "CLIENTE";
+}
+
+export function isInternalStaff(role: RoleLike): boolean {
+  return role === "SUPERADMIN" || role === "ADMIN" || role === "USER" || role === "VIEWER";
+}
+
+export function canManageTicketAssignment(role: RoleLike): boolean {
+  // Atribuir/transferir técnico, mexer em fila etc.
+  return role === "SUPERADMIN" || role === "ADMIN" || role === "USER";
+}
+
+// Status simplificado para CLIENTE
+export const CLIENT_STATUS_LABELS: Record<string, string> = {
+  NOVO: "Aberto",
+  TRIAGEM: "Aberto",
+  EM_ATENDIMENTO: "Em atendimento",
+  AGUARDANDO_CLIENTE: "Aguardando você",
+  AGUARDANDO_OPERADORA: "Em atendimento",
+  AGUARDANDO_TERCEIRO: "Em atendimento",
+  AGENDADO: "Em atendimento",
+  RESOLVIDO: "Resolvido",
+  FECHADO: "Encerrado",
+  CANCELADO: "Encerrado",
+};
+
+export function clientStatusLabel(status: string): string {
+  return CLIENT_STATUS_LABELS[status] || status;
+}
+

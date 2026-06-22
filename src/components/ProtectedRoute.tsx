@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useUser, ModuleAction } from "@/contexts/UserContext";
-import { Permission, denyMessage } from "@/lib/permissions";
+import { Permission, denyMessage, Role } from "@/lib/permissions";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAllowedTabs, type TabKey } from "@/hooks/useAllowedTabs";
@@ -13,6 +13,8 @@ interface ProtectedRouteProps {
   tabKey?: TabKey;
   /** Rota acessível por usuário GRAFANA_ONLY (ex: kiosk, perfil). */
   allowGrafanaOnly?: boolean;
+  /** Perfis explicitamente proibidos (ex: ['CLIENTE'] para área admin). */
+  forbidRoles?: Role[];
 }
 
 export function ProtectedRoute({
@@ -21,10 +23,11 @@ export function ProtectedRoute({
   requireModule,
   tabKey,
   allowGrafanaOnly,
+  forbidRoles,
 }: ProtectedRouteProps) {
   const {
     isAuthenticated, isLoading, syncFromDatabase, can, canModule,
-    isBlocked, isGrafanaOnly,
+    isBlocked, isGrafanaOnly, user,
   } = useUser();
   const location = useLocation();
   const { allows, loading: tabsLoading } = useAllowedTabs();
@@ -57,6 +60,12 @@ export function ProtectedRoute({
   // Usuário só de Grafana: tudo redireciona para kiosk, salvo rotas explicitamente permitidas.
   if (isGrafanaOnly && !allowGrafanaOnly) {
     return <Navigate to="/dashboard/grafana-kiosk" replace />;
+  }
+
+  // CLIENTE não pode entrar em áreas internas
+  if (forbidRoles && forbidRoles.includes(user.role as Role)) {
+    toast.error("Acesso não autorizado para o seu perfil.");
+    return <Navigate to="/dashboard/chamados" replace />;
   }
 
   if (requirePermission && !can(requirePermission)) {
