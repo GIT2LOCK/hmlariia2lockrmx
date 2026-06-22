@@ -9,6 +9,7 @@ const corsHeaders = {
 const DEFAULT_WEBHOOK_URL = "https://autom.2lock.app.br/webhook-test/8133acad-5def-4bf4-9c6a-c6df08ec969d";
 const WEBHOOK_URL = Deno.env.get("RESET_WEBHOOK_URL") || DEFAULT_WEBHOOK_URL;
 const APP_BASE_URL = Deno.env.get("APP_BASE_URL") || "https://ariia.2lock.com.br";
+const LOGO_URL = "https://zptbkovdogbxkqzvmffj.supabase.co/storage/v1/object/public/2locks3/2lockLogoFHD.png";
 const TOKEN_TTL_MINUTES = 30;
 
 function genericResponse() {
