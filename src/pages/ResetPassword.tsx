@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,46 +11,58 @@ import logo from "@/assets/logo.png";
 const ResetPassword = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [params] = useSearchParams();
+  const token = params.get("token") || "";
+
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [ready, setReady] = useState(false);
+  const [validating, setValidating] = useState(true);
+  const [valid, setValid] = useState(false);
+  const [emailMasked, setEmailMasked] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [sessionError, setSessionError] = useState<string | null>(null);
 
-  // Supabase já processa o token automaticamente quando a URL contém #access_token=...
   useEffect(() => {
     let cancelled = false;
-    async function init() {
-      // Aguarda Supabase processar o hash de recovery
-      const { data: { session } } = await supabase.auth.getSession();
-      if (cancelled) return;
-      if (!session) {
-        // Tentar detectar evento PASSWORD_RECOVERY
-        const sub = supabase.auth.onAuthStateChange((event, sess) => {
-          if (event === "PASSWORD_RECOVERY" || sess) {
-            setReady(true);
-            sub.data.subscription.unsubscribe();
-          }
+    async function run() {
+      if (!token) {
+        setValidating(false);
+        setValid(false);
+        return;
+      }
+      try {
+        const { data, error } = await supabase.functions.invoke("validate-reset-token", {
+          body: { token },
         });
-        setTimeout(() => {
-          if (!cancelled && !ready) {
-            setSessionError("Link inválido ou expirado. Solicite um novo e-mail de recuperação.");
-          }
-        }, 2000);
-      } else {
-        setReady(true);
+        if (cancelled) return;
+        if (error || !data?.valid) {
+          setValid(false);
+        } else {
+          setValid(true);
+          setEmailMasked(data.email_masked ?? null);
+        }
+      } catch (e) {
+        if (!cancelled) setValid(false);
+      } finally {
+        if (!cancelled) setValidating(false);
       }
     }
-    init();
+    run();
     return () => { cancelled = true; };
-  }, []);
+  }, [token]);
+
+  const passwordOk =
+    password.length >= 8 &&
+    /[a-z]/.test(password) &&
+    /[A-Z]/.test(password) &&
+    /\d/.test(password) &&
+    /[^A-Za-z0-9]/.test(password);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password.length < 8) {
-      toast({ title: "Senha muito curta", description: "Use pelo menos 8 caracteres.", variant: "destructive" });
+    if (!passwordOk) {
+      toast({ title: "Senha fraca", description: "Atenda a todos os requisitos.", variant: "destructive" });
       return;
     }
     if (password !== confirm) {
@@ -59,37 +71,39 @@ const ResetPassword = () => {
     }
     setLoading(true);
     try {
-      const { data: { user }, error } = await supabase.auth.updateUser({ password });
-      if (error) throw error;
-
-      // Limpar campo legacy de senha_hash do Ariia para evitar divergência
-      if (user?.id) {
-        try {
-          await supabase.from("usuarios").update({ senha_hash: null }).eq("auth_user_id", user.id);
-        } catch (e) {
-          console.warn("[reset-password] não foi possível limpar senha_hash legacy", e);
-        }
+      const { data, error } = await supabase.functions.invoke("confirm-password-reset", {
+        body: { token, password, confirm },
+      });
+      if (error || !data?.ok) {
+        const msg = (data as any)?.message || "Não foi possível redefinir a senha. Solicite um novo link.";
+        toast({ title: "Erro", description: msg, variant: "destructive" });
+        return;
       }
-
       setSuccess(true);
-      toast({ title: "Senha redefinida!", description: "Você já pode entrar com a nova senha." });
-      // Sign out para forçar novo login com a senha nova
-      await supabase.auth.signOut();
+      toast({ title: "Senha redefinida!", description: "Faça login com a nova senha." });
+      await supabase.auth.signOut().catch(() => {});
       setTimeout(() => navigate("/", { replace: true }), 1500);
     } catch (err: any) {
-      console.error("[reset-password]", err);
       toast({ title: "Erro ao redefinir senha", description: err.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
   };
 
-  if (sessionError) {
+  if (validating) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!valid) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <div className="w-full max-w-md text-center space-y-4">
           <img src={logo} alt="Ariia" className="max-h-20 w-auto mx-auto" />
-          <p className="text-destructive">{sessionError}</p>
+          <p className="text-destructive">Link inválido ou expirado. Solicite uma nova redefinição de senha.</p>
           <Button onClick={() => navigate("/forgot-password")}>Pedir novo link</Button>
         </div>
       </div>
@@ -102,6 +116,9 @@ const ResetPassword = () => {
         <div className="flex flex-col items-center">
           <img src={logo} alt="Ariia" className="max-h-20 w-auto mb-4 object-contain" />
           <h1 className="text-2xl font-bold text-foreground">Definir nova senha</h1>
+          {emailMasked && (
+            <p className="text-sm text-muted-foreground mt-1">Conta: {emailMasked}</p>
+          )}
         </div>
 
         {success ? (
@@ -120,7 +137,6 @@ const ResetPassword = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                disabled={!ready}
                 autoFocus
               />
               <button type="button" onClick={() => setShow(!show)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
@@ -137,10 +153,9 @@ const ResetPassword = () => {
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
                 required
-                disabled={!ready}
               />
             </div>
-            <Button type="submit" disabled={loading || !ready} className="w-full h-12 rounded-full bg-secondary hover:bg-secondary/90 text-secondary-foreground font-semibold">
+            <Button type="submit" disabled={loading} className="w-full h-12 rounded-full bg-secondary hover:bg-secondary/90 text-secondary-foreground font-semibold">
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Redefinir senha"}
             </Button>
           </form>
