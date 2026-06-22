@@ -41,6 +41,8 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { useUser } from "@/contexts/UserContext";
+import { canManageTicketAssignment, clientStatusLabel, isCliente as isClienteRole } from "@/lib/permissions";
 
 interface TicketRow {
   id: number;
@@ -93,6 +95,9 @@ const SLA_COLORS = {
 
 export default function Chamados() {
   const navigate = useNavigate();
+  const { user } = useUser();
+  const isCliente = isClienteRole(user.role);
+  const canAssign = canManageTicketAssignment(user.role);
   const [tickets, setTickets] = useState<TicketRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -259,30 +264,40 @@ export default function Chamados() {
             <SelectContent>
               <SelectItem value="ABERTOS">Abertos</SelectItem>
               <SelectItem value="ALL">Todos</SelectItem>
-              {STATUS_ORDER.map((s) => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}
+              {STATUS_ORDER.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {isCliente ? clientStatusLabel(s) : STATUS_LABELS[s]}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
-          <Select value={fPrio} onValueChange={setFPrio}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">Todas prioridades</SelectItem>
-              {PRIORITY_ORDER.map((p) => <SelectItem key={p} value={p}>{PRIORITY_LABELS[p]}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select value={fTecnico} onValueChange={setFTecnico}>
-            <SelectTrigger><SelectValue placeholder="Técnico" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">Todos técnicos</SelectItem>
-              {tecnicos.map((t) => <SelectItem key={t.id} value={t.id.toString()}>{t.nome}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select value={fEmpresa} onValueChange={setFEmpresa}>
-            <SelectTrigger><SelectValue placeholder="Cliente" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">Todos clientes</SelectItem>
-              {empresas.map((e) => <SelectItem key={e.id} value={e.id.toString()}>{e.nome_fantasia}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          {!isCliente && (
+            <Select value={fPrio} onValueChange={setFPrio}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">Todas prioridades</SelectItem>
+                {PRIORITY_ORDER.map((p) => <SelectItem key={p} value={p}>{PRIORITY_LABELS[p]}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          )}
+          {!isCliente && (
+            <Select value={fTecnico} onValueChange={setFTecnico}>
+              <SelectTrigger><SelectValue placeholder="Técnico" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">Todos técnicos</SelectItem>
+                {tecnicos.map((t) => <SelectItem key={t.id} value={t.id.toString()}>{t.nome}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          )}
+          {!isCliente && (
+            <Select value={fEmpresa} onValueChange={setFEmpresa}>
+              <SelectTrigger><SelectValue placeholder="Cliente" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">Todos clientes</SelectItem>
+                {empresas.map((e) => <SelectItem key={e.id} value={e.id.toString()}>{e.nome_fantasia}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          )}
         </CardContent>
       </Card>
 
@@ -293,20 +308,21 @@ export default function Chamados() {
               <TableRow>
                 <TableHead className="w-28">Código</TableHead>
                 <TableHead>Título</TableHead>
-                <TableHead>Cliente / Unidade</TableHead>
-                <TableHead>Técnico</TableHead>
-                <TableHead>Prioridade</TableHead>
+                <TableHead>{isCliente ? "Unidade" : "Cliente / Unidade"}</TableHead>
+                {!isCliente && <TableHead>Técnico</TableHead>}
+                {!isCliente && <TableHead>Prioridade</TableHead>}
                 <TableHead>Status</TableHead>
-                <TableHead>SLA Solução</TableHead>
-                <TableHead className="w-24"></TableHead>
+                {!isCliente && <TableHead>SLA Solução</TableHead>}
+                <TableHead>Aberto em</TableHead>
+                {canAssign && <TableHead className="w-24"></TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading && (
-                <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
               )}
               {!loading && filtered.length === 0 && (
-                <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nenhum chamado encontrado</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Nenhum chamado encontrado</TableCell></TableRow>
               )}
               {!loading && filtered.map((t) => {
                 const sla = computeSlaSolucao(t);
@@ -319,49 +335,68 @@ export default function Chamados() {
                     <TableCell className="font-mono text-xs">{t.codigo}</TableCell>
                     <TableCell className="max-w-[280px] truncate">{t.titulo}</TableCell>
                     <TableCell className="text-xs">
-                      <div className="font-medium">{t.empresas?.nome_fantasia || "—"}</div>
-                      <div className="text-muted-foreground">{t.unidades?.nome_unidade || "—"}</div>
+                      {!isCliente && (
+                        <div className="font-medium">{t.empresas?.nome_fantasia || "—"}</div>
+                      )}
+                      <div className={isCliente ? "font-medium" : "text-muted-foreground"}>
+                        {t.unidades?.nome_unidade || "—"}
+                      </div>
                     </TableCell>
-                    <TableCell className="text-xs">{t.usuarios?.nome || <span className="text-muted-foreground">—</span>}</TableCell>
-                    <TableCell>
-                      <Badge className={PRIORITY_COLORS[t.prioridade]}>{PRIORITY_LABELS[t.prioridade]}</Badge>
-                    </TableCell>
+                    {!isCliente && (
+                      <TableCell className="text-xs">{t.usuarios?.nome || <span className="text-muted-foreground">—</span>}</TableCell>
+                    )}
+                    {!isCliente && (
+                      <TableCell>
+                        <Badge className={PRIORITY_COLORS[t.prioridade]}>{PRIORITY_LABELS[t.prioridade]}</Badge>
+                      </TableCell>
+                    )}
                     <TableCell onClick={(e) => e.stopPropagation()}>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Badge className={`${STATUS_COLORS[t.status]} cursor-pointer`}>{STATUS_LABELS[t.status]}</Badge>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                          <DropdownMenuLabel>Alterar status</DropdownMenuLabel>
-                          <DropdownMenuSeparator />
-                          {STATUS_ORDER.map((s) => (
-                            <DropdownMenuItem key={s} onClick={() => changeStatus(t.id, s)}>
-                              {STATUS_LABELS[s]}
-                            </DropdownMenuItem>
-                          ))}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      {isCliente ? (
+                        <Badge className={STATUS_COLORS[t.status]}>{clientStatusLabel(t.status)}</Badge>
+                      ) : (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Badge className={`${STATUS_COLORS[t.status]} cursor-pointer`}>{STATUS_LABELS[t.status]}</Badge>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent>
+                            <DropdownMenuLabel>Alterar status</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            {STATUS_ORDER.map((s) => (
+                              <DropdownMenuItem key={s} onClick={() => changeStatus(t.id, s)}>
+                                {STATUS_LABELS[s]}
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
                     </TableCell>
-                    <TableCell>
-                      <Badge className={SLA_COLORS[sla.level]}>{sla.label}</Badge>
+                    {!isCliente && (
+                      <TableCell>
+                        <Badge className={SLA_COLORS[sla.level]}>{sla.label}</Badge>
+                      </TableCell>
+                    )}
+                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                      {new Date(t.data_abertura).toLocaleDateString("pt-BR")}
                     </TableCell>
-                    <TableCell onClick={(e) => e.stopPropagation()}>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" title="Atribuir técnico">
-                            <UserPlus2 className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                          <DropdownMenuLabel>Atribuir a</DropdownMenuLabel>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => assignTo(t.id, null)}>— Sem atribuição</DropdownMenuItem>
-                          {tecnicos.map((u) => (
-                            <DropdownMenuItem key={u.id} onClick={() => assignTo(t.id, u.id)}>{u.nome}</DropdownMenuItem>
-                          ))}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
+                    {canAssign && (
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" title="Atribuir técnico">
+                              <UserPlus2 className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent>
+                            <DropdownMenuLabel>Atribuir a</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => assignTo(t.id, null)}>— Sem atribuição</DropdownMenuItem>
+                            {tecnicos.map((u) => (
+                              <DropdownMenuItem key={u.id} onClick={() => assignTo(t.id, u.id)}>{u.nome}</DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    )}
                   </TableRow>
                 );
               })}
