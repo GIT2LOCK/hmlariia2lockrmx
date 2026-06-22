@@ -60,10 +60,18 @@ serve(async (req) => {
 
     const authUserId = authData.user.id;
 
+    // Helper: rollback completo se algo crítico falhar
+    const rollback = async (reason: string) => {
+      console.error("[signup] rolling back:", reason);
+      await supabase.from("sessions").delete().eq("user_id", -1).catch(() => {}); // noop guard
+      await supabase.from("usuarios").delete().eq("auth_user_id", authUserId).catch(() => {});
+      await supabase.auth.admin.deleteUser(authUserId).catch(() => {});
+    };
+
     // Keep PBKDF2 hash for backwards compatibility with custom login flow
     const senhaHash = await hashPassword(senha);
 
-    // 2. Create user in public.usuarios
+    // 2. Create user in public.usuarios (atomic w/ rollback)
     const { data: userData, error: userError } = await supabase
       .from("usuarios")
       .insert({
@@ -77,18 +85,16 @@ serve(async (req) => {
       .select("id, nome, email, permissao, auth_user_id")
       .single();
 
-    if (userError) {
-      console.error("[signup] insert usuarios error:", userError);
-      // Rollback auth user
-      await supabase.auth.admin.deleteUser(authUserId).catch(() => {});
+    if (userError || !userData) {
+      await rollback(`insert usuarios: ${userError?.message}`);
       return new Response(
         JSON.stringify({ error: "Erro ao criar usuário" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Apply domain rule (may set empresa_id + override permissao to CLIENTE/etc.)
-    let finalUser = userData;
+    // 3. Apply domain rule (may override permissao/empresa). Non-fatal.
+    let finalUser: any = userData;
     try {
       await supabase.rpc("apply_domain_rule", { _usuario_id: userData.id });
       const { data: refreshed } = await supabase
@@ -101,24 +107,33 @@ serve(async (req) => {
       console.warn("[signup] apply_domain_rule failed:", e);
     }
 
-    // Trigger Grafana sync in background (don't block signup)
+    // 4. Grafana sync — fire-and-forget, never blocks/rolls back signup.
     try {
       await supabase.functions.invoke("grafana-sync-user", { body: { usuario_id: userData.id } });
     } catch (e) {
       console.warn("[signup] grafana sync failed:", e);
     }
 
-    // Create a temporary setupToken (custom session) for 2FA optional setup flow
+    // 5. Setup token p/ fluxo de 2FA. Falha aqui aborta a criação inteira.
     const setupToken = Array.from(crypto.getRandomValues(new Uint8Array(32)))
       .map((b) => b.toString(16).padStart(2, "0")).join("");
 
-    await supabase.from("sessions").insert({
+    const { error: sessionErr } = await supabase.from("sessions").insert({
       token: setupToken,
       user_id: userData.id,
-      expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 min
+      expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
       ip_address: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown",
       user_agent: req.headers.get("user-agent") || "unknown",
     });
+
+    if (sessionErr) {
+      await rollback(`insert session: ${sessionErr.message}`);
+      return new Response(
+        JSON.stringify({ error: "Erro ao iniciar sessão de cadastro" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
 
     return new Response(
       JSON.stringify({
