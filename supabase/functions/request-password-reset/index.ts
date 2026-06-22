@@ -75,13 +75,8 @@ function buildResetEmailHtml(p: { nome: string; email: string; resetUrl: string;
       <td align="center">
         <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(0,32,91,0.08);">
           <tr>
-            <td style="background-color:#00205B;padding:28px 32px;" align="left">
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
-                <tr>
-                  <td style="background-color:#5B9BF0;color:#ffffff;font-weight:700;font-size:18px;border-radius:8px;padding:8px 12px;letter-spacing:0.5px;">A</td>
-                  <td style="padding-left:12px;color:#ffffff;font-size:20px;font-weight:600;letter-spacing:0.3px;">Ariia <span style="color:#5B9BF0;">2lock</span></td>
-                </tr>
-              </table>
+            <td style="background-color:#00205B;padding:24px 32px;" align="center">
+              <img src="${escapeHtml(APP_BASE_URL)}/email-logo.png" alt="Ariia 2lock" height="56" style="display:block;height:56px;width:auto;border:0;outline:none;text-decoration:none;" />
             </td>
           </tr>
           <tr>
