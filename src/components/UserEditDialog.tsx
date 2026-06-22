@@ -145,8 +145,8 @@ export function UserEditDialog({ open, onClose, usuario, onSaved }: Props) {
         // empresas
         const { data: emp } = await supabase
           .from("empresas")
-          .select("id, razao_social")
-          .order("razao_social");
+          .select("id, nome_fantasia, razao_social")
+          .order("nome_fantasia");
         setEmpresas((emp as Empresa[]) || []);
 
         // tabs
