@@ -355,7 +355,7 @@ export function UserEditDialog({ open, onClose, usuario, onSaved }: Props) {
                     <SelectContent>
                       <SelectItem value="none">— Sem empresa —</SelectItem>
                       {empresas.map(e => (
-                        <SelectItem key={e.id} value={String(e.id)}>{e.razao_social}</SelectItem>
+                        <SelectItem key={e.id} value={String(e.id)}>{e.nome_fantasia || e.razao_social || `Empresa #${e.id}`}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
