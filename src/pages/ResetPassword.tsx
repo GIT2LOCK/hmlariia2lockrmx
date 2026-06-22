@@ -74,9 +74,19 @@ const ResetPassword = () => {
       const { data, error } = await supabase.functions.invoke("confirm-password-reset", {
         body: { token, password, confirm },
       });
-      if (error || !data?.ok) {
-        const msg = (data as any)?.message || "Não foi possível redefinir a senha. Solicite um novo link.";
-        toast({ title: "Erro", description: msg, variant: "destructive" });
+      let payload: any = data;
+      if (error && (error as any).context?.json) {
+        try { payload = await (error as any).context.json(); } catch { /* noop */ }
+      }
+      if (error || !payload?.ok) {
+        const code = payload?.error;
+        let title = "Erro";
+        let msg = payload?.message || "Não foi possível redefinir a senha. Solicite um novo link.";
+        if (code === "same_password") {
+          title = "Senha inválida";
+          msg = "A nova senha não pode ser igual à senha atual. Escolha uma senha diferente.";
+        }
+        toast({ title, description: msg, variant: "destructive" });
         return;
       }
       setSuccess(true);
