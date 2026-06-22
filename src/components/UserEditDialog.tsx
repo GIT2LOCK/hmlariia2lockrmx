@@ -44,7 +44,7 @@ const TAB_DEFS = [
   { key: "grafana", label: "Controle Grafana" },
 ];
 
-interface Empresa { id: number; razao_social: string }
+interface Empresa { id: number; nome_fantasia: string | null; razao_social: string | null }
 interface Org { id: number; grafana_org_id: number; name: string }
 interface Group { id: number; name: string }
 interface AuditRow { id: number; acao: string; criado_em?: string; created_at: string; detalhe: any; actor_usuario_id: number | null }
@@ -145,8 +145,8 @@ export function UserEditDialog({ open, onClose, usuario, onSaved }: Props) {
         // empresas
         const { data: emp } = await supabase
           .from("empresas")
-          .select("id, razao_social")
-          .order("razao_social");
+          .select("id, nome_fantasia, razao_social")
+          .order("nome_fantasia");
         setEmpresas((emp as Empresa[]) || []);
 
         // tabs
@@ -355,7 +355,7 @@ export function UserEditDialog({ open, onClose, usuario, onSaved }: Props) {
                     <SelectContent>
                       <SelectItem value="none">— Sem empresa —</SelectItem>
                       {empresas.map(e => (
-                        <SelectItem key={e.id} value={String(e.id)}>{e.razao_social}</SelectItem>
+                        <SelectItem key={e.id} value={String(e.id)}>{e.nome_fantasia || e.razao_social || `Empresa #${e.id}`}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
