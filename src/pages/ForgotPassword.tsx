@@ -15,20 +15,22 @@ const ForgotPassword = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const normalized = email.trim().toLowerCase();
+    if (!normalized || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
+      toast({ title: "E-mail inválido", description: "Informe um e-mail válido.", variant: "destructive" });
+      return;
+    }
     setLoading(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
-        redirectTo: `${window.location.origin}/reset-password`,
-      });
-      if (error) throw error;
-      setSent(true);
-      toast({ title: "E-mail enviado", description: "Se o e-mail existir, você receberá o link de redefinição." });
+      await supabase.functions.invoke("request-password-reset", { body: { email: normalized } });
     } catch (err: any) {
       console.error("[forgot-password]", err);
-      // Por privacidade, mostramos a mesma mensagem mesmo em erro
-      setSent(true);
-      toast({ title: "E-mail enviado", description: "Se o e-mail existir, você receberá o link de redefinição." });
     } finally {
+      setSent(true);
+      toast({
+        title: "Solicitação recebida",
+        description: "Se este e-mail estiver cadastrado, enviaremos as instruções para redefinição de senha.",
+      });
       setLoading(false);
     }
   };
