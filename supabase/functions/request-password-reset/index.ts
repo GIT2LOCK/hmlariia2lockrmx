@@ -6,7 +6,8 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const WEBHOOK_URL = "https://autom.2lock.app.br/webhook-test/8133acad-5def-4bf4-9c6a-c6df08ec969d";
+const DEFAULT_WEBHOOK_URL = "https://autom.2lock.app.br/webhook-test/8133acad-5def-4bf4-9c6a-c6df08ec969d";
+const WEBHOOK_URL = Deno.env.get("RESET_WEBHOOK_URL") || DEFAULT_WEBHOOK_URL;
 const APP_BASE_URL = Deno.env.get("APP_BASE_URL") || "https://ariia.2lock.com.br";
 const TOKEN_TTL_MINUTES = 30;
 
@@ -148,8 +149,10 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
     const email = String(body?.email ?? "").trim().toLowerCase();
+    console.log("[request-password-reset] received request for email:", email);
 
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      console.warn("[request-password-reset] invalid email format");
       return new Response(JSON.stringify({ error: "invalid_email" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -169,19 +172,22 @@ Deno.serve(async (req) => {
       .ilike("email", email)
       .gte("created_at", since);
 
-    if ((recentCount ?? 0) >= 3) {
-      // Mensagem genérica mesmo no rate-limit
+    console.log("[request-password-reset] recent token count (15m):", recentCount);
+    if ((recentCount ?? 0) >= 5) {
+      console.warn("[request-password-reset] rate-limit hit for", email);
       return genericResponse();
     }
 
-    const { data: user } = await supabase
+    const { data: user, error: userErr } = await supabase
       .from("usuarios")
       .select("id, nome, email, ativo, auth_user_id")
       .ilike("email", email)
       .maybeSingle();
 
+    if (userErr) console.error("[request-password-reset] user lookup error", userErr);
+    console.log("[request-password-reset] user found?", !!user, "ativo?", user?.ativo);
+
     if (!user || !user.ativo) {
-      // Não revelar existência
       return genericResponse();
     }
 
@@ -231,8 +237,9 @@ Deno.serve(async (req) => {
     });
 
     // Webhook (não bloqueia a resposta em caso de falha)
+    console.log("[request-password-reset] dispatching webhook to:", WEBHOOK_URL);
     try {
-      await fetch(WEBHOOK_URL, {
+      const whRes = await fetch(WEBHOOK_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -250,8 +257,13 @@ Deno.serve(async (req) => {
           text: textBody,
         }),
       });
+      const whText = await whRes.text().catch(() => "");
+      console.log("[request-password-reset] webhook response status:", whRes.status, "body:", whText.slice(0, 500));
+      if (!whRes.ok && whRes.status === 404) {
+        console.error("[request-password-reset] webhook 404 — provavelmente é uma URL 'webhook-test' do n8n que não está em modo 'Listen for test event' ou já consumiu o disparo único. Use a URL de produção (webhook/<id>) e configure-a no secret RESET_WEBHOOK_URL.");
+      }
     } catch (e) {
-      console.error("[request-password-reset] webhook error", e);
+      console.error("[request-password-reset] webhook fetch error", e);
     }
 
     return genericResponse();
