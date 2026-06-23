@@ -1,0 +1,1 @@
+UPDATE public.usuarios SET access_scope = 'ARIIA_AND_GRAFANA', atualizado_em = now() WHERE access_scope = 'GRAFANA_ONLY' AND permissao = 'CLIENTE' AND criado_em > now() - interval '2 days';
