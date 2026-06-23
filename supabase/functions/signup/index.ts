@@ -107,25 +107,26 @@ serve(async (req) => {
       console.warn("[signup] apply_domain_rule failed:", e);
     }
 
-    // 3.1 CLIENTE sem empresa → acesso direto ao Grafana (Viewer na org default).
-    // Não recebe acesso à plataforma Ariia; apenas Grafana com dashboard "2LOCK HOME".
+    // 3.1 Todo novo usuário recebe acesso ao Ariia + Grafana por padrão.
+    // O administrador decide posteriormente restrições específicas (escopo/permissões).
     try {
-      if (finalUser.permissao === "CLIENTE" && !finalUser.empresa_id) {
-        const { data: scoped } = await supabase
-          .from("usuarios")
-          .update({ access_scope: "GRAFANA_ONLY", atualizado_em: new Date().toISOString() })
-          .eq("id", userData.id)
-          .select("id, nome, email, permissao, auth_user_id, empresa_id, access_scope")
-          .maybeSingle();
-        if (scoped) finalUser = scoped as any;
-      }
+      const { data: scoped } = await supabase
+        .from("usuarios")
+        .update({ access_scope: "ARIIA_AND_GRAFANA", atualizado_em: new Date().toISOString() })
+        .eq("id", userData.id)
+        .select("id, nome, email, permissao, auth_user_id, empresa_id, access_scope")
+        .maybeSingle();
+      if (scoped) finalUser = scoped as any;
     } catch (e) {
-      console.warn("[signup] set GRAFANA_ONLY for orphan CLIENTE failed:", e);
+      console.warn("[signup] set ARIIA_AND_GRAFANA failed:", e);
     }
 
-    // 4. Grafana sync — fire-and-forget, never blocks/rolls back signup.
+    // 4. Sincroniza automaticamente com o Grafana (await para garantir provisionamento).
     try {
-      await supabase.functions.invoke("grafana-sync-user", { body: { usuario_id: userData.id } });
+      const { error: syncErr } = await supabase.functions.invoke("grafana-sync-user", {
+        body: { usuario_id: userData.id },
+      });
+      if (syncErr) console.warn("[signup] grafana sync returned error:", syncErr);
     } catch (e) {
       console.warn("[signup] grafana sync failed:", e);
     }
