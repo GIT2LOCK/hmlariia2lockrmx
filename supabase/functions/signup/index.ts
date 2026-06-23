@@ -78,7 +78,7 @@ serve(async (req) => {
         nome,
         email: normalizedEmail,
         senha_hash: senhaHash,
-        permissao: "VIEWER",
+        permissao: "CLIENTE",
         ativo: true,
         auth_user_id: authUserId,
       })
