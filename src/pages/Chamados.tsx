@@ -31,6 +31,7 @@ import {
   isClosed,
 } from "@/lib/ticketSla";
 import { TicketModal } from "@/components/TicketModal";
+import { ClienteAbrirChamadoModal } from "@/components/ClienteAbrirChamadoModal";
 import { Plus, Search, RefreshCw, Filter, UserPlus2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import {
@@ -405,12 +406,20 @@ export default function Chamados() {
         </CardContent>
       </Card>
 
-      <TicketModal
-        open={modalOpen}
-        onOpenChange={setModalOpen}
-        ticketId={editId}
-        onSaved={load}
-      />
+      {isCliente && !editId ? (
+        <ClienteAbrirChamadoModal
+          open={modalOpen}
+          onOpenChange={setModalOpen}
+          onSaved={load}
+        />
+      ) : (
+        <TicketModal
+          open={modalOpen}
+          onOpenChange={setModalOpen}
+          ticketId={editId}
+          onSaved={load}
+        />
+      )}
     </div>
   );
 }
