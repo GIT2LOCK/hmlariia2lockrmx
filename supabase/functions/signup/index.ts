@@ -99,12 +99,28 @@ serve(async (req) => {
       await supabase.rpc("apply_domain_rule", { _usuario_id: userData.id });
       const { data: refreshed } = await supabase
         .from("usuarios")
-        .select("id, nome, email, permissao, auth_user_id, empresa_id")
+        .select("id, nome, email, permissao, auth_user_id, empresa_id, access_scope")
         .eq("id", userData.id)
         .maybeSingle();
       if (refreshed) finalUser = refreshed as any;
     } catch (e) {
       console.warn("[signup] apply_domain_rule failed:", e);
+    }
+
+    // 3.1 CLIENTE sem empresa → acesso direto ao Grafana (Viewer na org default).
+    // Não recebe acesso à plataforma Ariia; apenas Grafana com dashboard "2LOCK HOME".
+    try {
+      if (finalUser.permissao === "CLIENTE" && !finalUser.empresa_id) {
+        const { data: scoped } = await supabase
+          .from("usuarios")
+          .update({ access_scope: "GRAFANA_ONLY", atualizado_em: new Date().toISOString() })
+          .eq("id", userData.id)
+          .select("id, nome, email, permissao, auth_user_id, empresa_id, access_scope")
+          .maybeSingle();
+        if (scoped) finalUser = scoped as any;
+      }
+    } catch (e) {
+      console.warn("[signup] set GRAFANA_ONLY for orphan CLIENTE failed:", e);
     }
 
     // 4. Grafana sync — fire-and-forget, never blocks/rolls back signup.
