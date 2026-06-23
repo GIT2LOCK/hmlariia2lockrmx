@@ -32,7 +32,6 @@ import {
 } from "@/lib/ticketSla";
 import { TicketModal } from "@/components/TicketModal";
 import { ClienteAbrirChamadoModal } from "@/components/ClienteAbrirChamadoModal";
-import { useUser } from "@/contexts/UserContext";
 import { Plus, Search, RefreshCw, Filter, UserPlus2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import {
