@@ -406,12 +406,20 @@ export default function Chamados() {
         </CardContent>
       </Card>
 
-      <TicketModal
-        open={modalOpen}
-        onOpenChange={setModalOpen}
-        ticketId={editId}
-        onSaved={load}
-      />
+      {isCliente && !editId ? (
+        <ClienteAbrirChamadoModal
+          open={modalOpen}
+          onOpenChange={setModalOpen}
+          onSaved={load}
+        />
+      ) : (
+        <TicketModal
+          open={modalOpen}
+          onOpenChange={setModalOpen}
+          ticketId={editId}
+          onSaved={load}
+        />
+      )}
     </div>
   );
 }
