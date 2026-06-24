@@ -1015,6 +1015,7 @@ export type Database = {
         Row: {
           autor_id: number | null
           autor_nome: string | null
+          comment_id: number | null
           criado_em: string
           file_name: string
           id: number
@@ -1026,6 +1027,7 @@ export type Database = {
         Insert: {
           autor_id?: number | null
           autor_nome?: string | null
+          comment_id?: number | null
           criado_em?: string
           file_name: string
           id?: number
@@ -1037,6 +1039,7 @@ export type Database = {
         Update: {
           autor_id?: number | null
           autor_nome?: string | null
+          comment_id?: number | null
           criado_em?: string
           file_name?: string
           id?: number
@@ -1051,6 +1054,13 @@ export type Database = {
             columns: ["autor_id"]
             isOneToOne: false
             referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_attachments_comment_id_fkey"
+            columns: ["comment_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_comments"
             referencedColumns: ["id"]
           },
           {
@@ -2068,6 +2078,8 @@ export type Database = {
     }
     Functions: {
       apply_domain_rule: { Args: { _usuario_id: number }; Returns: Json }
+      current_ariia_empresa_id: { Args: never; Returns: number }
+      current_ariia_role: { Args: never; Returns: string }
       custom_access_token_hook: { Args: { event: Json }; Returns: Json }
       fn_can_view_ticket: { Args: { _ticket_id: number }; Returns: boolean }
       fn_cliente_encerrar_ticket: {
