@@ -113,7 +113,13 @@ export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
         supabase.from("operadoras").select("id,nome").order("nome"),
         supabase.from("ticket_filas").select("id,nome").eq("ativo", true).order("nome"),
         supabase.from("ticket_categorias").select("id,nome,parent_id").is("parent_id", null).order("nome"),
-        supabase.from("usuarios").select("id,nome").eq("ativo", true).order("nome"),
+        supabase
+          .from("usuarios")
+          .select("id,nome,permissao,access_scope,ativo")
+          .eq("ativo", true)
+          .in("permissao", ["SUPERADMIN", "ADMIN", "USER"])
+          .in("access_scope", ["ARIIA_ONLY", "ARIIA_AND_GRAFANA"])
+          .order("nome"),
         supabase.from("contatos").select("id,nome,email,telefone,tipo,empresa_id,unidade_id,cobre_empresa_inteira").order("nome"),
       ]);
       setEmpresas((e.data || []).map((r: any) => ({ id: r.id, label: r.nome_fantasia })));
@@ -276,7 +282,8 @@ export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
     }
     if (error) {
       setLoading(false);
-      toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
+      const { translateTicketError } = await import("@/components/tickets/TicketAttachmentList");
+      toast({ title: "Erro ao salvar", description: translateTicketError(error.message), variant: "destructive" });
       return;
     }
 
