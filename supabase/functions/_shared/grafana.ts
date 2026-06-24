@@ -215,7 +215,9 @@ async function writeSyncStatus(usuario_id: number, status: "success" | "error" |
 //  5. Reconcilia (add / patch / remove) contra Grafana.
 //  6. Falha alto se qualquer passo crítico falhar. Sucesso só após confirmação.
 
-const FALLBACK_ORG_ID = 1;
+// FALLBACK removido: usuários sem permissão específica não devem ser jogados
+// na Default. Em vez disso, herdamos a org da empresa vinculada (via domain rule).
+const DEFAULT_ORG_ID = 1;
 
 export async function syncUserToGrafana(usuario_id: number, actor_id?: number | null) {
   const svc = serviceClient();
@@ -408,17 +410,50 @@ export async function syncUserToGrafana(usuario_id: number, actor_id?: number | 
     }
     step("effective_perms", { isGrafanaAdmin, orgs: perms.orgs });
 
-    // (5.b) Fallback Default — só se NÃO houver permissão específica.
-    const hasSpecificPerms = desiredMap.size > 0 || isGrafanaAdmin;
+    // (5.b) Herda org da empresa vinculada (regra de domínio), se houver.
+    let empresaOrgApplied: number | null = null;
+    if (u.empresa_id) {
+      const { data: emp } = await svc
+        .from("empresas")
+        .select("id, nome_fantasia, grafana_organization_id")
+        .eq("id", u.empresa_id)
+        .maybeSingle();
+      if (emp?.grafana_organization_id) {
+        const { data: orgRow } = await svc
+          .from("grafana_organizations")
+          .select("grafana_org_id, active")
+          .eq("id", emp.grafana_organization_id)
+          .maybeSingle();
+        if (orgRow?.grafana_org_id && orgRow.active) {
+          setMax(orgRow.grafana_org_id, "Viewer");
+          empresaOrgApplied = orgRow.grafana_org_id;
+          step("empresa_org_inherited", {
+            empresa_id: emp.id,
+            empresa: emp.nome_fantasia,
+            grafana_org_id: orgRow.grafana_org_id,
+          });
+        }
+      }
+    }
+
+    // (5.c) Fallback Default — APENAS se não houver NENHUMA permissão específica
+    // E o usuário não esteja vinculado a uma empresa (caso contrário a empresa manda).
+    const hasSpecificPerms =
+      desiredMap.size > 0 || isGrafanaAdmin || !!empresaOrgApplied;
     let fallbackApplied = false;
     if (!hasSpecificPerms) {
-      desiredMap.set(FALLBACK_ORG_ID, "Viewer");
+      desiredMap.set(DEFAULT_ORG_ID, "Viewer");
       fallbackApplied = true;
-      step("fallback_default_applied", { orgId: FALLBACK_ORG_ID, role: "Viewer" });
+      step("fallback_default_applied", { orgId: DEFAULT_ORG_ID, role: "Viewer" });
+    }
+
+    // (5.d) Não-admin com org específica: REMOVE Default explicitamente
+    if (!isGrafanaAdmin && hasSpecificPerms && !desiredMap.has(DEFAULT_ORG_ID)) {
+      step("default_org_will_be_removed", { orgId: DEFAULT_ORG_ID });
     }
 
     const desired = Array.from(desiredMap.entries()).map(([grafana_org_id, role]) => ({ grafana_org_id, role }));
-    step("desired_state", { isGrafanaAdmin, desired, fallbackApplied });
+    step("desired_state", { isGrafanaAdmin, desired, fallbackApplied, empresaOrgApplied });
 
     // (6) Habilita o usuário + set isGrafanaAdmin
     const enableRes = await grafanaFetch(`/api/admin/users/${grafanaUserId}/enable`, { method: "POST" });

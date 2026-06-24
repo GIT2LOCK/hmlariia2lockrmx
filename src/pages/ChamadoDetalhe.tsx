@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,8 +12,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
 import {
-  ArrowLeft, Pencil, Paperclip, Upload, X, Download, Send, Clock, History,
-  CheckCircle2, RefreshCcw,
+  ArrowLeft, Pencil, Paperclip, Upload, X, Send, Clock, History,
+  CheckCircle2, RefreshCcw, Loader2,
 } from "lucide-react";
 import {
   computeSlaSolucao,
@@ -38,6 +38,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import DOMPurify from "dompurify";
 import { isCliente as isClienteRole, clientStatusLabel } from "@/lib/permissions";
+import { TicketAttachmentList, translateTicketError, type AttachmentRow } from "@/components/tickets/TicketAttachmentList";
 
 function isHtmlContent(s?: string | null): boolean {
   if (!s) return false;
@@ -118,6 +119,8 @@ export default function ChamadoDetalhe() {
   const [novoComentario, setNovoComentario] = useState("");
   const [tipoComent, setTipoComent] = useState<"INTERNO" | "CLIENTE">(isCliente ? "CLIENTE" : "INTERNO");
   const [salvandoComent, setSalvandoComent] = useState(false);
+  const [commentFiles, setCommentFiles] = useState<File[]>([]);
+  const sendingRef = useRef(false);
 
   const load = async () => {
     setLoading(true);
@@ -147,12 +150,10 @@ export default function ChamadoDetalhe() {
   const changeStatus = async (status: TicketStatus) => {
     if (!ticket) return;
 
-    // Intercept closing: require encerramento modal
     if ((status === "RESOLVIDO" || status === "FECHADO") && !isClosed(ticket.status)) {
       setEncerrarOpen(true);
       return;
     }
-    // Intercept reopening from closed states: require reabertura modal
     if (isClosed(ticket.status) && !isClosed(status)) {
       setReabrirOpen(true);
       return;
@@ -173,7 +174,7 @@ export default function ChamadoDetalhe() {
     if (status === "FECHADO") update.data_fechamento = now;
 
     const { error } = await supabase.from("tickets").update(update).eq("id", ticketId);
-    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+    if (error) { toast({ title: "Erro", description: translateTicketError(error.message), variant: "destructive" }); return; }
     await logTicketEvent({
       ticketId, campo: "status",
       valorAnterior: ticket.status, valorNovo: status,
@@ -183,48 +184,96 @@ export default function ChamadoDetalhe() {
     load();
   };
 
-  const adicionarComentario = async () => {
-    if (!novoComentario.trim()) return;
-    setSalvandoComent(true);
-    const { data: inserted, error } = await supabase.from("ticket_comments").insert({
-      ticket_id: ticketId,
-      conteudo: novoComentario.trim(),
-      tipo: tipoComent,
-      autor_id: user?.id ? Number(user.id) : null,
-      autor_nome: user?.nome || null,
-    }).select("id").maybeSingle();
-    setSalvandoComent(false);
-    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
-
-    // History
-    await logTicketEvent({
-      ticketId,
-      campo: "comentario",
-      valorNovo: tipoComent,
-      observacao: novoComentario.trim().slice(0, 500),
-      user,
-    });
-
-    // Notificar cliente por e-mail (via N8N) quando comentário público
-    if (tipoComent === "CLIENTE") {
-      if (!ticket?.solicitante_email) {
-        toast({ title: "Comentário salvo", description: "Sem e-mail do solicitante — webhook não disparado." });
-      } else {
-        try {
-          const { data: r, error: fnErr } = await supabase.functions.invoke("send-email-notification", {
-            body: { ticket_id: ticketId, comment_id: inserted?.id },
-          });
-          if (fnErr) throw fnErr;
-          console.log("[notify] resposta", r);
-          toast({ title: "Webhook N8N enviado", description: `${ticket.solicitante_email}` });
-        } catch (e: any) {
-          console.error("[notify] erro", e);
-          toast({ title: "Falha ao enviar webhook", description: e?.message || String(e), variant: "destructive" });
-        }
+  const handleCommentFiles = (files: FileList | null) => {
+    if (!files) return;
+    const valid: File[] = [];
+    for (const f of Array.from(files)) {
+      if (f.size > MAX_FILE_BYTES) {
+        toast({ title: "Arquivo muito grande", description: `${f.name} excede 5MB`, variant: "destructive" });
+        continue;
       }
+      valid.push(f);
     }
-    setNovoComentario("");
-    load();
+    setCommentFiles((p) => [...p, ...valid]);
+  };
+
+  const uploadCommentAttachments = async (commentId: number) => {
+    for (const file of commentFiles) {
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const path = `${ticketId}/${Date.now()}_${safeName}`;
+      const { error: upErr } = await supabase.storage.from("ticket-attachments").upload(path, file, {
+        contentType: file.type || "application/octet-stream",
+      });
+      if (upErr) {
+        toast({ title: "Erro ao enviar anexo", description: `${file.name}: ${upErr.message}`, variant: "destructive" });
+        continue;
+      }
+      await supabase.from("ticket_attachments").insert({
+        ticket_id: ticketId,
+        comment_id: commentId,
+        autor_id: user?.id ? Number(user.id) : null,
+        autor_nome: user?.nome || null,
+        storage_path: path,
+        file_name: file.name,
+        mime_type: file.type || null,
+        tamanho_bytes: file.size,
+      } as any);
+    }
+  };
+
+  const adicionarComentario = async () => {
+    if (sendingRef.current) return; // anti duplo-clique
+    if (!novoComentario.trim() && commentFiles.length === 0) return;
+    sendingRef.current = true;
+    setSalvandoComent(true);
+    try {
+      const conteudo = novoComentario.trim() || "(somente anexos)";
+      const { data: inserted, error } = await supabase.from("ticket_comments").insert({
+        ticket_id: ticketId,
+        conteudo,
+        tipo: tipoComent,
+        autor_id: user?.id ? Number(user.id) : null,
+        autor_nome: user?.nome || null,
+      }).select("id").maybeSingle();
+      if (error || !inserted?.id) {
+        toast({
+          title: "Não foi possível adicionar a mensagem. Tente novamente.",
+          description: translateTicketError(error?.message),
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (commentFiles.length > 0) {
+        await uploadCommentAttachments(inserted.id);
+      }
+
+      await logTicketEvent({
+        ticketId,
+        campo: "comentario",
+        valorNovo: tipoComent,
+        observacao: conteudo.slice(0, 500),
+        user,
+      });
+
+      if (tipoComent === "CLIENTE" && ticket?.solicitante_email) {
+        supabase.functions
+          .invoke("send-email-notification", {
+            body: { ticket_id: ticketId, comment_id: inserted.id },
+          })
+          .then(({ error: fnErr }) => {
+            if (fnErr) console.error("[notify] erro", fnErr);
+          });
+      }
+
+      setNovoComentario("");
+      setCommentFiles([]);
+      toast({ title: "Mensagem adicionada ao chamado." });
+      await load();
+    } finally {
+      setSalvandoComent(false);
+      sendingRef.current = false;
+    }
   };
 
   const testarWebhookN8N = async () => {
@@ -400,23 +449,38 @@ export default function ChamadoDetalhe() {
                 {ticket.descricao ? <RichContent value={ticket.descricao} /> : <span className="text-muted-foreground">Sem descrição</span>}
               </ConversationBubble>
 
+              {/* Anexos da abertura (sem comment_id) */}
+              {(() => {
+                const openingAtts = attachments.filter((a: any) => !a.comment_id);
+                return openingAtts.length > 0 ? (
+                  <div className="ml-12">
+                    <TicketAttachmentList items={openingAtts as AttachmentRow[]} />
+                  </div>
+                ) : null;
+              })()}
+
               {/* Conversa */}
               {comments
                 .filter((c) => !isCliente || c.tipo !== "INTERNO")
                 .map((c) => {
                   const isInterno = c.tipo === "INTERNO";
+                  const commentAtts = attachments.filter((a: any) => a.comment_id === c.id);
                   return (
-                    <ConversationBubble
-                      key={c.id}
-                      side={isInterno ? "right" : "right"}
-                      authorName={c.autor_nome || "Sistema"}
-                      createdAt={c.criado_em}
-                      createdLabel="Respondido em"
-                      badge={isInterno ? "Nota interna" : "Resposta"}
-                      tone={isInterno ? "internal" : "default"}
-                    >
-                      <RichContent value={c.conteudo} />
-                    </ConversationBubble>
+                    <div key={c.id} className="space-y-2">
+                      <ConversationBubble
+                        side={isInterno ? "right" : "right"}
+                        authorName={c.autor_nome || "Sistema"}
+                        createdAt={c.criado_em}
+                        createdLabel="Respondido em"
+                        badge={isInterno ? "Nota interna" : "Resposta"}
+                        tone={isInterno ? "internal" : "default"}
+                      >
+                        <RichContent value={c.conteudo} />
+                        {commentAtts.length > 0 && (
+                          <TicketAttachmentList items={commentAtts as AttachmentRow[]} />
+                        )}
+                      </ConversationBubble>
+                    </div>
                   );
                 })}
 
@@ -445,13 +509,48 @@ export default function ChamadoDetalhe() {
                     placeholder="Escreva uma resposta ou nota..."
                     value={novoComentario}
                     onChange={(e) => setNovoComentario(e.target.value.slice(0, 2500))}
+                    disabled={salvandoComent}
                   />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <label className={`flex items-center gap-1 text-xs px-2 py-1 border rounded-md cursor-pointer hover:bg-muted/50 ${salvandoComent ? "pointer-events-none opacity-60" : ""}`}>
+                      <Paperclip className="h-3.5 w-3.5" />
+                      Anexar arquivo
+                      <input
+                        type="file"
+                        multiple
+                        className="hidden"
+                        disabled={salvandoComent}
+                        onChange={(e) => { handleCommentFiles(e.target.files); e.target.value = ""; }}
+                      />
+                    </label>
+                    {commentFiles.map((f, i) => (
+                      <span key={i} className="text-xs bg-primary/5 rounded px-2 py-1 flex items-center gap-1">
+                        <Paperclip className="h-3 w-3" />
+                        {f.name} ({Math.round(f.size / 1024)} KB)
+                        <button
+                          type="button"
+                          disabled={salvandoComent}
+                          onClick={() => setCommentFiles((p) => p.filter((_, idx) => idx !== i))}
+                          className="text-destructive hover:opacity-70 ml-1"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
                   <div className="flex justify-between items-center">
                     <span className={`text-xs ${novoComentario.length >= 2500 ? "text-destructive" : "text-muted-foreground"}`}>
                       {novoComentario.length}/2500 caracteres
                     </span>
-                    <Button onClick={adicionarComentario} disabled={salvandoComent || !novoComentario.trim()}>
-                      <Send className="h-4 w-4 mr-1" /> Enviar
+                    <Button
+                      onClick={adicionarComentario}
+                      disabled={salvandoComent || (!novoComentario.trim() && commentFiles.length === 0)}
+                    >
+                      {salvandoComent ? (
+                        <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Enviando...</>
+                      ) : (
+                        <><Send className="h-4 w-4 mr-1" /> Enviar</>
+                      )}
                     </Button>
                   </div>
                 </CardContent>
@@ -549,32 +648,18 @@ export default function ChamadoDetalhe() {
               </label>
             </CardContent>
           </Card>
-          <div className="space-y-2">
-            {attachments.length === 0 && (
-              <p className="text-sm text-muted-foreground text-center py-6">Sem anexos</p>
-            )}
-            {attachments.map((a) => (
-              <Card key={a.id}>
-                <CardContent className="pt-4 flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-sm">
-                    <Paperclip className="h-4 w-4" />
-                    <span className="font-medium">{a.file_name}</span>
-                    <span className="text-xs text-muted-foreground">
-                      ({Math.round(a.tamanho_bytes / 1024)} KB) · {a.autor_nome || "—"} · {fmtDate(a.criado_em)}
-                    </span>
-                  </div>
-                  <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" onClick={() => downloadAttachment(a)}>
-                      <Download className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => removeAttachment(a)}>
-                      <X className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          {attachments.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-6">Sem anexos</p>
+          ) : (
+            <Card>
+              <CardContent className="pt-4">
+                <TicketAttachmentList
+                  items={attachments as AttachmentRow[]}
+                  onRemove={(a) => removeAttachment(a)}
+                />
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
 
