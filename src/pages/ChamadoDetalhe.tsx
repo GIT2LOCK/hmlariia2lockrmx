@@ -449,23 +449,38 @@ export default function ChamadoDetalhe() {
                 {ticket.descricao ? <RichContent value={ticket.descricao} /> : <span className="text-muted-foreground">Sem descrição</span>}
               </ConversationBubble>
 
+              {/* Anexos da abertura (sem comment_id) */}
+              {(() => {
+                const openingAtts = attachments.filter((a: any) => !a.comment_id);
+                return openingAtts.length > 0 ? (
+                  <div className="ml-12">
+                    <TicketAttachmentList items={openingAtts as AttachmentRow[]} />
+                  </div>
+                ) : null;
+              })()}
+
               {/* Conversa */}
               {comments
                 .filter((c) => !isCliente || c.tipo !== "INTERNO")
                 .map((c) => {
                   const isInterno = c.tipo === "INTERNO";
+                  const commentAtts = attachments.filter((a: any) => a.comment_id === c.id);
                   return (
-                    <ConversationBubble
-                      key={c.id}
-                      side={isInterno ? "right" : "right"}
-                      authorName={c.autor_nome || "Sistema"}
-                      createdAt={c.criado_em}
-                      createdLabel="Respondido em"
-                      badge={isInterno ? "Nota interna" : "Resposta"}
-                      tone={isInterno ? "internal" : "default"}
-                    >
-                      <RichContent value={c.conteudo} />
-                    </ConversationBubble>
+                    <div key={c.id} className="space-y-2">
+                      <ConversationBubble
+                        side={isInterno ? "right" : "right"}
+                        authorName={c.autor_nome || "Sistema"}
+                        createdAt={c.criado_em}
+                        createdLabel="Respondido em"
+                        badge={isInterno ? "Nota interna" : "Resposta"}
+                        tone={isInterno ? "internal" : "default"}
+                      >
+                        <RichContent value={c.conteudo} />
+                        {commentAtts.length > 0 && (
+                          <TicketAttachmentList items={commentAtts as AttachmentRow[]} />
+                        )}
+                      </ConversationBubble>
+                    </div>
                   );
                 })}
 
@@ -494,13 +509,48 @@ export default function ChamadoDetalhe() {
                     placeholder="Escreva uma resposta ou nota..."
                     value={novoComentario}
                     onChange={(e) => setNovoComentario(e.target.value.slice(0, 2500))}
+                    disabled={salvandoComent}
                   />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <label className={`flex items-center gap-1 text-xs px-2 py-1 border rounded-md cursor-pointer hover:bg-muted/50 ${salvandoComent ? "pointer-events-none opacity-60" : ""}`}>
+                      <Paperclip className="h-3.5 w-3.5" />
+                      Anexar arquivo
+                      <input
+                        type="file"
+                        multiple
+                        className="hidden"
+                        disabled={salvandoComent}
+                        onChange={(e) => { handleCommentFiles(e.target.files); e.target.value = ""; }}
+                      />
+                    </label>
+                    {commentFiles.map((f, i) => (
+                      <span key={i} className="text-xs bg-primary/5 rounded px-2 py-1 flex items-center gap-1">
+                        <Paperclip className="h-3 w-3" />
+                        {f.name} ({Math.round(f.size / 1024)} KB)
+                        <button
+                          type="button"
+                          disabled={salvandoComent}
+                          onClick={() => setCommentFiles((p) => p.filter((_, idx) => idx !== i))}
+                          className="text-destructive hover:opacity-70 ml-1"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
                   <div className="flex justify-between items-center">
                     <span className={`text-xs ${novoComentario.length >= 2500 ? "text-destructive" : "text-muted-foreground"}`}>
                       {novoComentario.length}/2500 caracteres
                     </span>
-                    <Button onClick={adicionarComentario} disabled={salvandoComent || !novoComentario.trim()}>
-                      <Send className="h-4 w-4 mr-1" /> Enviar
+                    <Button
+                      onClick={adicionarComentario}
+                      disabled={salvandoComent || (!novoComentario.trim() && commentFiles.length === 0)}
+                    >
+                      {salvandoComent ? (
+                        <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Enviando...</>
+                      ) : (
+                        <><Send className="h-4 w-4 mr-1" /> Enviar</>
+                      )}
                     </Button>
                   </div>
                 </CardContent>
