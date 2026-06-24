@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { hashPassword } from "../_shared/auth.ts";
+import { syncUserToGrafana, logSync } from "../_shared/grafana.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -121,14 +122,21 @@ serve(async (req) => {
       console.warn("[signup] set ARIIA_AND_GRAFANA failed:", e);
     }
 
-    // 4. Sincroniza automaticamente com o Grafana (await para garantir provisionamento).
+    // 4. Sincroniza automaticamente com o Grafana (chamada direta — sem JWT,
+    //    pois functions.invoke a partir do service role não passa por getCallerUsuario).
     try {
-      const { error: syncErr } = await supabase.functions.invoke("grafana-sync-user", {
-        body: { usuario_id: userData.id },
-      });
-      if (syncErr) console.warn("[signup] grafana sync returned error:", syncErr);
+      const perms = await syncUserToGrafana(userData.id, userData.id);
+      console.log("[signup] grafana sync ok:", JSON.stringify(perms));
     } catch (e) {
-      console.warn("[signup] grafana sync failed:", e);
+      const msg = (e as Error).message;
+      console.error("[signup] grafana sync failed:", msg);
+      await logSync({
+        usuario_id: userData.id,
+        actor_usuario_id: userData.id,
+        action: "sync_user_signup",
+        status: "error",
+        error_message: msg,
+      });
     }
 
     // 5. Setup token p/ fluxo de 2FA. Falha aqui aborta a criação inteira.
