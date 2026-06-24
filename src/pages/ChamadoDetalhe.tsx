@@ -648,32 +648,18 @@ export default function ChamadoDetalhe() {
               </label>
             </CardContent>
           </Card>
-          <div className="space-y-2">
-            {attachments.length === 0 && (
-              <p className="text-sm text-muted-foreground text-center py-6">Sem anexos</p>
-            )}
-            {attachments.map((a) => (
-              <Card key={a.id}>
-                <CardContent className="pt-4 flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-sm">
-                    <Paperclip className="h-4 w-4" />
-                    <span className="font-medium">{a.file_name}</span>
-                    <span className="text-xs text-muted-foreground">
-                      ({Math.round(a.tamanho_bytes / 1024)} KB) · {a.autor_nome || "—"} · {fmtDate(a.criado_em)}
-                    </span>
-                  </div>
-                  <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" onClick={() => downloadAttachment(a)}>
-                      <Download className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => removeAttachment(a)}>
-                      <X className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          {attachments.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-6">Sem anexos</p>
+          ) : (
+            <Card>
+              <CardContent className="pt-4">
+                <TicketAttachmentList
+                  items={attachments as AttachmentRow[]}
+                  onRemove={(a) => removeAttachment(a)}
+                />
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
 
