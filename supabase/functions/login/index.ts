@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyPassword, createSession } from "../_shared/auth.ts";
+import { syncUserToGrafana, logSync } from "../_shared/grafana.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -153,9 +154,18 @@ serve(async (req) => {
       console.warn("[login] apply_domain_rule failed:", e);
     }
     try {
-      await supabase.functions.invoke("grafana-sync-user", { body: { usuario_id: userData.id } });
+      const perms = await syncUserToGrafana(userData.id, userData.id);
+      console.log("[login] grafana sync ok:", JSON.stringify(perms));
     } catch (e) {
-      console.warn("[login] grafana sync failed:", e);
+      const msg = (e as Error).message;
+      console.warn("[login] grafana sync failed:", msg);
+      await logSync({
+        usuario_id: userData.id,
+        actor_usuario_id: userData.id,
+        action: "sync_user_login",
+        status: "error",
+        error_message: msg,
+      });
     }
 
     // Re-read final permissao in case domain rule changed it
