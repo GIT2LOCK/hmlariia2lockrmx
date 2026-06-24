@@ -222,47 +222,58 @@ export default function ChamadoDetalhe() {
   };
 
   const adicionarComentario = async () => {
-    if (!novoComentario.trim()) return;
+    if (sendingRef.current) return; // anti duplo-clique
+    if (!novoComentario.trim() && commentFiles.length === 0) return;
+    sendingRef.current = true;
     setSalvandoComent(true);
-    const { data: inserted, error } = await supabase.from("ticket_comments").insert({
-      ticket_id: ticketId,
-      conteudo: novoComentario.trim(),
-      tipo: tipoComent,
-      autor_id: user?.id ? Number(user.id) : null,
-      autor_nome: user?.nome || null,
-    }).select("id").maybeSingle();
-    setSalvandoComent(false);
-    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
-
-    // History
-    await logTicketEvent({
-      ticketId,
-      campo: "comentario",
-      valorNovo: tipoComent,
-      observacao: novoComentario.trim().slice(0, 500),
-      user,
-    });
-
-    // Notificar cliente por e-mail (via N8N) quando comentário público
-    if (tipoComent === "CLIENTE") {
-      if (!ticket?.solicitante_email) {
-        toast({ title: "Comentário salvo", description: "Sem e-mail do solicitante — webhook não disparado." });
-      } else {
-        try {
-          const { data: r, error: fnErr } = await supabase.functions.invoke("send-email-notification", {
-            body: { ticket_id: ticketId, comment_id: inserted?.id },
-          });
-          if (fnErr) throw fnErr;
-          console.log("[notify] resposta", r);
-          toast({ title: "Webhook N8N enviado", description: `${ticket.solicitante_email}` });
-        } catch (e: any) {
-          console.error("[notify] erro", e);
-          toast({ title: "Falha ao enviar webhook", description: e?.message || String(e), variant: "destructive" });
-        }
+    try {
+      const conteudo = novoComentario.trim() || "(somente anexos)";
+      const { data: inserted, error } = await supabase.from("ticket_comments").insert({
+        ticket_id: ticketId,
+        conteudo,
+        tipo: tipoComent,
+        autor_id: user?.id ? Number(user.id) : null,
+        autor_nome: user?.nome || null,
+      }).select("id").maybeSingle();
+      if (error || !inserted?.id) {
+        toast({
+          title: "Não foi possível adicionar a mensagem. Tente novamente.",
+          description: translateTicketError(error?.message),
+          variant: "destructive",
+        });
+        return;
       }
+
+      if (commentFiles.length > 0) {
+        await uploadCommentAttachments(inserted.id);
+      }
+
+      await logTicketEvent({
+        ticketId,
+        campo: "comentario",
+        valorNovo: tipoComent,
+        observacao: conteudo.slice(0, 500),
+        user,
+      });
+
+      if (tipoComent === "CLIENTE" && ticket?.solicitante_email) {
+        supabase.functions
+          .invoke("send-email-notification", {
+            body: { ticket_id: ticketId, comment_id: inserted.id },
+          })
+          .then(({ error: fnErr }) => {
+            if (fnErr) console.error("[notify] erro", fnErr);
+          });
+      }
+
+      setNovoComentario("");
+      setCommentFiles([]);
+      toast({ title: "Mensagem adicionada ao chamado." });
+      await load();
+    } finally {
+      setSalvandoComent(false);
+      sendingRef.current = false;
     }
-    setNovoComentario("");
-    load();
   };
 
   const testarWebhookN8N = async () => {
