@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,8 +12,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
 import {
-  ArrowLeft, Pencil, Paperclip, Upload, X, Download, Send, Clock, History,
-  CheckCircle2, RefreshCcw,
+  ArrowLeft, Pencil, Paperclip, Upload, X, Send, Clock, History,
+  CheckCircle2, RefreshCcw, Loader2,
 } from "lucide-react";
 import {
   computeSlaSolucao,
@@ -38,6 +38,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import DOMPurify from "dompurify";
 import { isCliente as isClienteRole, clientStatusLabel } from "@/lib/permissions";
+import { TicketAttachmentList, translateTicketError, type AttachmentRow } from "@/components/tickets/TicketAttachmentList";
 
 function isHtmlContent(s?: string | null): boolean {
   if (!s) return false;
@@ -118,6 +119,8 @@ export default function ChamadoDetalhe() {
   const [novoComentario, setNovoComentario] = useState("");
   const [tipoComent, setTipoComent] = useState<"INTERNO" | "CLIENTE">(isCliente ? "CLIENTE" : "INTERNO");
   const [salvandoComent, setSalvandoComent] = useState(false);
+  const [commentFiles, setCommentFiles] = useState<File[]>([]);
+  const sendingRef = useRef(false);
 
   const load = async () => {
     setLoading(true);
@@ -147,12 +150,10 @@ export default function ChamadoDetalhe() {
   const changeStatus = async (status: TicketStatus) => {
     if (!ticket) return;
 
-    // Intercept closing: require encerramento modal
     if ((status === "RESOLVIDO" || status === "FECHADO") && !isClosed(ticket.status)) {
       setEncerrarOpen(true);
       return;
     }
-    // Intercept reopening from closed states: require reabertura modal
     if (isClosed(ticket.status) && !isClosed(status)) {
       setReabrirOpen(true);
       return;
@@ -173,7 +174,7 @@ export default function ChamadoDetalhe() {
     if (status === "FECHADO") update.data_fechamento = now;
 
     const { error } = await supabase.from("tickets").update(update).eq("id", ticketId);
-    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+    if (error) { toast({ title: "Erro", description: translateTicketError(error.message), variant: "destructive" }); return; }
     await logTicketEvent({
       ticketId, campo: "status",
       valorAnterior: ticket.status, valorNovo: status,
@@ -181,6 +182,43 @@ export default function ChamadoDetalhe() {
     });
     toast({ title: "Status atualizado" });
     load();
+  };
+
+  const handleCommentFiles = (files: FileList | null) => {
+    if (!files) return;
+    const valid: File[] = [];
+    for (const f of Array.from(files)) {
+      if (f.size > MAX_FILE_BYTES) {
+        toast({ title: "Arquivo muito grande", description: `${f.name} excede 5MB`, variant: "destructive" });
+        continue;
+      }
+      valid.push(f);
+    }
+    setCommentFiles((p) => [...p, ...valid]);
+  };
+
+  const uploadCommentAttachments = async (commentId: number) => {
+    for (const file of commentFiles) {
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const path = `${ticketId}/${Date.now()}_${safeName}`;
+      const { error: upErr } = await supabase.storage.from("ticket-attachments").upload(path, file, {
+        contentType: file.type || "application/octet-stream",
+      });
+      if (upErr) {
+        toast({ title: "Erro ao enviar anexo", description: `${file.name}: ${upErr.message}`, variant: "destructive" });
+        continue;
+      }
+      await supabase.from("ticket_attachments").insert({
+        ticket_id: ticketId,
+        comment_id: commentId,
+        autor_id: user?.id ? Number(user.id) : null,
+        autor_nome: user?.nome || null,
+        storage_path: path,
+        file_name: file.name,
+        mime_type: file.type || null,
+        tamanho_bytes: file.size,
+      } as any);
+    }
   };
 
   const adicionarComentario = async () => {
