@@ -1,0 +1,1 @@
+ALTER TABLE public.tickets ALTER COLUMN sla_atendimento_minutos DROP NOT NULL; ALTER TABLE public.tickets ALTER COLUMN sla_solucao_minutos DROP NOT NULL;
