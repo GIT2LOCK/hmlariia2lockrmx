@@ -101,12 +101,6 @@ export async function login(data: LoginData): Promise<AuthResponse> {
       return { success: true, message: result.message, requires2FA: true, userId: result.userId };
     }
 
-    if (result.session) {
-      localStorage.setItem("auth_token", result.session.token);
-      localStorage.setItem("auth_expires", result.session.expires_at);
-      localStorage.setItem("auth_user", JSON.stringify(result.user));
-    }
-
     return { success: true, message: result.message, user: result.user, session: result.session };
   } catch (error) {
     console.error("Login error:", error);
@@ -149,8 +143,14 @@ export async function logout(logoutAll: boolean = false): Promise<void> {
  */
 export async function ensureSupabaseAuthSession(email: string, password: string): Promise<void> {
   const { supabase } = await import("@/integrations/supabase/client");
+  const expectedEmail = email.trim().toLowerCase();
 
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  // Evita reaproveitar uma sessão Supabase antiga no browser. Se a sessão antiga
+  // ficar ativa, o PostgREST executa o RLS como outro usuário e operações como
+  // abertura de chamado caem em "violates row-level security policy".
+  await supabase.auth.signOut();
+
+  const { data, error } = await supabase.auth.signInWithPassword({ email: expectedEmail, password });
   console.log("[ensureSupabaseAuthSession] signIn result:", { user: data?.user?.id, error });
 
   if (error) {
@@ -158,11 +158,23 @@ export async function ensureSupabaseAuthSession(email: string, password: string)
     throw new Error("Login Ariia ok, mas falhou ao criar sessão Supabase Auth: " + error.message);
   }
 
+  const signedEmail = (data?.user?.email || "").trim().toLowerCase();
+  if (signedEmail !== expectedEmail) {
+    await supabase.auth.signOut();
+    throw new Error("Sessão Supabase criada para um usuário diferente. Faça login novamente.");
+  }
+
   const { data: sessionData } = await supabase.auth.getSession();
   console.log("[ensureSupabaseAuthSession] session after login:", sessionData.session?.user?.id ?? null);
 
   if (!sessionData.session) {
     throw new Error("Sessão Supabase Auth não foi persistida no browser.");
+  }
+
+  const sessionEmail = (sessionData.session.user.email || "").trim().toLowerCase();
+  if (sessionEmail !== expectedEmail) {
+    await supabase.auth.signOut();
+    throw new Error("Sessão Supabase persistida para um usuário diferente. Faça login novamente.");
   }
 }
 
