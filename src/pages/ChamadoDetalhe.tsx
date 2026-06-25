@@ -442,6 +442,23 @@ export default function ChamadoDetalhe() {
               <Pencil className="h-4 w-4 mr-1" /> Editar
             </Button>
           )}
+          {isAdmin && (
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                if (!confirm(`Excluir definitivamente o chamado ${ticket.codigo}? Esta ação não pode ser desfeita.`)) return;
+                const { error } = await supabase.from("tickets").delete().eq("id", ticketId);
+                if (error) {
+                  toast({ title: "Erro ao excluir", description: error.message, variant: "destructive" });
+                  return;
+                }
+                toast({ title: "Chamado excluído" });
+                navigate("/dashboard/chamados");
+              }}
+            >
+              <Trash2 className="h-4 w-4 mr-1" /> Excluir
+            </Button>
+          )}
         </div>
       </div>
 
