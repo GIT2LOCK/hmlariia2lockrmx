@@ -126,8 +126,10 @@ export default function ChamadoDetalhe() {
     setLoading(true);
     try {
       if (isCliente) {
+        const sessionToken = localStorage.getItem("auth_token") || "";
         const { data, error } = await supabase.functions.invoke("get-ticket-cliente", {
           body: { ticket_id: ticketId },
+          headers: { Authorization: `Bearer ${sessionToken}` },
         });
         if (error || !data?.ticket) {
           toast({ title: "Não foi possível carregar o chamado", description: error?.message, variant: "destructive" });
