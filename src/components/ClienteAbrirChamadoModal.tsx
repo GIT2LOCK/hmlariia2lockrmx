@@ -255,16 +255,26 @@ export function ClienteAbrirChamadoModal({ open, onOpenChange, onSaved }: Props)
         criado_por: user.id,
       };
 
-      const { data, error } = await supabase
-        .from("tickets")
-        .insert(payload)
-        .select("id, codigo")
-        .maybeSingle();
+      const sessionToken = localStorage.getItem("auth_token") || "";
+      const { data: fnData, error: fnError } = await supabase.functions.invoke(
+        "create-ticket-cliente",
+        {
+          body: payload,
+          headers: { Authorization: `Bearer ${sessionToken}` },
+        },
+      );
+      const data = (fnData as any)?.ticket as { id: number; codigo: string } | undefined;
+      const error = fnError
+        ? { message: (fnError as any).message || "Falha ao abrir chamado" }
+        : (fnData as any)?.error
+        ? { message: (fnData as any).error }
+        : null;
 
       if (error) {
         toast({ title: "Erro ao abrir chamado", description: error.message, variant: "destructive" });
         return;
       }
+
 
       if (data?.id) await uploadAttachments(data.id);
 
