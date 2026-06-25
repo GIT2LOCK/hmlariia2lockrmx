@@ -120,27 +120,13 @@ export default function Chamados() {
 
   const load = async () => {
     setLoading(true);
-    if (isCliente) {
-      const sessionToken = localStorage.getItem("auth_token") || "";
-      const { data: fnData, error: fnError } = await supabase.functions.invoke(
-        "list-tickets-cliente",
-        { headers: { Authorization: `Bearer ${sessionToken}` } },
-      );
-      if (fnError) toast({ title: "Erro ao carregar", description: fnError.message, variant: "destructive" });
-      setTickets(((fnData as any)?.tickets as any) || []);
-      setLoading(false);
-      return;
-    }
-    const { data, error } = await supabase
-      .from("tickets")
-      .select(`*,
-        empresas:empresa_id(nome_fantasia),
-        unidades:unidade_id(nome_unidade),
-        usuarios:tecnico_id(nome)`)
-      .order("data_abertura", { ascending: false })
-      .limit(500);
-    if (error) toast({ title: "Erro ao carregar", description: error.message, variant: "destructive" });
-    setTickets((data as any) || []);
+    const sessionToken = localStorage.getItem("auth_token") || "";
+    const { data: fnData, error: fnError } = await supabase.functions.invoke(
+      "list-tickets",
+      { headers: { Authorization: `Bearer ${sessionToken}` } },
+    );
+    if (fnError) toast({ title: "Erro ao carregar", description: fnError.message, variant: "destructive" });
+    setTickets(((fnData as any)?.tickets as any) || []);
     setLoading(false);
   };
 
