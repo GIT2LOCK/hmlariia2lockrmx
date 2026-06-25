@@ -13,7 +13,7 @@ import { toast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
 import {
   ArrowLeft, Pencil, Paperclip, Upload, X, Send, Clock, History,
-  CheckCircle2, RefreshCcw, Loader2,
+  CheckCircle2, RefreshCcw, Loader2, Trash2,
 } from "lucide-react";
 import {
   computeSlaSolucao,
@@ -105,6 +105,7 @@ export default function ChamadoDetalhe() {
   const navigate = useNavigate();
   const { user } = useUser();
   const isCliente = isClienteRole(user.role);
+  const isAdmin = user.role === "SUPERADMIN" || user.role === "ADMIN";
   const ticketId = Number(id);
 
   const [ticket, setTicket] = useState<any>(null);
@@ -439,6 +440,23 @@ export default function ChamadoDetalhe() {
           {!isCliente && (
             <Button variant="outline" onClick={() => setEditOpen(true)}>
               <Pencil className="h-4 w-4 mr-1" /> Editar
+            </Button>
+          )}
+          {isAdmin && (
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                if (!confirm(`Excluir definitivamente o chamado ${ticket.codigo}? Esta ação não pode ser desfeita.`)) return;
+                const { error } = await supabase.from("tickets").delete().eq("id", ticketId);
+                if (error) {
+                  toast({ title: "Erro ao excluir", description: error.message, variant: "destructive" });
+                  return;
+                }
+                toast({ title: "Chamado excluído" });
+                navigate("/dashboard/chamados");
+              }}
+            >
+              <Trash2 className="h-4 w-4 mr-1" /> Excluir
             </Button>
           )}
         </div>
