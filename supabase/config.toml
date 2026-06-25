@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.confirm-password-reset]
 verify_jwt = false
+
+[functions.create-ticket-cliente]
+verify_jwt = false
