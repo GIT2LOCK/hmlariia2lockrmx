@@ -105,6 +105,7 @@ export default function ChamadoDetalhe() {
   const navigate = useNavigate();
   const { user } = useUser();
   const isCliente = isClienteRole(user.role);
+  const isAdmin = user.role === "SUPERADMIN" || user.role === "ADMIN";
   const ticketId = Number(id);
 
   const [ticket, setTicket] = useState<any>(null);
