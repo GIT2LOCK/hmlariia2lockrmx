@@ -13,7 +13,7 @@ import { toast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
 import {
   ArrowLeft, Pencil, Paperclip, Upload, X, Send, Clock, History,
-  CheckCircle2, RefreshCcw, Loader2,
+  CheckCircle2, RefreshCcw, Loader2, Trash2,
 } from "lucide-react";
 import {
   computeSlaSolucao,
