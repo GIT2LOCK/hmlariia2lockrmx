@@ -124,24 +124,43 @@ export default function ChamadoDetalhe() {
 
   const load = async () => {
     setLoading(true);
-    const [t, c, h, a] = await Promise.all([
-      supabase.from("tickets").select(`*,
-        empresas:empresa_id(nome_fantasia),
-        unidades:unidade_id(nome_unidade),
-        operadoras:operadora_id(nome),
-        usuarios:tecnico_id(nome,email),
-        ticket_filas:fila_id(nome),
-        ticket_categorias:categoria_id(nome)`).eq("id", ticketId).maybeSingle(),
-      supabase.from("ticket_comments").select("*").eq("ticket_id", ticketId).order("criado_em", { ascending: true }),
-      supabase.from("ticket_history").select("*").eq("ticket_id", ticketId).order("criado_em", { ascending: false }),
-      supabase.from("ticket_attachments").select("*").eq("ticket_id", ticketId).order("criado_em", { ascending: false }),
-    ]);
-    setTicket(t.data);
-    setComments(c.data || []);
-    setHistory(h.data || []);
-    setAttachments(a.data || []);
-    setLoading(false);
+    try {
+      if (isCliente) {
+        const { data, error } = await supabase.functions.invoke("get-ticket-cliente", {
+          body: { ticket_id: ticketId },
+        });
+        if (error || !data?.ticket) {
+          toast({ title: "Não foi possível carregar o chamado", description: error?.message, variant: "destructive" });
+          setTicket(null);
+        } else {
+          setTicket(data.ticket);
+          setComments(data.comments || []);
+          setHistory(data.history || []);
+          setAttachments(data.attachments || []);
+        }
+      } else {
+        const [t, c, h, a] = await Promise.all([
+          supabase.from("tickets").select(`*,
+            empresas:empresa_id(nome_fantasia),
+            unidades:unidade_id(nome_unidade),
+            operadoras:operadora_id(nome),
+            usuarios:tecnico_id(nome,email),
+            ticket_filas:fila_id(nome),
+            ticket_categorias:categoria_id(nome)`).eq("id", ticketId).maybeSingle(),
+          supabase.from("ticket_comments").select("*").eq("ticket_id", ticketId).order("criado_em", { ascending: true }),
+          supabase.from("ticket_history").select("*").eq("ticket_id", ticketId).order("criado_em", { ascending: false }),
+          supabase.from("ticket_attachments").select("*").eq("ticket_id", ticketId).order("criado_em", { ascending: false }),
+        ]);
+        setTicket(t.data);
+        setComments(c.data || []);
+        setHistory(h.data || []);
+        setAttachments(a.data || []);
+      }
+    } finally {
+      setLoading(false);
+    }
   };
+
 
   useEffect(() => { if (ticketId) load(); }, [ticketId]);
 
