@@ -23,3 +23,9 @@ verify_jwt = false
 
 [functions.create-ticket-cliente]
 verify_jwt = false
+
+[functions.list-tickets-cliente]
+verify_jwt = false
+
+[functions.get-ticket-cliente]
+verify_jwt = false
