@@ -456,8 +456,15 @@ export async function syncUserToGrafana(usuario_id: number, actor_id?: number | 
     step("desired_state", { isGrafanaAdmin, desired, fallbackApplied, empresaOrgApplied });
 
     // (6) Habilita o usuário + set isGrafanaAdmin
+    // Obs: usuários externos (OAuth/LDAP) retornam 500 "Could not enable external user" — não é fatal.
     const enableRes = await grafanaFetch(`/api/admin/users/${grafanaUserId}/enable`, { method: "POST" });
-    if (!enableRes.ok && enableRes.status !== 412) fail("enable_user", `status=${enableRes.status}`);
+    const enableMsg = typeof (enableRes as any).body === "object" ? ((enableRes as any).body?.message ?? "") : "";
+    const isExternalUserEnableError = enableRes.status === 500 && /external user/i.test(String(enableMsg));
+    if (!enableRes.ok && enableRes.status !== 412 && !isExternalUserEnableError) {
+      fail("enable_user", `status=${enableRes.status}`);
+    } else if (isExternalUserEnableError) {
+      step("enable_user_skipped_external", { grafanaUserId });
+    }
 
     const adminRes = await grafanaFetch(`/api/admin/users/${grafanaUserId}/permissions`, {
       method: "PUT", body: JSON.stringify({ isGrafanaAdmin }),
