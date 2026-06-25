@@ -32,7 +32,7 @@ serve(async (req) => {
 
   const { data: user, error: userErr } = await supabase
     .from("usuarios")
-    .select("id, nome, sobrenome, email, permissao, empresa_id, ativo")
+    .select("id, nome, email, permissao, empresa_id, ativo")
     .eq("id", usuarioId)
     .maybeSingle();
 
