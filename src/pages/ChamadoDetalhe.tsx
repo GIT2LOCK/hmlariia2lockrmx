@@ -363,9 +363,13 @@ export default function ChamadoDetalhe() {
     load();
   };
 
-  if (loading || !ticket) {
+  if (loading) {
     return <div className="p-8 text-muted-foreground">Carregando...</div>;
   }
+  if (!ticket) {
+    return <div className="p-8 text-muted-foreground">Chamado não encontrado ou sem acesso.</div>;
+  }
+
 
   const confirmarResolucao = async () => {
     const { error } = await supabase.rpc("fn_cliente_encerrar_ticket", { _ticket_id: ticketId } as any);
