@@ -127,6 +127,25 @@ export function UserProvider({ children }: { children: ReactNode }) {
       let empresaId: number | null = null;
       try {
         const { supabase } = await import("@/integrations/supabase/client");
+
+        // Detecta sessão Supabase residual de OUTRO usuário. Se houver
+        // divergência, derruba a sessão para evitar que o PostgREST execute
+        // RLS como o usuário errado (causa de "violates row-level security
+        // policy" ao abrir chamados logo após cadastro/login).
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          const sessionEmail = (session?.user?.email || "").trim().toLowerCase();
+          const storedEmail = (storedUser.email || "").trim().toLowerCase();
+          if (session && storedEmail && sessionEmail && sessionEmail !== storedEmail) {
+            console.warn("[UserContext] Supabase session mismatch — signing out leftover session", {
+              sessionEmail, storedEmail,
+            });
+            await supabase.auth.signOut();
+          }
+        } catch (e) {
+          console.warn("[UserContext] session check failed", e);
+        }
+
         const { data } = await supabase
           .from("usuarios")
           .select("avatar_url, empresa_id, access_scope")
