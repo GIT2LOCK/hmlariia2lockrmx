@@ -101,12 +101,6 @@ export async function login(data: LoginData): Promise<AuthResponse> {
       return { success: true, message: result.message, requires2FA: true, userId: result.userId };
     }
 
-    if (result.session) {
-      localStorage.setItem("auth_token", result.session.token);
-      localStorage.setItem("auth_expires", result.session.expires_at);
-      localStorage.setItem("auth_user", JSON.stringify(result.user));
-    }
-
     return { success: true, message: result.message, user: result.user, session: result.session };
   } catch (error) {
     console.error("Login error:", error);
