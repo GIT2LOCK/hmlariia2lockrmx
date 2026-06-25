@@ -44,11 +44,17 @@ serve(async (req) => {
       if (signed?.signedUrl) anexosLinks.push({ name: a.file_name, url: signed.signedUrl });
     }
 
+    const appBaseUrl = (Deno.env.get("APP_BASE_URL") || "https://ariia.2lock.com.br").replace(/\/+$/, "");
+    const ticketUrl = `${appBaseUrl}/dashboard/chamados/${ticket.id}`;
+
     const payload = {
       ticket_id: String(ticket.id),
-      codigo: ticket.codigo,
+      ticket_numero: ticket.id,           // formato novo (link /60)
+      codigo: ticket.codigo,              // mantido por compatibilidade (TKT-000060)
+      ticket_url: ticketUrl,              // URL pronta para o template do n8n
+      url: ticketUrl,                     // alias usado por templates antigos
       to: ticket.solicitante_email,
-      subject: `[Ticket #${ticket.id}] ${ticket.titulo}`,
+      subject: `[Chamado #${ticket.id}] ${ticket.titulo}`,
       message: conteudo,
       status: ticket.status,
       attachments: anexosLinks,
