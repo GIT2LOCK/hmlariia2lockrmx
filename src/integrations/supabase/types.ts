@@ -1543,12 +1543,12 @@ export type Database = {
           resolution_due_at: string | null
           resolution_sla_status: string | null
           resolved_by: number | null
-          sla_atendimento_minutos: number
+          sla_atendimento_minutos: number | null
           sla_pausa_inicio: string | null
           sla_pausa_total_segundos: number
           sla_pause_reason: string | null
           sla_policy_id: number | null
-          sla_solucao_minutos: number
+          sla_solucao_minutos: number | null
           solicitante_email: string | null
           solicitante_nome: string | null
           solicitante_telefone: string | null
@@ -1601,12 +1601,12 @@ export type Database = {
           resolution_due_at?: string | null
           resolution_sla_status?: string | null
           resolved_by?: number | null
-          sla_atendimento_minutos: number
+          sla_atendimento_minutos?: number | null
           sla_pausa_inicio?: string | null
           sla_pausa_total_segundos?: number
           sla_pause_reason?: string | null
           sla_policy_id?: number | null
-          sla_solucao_minutos: number
+          sla_solucao_minutos?: number | null
           solicitante_email?: string | null
           solicitante_nome?: string | null
           solicitante_telefone?: string | null
@@ -1659,12 +1659,12 @@ export type Database = {
           resolution_due_at?: string | null
           resolution_sla_status?: string | null
           resolved_by?: number | null
-          sla_atendimento_minutos?: number
+          sla_atendimento_minutos?: number | null
           sla_pausa_inicio?: string | null
           sla_pausa_total_segundos?: number
           sla_pause_reason?: string | null
           sla_policy_id?: number | null
-          sla_solucao_minutos?: number
+          sla_solucao_minutos?: number | null
           solicitante_email?: string | null
           solicitante_nome?: string | null
           solicitante_telefone?: string | null
