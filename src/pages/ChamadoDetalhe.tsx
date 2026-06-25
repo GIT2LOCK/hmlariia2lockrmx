@@ -243,6 +243,31 @@ export default function ChamadoDetalhe() {
     }
   };
 
+  // Cliente: faz upload ao storage e depois envia metadados via edge function (service role).
+  const uploadAttachmentsAsCliente = async (): Promise<Array<{
+    storage_path: string; file_name: string; mime_type: string | null; tamanho_bytes: number;
+  }>> => {
+    const uploaded: Array<{ storage_path: string; file_name: string; mime_type: string | null; tamanho_bytes: number }> = [];
+    for (const file of commentFiles) {
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const path = `${ticketId}/${Date.now()}_${safeName}`;
+      const { error: upErr } = await supabase.storage.from("ticket-attachments").upload(path, file, {
+        contentType: file.type || "application/octet-stream",
+      });
+      if (upErr) {
+        toast({ title: "Erro ao enviar anexo", description: `${file.name}: ${upErr.message}`, variant: "destructive" });
+        continue;
+      }
+      uploaded.push({
+        storage_path: path,
+        file_name: file.name,
+        mime_type: file.type || null,
+        tamanho_bytes: file.size,
+      });
+    }
+    return uploaded;
+  };
+
   const adicionarComentario = async () => {
     if (sendingRef.current) return; // anti duplo-clique
     if (!novoComentario.trim() && commentFiles.length === 0) return;
@@ -250,6 +275,29 @@ export default function ChamadoDetalhe() {
     setSalvandoComent(true);
     try {
       const conteudo = novoComentario.trim() || "(somente anexos)";
+
+      if (isCliente) {
+        // Cliente: rota via edge function para contornar RLS sem sessão Supabase Auth.
+        const uploaded = await uploadAttachmentsAsCliente();
+        const sessionToken = localStorage.getItem("auth_token") || "";
+        const { data, error } = await supabase.functions.invoke("add-ticket-comment-cliente", {
+          body: { ticket_id: ticketId, conteudo, attachments: uploaded },
+          headers: { Authorization: `Bearer ${sessionToken}` },
+        });
+        if (error || !data?.comment_id) {
+          toast({
+            title: "Não foi possível adicionar a mensagem. Tente novamente.",
+            description: error?.message || (data as any)?.error,
+            variant: "destructive",
+          });
+          return;
+        }
+        setNovoComentario("");
+        setCommentFiles([]);
+        await load();
+        return;
+      }
+
       const { data: inserted, error } = await supabase.from("ticket_comments").insert({
         ticket_id: ticketId,
         conteudo,
@@ -287,6 +335,8 @@ export default function ChamadoDetalhe() {
             if (fnErr) console.error("[notify] erro", fnErr);
           });
       }
+
+
 
       setNovoComentario("");
       setCommentFiles([]);
