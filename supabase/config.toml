@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.get-ticket-cliente]
 verify_jwt = false
+
+[functions.add-ticket-comment-cliente]
+verify_jwt = false
