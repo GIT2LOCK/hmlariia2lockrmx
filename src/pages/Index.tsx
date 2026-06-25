@@ -108,6 +108,22 @@ const Index = () => {
   const [pendingPassword, setPendingPassword] = useState("");
 
   const completeLogin = async (user: any, session: any) => {
+    // Establish Supabase Auth session (required for Grafana OAuth SSO).
+    // Must complete BEFORE storing/navigating so all RLS calls run as the same user.
+    if (pendingEmail && pendingPassword) {
+      try {
+        await ensureSupabaseAuthSession(pendingEmail, pendingPassword);
+      } catch (err: any) {
+        console.error("[completeLogin] ensureSupabaseAuthSession failed", err);
+        toast({
+          title: "Erro ao iniciar sessão",
+          description: err?.message || "Não foi possível validar a sessão do usuário. Faça login novamente.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     localStorage.setItem("auth_token", session.token);
     localStorage.setItem("auth_expires", session.expires_at);
     localStorage.setItem("auth_user", JSON.stringify(user));
@@ -115,21 +131,6 @@ const Index = () => {
     sessionStorage.setItem("twofa_validated", "1");
     setShow2FAModal(false);
     setShow2FASetup(false);
-
-    // Establish Supabase Auth session (required for Grafana OAuth SSO).
-    // Must complete BEFORE redirecting so /oauth/consent finds the session.
-    if (pendingEmail && pendingPassword) {
-      try {
-        await ensureSupabaseAuthSession(pendingEmail, pendingPassword);
-      } catch (err: any) {
-        console.error("[completeLogin] ensureSupabaseAuthSession failed", err);
-        toast({
-          title: "Aviso",
-          description: "Login realizado, mas a sessão SSO (Grafana) não foi criada. Tente novamente se for usar o SSO.",
-          variant: "destructive",
-        });
-      }
-    }
 
     toast({ title: "Login realizado!", description: `Bem-vindo, ${user.nome}!` });
     await refreshUser();
