@@ -268,24 +268,24 @@ export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
     };
 
     let savedId = ticketId || null;
+    let error;
     let beforeRow: any = null;
     if (ticketId) {
       const { data: cur } = await supabase.from("tickets").select("*").eq("id", ticketId).maybeSingle();
       beforeRow = cur;
+      ({ error } = await supabase.from("tickets").update(payload).eq("id", ticketId));
+    } else {
+      payload.criado_por = user?.id ? Number(user.id) : null;
+      const { data, error: insErr } = await supabase.from("tickets").insert(payload).select("id").maybeSingle();
+      error = insErr;
+      savedId = data?.id || null;
     }
-    const ariiaToken = localStorage.getItem("auth_token");
-    const { data: resp, error: fnErr } = await supabase.functions.invoke("save-ticket", {
-      body: { ticket_id: ticketId ?? null, payload },
-      headers: ariiaToken ? { Authorization: `Bearer ${ariiaToken}` } : undefined,
-    });
-    if (fnErr || (resp as any)?.error) {
+    if (error) {
       setLoading(false);
-      const msg = (resp as any)?.error || fnErr?.message || "erro_desconhecido";
       const { translateTicketError } = await import("@/components/tickets/TicketAttachmentList");
-      toast({ title: "Erro ao salvar", description: translateTicketError(msg), variant: "destructive" });
+      toast({ title: "Erro ao salvar", description: translateTicketError(error.message), variant: "destructive" });
       return;
     }
-    savedId = (resp as any)?.ticket_id ?? savedId;
 
     // Log per-field diff on edit
     if (ticketId && beforeRow) {
