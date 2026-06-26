@@ -36,6 +36,7 @@ serve(async (req) => {
 
   const ticketId = Number(body?.ticket_id);
   const conteudo = String(body?.conteudo ?? "").trim();
+  const tipoIn = String(body?.tipo ?? "").toUpperCase();
   const attachments: Array<{
     storage_path: string;
     file_name: string;
@@ -53,62 +54,79 @@ serve(async (req) => {
     .maybeSingle();
 
   if (!user || !user.ativo) return json({ error: "usuario_invalido" }, 403);
-  if (user.permissao !== "CLIENTE") return json({ error: "only_cliente" }, 403);
 
   const { data: ticket } = await supabase
     .from("tickets")
-    .select("id, empresa_id, unidade_id, criado_por")
+    .select("id, empresa_id, unidade_id, criado_por, tecnico_id, assigned_by, assigned_group_id, solicitante_email")
     .eq("id", ticketId)
     .maybeSingle();
   if (!ticket) return json({ error: "ticket_nao_encontrado" }, 404);
 
-  // Autorização: ticket do próprio cliente OU unidade vinculada OU mesma empresa (com unidade vinculada).
-  let autorizado = ticket.criado_por === usuarioId;
-  if (!autorizado && user.email) {
-    const { data: contatos } = await supabase
-      .from("contatos")
-      .select("id, unidade_id, cobre_empresa_inteira, empresa_id")
-      .ilike("email", user.email);
-    const unidadeIds = new Set<number>();
-    for (const c of contatos ?? []) if (typeof c.unidade_id === "number") unidadeIds.add(c.unidade_id);
-    const contatoIds = (contatos ?? []).map((c: any) => c.id);
-    if (contatoIds.length > 0) {
-      const { data: cu } = await supabase.from("contato_unidades").select("unidade_id").in("contato_id", contatoIds);
-      for (const r of cu ?? []) if (typeof r.unidade_id === "number") unidadeIds.add(r.unidade_id);
+  const perm = user.permissao;
+  const isAdmin = perm === "SUPERADMIN" || perm === "ADMIN";
+  let autorizado = isAdmin;
+
+  if (!autorizado && perm === "CLIENTE") {
+    autorizado = ticket.criado_por === usuarioId;
+    if (!autorizado && user.email) {
+      const { data: contatos } = await supabase
+        .from("contatos")
+        .select("id, unidade_id, cobre_empresa_inteira, empresa_id")
+        .ilike("email", user.email);
+      const unidadeIds = new Set<number>();
+      for (const c of contatos ?? []) if (typeof c.unidade_id === "number") unidadeIds.add(c.unidade_id);
+      const contatoIds = (contatos ?? []).map((c: any) => c.id);
+      if (contatoIds.length > 0) {
+        const { data: cu } = await supabase.from("contato_unidades").select("unidade_id").in("contato_id", contatoIds);
+        for (const r of cu ?? []) if (typeof r.unidade_id === "number") unidadeIds.add(r.unidade_id);
+      }
+      const empresasCobertura = (contatos ?? [])
+        .filter((c: any) => c.cobre_empresa_inteira && c.empresa_id)
+        .map((c: any) => c.empresa_id);
+      if (empresasCobertura.length > 0) {
+        const { data: us } = await supabase.from("unidades").select("id").in("empresa_id", empresasCobertura);
+        for (const r of us ?? []) unidadeIds.add((r as any).id);
+      }
+      autorizado = !!(ticket.unidade_id && unidadeIds.has(ticket.unidade_id));
     }
-    const empresasCobertura = (contatos ?? [])
-      .filter((c: any) => c.cobre_empresa_inteira && c.empresa_id)
-      .map((c: any) => c.empresa_id);
-    if (empresasCobertura.length > 0) {
-      const { data: us } = await supabase.from("unidades").select("id").in("empresa_id", empresasCobertura);
-      for (const r of us ?? []) unidadeIds.add((r as any).id);
+    if (!autorizado && user.empresa_id && ticket.empresa_id === user.empresa_id) {
+      autorizado = true;
     }
-    autorizado = !!(ticket.unidade_id && unidadeIds.has(ticket.unidade_id));
-  }
-  // Mesma empresa também valida para cliente vinculado
-  if (!autorizado && user.empresa_id && ticket.empresa_id === user.empresa_id) {
-    autorizado = true;
+  } else if (!autorizado) {
+    if (ticket.criado_por === usuarioId || ticket.tecnico_id === usuarioId || ticket.assigned_by === usuarioId) {
+      autorizado = true;
+    } else if (ticket.assigned_group_id) {
+      const { data: m } = await supabase
+        .from("support_group_members")
+        .select("usuario_id")
+        .eq("group_id", ticket.assigned_group_id)
+        .eq("usuario_id", usuarioId)
+        .eq("ativo", true)
+        .maybeSingle();
+      autorizado = !!m;
+    }
   }
   if (!autorizado) return json({ error: "sem_acesso" }, 403);
 
-  // 1) Insere o comentário (sempre tipo CLIENTE)
+  // CLIENTE sempre marca como CLIENTE; demais respeitam o tipo enviado (default INTERNO)
+  const tipo = perm === "CLIENTE" ? "CLIENTE" : (tipoIn === "CLIENTE" ? "CLIENTE" : "INTERNO");
+
   const { data: comment, error: cErr } = await supabase
     .from("ticket_comments")
     .insert({
       ticket_id: ticketId,
       conteudo: conteudo || "(somente anexos)",
-      tipo: "CLIENTE",
+      tipo,
       autor_id: usuarioId,
       autor_nome: user.nome,
     })
     .select("id")
     .maybeSingle();
   if (cErr || !comment?.id) {
-    console.error("[add-comment-cliente] insert comment error", cErr);
+    console.error("[add-comment] insert comment error", cErr);
     return json({ error: cErr?.message || "erro_comentario" }, 500);
   }
 
-  // 2) Insere anexos (já enviados ao storage pelo cliente)
   if (attachments.length > 0) {
     const rows = attachments.map((a) => ({
       ticket_id: ticketId,
@@ -121,21 +139,24 @@ serve(async (req) => {
       tamanho_bytes: a.tamanho_bytes ?? null,
     }));
     const { error: aErr } = await supabase.from("ticket_attachments").insert(rows);
-    if (aErr) {
-      console.error("[add-comment-cliente] insert attachments error", aErr);
-      // Não falha a request; o comentário já foi salvo.
-    }
+    if (aErr) console.error("[add-comment] insert attachments error", aErr);
   }
 
-  // 3) Registro de histórico
   await supabase.from("ticket_history").insert({
     ticket_id: ticketId,
     campo: "comentario",
-    valor_novo: "CLIENTE",
+    valor_novo: tipo,
     observacao: (conteudo || "(somente anexos)").slice(0, 500),
     autor_id: usuarioId,
     autor_nome: user.nome,
   });
+
+  // Notificação por e-mail quando staff publica para o cliente
+  if (tipo === "CLIENTE" && perm !== "CLIENTE" && ticket.solicitante_email) {
+    supabase.functions.invoke("send-email-notification", {
+      body: { ticket_id: ticketId, comment_id: comment.id },
+    }).catch((e) => console.error("[notify] erro", e));
+  }
 
   return json({ ok: true, comment_id: comment.id });
 });
