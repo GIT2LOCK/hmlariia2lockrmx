@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const DEFAULT_WEBHOOK_URL = "https://autom.2lock.app.br/webhook-test/8133acad-5def-4bf4-9c6a-c6df08ec969d";
+const DEFAULT_WEBHOOK_URL = "https://webwork.2lock.app.br/webhook/reset-password";
 const WEBHOOK_URL = Deno.env.get("RESET_WEBHOOK_URL") || DEFAULT_WEBHOOK_URL;
 const APP_BASE_URL = Deno.env.get("APP_BASE_URL") || "https://ariia.2lock.com.br";
 const LOGO_URL = "https://zptbkovdogbxkqzvmffj.supabase.co/storage/v1/object/public/2locks3/2lockLogoFHD.png";
@@ -25,12 +25,16 @@ function genericResponse() {
 function randomTokenHex(bytes = 32) {
   const arr = new Uint8Array(bytes);
   crypto.getRandomValues(arr);
-  return Array.from(arr).map((b) => b.toString(16).padStart(2, "0")).join("");
+  return Array.from(arr)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 async function sha256Hex(input: string) {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
-  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 function escapeHtml(s: string) {
@@ -145,7 +149,9 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json().catch(() => ({}));
-    const email = String(body?.email ?? "").trim().toLowerCase();
+    const email = String(body?.email ?? "")
+      .trim()
+      .toLowerCase();
     console.log("[request-password-reset] received request for email:", email);
 
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -156,10 +162,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
     // Rate limit: max 3 solicitações por e-mail nos últimos 15 minutos
     const since = new Date(Date.now() - 15 * 60 * 1000).toISOString();
@@ -257,7 +260,9 @@ Deno.serve(async (req) => {
       const whText = await whRes.text().catch(() => "");
       console.log("[request-password-reset] webhook response status:", whRes.status, "body:", whText.slice(0, 500));
       if (!whRes.ok && whRes.status === 404) {
-        console.error("[request-password-reset] webhook 404 — provavelmente é uma URL 'webhook-test' do n8n que não está em modo 'Listen for test event' ou já consumiu o disparo único. Use a URL de produção (webhook/<id>) e configure-a no secret RESET_WEBHOOK_URL.");
+        console.error(
+          "[request-password-reset] webhook 404 — provavelmente é uma URL 'webhook-test' do n8n que não está em modo 'Listen for test event' ou já consumiu o disparo único. Use a URL de produção (webhook/<id>) e configure-a no secret RESET_WEBHOOK_URL.",
+        );
       }
     } catch (e) {
       console.error("[request-password-reset] webhook fetch error", e);
