@@ -81,7 +81,7 @@ function buildResetEmailHtml(p: { nome: string; email: string; resetUrl: string;
         <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(0,32,91,0.08);">
           <tr>
             <td style="background-color:#00205B;padding:24px 32px;" align="center">
-              <img src="${LOGO_WHITE_URL}" alt="Ariia 2lock" height="56" style="display:block;height:56px;width:auto;border:0;outline:none;text-decoration:none;background:transparent;" />
+              <img src="${LOGO_URL}" alt="Ariia 2lock" height="56" style="display:block;height:56px;width:auto;border:0;outline:none;text-decoration:none;background:transparent;" />
             </td>
           </tr>
           <tr>
