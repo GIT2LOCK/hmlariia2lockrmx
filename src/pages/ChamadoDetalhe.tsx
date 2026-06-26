@@ -256,72 +256,28 @@ export default function ChamadoDetalhe() {
     setSalvandoComent(true);
     try {
       const conteudo = novoComentario.trim() || "(somente anexos)";
-
-      if (isCliente) {
-        // Cliente: rota via edge function para contornar RLS sem sessão Supabase Auth.
-        const uploaded = await uploadAttachmentsAsCliente();
-        const sessionToken = localStorage.getItem("auth_token") || "";
-        const { data, error } = await supabase.functions.invoke("add-ticket-comment-cliente", {
-          body: { ticket_id: ticketId, conteudo, attachments: uploaded },
-          headers: { Authorization: `Bearer ${sessionToken}` },
-        });
-        if (error || !data?.comment_id) {
-          toast({
-            title: "Não foi possível adicionar a mensagem. Tente novamente.",
-            description: error?.message || (data as any)?.error,
-            variant: "destructive",
-          });
-          return;
-        }
-        setNovoComentario("");
-        setCommentFiles([]);
-        await load();
-        return;
-      }
-
-      const { data: inserted, error } = await supabase.from("ticket_comments").insert({
-        ticket_id: ticketId,
-        conteudo,
-        tipo: tipoComent,
-        autor_id: user?.id ? Number(user.id) : null,
-        autor_nome: user?.nome || null,
-      }).select("id").maybeSingle();
-      if (error || !inserted?.id) {
+      const uploaded = await uploadAttachmentsAsCliente();
+      const sessionToken = localStorage.getItem("auth_token") || "";
+      const { data, error } = await supabase.functions.invoke("add-ticket-comment-cliente", {
+        body: {
+          ticket_id: ticketId,
+          conteudo,
+          attachments: uploaded,
+          tipo: isCliente ? "CLIENTE" : tipoComent,
+        },
+        headers: { Authorization: `Bearer ${sessionToken}` },
+      });
+      if (error || !data?.comment_id) {
         toast({
           title: "Não foi possível adicionar a mensagem. Tente novamente.",
-          description: translateTicketError(error?.message),
+          description: error?.message || (data as any)?.error,
           variant: "destructive",
         });
         return;
       }
-
-      if (commentFiles.length > 0) {
-        await uploadCommentAttachments(inserted.id);
-      }
-
-      await logTicketEvent({
-        ticketId,
-        campo: "comentario",
-        valorNovo: tipoComent,
-        observacao: conteudo.slice(0, 500),
-        user,
-      });
-
-      if (tipoComent === "CLIENTE" && ticket?.solicitante_email) {
-        supabase.functions
-          .invoke("send-email-notification", {
-            body: { ticket_id: ticketId, comment_id: inserted.id },
-          })
-          .then(({ error: fnErr }) => {
-            if (fnErr) console.error("[notify] erro", fnErr);
-          });
-      }
-
-
-
       setNovoComentario("");
       setCommentFiles([]);
-      toast({ title: "Mensagem adicionada ao chamado." });
+      if (!isCliente) toast({ title: "Mensagem adicionada ao chamado." });
       await load();
     } finally {
       setSalvandoComent(false);
