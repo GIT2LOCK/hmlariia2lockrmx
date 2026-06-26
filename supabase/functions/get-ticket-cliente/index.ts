@@ -45,35 +45,6 @@ serve(async (req) => {
     .maybeSingle();
 
   if (!user || !user.ativo) return json({ error: "usuario_invalido" }, 403);
-  if (user.permissao !== "CLIENTE") return json({ error: "only_cliente" }, 403);
-
-  // Unidades vinculadas ao cliente
-  const unidadeIds: number[] = [];
-  if (user.email) {
-    const { data: contatos } = await supabase
-      .from("contatos")
-      .select("id, unidade_id, cobre_empresa_inteira, empresa_id")
-      .ilike("email", user.email);
-
-    for (const c of contatos ?? []) {
-      if (typeof c.unidade_id === "number") unidadeIds.push(c.unidade_id);
-    }
-    const contatoIds = (contatos ?? []).map((c: any) => c.id);
-    if (contatoIds.length > 0) {
-      const { data: cu } = await supabase
-        .from("contato_unidades")
-        .select("unidade_id")
-        .in("contato_id", contatoIds);
-      for (const r of cu ?? []) if (typeof r.unidade_id === "number") unidadeIds.push(r.unidade_id);
-    }
-    const empresasCobertura = (contatos ?? [])
-      .filter((c: any) => c.cobre_empresa_inteira && c.empresa_id)
-      .map((c: any) => c.empresa_id);
-    if (empresasCobertura.length > 0) {
-      const { data: us } = await supabase.from("unidades").select("id").in("empresa_id", empresasCobertura);
-      for (const r of us ?? []) unidadeIds.push(r.id);
-    }
-  }
 
   const { data: ticket, error: tErr } = await supabase
     .from("tickets")
@@ -90,13 +61,57 @@ serve(async (req) => {
   if (tErr) return json({ error: tErr.message }, 500);
   if (!ticket) return json({ error: "nao_encontrado" }, 404);
 
-  // Autorização: ticket deve ser do próprio cliente OU de unidade vinculada
-  const ownsTicket = ticket.criado_por === usuarioId;
-  const inUnits = ticket.unidade_id && unidadeIds.includes(ticket.unidade_id);
-  const sameEmpresa = !user.empresa_id || ticket.empresa_id === user.empresa_id;
-  if (!sameEmpresa || (!ownsTicket && !inUnits)) {
-    return json({ error: "sem_acesso" }, 403);
+  const perm = user.permissao;
+  const isAdmin = perm === "SUPERADMIN" || perm === "ADMIN";
+  let autorizado = isAdmin;
+
+  if (!autorizado && perm === "CLIENTE") {
+    const unidadeIds: number[] = [];
+    if (user.email) {
+      const { data: contatos } = await supabase
+        .from("contatos")
+        .select("id, unidade_id, cobre_empresa_inteira, empresa_id")
+        .ilike("email", user.email);
+      for (const c of contatos ?? []) {
+        if (typeof c.unidade_id === "number") unidadeIds.push(c.unidade_id);
+      }
+      const contatoIds = (contatos ?? []).map((c: any) => c.id);
+      if (contatoIds.length > 0) {
+        const { data: cu } = await supabase
+          .from("contato_unidades")
+          .select("unidade_id")
+          .in("contato_id", contatoIds);
+        for (const r of cu ?? []) if (typeof r.unidade_id === "number") unidadeIds.push(r.unidade_id);
+      }
+      const empresasCobertura = (contatos ?? [])
+        .filter((c: any) => c.cobre_empresa_inteira && c.empresa_id)
+        .map((c: any) => c.empresa_id);
+      if (empresasCobertura.length > 0) {
+        const { data: us } = await supabase.from("unidades").select("id").in("empresa_id", empresasCobertura);
+        for (const r of us ?? []) unidadeIds.push((r as any).id);
+      }
+    }
+    const ownsTicket = ticket.criado_por === usuarioId;
+    const inUnits = ticket.unidade_id && unidadeIds.includes(ticket.unidade_id);
+    const sameEmpresa = !user.empresa_id || ticket.empresa_id === user.empresa_id;
+    autorizado = sameEmpresa && (ownsTicket || !!inUnits);
+  } else if (!autorizado) {
+    // Técnico/USER: dono, atribuído, ou membro do grupo
+    if (ticket.criado_por === usuarioId || ticket.tecnico_id === usuarioId || ticket.assigned_by === usuarioId) {
+      autorizado = true;
+    } else if (ticket.assigned_group_id) {
+      const { data: m } = await supabase
+        .from("support_group_members")
+        .select("usuario_id")
+        .eq("group_id", ticket.assigned_group_id)
+        .eq("usuario_id", usuarioId)
+        .eq("ativo", true)
+        .maybeSingle();
+      autorizado = !!m;
+    }
   }
+
+  if (!autorizado) return json({ error: "sem_acesso" }, 403);
 
   const [c, h, a] = await Promise.all([
     supabase.from("ticket_comments").select("*").eq("ticket_id", ticketId).order("criado_em", { ascending: true }),
