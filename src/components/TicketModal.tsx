@@ -48,6 +48,8 @@ interface Props {
 }
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
   const { user } = useUser();
@@ -273,11 +275,18 @@ export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
     try {
       const ariiaToken = localStorage.getItem("auth_token");
       if (!ariiaToken) throw new Error("Sessão expirada. Faça login novamente.");
-      const { data: res, error: fnErr } = await supabase.functions.invoke("save-ticket", {
-        body: { ticket_id: ticketId ?? null, payload },
-        headers: { Authorization: `Bearer ${ariiaToken}` },
+
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/save-ticket`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${ariiaToken}`,
+        },
+        body: JSON.stringify({ ticket_id: ticketId ?? null, payload }),
       });
-      if (fnErr) throw fnErr;
+      const res = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(res?.error || `save-ticket status=${response.status}`);
       if (res?.error) throw new Error(res.error);
       savedId = res?.ticket_id ?? savedId;
       beforeRow = res?.before ?? null;
