@@ -268,22 +268,26 @@ export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
     };
 
     let savedId = ticketId || null;
-    let error;
     let beforeRow: any = null;
-    if (ticketId) {
-      const { data: cur } = await supabase.from("tickets").select("*").eq("id", ticketId).maybeSingle();
-      beforeRow = cur;
-      ({ error } = await supabase.from("tickets").update(payload).eq("id", ticketId));
-    } else {
-      payload.criado_por = user?.id ? Number(user.id) : null;
-      const { data, error: insErr } = await supabase.from("tickets").insert(payload).select("id").maybeSingle();
-      error = insErr;
-      savedId = data?.id || null;
+    let errMsg: string | null = null;
+    try {
+      const ariiaToken = localStorage.getItem("auth_token");
+      if (!ariiaToken) throw new Error("Sessão expirada. Faça login novamente.");
+      const { data: res, error: fnErr } = await supabase.functions.invoke("save-ticket", {
+        body: { ticket_id: ticketId ?? null, payload },
+        headers: { Authorization: `Bearer ${ariiaToken}` },
+      });
+      if (fnErr) throw fnErr;
+      if (res?.error) throw new Error(res.error);
+      savedId = res?.ticket_id ?? savedId;
+      beforeRow = res?.before ?? null;
+    } catch (e: any) {
+      errMsg = e?.message || String(e);
     }
-    if (error) {
+    if (errMsg) {
       setLoading(false);
       const { translateTicketError } = await import("@/components/tickets/TicketAttachmentList");
-      toast({ title: "Erro ao salvar", description: translateTicketError(error.message), variant: "destructive" });
+      toast({ title: "Erro ao salvar", description: translateTicketError(errMsg), variant: "destructive" });
       return;
     }
 
