@@ -35,3 +35,6 @@ verify_jwt = false
 
 [functions.list-tickets]
 verify_jwt = false
+
+[functions.save-ticket]
+verify_jwt = false
