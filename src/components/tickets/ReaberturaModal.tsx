@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
 import { logTicketEvent } from "@/lib/ticketHistory";
+import { updateTicketViaEdge } from "@/lib/ticketActions";
 
 interface Props {
   open: boolean;
@@ -40,37 +41,24 @@ export function ReaberturaModal({ open, onOpenChange, ticket, onReopened }: Prop
       data_solucao: null,
       data_fechamento: null,
     };
-    const { error } = await supabase.from("tickets").update(update).eq("id", ticket.id);
-    if (error) {
+    try {
+      await updateTicketViaEdge({
+        ticketId: ticket.id,
+        updates: update,
+        history: [
+          { campo: "status", valorAnterior: previousStatus, valorNovo: newStatus },
+          { campo: "reabertura", valorAnterior: previousStatus, valorNovo: newStatus, observacao: motivo.trim() },
+        ],
+        comment: {
+          conteudo: `Chamado reaberto. Motivo: ${motivo.trim()}`,
+          tipo: "INTERNO",
+        },
+      });
+    } catch (e: any) {
       setSaving(false);
-      toast({ title: "Erro ao reabrir", description: error.message, variant: "destructive" });
+      toast({ title: "Erro ao reabrir", description: e?.message || String(e), variant: "destructive" });
       return;
     }
-
-    await logTicketEvent({
-      ticketId: ticket.id,
-      campo: "status",
-      valorAnterior: previousStatus,
-      valorNovo: newStatus,
-      user,
-    });
-
-    await logTicketEvent({
-      ticketId: ticket.id,
-      campo: "reabertura",
-      valorAnterior: previousStatus,
-      valorNovo: newStatus,
-      observacao: motivo.trim(),
-      user,
-    });
-
-    await supabase.from("ticket_comments").insert({
-      ticket_id: ticket.id,
-      conteudo: `Chamado reaberto. Motivo: ${motivo.trim()}`,
-      tipo: "INTERNO",
-      autor_id: user?.id ? Number(user.id) : null,
-      autor_nome: user?.nome || null,
-    });
 
     setSaving(false);
     setMotivo("");
