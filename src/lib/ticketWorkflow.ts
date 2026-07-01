@@ -3,6 +3,7 @@
 // Cria notificações em ticket_notifications para os destinatários.
 
 import { supabase } from "@/integrations/supabase/client";
+import { updateTicketViaEdge } from "@/lib/ticketActions";
 
 export type TicketNivel = "N1" | "N2" | "N3";
 
@@ -18,26 +19,6 @@ interface BaseTicket {
   fila_id?: number | null;
   nivel_escalonamento?: TicketNivel | null;
   status?: string | null;
-}
-
-/** Insere um evento em ticket_history. */
-async function logEvent(params: {
-  ticketId: number;
-  campo: string;
-  valorAnterior?: string | null;
-  valorNovo?: string | null;
-  observacao?: string | null;
-  user: ActionUser | null | undefined;
-}) {
-  await supabase.from("ticket_history").insert({
-    ticket_id: params.ticketId,
-    campo: params.campo,
-    valor_anterior: params.valorAnterior ?? null,
-    valor_novo: params.valorNovo ?? null,
-    observacao: params.observacao ?? null,
-    autor_id: params.user?.id ?? null,
-    autor_nome: params.user?.nome ?? null,
-  });
 }
 
 async function notify(usuarioId: number | null | undefined, ticketId: number, tipo: string, mensagem: string) {
@@ -87,21 +68,20 @@ export async function atribuirResponsavel(opts: {
     assigned_by: user.id,
     assigned_at: now,
   };
-  const { error } = await supabase.from("tickets").update(update).eq("id", ticket.id);
-  if (error) throw error;
-
   const oldTecNome = await getUserName(ticket.tecnico_id);
   const newTecNome = await getUserName(novoTecnicoId);
   const oldGrpNome = await getGroupName(ticket.assigned_group_id);
   const newGrpNome = await getGroupName(novaEquipeId);
 
-  await logEvent({
+  await updateTicketViaEdge({
     ticketId: ticket.id,
-    campo: "assigned",
-    valorAnterior: [oldTecNome, oldGrpNome].filter(Boolean).join(" / ") || null,
-    valorNovo: [newTecNome, newGrpNome].filter(Boolean).join(" / ") || null,
-    observacao: motivo || `Atribuído por ${user.nome}`,
-    user,
+    updates: update,
+    history: [{
+      campo: "assigned",
+      valorAnterior: [oldTecNome, oldGrpNome].filter(Boolean).join(" / ") || null,
+      valorNovo: [newTecNome, newGrpNome].filter(Boolean).join(" / ") || null,
+      observacao: motivo || `Atribuído por ${user.nome}`,
+    }],
   });
 
   if (novoTecnicoId && novoTecnicoId !== ticket.tecnico_id) {
@@ -128,21 +108,17 @@ export async function alterarResponsavel(opts: {
   const { ticket, novoTecnicoId, motivo, observacao, user } = opts;
   if (!motivo?.trim()) throw new Error("Motivo é obrigatório.");
   const now = new Date().toISOString();
-  const { error } = await supabase
-    .from("tickets")
-    .update({ tecnico_id: novoTecnicoId, assigned_by: user.id, assigned_at: now })
-    .eq("id", ticket.id);
-  if (error) throw error;
-
   const oldNome = (await getUserName(ticket.tecnico_id)) || "—";
   const newNome = (await getUserName(novoTecnicoId)) || "—";
-  await logEvent({
+  await updateTicketViaEdge({
     ticketId: ticket.id,
-    campo: "tecnico_id",
-    valorAnterior: oldNome,
-    valorNovo: newNome,
-    observacao: [motivo, observacao].filter(Boolean).join(" — "),
-    user,
+    updates: { tecnico_id: novoTecnicoId, assigned_by: user.id, assigned_at: now },
+    history: [{
+      campo: "tecnico_id",
+      valorAnterior: oldNome,
+      valorNovo: newNome,
+      observacao: [motivo, observacao].filter(Boolean).join(" — "),
+    }],
   });
 
   if (novoTecnicoId) {
@@ -169,18 +145,17 @@ export async function transferirTecnico(opts: {
     assigned_at: now,
   };
   if (novaFilaId !== undefined && novaFilaId !== null) update.fila_id = novaFilaId;
-  const { error } = await supabase.from("tickets").update(update).eq("id", ticket.id);
-  if (error) throw error;
-
   const oldNome = (await getUserName(ticket.tecnico_id)) || "—";
   const newNome = (await getUserName(destinoTecnicoId)) || "—";
-  await logEvent({
+  await updateTicketViaEdge({
     ticketId: ticket.id,
-    campo: "transferred_user",
-    valorAnterior: oldNome,
-    valorNovo: newNome,
-    observacao: [motivo, observacao].filter(Boolean).join(" — "),
-    user,
+    updates: update,
+    history: [{
+      campo: "transferred_user",
+      valorAnterior: oldNome,
+      valorNovo: newNome,
+      observacao: [motivo, observacao].filter(Boolean).join(" — "),
+    }],
   });
 
   if (notificarDestino) {
@@ -209,18 +184,17 @@ export async function transferirGrupo(opts: {
   };
   if (novaFilaId !== undefined && novaFilaId !== null) update.fila_id = novaFilaId;
 
-  const { error } = await supabase.from("tickets").update(update).eq("id", ticket.id);
-  if (error) throw error;
-
   const oldGrpNome = (await getGroupName(ticket.assigned_group_id)) || "—";
   const newGrpNome = (await getGroupName(destinoGrupoId)) || "—";
-  await logEvent({
+  await updateTicketViaEdge({
     ticketId: ticket.id,
-    campo: "transferred_group",
-    valorAnterior: oldGrpNome,
-    valorNovo: newGrpNome,
-    observacao: [motivo, observacao].filter(Boolean).join(" — "),
-    user,
+    updates: update,
+    history: [{
+      campo: "transferred_group",
+      valorAnterior: oldGrpNome,
+      valorNovo: newGrpNome,
+      observacao: [motivo, observacao].filter(Boolean).join(" — "),
+    }],
   });
 
   const members = await getGroupMembers(destinoGrupoId);
@@ -258,16 +232,15 @@ export async function alterarNivel(opts: {
     update.assigned_at = now;
   }
 
-  const { error } = await supabase.from("tickets").update(update).eq("id", ticket.id);
-  if (error) throw error;
-
-  await logEvent({
+  await updateTicketViaEdge({
     ticketId: ticket.id,
-    campo: isEscalonar ? "escalated" : "demoted",
-    valorAnterior: atual,
-    valorNovo: novoNivel,
-    observacao: [motivo, observacao].filter(Boolean).join(" — "),
-    user,
+    updates: update,
+    history: [{
+      campo: isEscalonar ? "escalated" : "demoted",
+      valorAnterior: atual,
+      valorNovo: novoNivel,
+      observacao: [motivo, observacao].filter(Boolean).join(" — "),
+    }],
   });
 
   if (destinoTecnicoId) {
@@ -289,19 +262,19 @@ export async function moverFila(opts: {
   user: ActionUser;
 }) {
   const { ticket, novaFilaId, motivo, user } = opts;
-  const { error } = await supabase.from("tickets").update({ fila_id: novaFilaId }).eq("id", ticket.id);
-  if (error) throw error;
   const oldNome = ticket.fila_id
     ? (await supabase.from("ticket_filas").select("nome").eq("id", ticket.fila_id).maybeSingle()).data?.nome || null
     : null;
   const newNome = (await supabase.from("ticket_filas").select("nome").eq("id", novaFilaId).maybeSingle()).data?.nome || null;
-  await logEvent({
+  await updateTicketViaEdge({
     ticketId: ticket.id,
-    campo: "fila_id",
-    valorAnterior: oldNome,
-    valorNovo: newNome,
-    observacao: motivo || null,
-    user,
+    updates: { fila_id: novaFilaId },
+    history: [{
+      campo: "fila_id",
+      valorAnterior: oldNome,
+      valorNovo: newNome,
+      observacao: motivo || null,
+    }],
   });
 }
 
@@ -320,15 +293,15 @@ export async function marcarAguardandoCliente(opts: {
     aguardando_cliente_desde: now,
     sla_pausa_inicio: now,
   };
-  const { error } = await supabase.from("tickets").update(update).eq("id", ticket.id);
-  if (error) throw error;
-  await logEvent({
+  await updateTicketViaEdge({
     ticketId: ticket.id,
-    campo: "aguardando_cliente",
-    valorAnterior: ticket.status || null,
-    valorNovo: "AGUARDANDO_CLIENTE",
-    observacao: motivo,
-    user,
+    updates: update,
+    history: [{
+      campo: "aguardando_cliente",
+      valorAnterior: ticket.status || null,
+      valorNovo: "AGUARDANDO_CLIENTE",
+      observacao: motivo,
+    }],
   });
 }
 
@@ -352,15 +325,15 @@ export async function retomarAtendimento(opts: {
     update.sla_pausa_inicio = null;
     update.sla_pausa_total_segundos = acc;
   }
-  const { error } = await supabase.from("tickets").update(update).eq("id", ticket.id);
-  if (error) throw error;
-  await logEvent({
+  await updateTicketViaEdge({
     ticketId: ticket.id,
-    campo: "aguardando_cliente",
-    valorAnterior: "AGUARDANDO_CLIENTE",
-    valorNovo: "EM_ATENDIMENTO",
-    observacao: observacao || "Atendimento retomado",
-    user,
+    updates: update,
+    history: [{
+      campo: "aguardando_cliente",
+      valorAnterior: "AGUARDANDO_CLIENTE",
+      valorNovo: "EM_ATENDIMENTO",
+      observacao: observacao || "Atendimento retomado",
+    }],
   });
 }
 

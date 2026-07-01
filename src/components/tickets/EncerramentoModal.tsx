@@ -17,10 +17,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { useUser } from "@/contexts/UserContext";
-import { logTicketEvent } from "@/lib/ticketHistory";
+import { updateTicketViaEdge } from "@/lib/ticketActions";
 
 export const MOTIVOS_ENCERRAMENTO = [
   { value: "PROBLEMA_RESOLVIDO", label: "Problema resolvido" },
@@ -39,7 +37,6 @@ interface Props {
 }
 
 export function EncerramentoModal({ open, onOpenChange, ticket, onClosed }: Props) {
-  const { user } = useUser();
   const [diagnostico, setDiagnostico] = useState("");
   const [procedimentos, setProcedimentos] = useState("");
   const [correcao, setCorrecao] = useState("");
@@ -105,40 +102,24 @@ export function EncerramentoModal({ open, onOpenChange, ticket, onClosed }: Prop
       update.sla_pausa_total_segundos = acc;
     }
 
-    const { error } = await supabase.from("tickets").update(update).eq("id", ticket.id);
-    if (error) {
+    try {
+      await updateTicketViaEdge({
+        ticketId: ticket.id,
+        updates: update,
+        history: [
+          { campo: "status", valorAnterior: ticket.status, valorNovo: "RESOLVIDO" },
+          { campo: "encerramento", valorAnterior: null, valorNovo: motivoLabel, observacao: solucao },
+        ],
+        comment: {
+          conteudo: `Encerramento — ${motivoLabel}\n\n${solucao}`,
+          tipo: "INTERNO",
+        },
+      });
+    } catch (e: any) {
       setSaving(false);
-      toast({ title: "Erro ao encerrar", description: error.message, variant: "destructive" });
+      toast({ title: "Erro ao encerrar", description: e?.message || String(e), variant: "destructive" });
       return;
     }
-
-    // 2. Status transition history
-    await logTicketEvent({
-      ticketId: ticket.id,
-      campo: "status",
-      valorAnterior: ticket.status,
-      valorNovo: "RESOLVIDO",
-      user,
-    });
-
-    // 3. Encerramento history (with solution as observation)
-    await logTicketEvent({
-      ticketId: ticket.id,
-      campo: "encerramento",
-      valorAnterior: null,
-      valorNovo: motivoLabel,
-      observacao: solucao,
-      user,
-    });
-
-    // 4. Internal comment with the solution so it shows up in the conversation
-    await supabase.from("ticket_comments").insert({
-      ticket_id: ticket.id,
-      conteudo: `Encerramento — ${motivoLabel}\n\n${solucao}`,
-      tipo: "INTERNO",
-      autor_id: user?.id ? Number(user.id) : null,
-      autor_nome: user?.nome || null,
-    });
 
     setSaving(false);
     toast({ title: "Chamado encerrado" });
