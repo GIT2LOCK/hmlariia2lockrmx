@@ -21,26 +21,6 @@ interface BaseTicket {
   status?: string | null;
 }
 
-/** Insere um evento em ticket_history. */
-async function logEvent(params: {
-  ticketId: number;
-  campo: string;
-  valorAnterior?: string | null;
-  valorNovo?: string | null;
-  observacao?: string | null;
-  user: ActionUser | null | undefined;
-}) {
-  await supabase.from("ticket_history").insert({
-    ticket_id: params.ticketId,
-    campo: params.campo,
-    valor_anterior: params.valorAnterior ?? null,
-    valor_novo: params.valorNovo ?? null,
-    observacao: params.observacao ?? null,
-    autor_id: params.user?.id ?? null,
-    autor_nome: params.user?.nome ?? null,
-  });
-}
-
 async function notify(usuarioId: number | null | undefined, ticketId: number, tipo: string, mensagem: string) {
   if (!usuarioId) return;
   await supabase.from("ticket_notifications").insert({

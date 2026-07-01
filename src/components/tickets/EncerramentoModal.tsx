@@ -17,10 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { useUser } from "@/contexts/UserContext";
-import { logTicketEvent } from "@/lib/ticketHistory";
 import { updateTicketViaEdge } from "@/lib/ticketActions";
 
 export const MOTIVOS_ENCERRAMENTO = [
@@ -40,7 +37,6 @@ interface Props {
 }
 
 export function EncerramentoModal({ open, onOpenChange, ticket, onClosed }: Props) {
-  const { user } = useUser();
   const [diagnostico, setDiagnostico] = useState("");
   const [procedimentos, setProcedimentos] = useState("");
   const [correcao, setCorrecao] = useState("");

@@ -9,10 +9,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { useUser } from "@/contexts/UserContext";
-import { logTicketEvent } from "@/lib/ticketHistory";
 import { updateTicketViaEdge } from "@/lib/ticketActions";
 
 interface Props {
@@ -23,7 +20,6 @@ interface Props {
 }
 
 export function ReaberturaModal({ open, onOpenChange, ticket, onReopened }: Props) {
-  const { user } = useUser();
   const [motivo, setMotivo] = useState("");
   const [saving, setSaving] = useState(false);
 
