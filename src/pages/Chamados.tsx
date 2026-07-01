@@ -44,6 +44,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useUser } from "@/contexts/UserContext";
 import { canManageTicketAssignment, clientStatusLabel, isCliente as isClienteRole } from "@/lib/permissions";
+import { buildStatusUpdate, updateTicketViaEdge } from "@/lib/ticketActions";
 
 interface TicketRow {
   id: number;
@@ -170,35 +171,16 @@ export default function Chamados() {
   const changeStatus = async (id: number, status: TicketStatus) => {
     const t = tickets.find((x) => x.id === id);
     if (!t) return;
-    const now = new Date().toISOString();
-    const update: any = { status };
-
-    const wasPaused = ["AGUARDANDO_CLIENTE","AGUARDANDO_OPERADORA","AGUARDANDO_TERCEIRO","AGENDADO","TRIAGEM"].includes(t.status);
-    const willPause = ["AGUARDANDO_CLIENTE","AGUARDANDO_OPERADORA","AGUARDANDO_TERCEIRO","AGENDADO","TRIAGEM"].includes(status);
-
-    if (!wasPaused && willPause) {
-      update.sla_pausa_inicio = now;
-    } else if (wasPaused && !willPause && t.sla_pausa_inicio) {
-      const acc = (t.sla_pausa_total_segundos || 0) + Math.round((Date.now() - new Date(t.sla_pausa_inicio).getTime()) / 1000);
-      update.sla_pausa_inicio = null;
-      update.sla_pausa_total_segundos = acc;
-    }
-
-    if (status === "EM_ATENDIMENTO" && !t.data_primeiro_atendimento) {
-      update.data_primeiro_atendimento = now;
-    }
-    if (status === "RESOLVIDO" && !t.data_solucao) update.data_solucao = now;
-    if (status === "FECHADO") update.data_fechamento = now;
-
-    const { error } = await supabase.from("tickets").update(update).eq("id", id);
-    if (error) {
-      toast({ title: "Erro", description: error.message, variant: "destructive" });
+    try {
+      await updateTicketViaEdge({
+        ticketId: id,
+        updates: buildStatusUpdate(t, status),
+        history: [{ campo: "status", valorAnterior: t.status, valorNovo: status }],
+      });
+    } catch (e: any) {
+      toast({ title: "Erro", description: e?.message || String(e), variant: "destructive" });
       return;
     }
-    await supabase.from("ticket_history").insert({
-      ticket_id: id, campo: "status",
-      valor_anterior: t.status, valor_novo: status,
-    });
     toast({ title: "Status atualizado" });
     load();
   };
@@ -206,13 +188,20 @@ export default function Chamados() {
   const assignTo = async (id: number, tecnico_id: number | null) => {
     const t = tickets.find((x) => x.id === id);
     if (!t) return;
-    const { error } = await supabase.from("tickets").update({ tecnico_id }).eq("id", id);
-    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
-    await supabase.from("ticket_history").insert({
-      ticket_id: id, campo: "tecnico_id",
-      valor_anterior: t.tecnico_id?.toString() || null,
-      valor_novo: tecnico_id?.toString() || null,
-    });
+    try {
+      await updateTicketViaEdge({
+        ticketId: id,
+        updates: { tecnico_id },
+        history: [{
+          campo: "tecnico_id",
+          valorAnterior: t.tecnico_id?.toString() || null,
+          valorNovo: tecnico_id?.toString() || null,
+        }],
+      });
+    } catch (e: any) {
+      toast({ title: "Erro", description: e?.message || String(e), variant: "destructive" });
+      return;
+    }
     toast({ title: "Técnico atribuído" });
     load();
   };

@@ -39,6 +39,7 @@ import { ptBR } from "date-fns/locale";
 import DOMPurify from "dompurify";
 import { isCliente as isClienteRole, clientStatusLabel } from "@/lib/permissions";
 import { TicketAttachmentList, translateTicketError, type AttachmentRow } from "@/components/tickets/TicketAttachmentList";
+import { buildStatusUpdate, updateTicketViaEdge } from "@/lib/ticketActions";
 
 function isHtmlContent(s?: string | null): boolean {
   if (!s) return false;
@@ -162,27 +163,16 @@ export default function ChamadoDetalhe() {
       return;
     }
 
-    const now = new Date().toISOString();
-    const update: any = { status };
-    const wasPaused = ["AGUARDANDO_CLIENTE","AGUARDANDO_OPERADORA","AGUARDANDO_TERCEIRO","AGENDADO","TRIAGEM"].includes(ticket.status);
-    const willPause = ["AGUARDANDO_CLIENTE","AGUARDANDO_OPERADORA","AGUARDANDO_TERCEIRO","AGENDADO","TRIAGEM"].includes(status);
-    if (!wasPaused && willPause) update.sla_pausa_inicio = now;
-    else if (wasPaused && !willPause && ticket.sla_pausa_inicio) {
-      const acc = (ticket.sla_pausa_total_segundos || 0) + Math.round((Date.now() - new Date(ticket.sla_pausa_inicio).getTime()) / 1000);
-      update.sla_pausa_inicio = null;
-      update.sla_pausa_total_segundos = acc;
+    try {
+      await updateTicketViaEdge({
+        ticketId,
+        updates: buildStatusUpdate(ticket, status),
+        history: [{ campo: "status", valorAnterior: ticket.status, valorNovo: status }],
+      });
+    } catch (e: any) {
+      toast({ title: "Erro", description: translateTicketError(e?.message || String(e)), variant: "destructive" });
+      return;
     }
-    if (status === "EM_ATENDIMENTO" && !ticket.data_primeiro_atendimento) update.data_primeiro_atendimento = now;
-    if (status === "RESOLVIDO" && !ticket.data_solucao) update.data_solucao = now;
-    if (status === "FECHADO") update.data_fechamento = now;
-
-    const { error } = await supabase.from("tickets").update(update).eq("id", ticketId);
-    if (error) { toast({ title: "Erro", description: translateTicketError(error.message), variant: "destructive" }); return; }
-    await logTicketEvent({
-      ticketId, campo: "status",
-      valorAnterior: ticket.status, valorNovo: status,
-      user,
-    });
     toast({ title: "Status atualizado" });
     load();
   };
