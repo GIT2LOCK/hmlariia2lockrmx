@@ -979,7 +979,22 @@ export type Database = {
           role_in_group?: Database["public"]["Enums"]["support_group_role"]
           usuario_id?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "support_group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "support_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_group_members_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       support_groups: {
         Row: {
