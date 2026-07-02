@@ -571,6 +571,7 @@ function TransferirGrupoModal({ open, onClose, ticket, groups, tecnicos, filas, 
   const [outro, setOutro] = useState("");
   const [obs, setObs] = useState("");
   const [novaFila, setNovaFila] = useState<string>("");
+  const { members: grpMembers, loading: loadingGrpMembers } = useGroupMembers(grpId);
   useEffect(() => { if (open) { setGrpId(""); setTecId(""); setMotivo(""); setOutro(""); setObs(""); setNovaFila(""); } }, [open]);
   const submit = async () => {
     const motivoFinal = motivo === "Outro" ? outro.trim() : motivo;
