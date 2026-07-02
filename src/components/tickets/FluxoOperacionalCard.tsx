@@ -605,11 +605,17 @@ function TransferirGrupoModal({ open, onClose, ticket, groups, tecnicos, filas, 
             </Select>
           </div>
           <div>
-            <Label>Técnico (opcional)</Label>
-            <Select value={tecId} onValueChange={setTecId}>
-              <SelectTrigger><SelectValue placeholder="Deixar sem técnico" /></SelectTrigger>
+            <Label>Técnico (opcional, membros da equipe)</Label>
+            <Select value={tecId} onValueChange={setTecId} disabled={!grpId}>
+              <SelectTrigger>
+                <SelectValue placeholder={!grpId ? "Selecione a equipe primeiro" : (loadingGrpMembers ? "Carregando…" : "Deixar sem técnico")} />
+              </SelectTrigger>
               <SelectContent>
-                {tecnicos.map((t: any) => <SelectItem key={t.id} value={t.id.toString()}>{t.nome}</SelectItem>)}
+                <SelectItem value="0">— Sem técnico —</SelectItem>
+                {grpMembers.length === 0 && grpId && !loadingGrpMembers && (
+                  <div className="px-2 py-1.5 text-sm text-muted-foreground">Equipe sem membros</div>
+                )}
+                {grpMembers.map((t: any) => <SelectItem key={t.id} value={t.id.toString()}>{t.nome}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
