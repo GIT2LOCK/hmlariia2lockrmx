@@ -353,10 +353,40 @@ function MotivoSelect({
   );
 }
 
+function useGroupMembers(grpId: string) {
+  const [members, setMembers] = useState<{ id: number; nome: string }[]>([]);
+  const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    if (!grpId || grpId === "0") { setMembers([]); return; }
+    setLoading(true);
+    (async () => {
+      const { data } = await supabase
+        .from("support_group_members")
+        .select("usuario_id,usuarios:usuario_id(nome,ativo,permissao,access_scope)")
+        .eq("group_id", Number(grpId))
+        .eq("ativo", true);
+      const rows = ((data || []) as any[])
+        .filter((m) => {
+          const u = m.usuarios;
+          if (!u) return true;
+          if (u.ativo === false) return false;
+          if (u.permissao === "CLIENTE" || u.permissao === "VIEWER" || u.permissao === "TV_VIEW") return false;
+          if (u.access_scope && !["ARIIA_ONLY", "ARIIA_AND_GRAFANA"].includes(u.access_scope)) return false;
+          return true;
+        })
+        .map((m) => ({ id: m.usuario_id, nome: m.usuarios?.nome || `#${m.usuario_id}` }));
+      setMembers(rows);
+      setLoading(false);
+    })();
+  }, [grpId]);
+  return { members, loading };
+}
+
 function AtribuirModal({ open, onClose, ticket, tecnicos, groups, user, onDone }: any) {
   const [tecId, setTecId] = useState<string>("");
   const [grpId, setGrpId] = useState<string>("");
   const [obs, setObs] = useState("");
+  const { members, loading: loadingMembers } = useGroupMembers(grpId);
   useEffect(() => {
     if (open) {
       setTecId(ticket.tecnico_id?.toString() || "");
@@ -364,12 +394,13 @@ function AtribuirModal({ open, onClose, ticket, tecnicos, groups, user, onDone }
       setObs("");
     }
   }, [open]);
+  const tecOptions = grpId && grpId !== "0" ? members : tecnicos;
   const submit = async () => {
     try {
       await atribuirResponsavel({
         ticket,
-        novoTecnicoId: tecId ? Number(tecId) : null,
-        novaEquipeId: grpId ? Number(grpId) : null,
+        novoTecnicoId: tecId && tecId !== "0" ? Number(tecId) : null,
+        novaEquipeId: grpId && grpId !== "0" ? Number(grpId) : null,
         motivo: obs || "Atribuição",
         user,
       });
@@ -384,7 +415,7 @@ function AtribuirModal({ open, onClose, ticket, tecnicos, groups, user, onDone }
         <div className="space-y-3">
           <div>
             <Label>Equipe</Label>
-            <Select value={grpId} onValueChange={setGrpId}>
+            <Select value={grpId} onValueChange={(v) => { setGrpId(v); setTecId(""); }}>
               <SelectTrigger><SelectValue placeholder="Sem equipe" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="0">— Sem equipe —</SelectItem>
@@ -393,12 +424,17 @@ function AtribuirModal({ open, onClose, ticket, tecnicos, groups, user, onDone }
             </Select>
           </div>
           <div>
-            <Label>Técnico</Label>
+            <Label>Técnico {grpId && grpId !== "0" ? "(membros da equipe)" : ""}</Label>
             <Select value={tecId} onValueChange={setTecId}>
-              <SelectTrigger><SelectValue placeholder="Sem técnico" /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue placeholder={loadingMembers ? "Carregando…" : "Sem técnico"} />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="0">— Sem técnico —</SelectItem>
-                {tecnicos.map((t: any) => <SelectItem key={t.id} value={t.id.toString()}>{t.nome}</SelectItem>)}
+                {tecOptions.length === 0 && !loadingMembers && (
+                  <div className="px-2 py-1.5 text-sm text-muted-foreground">Nenhum técnico disponível nesta equipe</div>
+                )}
+                {tecOptions.map((t: any) => <SelectItem key={t.id} value={t.id.toString()}>{t.nome}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
