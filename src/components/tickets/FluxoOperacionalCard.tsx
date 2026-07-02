@@ -596,7 +596,7 @@ function TransferirGrupoModal({ open, onClose, ticket, groups, tecnicos, filas, 
         <div className="space-y-3">
           <div>
             <Label>Equipe de destino *</Label>
-            <Select value={grpId} onValueChange={setGrpId}>
+            <Select value={grpId} onValueChange={(v) => { setGrpId(v); setTecId(""); }}>
               <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
               <SelectContent>
                 {groups.filter((g: any) => g.id !== ticket.assigned_group_id).map((g: any) => (
