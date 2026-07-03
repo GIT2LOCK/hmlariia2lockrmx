@@ -134,8 +134,12 @@ export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
       setContatosAll((ct.data || []) as ContatoOpt[]);
 
       if (ticketId) {
-        const { data } = await supabase.from("tickets").select("*").eq("id", ticketId).maybeSingle();
-        if (data) {
+        const sessionToken = localStorage.getItem("auth_token") || "";
+        const { data: res } = await supabase.functions.invoke("get-ticket-cliente", {
+          body: { ticket_id: ticketId },
+          headers: { Authorization: `Bearer ${sessionToken}` },
+        });
+        const data = res?.ticket || null;
           setForm({
             titulo: data.titulo || "",
             descricao: data.descricao || "",
