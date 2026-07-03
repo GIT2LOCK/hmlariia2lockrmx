@@ -114,7 +114,7 @@ export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
         supabase.from("empresas").select("id,nome_fantasia").order("nome_fantasia"),
         supabase.from("unidades").select("id,nome_unidade,empresa_id").order("nome_unidade"),
         supabase.from("operadoras").select("id,nome").order("nome"),
-        supabase.from("ticket_filas").select("id,nome").eq("ativo", true).order("nome"),
+        supabase.from("support_groups").select("id,nome").eq("ativo", true).order("nome"),
         supabase.from("ticket_categorias").select("id,nome,parent_id").is("parent_id", null).order("nome"),
         supabase
           .from("usuarios")
