@@ -17,6 +17,7 @@ import { useUser } from "@/contexts/UserContext";
 import { Paperclip, X, Upload } from "lucide-react";
 import { logDiff } from "@/lib/ticketHistory";
 import {
+  CLOSED_STATUSES,
   PRIORITY_LABELS,
   PRIORITY_ORDER,
   SLA_ATENDIMENTO,
