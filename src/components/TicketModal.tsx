@@ -140,6 +140,7 @@ export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
           headers: { Authorization: `Bearer ${sessionToken}` },
         });
         const data = res?.ticket || null;
+        if (data) {
           setForm({
             titulo: data.titulo || "",
             descricao: data.descricao || "",
