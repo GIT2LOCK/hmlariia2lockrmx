@@ -383,9 +383,11 @@ export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
             <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as TicketStatus })}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                {STATUS_ORDER.map((s) => (
-                  <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>
-                ))}
+                {STATUS_ORDER
+                  .filter((s) => ticketId || !CLOSED_STATUSES.includes(s))
+                  .map((s) => (
+                    <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>
+                  ))}
               </SelectContent>
             </Select>
           </div>
