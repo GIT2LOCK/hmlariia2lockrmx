@@ -17,6 +17,7 @@ import { useUser } from "@/contexts/UserContext";
 import { Paperclip, X, Upload } from "lucide-react";
 import { logDiff } from "@/lib/ticketHistory";
 import {
+  CLOSED_STATUSES,
   PRIORITY_LABELS,
   PRIORITY_ORDER,
   SLA_ATENDIMENTO,
@@ -133,7 +134,12 @@ export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
       setContatosAll((ct.data || []) as ContatoOpt[]);
 
       if (ticketId) {
-        const { data } = await supabase.from("tickets").select("*").eq("id", ticketId).maybeSingle();
+        const sessionToken = localStorage.getItem("auth_token") || "";
+        const { data: res } = await supabase.functions.invoke("get-ticket-cliente", {
+          body: { ticket_id: ticketId },
+          headers: { Authorization: `Bearer ${sessionToken}` },
+        });
+        const data = res?.ticket || null;
         if (data) {
           setForm({
             titulo: data.titulo || "",
@@ -377,9 +383,11 @@ export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
             <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as TicketStatus })}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                {STATUS_ORDER.map((s) => (
-                  <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>
-                ))}
+                {STATUS_ORDER
+                  .filter((s) => ticketId || !CLOSED_STATUSES.includes(s))
+                  .map((s) => (
+                    <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>
+                  ))}
               </SelectContent>
             </Select>
           </div>
