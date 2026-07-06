@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Building2, MapPin, Radio, Wifi, Search, Monitor,
-  RefreshCw, ArrowLeft, HelpCircle, Cloud, Home, PawPrint, Activity,
+  RefreshCw, ArrowLeft, HelpCircle, Home, PawPrint, Activity,
   EyeOff, Eye,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -29,16 +29,16 @@ interface TicketData {
 
 // ─── Constants ───
 const ENTITIES = [
-  { id: "8", name: "GoodStorage", icon: Home },
-  { id: "1", name: "Brava", icon: Cloud },
-  { id: "7", name: "PetCare", icon: PawPrint },
+  { id: "1", name: "GoodStorage", icon: Home },
+  { id: "2", name: "PetCare", icon: PawPrint },
+  { id: "4", name: "Parceiros", icon: Building2 },
 ];
 const REFRESH_INTERVAL = 30_000;
 
 const ENTITY_COLORS: Record<string, string> = {
-  "8": "#ff9f43",
-  "7": "#3dd9b4",
-  "1": "#4da6ff",
+  "1": "#ff9f43",
+  "2": "#3dd9b4",
+  "4": "#4da6ff",
   indefinido: "#7c8ca1",
 };
 
@@ -335,16 +335,77 @@ const Dashboard = () => {
     return () => clearTimeout(t);
   }, [search]);
 
-  // Fetch tickets
+  // Fetch tickets from Ariia
   const fetchTickets = useCallback(async () => {
     try {
       setTicketError(null); setTicketLoading(true);
-      const pid = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-      const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-      const r = await fetch(`https://${pid}.supabase.co/functions/v1/glpi-proxy?action=ticket-counts`,
-        { headers: { apikey: key, "Content-Type": "application/json" } });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      setTicketData(await r.json()); setLastUpdate(new Date()); setSecAgo(0);
+      const STATUS_MAP: Record<string, "novo" | "em_andamento" | "pendente"> = {
+        NOVO: "novo",
+        TRIAGEM: "em_andamento",
+        EM_ATENDIMENTO: "em_andamento",
+        AGUARDANDO_CLIENTE: "pendente",
+        AGUARDANDO_OPERADORA: "pendente",
+        AGUARDANDO_TERCEIRO: "pendente",
+        AGENDADO: "pendente",
+      };
+      const OPEN_STATUSES = Object.keys(STATUS_MAP);
+      const nowD = new Date();
+      const from7 = new Date(nowD); from7.setDate(from7.getDate() - 6); from7.setHours(0, 0, 0, 0);
+      const from24 = new Date(nowD); from24.setHours(from24.getHours() - 24);
+
+      const [openRes, weekRes, dayRes] = await Promise.all([
+        supabase.from("tickets").select("empresa_id, status").in("status", OPEN_STATUSES as any),
+        supabase.from("tickets").select("empresa_id, data_abertura").gte("data_abertura", from7.toISOString()),
+        supabase.from("tickets").select("data_abertura").gte("data_abertura", from24.toISOString()),
+      ]);
+      if (openRes.error) throw openRes.error;
+
+      const entityTotals: Record<string, number> = {};
+      const byStatusEntity: Record<string, Record<string, number>> = { novo: {}, em_andamento: {}, pendente: {} };
+      (openRes.data || []).forEach((t: any) => {
+        const eid = t.empresa_id ? String(t.empresa_id) : "indefinido";
+        entityTotals[eid] = (entityTotals[eid] || 0) + 1;
+        const s = STATUS_MAP[t.status as string];
+        if (s) byStatusEntity[s][eid] = (byStatusEntity[s][eid] || 0) + 1;
+      });
+
+      const last7Days: Record<string, number> = {};
+      const last7DaysByEntity: Record<string, Record<string, number>> = {};
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(nowD); d.setDate(d.getDate() - i);
+        last7Days[d.toISOString().slice(0, 10)] = 0;
+      }
+      (weekRes.data || []).forEach((t: any) => {
+        const k = String(t.data_abertura).slice(0, 10);
+        if (k in last7Days) last7Days[k]++;
+        const eid = t.empresa_id ? String(t.empresa_id) : "indefinido";
+        last7DaysByEntity[eid] = last7DaysByEntity[eid] || {};
+        last7DaysByEntity[eid][k] = (last7DaysByEntity[eid][k] || 0) + 1;
+      });
+
+      const last24Hours: Record<string, number> = {};
+      for (let i = 23; i >= 0; i--) {
+        const d = new Date(nowD); d.setHours(d.getHours() - i, 0, 0, 0);
+        last24Hours[String(d.getHours()).padStart(2, "0") + "h"] = 0;
+      }
+      (dayRes.data || []).forEach((t: any) => {
+        const d = new Date(t.data_abertura);
+        const k = String(d.getHours()).padStart(2, "0") + "h";
+        if (k in last24Hours) last24Hours[k]++;
+      });
+
+      const totalOpen = (openRes.data || []).length;
+      setTicketData({
+        totalOpen,
+        byEntity: { ...entityTotals },
+        entityTotals,
+        byStatusEntity,
+        last7Days,
+        last7DaysByEntity,
+        last24Hours,
+        fetchedAt: new Date().toISOString(),
+      });
+      setLastUpdate(new Date()); setSecAgo(0);
     } catch (err) {
       console.error("TV fetch error:", err);
       setTicketError(err instanceof Error ? err.message : "Erro");
@@ -382,7 +443,7 @@ const Dashboard = () => {
     return Object.entries(ticketData.last7Days).map(([date]) => {
       const d = new Date(date + "T12:00:00");
       const be = ticketData.last7DaysByEntity || {};
-      return { name: dn[d.getDay()], GoodStorage: be["8"]?.[date] || 0, Brava: be["1"]?.[date] || 0, PetCare: be["7"]?.[date] || 0, Indefinido: be["indefinido"]?.[date] || 0 };
+      return { name: dn[d.getDay()], GoodStorage: be["1"]?.[date] || 0, PetCare: be["2"]?.[date] || 0, Parceiros: be["4"]?.[date] || 0, Indefinido: be["indefinido"]?.[date] || 0 };
     });
   }, [ticketData]);
 
@@ -585,18 +646,18 @@ const Dashboard = () => {
                         <XAxis dataKey="name" tick={{ fontSize: 11, fill: C.dim, fontWeight: 600 }} axisLine={{ stroke: C.grid }} tickLine={false} />
                         <YAxis tick={{ fontSize: 11, fill: C.dim }} allowDecimals={false} axisLine={{ stroke: C.grid }} tickLine={false} />
                         <Tooltip contentStyle={tooltipStyle} />
-                        <Area type="monotone" dataKey="GoodStorage" stroke={ENTITY_COLORS["8"]} strokeWidth={2.5} fill="url(#area-8)" dot={{ r: 4, fill: ENTITY_COLORS["8"], strokeWidth: 0 }} activeDot={{ r: 7, fill: ENTITY_COLORS["8"], stroke: ENTITY_COLORS["8"], strokeWidth: 3, strokeOpacity: 0.3 }} animationDuration={1800} animationBegin={600} />
-                        <Area type="monotone" dataKey="Brava" stroke={ENTITY_COLORS["1"]} strokeWidth={2.5} fill="url(#area-1)" dot={{ r: 4, fill: ENTITY_COLORS["1"], strokeWidth: 0 }} animationDuration={1800} animationBegin={800} />
-                        <Area type="monotone" dataKey="PetCare" stroke={ENTITY_COLORS["7"]} strokeWidth={2.5} fill="url(#area-7)" dot={{ r: 4, fill: ENTITY_COLORS["7"], strokeWidth: 0 }} animationDuration={1800} animationBegin={1000} />
+                        <Area type="monotone" dataKey="GoodStorage" stroke={ENTITY_COLORS["1"]} strokeWidth={2.5} fill="url(#area-1)" dot={{ r: 4, fill: ENTITY_COLORS["1"], strokeWidth: 0 }} activeDot={{ r: 7, fill: ENTITY_COLORS["1"], stroke: ENTITY_COLORS["1"], strokeWidth: 3, strokeOpacity: 0.3 }} animationDuration={1800} animationBegin={600} />
+                        <Area type="monotone" dataKey="PetCare" stroke={ENTITY_COLORS["2"]} strokeWidth={2.5} fill="url(#area-2)" dot={{ r: 4, fill: ENTITY_COLORS["2"], strokeWidth: 0 }} animationDuration={1800} animationBegin={800} />
+                        <Area type="monotone" dataKey="Parceiros" stroke={ENTITY_COLORS["4"]} strokeWidth={2.5} fill="url(#area-4)" dot={{ r: 4, fill: ENTITY_COLORS["4"], strokeWidth: 0 }} animationDuration={1800} animationBegin={1000} />
                         <Area type="monotone" dataKey="Indefinido" stroke={ENTITY_COLORS["indefinido"]} strokeWidth={2} fill="url(#area-indefinido)" dot={{ r: 3, fill: ENTITY_COLORS["indefinido"], strokeWidth: 0 }} strokeDasharray="5 5" animationDuration={1800} animationBegin={1200} />
                       </AreaChart>
                     </ResponsiveContainer>
                   </div>
                   <div className="mt-2 flex flex-wrap justify-center gap-x-3 gap-y-1 flex-shrink-0">
                     {[
-                      { label: "GoodStorage", color: ENTITY_COLORS["8"] },
-                      { label: "Brava", color: ENTITY_COLORS["1"] },
-                      { label: "PetCare", color: ENTITY_COLORS["7"] },
+                      { label: "GoodStorage", color: ENTITY_COLORS["1"] },
+                      { label: "PetCare", color: ENTITY_COLORS["2"] },
+                      { label: "Parceiros", color: ENTITY_COLORS["4"] },
                       { label: "Indefinido", color: ENTITY_COLORS["indefinido"] },
                     ].map((item) => (
                       <span key={item.label} className="flex items-center gap-1.5 text-[10px]" style={{ color: C.dim, fontWeight: 400 }}>
