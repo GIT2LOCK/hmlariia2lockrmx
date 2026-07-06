@@ -1,9 +1,10 @@
 ---
-name: Zabbix Integration (2lock only)
-description: Single Zabbix instance (2lock=z2). Brava (z1) contract ended, no longer integrated.
+name: Dual Zabbix Integration
+description: Two Zabbix instances (Brava=z1, 2lock=z2) merged into single dashboard with source-specific filters
 type: feature
 ---
-- Zabbix 2lock (z2): ZABBIX_API_URL_2 + ZABBIX_API_TOKEN_2. Filter: "Indisponibilidade de CTRL" → equipamentos, "Indisponibilidade de DDNS/Link" + "Sem Conexão com a Unidade" → links.
-- Brava (z1) removed after contract termination — ZABBIX_API_URL/ZABBIX_API_TOKEN still exist as env but are NOT fetched in listing endpoints (problems/maintenance/hosts_all).
-- Each problem still carries `source: "z2"` and optional `category` from backend. eventid prefixed as "z2_<id>" to preserve existing per-event routing.
-- Frontend labels: no more BRAVA badges; all origem/source displays show "2LOCK".
+- Zabbix 1 (Brava): ZABBIX_API_URL + ZABBIX_API_TOKEN. Filter: "Indisponibilidade" triggers, exclude "Infraestrutura" group.
+- Zabbix 2 (2lock): ZABBIX_API_URL_2 + ZABBIX_API_TOKEN_2. Filter: "Indisponibilidade de CTRL" → equipamentos, "Indisponibilidade de DDNS/Link" + "Sem Conexão com a Unidade" → links.
+- Problems and maintenances from both instances are merged into a single list.
+- Each problem has `source` field ("z1"/"z2") and optional `category` field from backend.
+- eventid is prefixed with source to avoid collisions: "z1_84090", "z2_24361".

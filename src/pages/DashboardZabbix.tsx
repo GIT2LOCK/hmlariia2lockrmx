@@ -196,6 +196,7 @@ function sortGroups(groups: HostGroup[], field: SortField, dir: SortDir): HostGr
 const SOURCE_OPTIONS = [
   { value: "todos", label: "Todos" },
   { value: "z2", label: "2LOCK" },
+  { value: "z1", label: "BRAVA" },
 ];
 
 // ── Host CSV fields ─────────────────────────────────────────────────────
@@ -378,7 +379,7 @@ export default function DashboardZabbix() {
           case "hostgroups": return h.hostgroups.join(", ");
           case "templates": return h.templates.join(", ");
           case "tags": return h.tags.map(t => `${t.tag}:${t.value}`).join(", ");
-          case "source": return "2LOCK";
+          case "source": return h.source === "z1" ? "BRAVA" : "2LOCK";
           default: return h[f.key] || "";
         }
       }).map(v => `"${String(v).replace(/"/g, '""')}"`).join(";");
@@ -537,7 +538,7 @@ export default function DashboardZabbix() {
                     <Wrench className="h-5 w-5 text-yellow-500" />
                     {m.name}
                     {m.source && (
-                      <Badge variant="outline" className="text-[10px]">2LOCK</Badge>
+                      <Badge variant="outline" className="text-[10px]">{m.source === "z1" ? "BRAVA" : "2LOCK"}</Badge>
                     )}
                     <Badge variant="outline" className="ml-auto text-xs">
                       {formatTimestamp(m.active_since)} → {formatTimestamp(m.active_till)}
@@ -649,7 +650,7 @@ export default function DashboardZabbix() {
                             </div>
                           </td>
                           <td className="px-4 py-2">
-                            <Badge variant="outline" className="text-[10px]">2LOCK</Badge>
+                            <Badge variant="outline" className="text-[10px]">{h.source === "z1" ? "BRAVA" : "2LOCK"}</Badge>
                           </td>
                         </tr>
                       ))}
@@ -873,7 +874,7 @@ function ContactButton({
         const stored = JSON.parse(localStorage.getItem("auth_user") || "{}");
         const uid = Number(stored?.id || 0);
         if (uid) {
-          const col = "zabbix_token_z2";
+          const col = source === "z2" ? "zabbix_token_z2" : "zabbix_token_z1";
           const { data } = await supabase.from("usuarios").select(col).eq("id", uid).maybeSingle();
           user_token = (data as any)?.[col] || null;
         }

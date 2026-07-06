@@ -286,7 +286,7 @@ function TvGroupedRows({ groups, expandedHosts, onToggle, gridCols = "grid-cols-
       {groups.map((group, gi) => {
         const isMulti = group.problems.length > 1;
         const isExpanded = expandedHosts.has(group.hostKey);
-        const source = "2LOCK";
+        const source = group.problems[0]?.source === "z1" ? "BRAVA" : "2LOCK";
         const hasSecondUpdateAlert = group.problems.some(needsSecondUpdateAlert);
 
         return (
@@ -360,7 +360,7 @@ function TvGroupedRows({ groups, expandedHosts, onToggle, gridCols = "grid-cols-
                 <span className="text-xs text-center font-mono" style={{ color: (p.acknowledges?.length || 0) > 0 ? C.green : C.dim }}>
                   {(p.acknowledges?.length || 0) > 0 ? p.acknowledges!.length : "—"}
                 </span>
-                <span className="text-[11px] text-right" style={{ color: C.dim }}>2LOCK</span>
+                <span className="text-[11px] text-right" style={{ color: C.dim }}>{p.source === "z1" ? "BRAVA" : "2LOCK"}</span>
               </div>
             ))}
           </div>

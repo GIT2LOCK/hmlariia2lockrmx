@@ -289,7 +289,15 @@ serve(async (req) => {
       }
 
       case "problems": {
-        const promises: Promise<any[]>[] = [];
+        const filter1 = (t: any) => {
+          const desc = (t.description || "").toLowerCase();
+          if (!desc.includes("indisponibilidade")) return false;
+          const groupNames = (t.groups || []).map((g: any) => g.name.toLowerCase());
+          if (groupNames.includes("infraestrutura")) return false;
+          return true;
+        };
+
+        const promises: Promise<any[]>[] = [fetchProblemsFromInstance(zabbix1, "z1", filter1)];
 
         if (zabbix2) {
           const filter2 = (t: any) => {
@@ -311,7 +319,7 @@ serve(async (req) => {
       }
 
       case "maintenance": {
-        const promises: Promise<any[]>[] = [];
+        const promises = [fetchMaintenanceFromInstance(zabbix1, "z1")];
         if (zabbix2) promises.push(fetchMaintenanceFromInstance(zabbix2, "z2"));
         const results = await Promise.all(promises);
         result = results.flat();
@@ -319,7 +327,12 @@ serve(async (req) => {
       }
 
       case "hosts_all": {
-        const promises: Promise<any[]>[] = [];
+        const filter1 = (h: any) => {
+          const groupNames = (h.groups || []).map((g: any) => g.name.toLowerCase());
+          return !groupNames.includes("infraestrutura");
+        };
+
+        const promises: Promise<any[]>[] = [fetchAllHostsFromInstance(zabbix1, "z1", filter1)];
         if (zabbix2) {
           promises.push(fetchAllHostsFromInstance(zabbix2, "z2"));
         }
