@@ -360,7 +360,7 @@ function TvGroupedRows({ groups, expandedHosts, onToggle, gridCols = "grid-cols-
                 <span className="text-xs text-center font-mono" style={{ color: (p.acknowledges?.length || 0) > 0 ? C.green : C.dim }}>
                   {(p.acknowledges?.length || 0) > 0 ? p.acknowledges!.length : "—"}
                 </span>
-                <span className="text-[11px] text-right" style={{ color: C.dim }}>{p.source === "z1" ? "BRAVA" : "2LOCK"}</span>
+                <span className="text-[11px] text-right" style={{ color: C.dim }}>2LOCK</span>
               </div>
             ))}
           </div>
