@@ -286,7 +286,7 @@ function TvGroupedRows({ groups, expandedHosts, onToggle, gridCols = "grid-cols-
       {groups.map((group, gi) => {
         const isMulti = group.problems.length > 1;
         const isExpanded = expandedHosts.has(group.hostKey);
-        const source = group.problems[0]?.source === "z1" ? "BRAVA" : "2LOCK";
+        const source = "2LOCK";
         const hasSecondUpdateAlert = group.problems.some(needsSecondUpdateAlert);
 
         return (
