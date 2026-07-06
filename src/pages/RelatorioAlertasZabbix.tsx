@@ -61,7 +61,6 @@ const PERIOD_PRESETS = [
 ];
 
 const AMBIENTES = [
-  { value: "z1", label: "Brava" },
   { value: "z2", label: "2lock" },
 ];
 
