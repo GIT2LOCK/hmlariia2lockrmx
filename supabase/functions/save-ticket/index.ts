@@ -76,11 +76,39 @@ serve(async (req) => {
     const { data: beforeRow } = await supabase.from("tickets").select("*").eq("id", ticketId).maybeSingle();
     const { error } = await supabase.from("tickets").update(payload).eq("id", ticketId);
     if (error) return json({ error: error.message }, 500);
+
+    // Notifica novo solicitante quando adicionado/alterado em chamado existente
+    try {
+      const oldEmail = (beforeRow?.solicitante_email || "").toLowerCase().trim();
+      const newEmail = (payload.solicitante_email as string || "").toLowerCase().trim();
+      if (newEmail && newEmail !== oldEmail) {
+        supabase.functions.invoke("send-email-notification", {
+          body: { ticket_id: ticketId, event: "solicitante_added", to: newEmail },
+        }).catch((e) => console.error("[save-ticket] notify solicitante_added", e));
+      }
+      // Mudança de status via edição
+      if (payload.status && beforeRow?.status && payload.status !== beforeRow.status) {
+        supabase.functions.invoke("send-email-notification", {
+          body: {
+            ticket_id: ticketId,
+            event: "status_change",
+            extra: { status_anterior: beforeRow.status, status_novo: payload.status },
+          },
+        }).catch((e) => console.error("[save-ticket] notify status", e));
+      }
+    } catch (e) { console.error("[save-ticket] notify block", e); }
+
     return json({ ok: true, ticket_id: ticketId, before: beforeRow });
   } else {
     payload.criado_por = usuarioId;
     const { data, error } = await supabase.from("tickets").insert(payload).select("id, codigo").maybeSingle();
     if (error) return json({ error: error.message }, 500);
+    // Notifica solicitante da criação
+    if (payload.solicitante_email && data?.id) {
+      supabase.functions.invoke("send-email-notification", {
+        body: { ticket_id: data.id, event: "created" },
+      }).catch((e) => console.error("[save-ticket] notify created", e));
+    }
     return json({ ok: true, ticket_id: data?.id, codigo: data?.codigo });
   }
 });
