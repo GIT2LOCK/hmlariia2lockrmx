@@ -93,8 +93,7 @@ serve(async (req) => {
     .order("data_abertura", { ascending: false })
     .limit(500);
 
-  // Mantém escopo de empresa, se houver
-  if (user.empresa_id) query = query.eq("empresa_id", user.empresa_id);
+  // Nota: sem filtro obrigatório por empresa — CLIENTE também vê chamados onde é solicitante/pessoa/responsável mesmo fora da própria empresa
 
   const { data, error } = await query;
 
