@@ -88,7 +88,7 @@ serve(async (req) => {
 
   const { data: user } = await supabase
     .from("usuarios")
-    .select("id, nome, permissao, ativo")
+    .select("id, nome, email, permissao, ativo")
     .eq("id", usuarioId)
     .maybeSingle();
   if (!user || !user.ativo) return json({ error: "usuario_invalido" }, 403);
