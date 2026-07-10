@@ -93,8 +93,14 @@ serve(async (req) => {
     }
     const ownsTicket = ticket.criado_por === usuarioId;
     const inUnits = ticket.unidade_id && unidadeIds.includes(ticket.unidade_id);
-    const sameEmpresa = !user.empresa_id || ticket.empresa_id === user.empresa_id;
-    autorizado = sameEmpresa && (ownsTicket || !!inUnits);
+    const isSolicitante = !!(user.email && ticket.solicitante_email &&
+      String(ticket.solicitante_email).toLowerCase() === String(user.email).toLowerCase());
+    // Se é solicitante, ignora escopo de empresa
+    if (isSolicitante) autorizado = true;
+    else {
+      const sameEmpresa = !user.empresa_id || ticket.empresa_id === user.empresa_id;
+      autorizado = sameEmpresa && (ownsTicket || !!inUnits);
+    }
   } else if (!autorizado) {
     // Técnico/USER: dono, atribuído, ou membro do grupo
     if (ticket.criado_por === usuarioId || ticket.tecnico_id === usuarioId || ticket.assigned_by === usuarioId) {
