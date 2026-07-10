@@ -77,5 +77,11 @@ serve(async (req) => {
     return json({ error: error.message }, 500);
   }
 
+  if (data?.id && payload.solicitante_email) {
+    supabase.functions.invoke("send-email-notification", {
+      body: { ticket_id: data.id, event: "created" },
+    }).catch((e) => console.error("[create-ticket-cliente] notify", e));
+  }
+
   return json({ ok: true, ticket: data });
 });
