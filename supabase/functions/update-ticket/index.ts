@@ -41,6 +41,8 @@ async function userCanUpdateTicket(supabase: any, user: any, ticket: any) {
   if (ADMIN_ROLES.has(user.permissao)) return true;
   if (user.permissao !== "USER") return false;
   if (ticket.criado_por === user.id || ticket.tecnico_id === user.id || ticket.assigned_by === user.id) return true;
+  if (user.email && ticket.solicitante_email &&
+      String(ticket.solicitante_email).toLowerCase() === String(user.email).toLowerCase()) return true;
   if (!ticket.assigned_group_id) return true;
   const { data } = await supabase
     .from("support_group_members")
@@ -86,7 +88,7 @@ serve(async (req) => {
 
   const { data: user } = await supabase
     .from("usuarios")
-    .select("id, nome, permissao, ativo")
+    .select("id, nome, email, permissao, ativo")
     .eq("id", usuarioId)
     .maybeSingle();
   if (!user || !user.ativo) return json({ error: "usuario_invalido" }, 403);
@@ -136,6 +138,43 @@ serve(async (req) => {
       autor_nome: user.nome,
     });
     if (cErr) console.error("[update-ticket] comment error", cErr);
+  }
+
+  // === Notificações ao solicitante (webhook mail2lock via n8n) ===
+  try {
+    const notifyBase = { ticket_id: ticketId };
+    // Comentário público → e-mail
+    if (comment?.conteudo) {
+      const tipoNorm = String(comment?.tipo || "INTERNO").toUpperCase();
+      if (tipoNorm === "CLIENTE" && (updated?.solicitante_email || ticket.solicitante_email)) {
+        supabase.functions.invoke("send-email-notification", {
+          body: { ...notifyBase, event: "comment" },
+        }).catch((e) => console.error("[notify comment]", e));
+      }
+    }
+    // Mudança de status
+    if (Object.prototype.hasOwnProperty.call(updates, "status") && updates.status !== ticket.status) {
+      supabase.functions.invoke("send-email-notification", {
+        body: {
+          ...notifyBase,
+          event: "status_change",
+          extra: { status_anterior: ticket.status, status_novo: updates.status },
+        },
+      }).catch((e) => console.error("[notify status]", e));
+    }
+    // Técnico atribuído/alterado
+    if (Object.prototype.hasOwnProperty.call(updates, "tecnico_id") && updates.tecnico_id && updates.tecnico_id !== ticket.tecnico_id) {
+      const { data: tec } = await supabase.from("usuarios").select("nome").eq("id", updates.tecnico_id).maybeSingle();
+      supabase.functions.invoke("send-email-notification", {
+        body: {
+          ...notifyBase,
+          event: "assigned",
+          extra: { tecnico_nome: tec?.nome || null },
+        },
+      }).catch((e) => console.error("[notify assigned]", e));
+    }
+  } catch (e) {
+    console.error("[update-ticket] notify error", e);
   }
 
   return json({ ok: true, ticket: updated });

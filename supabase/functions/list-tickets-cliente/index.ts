@@ -76,8 +76,9 @@ serve(async (req) => {
     unidadeIds = Array.from(new Set(directUnits));
   }
 
-  // Filtro: tickets criados pelo próprio usuário OU pertencentes às suas unidades
+  // Filtro: tickets criados pelo próprio usuário OU solicitante_email = user.email OU pertencentes às suas unidades
   const orClauses = [`criado_por.eq.${usuarioId}`];
+  if (user.email) orClauses.push(`solicitante_email.ilike.${user.email}`);
   if (unidadeIds.length > 0) {
     orClauses.push(`unidade_id.in.(${unidadeIds.join(",")})`);
   }
@@ -92,8 +93,7 @@ serve(async (req) => {
     .order("data_abertura", { ascending: false })
     .limit(500);
 
-  // Mantém escopo de empresa, se houver
-  if (user.empresa_id) query = query.eq("empresa_id", user.empresa_id);
+  // Nota: sem filtro obrigatório por empresa — CLIENTE também vê chamados onde é solicitante/pessoa/responsável mesmo fora da própria empresa
 
   const { data, error } = await query;
 

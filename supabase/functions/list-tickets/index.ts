@@ -90,14 +90,14 @@ serve(async (req) => {
       unidadeIds = Array.from(new Set(directUnits));
     }
     const orClauses = [`criado_por.eq.${usuarioId}`];
+    if (user.email) orClauses.push(`solicitante_email.ilike.${user.email}`);
     if (unidadeIds.length > 0) orClauses.push(`unidade_id.in.(${unidadeIds.join(",")})`);
-    let q = supabase
+    const q = supabase
       .from("tickets")
       .select(selectCols)
       .or(orClauses.join(","))
       .order("data_abertura", { ascending: false })
       .limit(500);
-    if (user.empresa_id) q = q.eq("empresa_id", user.empresa_id);
     const { data, error } = await q;
     if (error) return json({ error: error.message }, 500);
     return json({ tickets: data ?? [] });
@@ -116,6 +116,7 @@ serve(async (req) => {
     `criado_por.eq.${usuarioId}`,
     `assigned_by.eq.${usuarioId}`,
   ];
+  if (user.email) orClauses.push(`solicitante_email.ilike.${user.email}`);
   if (groupIds.length > 0) orClauses.push(`assigned_group_id.in.(${groupIds.join(",")})`);
 
   const { data, error } = await supabase

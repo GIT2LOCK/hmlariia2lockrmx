@@ -68,6 +68,10 @@ serve(async (req) => {
 
   if (!autorizado && perm === "CLIENTE") {
     autorizado = ticket.criado_por === usuarioId;
+    if (!autorizado && user.email && ticket.solicitante_email &&
+        String(ticket.solicitante_email).toLowerCase() === String(user.email).toLowerCase()) {
+      autorizado = true;
+    }
     if (!autorizado && user.email) {
       const { data: contatos } = await supabase
         .from("contatos")

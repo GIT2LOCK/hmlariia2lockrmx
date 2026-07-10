@@ -14,50 +14,70 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
-  const url = Deno.env.get("N8N_EMAIL_WEBHOOK_URL");
-  if (!url) return json({ error: "N8N_EMAIL_WEBHOOK_URL não configurado" }, 500);
+  const url = Deno.env.get("N8N_EMAIL_WEBHOOK_URL") || "https://webwork.2lock.app.br/webhook/mail2lock";
 
   try {
-    const { ticket_id, comment_id } = await req.json();
+    const { ticket_id, comment_id, event, extra, to: toOverride } = await req.json();
     if (!ticket_id) return json({ error: "ticket_id obrigatório" }, 400);
 
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
     const { data: ticket } = await supabase.from("tickets").select("*").eq("id", ticket_id).maybeSingle();
     if (!ticket) return json({ error: "Ticket não encontrado" }, 404);
-    if (!ticket.solicitante_email) return json({ ok: true, skipped: "sem email" });
+
+    const to = toOverride || ticket.solicitante_email;
+    if (!to) return json({ ok: true, skipped: "sem email" });
 
     let conteudo = "";
     if (comment_id) {
       const { data: c } = await supabase.from("ticket_comments").select("conteudo").eq("id", comment_id).maybeSingle();
       conteudo = c?.conteudo || "";
     }
-    // Fallback: se não houver comentário, envia a descrição do chamado
-    if (!conteudo) conteudo = ticket.descricao || "";
+    if (!conteudo && event === "created") conteudo = ticket.descricao || "";
 
-    // Anexos (links assinados, válidos por 7 dias)
-    const { data: anexos } = await supabase.from("ticket_attachments").select("*").eq("ticket_id", ticket_id);
+    // Anexos (links assinados, válidos por 7 dias) — apenas para eventos com mensagem
     const anexosLinks: Array<{ name: string; url: string }> = [];
-    for (const a of anexos || []) {
-      const { data: signed } = await supabase.storage.from("ticket-attachments")
-        .createSignedUrl(a.storage_path, 60 * 60 * 24 * 7);
-      if (signed?.signedUrl) anexosLinks.push({ name: a.file_name, url: signed.signedUrl });
+    if (event === "comment" || event === "created" || !event) {
+      const { data: anexos } = await supabase.from("ticket_attachments").select("*").eq("ticket_id", ticket_id);
+      for (const a of anexos || []) {
+        const { data: signed } = await supabase.storage.from("ticket-attachments")
+          .createSignedUrl(a.storage_path, 60 * 60 * 24 * 7);
+        if (signed?.signedUrl) anexosLinks.push({ name: a.file_name, url: signed.signedUrl });
+      }
     }
 
     const appBaseUrl = (Deno.env.get("APP_BASE_URL") || "https://ariia.2lock.com.br").replace(/\/+$/, "");
     const ticketUrl = `${appBaseUrl}/dashboard/chamados/${ticket.id}`;
 
+    const eventoLabel: Record<string, string> = {
+      created: "Chamado aberto",
+      comment: "Nova mensagem no chamado",
+      status_change: "Status do chamado alterado",
+      assigned: "Técnico atribuído ao chamado",
+      solicitante_added: "Você foi adicionado como solicitante",
+    };
+    const subjectPrefix = `[Chamado #${ticket.id}]`;
+    const subject = event && eventoLabel[event]
+      ? `${subjectPrefix} ${eventoLabel[event]} — ${ticket.titulo}`
+      : `${subjectPrefix} ${ticket.titulo}`;
+
     const payload = {
+      event: event || "comment",
       ticket_id: String(ticket.id),
-      ticket_numero: ticket.id,           // formato novo (link /60)
-      codigo: ticket.codigo,              // mantido por compatibilidade (TKT-000060)
-      ticket_url: ticketUrl,              // URL pronta para o template do n8n
-      url: ticketUrl,                     // alias usado por templates antigos
-      to: ticket.solicitante_email,
-      subject: `[Chamado #${ticket.id}] ${ticket.titulo}`,
+      ticket_numero: ticket.id,
+      codigo: ticket.codigo,
+      ticket_url: ticketUrl,
+      url: ticketUrl,
+      to,
+      subject,
       message: conteudo,
+      titulo: ticket.titulo,
       status: ticket.status,
+      prioridade: ticket.prioridade,
+      solicitante_nome: ticket.solicitante_nome,
+      solicitante_email: ticket.solicitante_email,
       attachments: anexosLinks,
+      extra: extra || null,
     };
 
     const r = await fetch(url, {
