@@ -76,8 +76,9 @@ serve(async (req) => {
     unidadeIds = Array.from(new Set(directUnits));
   }
 
-  // Filtro: tickets criados pelo próprio usuário OU pertencentes às suas unidades
+  // Filtro: tickets criados pelo próprio usuário OU solicitante_email = user.email OU pertencentes às suas unidades
   const orClauses = [`criado_por.eq.${usuarioId}`];
+  if (user.email) orClauses.push(`solicitante_email.ilike.${user.email}`);
   if (unidadeIds.length > 0) {
     orClauses.push(`unidade_id.in.(${unidadeIds.join(",")})`);
   }
