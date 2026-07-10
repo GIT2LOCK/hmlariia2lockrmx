@@ -116,6 +116,7 @@ serve(async (req) => {
     `criado_por.eq.${usuarioId}`,
     `assigned_by.eq.${usuarioId}`,
   ];
+  if (user.email) orClauses.push(`solicitante_email.ilike.${user.email}`);
   if (groupIds.length > 0) orClauses.push(`assigned_group_id.in.(${groupIds.join(",")})`);
 
   const { data, error } = await supabase
