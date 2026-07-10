@@ -41,6 +41,8 @@ async function userCanUpdateTicket(supabase: any, user: any, ticket: any) {
   if (ADMIN_ROLES.has(user.permissao)) return true;
   if (user.permissao !== "USER") return false;
   if (ticket.criado_por === user.id || ticket.tecnico_id === user.id || ticket.assigned_by === user.id) return true;
+  if (user.email && ticket.solicitante_email &&
+      String(ticket.solicitante_email).toLowerCase() === String(user.email).toLowerCase()) return true;
   if (!ticket.assigned_group_id) return true;
   const { data } = await supabase
     .from("support_group_members")
