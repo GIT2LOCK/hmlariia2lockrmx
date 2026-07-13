@@ -186,6 +186,18 @@ export function EncerramentoModal({ open, onOpenChange, ticket, onClosed }: Prop
           </div>
 
           <div>
+            <Label>Mensagem final para o cliente *</Label>
+            <Textarea
+              rows={3}
+              value={mensagemCliente}
+              onChange={(e) => setMensagemCliente(e.target.value)}
+              placeholder="Esta mensagem será enviada por e-mail ao solicitante do chamado."
+            />
+          </div>
+
+
+
+          <div>
             <Label>Motivo do encerramento *</Label>
             <Select value={motivo} onValueChange={setMotivo}>
               <SelectTrigger>
