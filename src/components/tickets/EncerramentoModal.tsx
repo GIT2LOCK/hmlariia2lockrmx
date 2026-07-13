@@ -121,8 +121,8 @@ export function EncerramentoModal({ open, onOpenChange, ticket, onClosed }: Prop
           { campo: "encerramento", valorAnterior: null, valorNovo: motivoLabel, observacao: solucao },
         ],
         comment: {
-          conteudo: `Encerramento — ${motivoLabel}\n\n${solucao}`,
-          tipo: "INTERNO",
+          conteudo: mensagemCliente.trim(),
+          tipo: "CLIENTE",
         },
       });
     } catch (e: any) {
