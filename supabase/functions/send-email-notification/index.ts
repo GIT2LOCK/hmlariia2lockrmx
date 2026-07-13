@@ -63,14 +63,13 @@ serve(async (req) => {
       ? `${subjectPrefix} ${eventoLabel[event]} — ${ticket.titulo}`
       : `${subjectPrefix} ${ticket.titulo}`;
 
-    const payload = {
+    const basePayload = {
       event: event || "comment",
       ticket_id: String(ticket.id),
       ticket_numero: ticket.id,
       codigo: ticket.codigo,
       ticket_url: ticketUrl,
       url: ticketUrl,
-      to,
       subject,
       message: conteudo,
       titulo: ticket.titulo,
@@ -78,18 +77,24 @@ serve(async (req) => {
       prioridade: ticket.prioridade,
       solicitante_nome: ticket.solicitante_nome,
       solicitante_email: ticket.solicitante_email,
+      solicitante_emails_extra: extras,
       attachments: anexosLinks,
       extra: extra || null,
     };
 
-    const r = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const txt = await r.text();
-    if (!r.ok) return json({ error: "Falha webhook N8N", status: r.status, detail: txt }, 502);
-    return json({ ok: true });
+    const results: any[] = [];
+    for (const to of recipients) {
+      const r = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...basePayload, to, recipients }),
+      });
+      const txt = await r.text();
+      results.push({ to, status: r.status, ok: r.ok, detail: r.ok ? undefined : txt });
+    }
+    const anyFail = results.some((r) => !r.ok);
+    if (anyFail) return json({ error: "Falha em algum destinatário", results }, 502);
+    return json({ ok: true, results });
   } catch (e) {
     return json({ error: (e as Error).message }, 500);
   }
