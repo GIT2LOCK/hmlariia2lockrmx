@@ -65,6 +65,14 @@ export function EncerramentoModal({ open, onOpenChange, ticket, onClosed }: Prop
       });
       return;
     }
+    if (!mensagemCliente.trim()) {
+      toast({
+        title: "Mensagem final para o cliente é obrigatória",
+        description: "Escreva a mensagem que será enviada ao cliente informando a solução.",
+        variant: "destructive",
+      });
+      return;
+    }
     if (!motivo) {
       toast({ title: "Selecione um motivo de encerramento", variant: "destructive" });
       return;
