@@ -25,8 +25,10 @@ serve(async (req) => {
     const { data: ticket } = await supabase.from("tickets").select("*").eq("id", ticket_id).maybeSingle();
     if (!ticket) return json({ error: "Ticket não encontrado" }, 404);
 
-    const to = toOverride || ticket.solicitante_email;
-    if (!to) return json({ ok: true, skipped: "sem email" });
+    const primary = (toOverride || ticket.solicitante_email || "").toString().trim();
+    const extras: string[] = Array.isArray(ticket.solicitante_emails_extra) ? ticket.solicitante_emails_extra : [];
+    const recipients = Array.from(new Set([primary, ...extras].map((e) => (e || "").toString().trim()).filter(Boolean)));
+    if (recipients.length === 0) return json({ ok: true, skipped: "sem email" });
 
     let conteudo = "";
     if (comment_id) {
