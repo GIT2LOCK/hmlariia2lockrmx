@@ -81,10 +81,12 @@ export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
     solicitante_nome: "",
     solicitante_email: "",
     solicitante_telefone: "",
+    solicitante_emails_extra: [] as string[],
     ativo: "",
     origem: "MANUAL" as string,
     tipo_chamado: "T" as string,
   });
+  const [novoEmail, setNovoEmail] = useState("");
 
   const unidadesFiltered = useMemo(() => {
     if (!form.empresa_id) return [];
