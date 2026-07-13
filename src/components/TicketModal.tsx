@@ -158,6 +158,7 @@ export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
             solicitante_nome: data.solicitante_nome || "",
             solicitante_email: data.solicitante_email || "",
             solicitante_telefone: data.solicitante_telefone || "",
+            solicitante_emails_extra: Array.isArray(data.solicitante_emails_extra) ? data.solicitante_emails_extra : [],
             ativo: data.ativo || "",
             origem: data.origem || "MANUAL",
             tipo_chamado: (data as any).tipo_chamado || "T",
