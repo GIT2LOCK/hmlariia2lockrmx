@@ -1565,6 +1565,7 @@ export type Database = {
           sla_policy_id: number | null
           sla_solucao_minutos: number | null
           solicitante_email: string | null
+          solicitante_emails_extra: string[]
           solicitante_nome: string | null
           solicitante_telefone: string | null
           solucao_aplicada: string | null
@@ -1623,6 +1624,7 @@ export type Database = {
           sla_policy_id?: number | null
           sla_solucao_minutos?: number | null
           solicitante_email?: string | null
+          solicitante_emails_extra?: string[]
           solicitante_nome?: string | null
           solicitante_telefone?: string | null
           solucao_aplicada?: string | null
@@ -1681,6 +1683,7 @@ export type Database = {
           sla_policy_id?: number | null
           sla_solucao_minutos?: number | null
           solicitante_email?: string | null
+          solicitante_emails_extra?: string[]
           solicitante_nome?: string | null
           solicitante_telefone?: string | null
           solucao_aplicada?: string | null
