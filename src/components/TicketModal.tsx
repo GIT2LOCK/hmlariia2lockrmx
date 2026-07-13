@@ -515,6 +515,73 @@ export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
           </div>
 
           <div className="md:col-span-2">
+            <Label>E-mails adicionais para notificação</Label>
+            <div className="flex gap-2">
+              <Input
+                placeholder="email@dominio.com"
+                value={novoEmail}
+                onChange={(e) => setNovoEmail(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    const em = novoEmail.trim().toLowerCase();
+                    if (!em) return;
+                    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) {
+                      toast({ title: "E-mail inválido", variant: "destructive" });
+                      return;
+                    }
+                    if (form.solicitante_email?.toLowerCase() === em || form.solicitante_emails_extra.includes(em)) {
+                      setNovoEmail("");
+                      return;
+                    }
+                    setForm({ ...form, solicitante_emails_extra: [...form.solicitante_emails_extra, em] });
+                    setNovoEmail("");
+                  }
+                }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  const em = novoEmail.trim().toLowerCase();
+                  if (!em) return;
+                  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) {
+                    toast({ title: "E-mail inválido", variant: "destructive" });
+                    return;
+                  }
+                  if (form.solicitante_email?.toLowerCase() === em || form.solicitante_emails_extra.includes(em)) {
+                    setNovoEmail("");
+                    return;
+                  }
+                  setForm({ ...form, solicitante_emails_extra: [...form.solicitante_emails_extra, em] });
+                  setNovoEmail("");
+                }}
+              >
+                Adicionar
+              </Button>
+            </div>
+            {form.solicitante_emails_extra.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-2">
+                {form.solicitante_emails_extra.map((em) => (
+                  <span key={em} className="inline-flex items-center gap-1 text-xs bg-muted rounded px-2 py-1">
+                    {em}
+                    <button
+                      type="button"
+                      className="text-destructive hover:opacity-70"
+                      onClick={() => setForm({ ...form, solicitante_emails_extra: form.solicitante_emails_extra.filter((x) => x !== em) })}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Estes e-mails receberão as mesmas notificações do solicitante principal (abertura, mensagens, status).
+            </p>
+          </div>
+
+          <div className="md:col-span-2">
             <Label>Descrição</Label>
             <Textarea rows={4} value={form.descricao} onChange={(e) => setForm({ ...form, descricao: e.target.value })} />
           </div>
