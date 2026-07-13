@@ -257,6 +257,23 @@ export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
       toast({ title: "Título obrigatório", variant: "destructive" });
       return;
     }
+    if (!form.fila_id) {
+      toast({ title: "Selecione a Fila / Equipe", description: "Todo chamado precisa de uma fila de destino.", variant: "destructive" });
+      return;
+    }
+    if (!form.tecnico_id) {
+      toast({ title: "Selecione o técnico responsável", description: "É obrigatório atribuir o chamado a um técnico ao abrir.", variant: "destructive" });
+      return;
+    }
+    // valida emails extras
+    const extras = (form.solicitante_emails_extra || []).map((e) => e.trim()).filter(Boolean);
+    const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    for (const em of extras) {
+      if (!emailRe.test(em)) {
+        toast({ title: "E-mail inválido", description: em, variant: "destructive" });
+        return;
+      }
+    }
     setLoading(true);
     const payload: any = {
       titulo: form.titulo.trim(),
@@ -272,6 +289,7 @@ export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
       solicitante_nome: form.solicitante_nome || null,
       solicitante_email: form.solicitante_email || null,
       solicitante_telefone: form.solicitante_telefone || null,
+      solicitante_emails_extra: extras,
       ativo: form.ativo || null,
       origem: form.origem,
       tipo_chamado: (form.tipo_chamado || "T").toUpperCase().slice(0, 1),
