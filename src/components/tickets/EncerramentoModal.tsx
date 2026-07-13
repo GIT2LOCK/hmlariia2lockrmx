@@ -41,6 +41,7 @@ export function EncerramentoModal({ open, onOpenChange, ticket, onClosed }: Prop
   const [procedimentos, setProcedimentos] = useState("");
   const [correcao, setCorrecao] = useState("");
   const [resultado, setResultado] = useState("");
+  const [mensagemCliente, setMensagemCliente] = useState("");
   const [motivo, setMotivo] = useState("");
   const [motivoOutro, setMotivoOutro] = useState("");
   const [saving, setSaving] = useState(false);
@@ -50,6 +51,7 @@ export function EncerramentoModal({ open, onOpenChange, ticket, onClosed }: Prop
     setProcedimentos("");
     setCorrecao("");
     setResultado("");
+    setMensagemCliente("");
     setMotivo("");
     setMotivoOutro("");
   };
