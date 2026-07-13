@@ -176,6 +176,7 @@ export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
           empresa_id: "", unidade_id: "", operadora_id: "", fila_id: "",
           categoria_id: "", tecnico_id: "", solicitante_id: "",
           solicitante_nome: "", solicitante_email: "", solicitante_telefone: "",
+          solicitante_emails_extra: [],
           ativo: "", origem: "MANUAL", tipo_chamado: "T",
         });
         setExistingAttachments([]);
