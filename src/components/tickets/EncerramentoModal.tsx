@@ -41,6 +41,7 @@ export function EncerramentoModal({ open, onOpenChange, ticket, onClosed }: Prop
   const [procedimentos, setProcedimentos] = useState("");
   const [correcao, setCorrecao] = useState("");
   const [resultado, setResultado] = useState("");
+  const [mensagemCliente, setMensagemCliente] = useState("");
   const [motivo, setMotivo] = useState("");
   const [motivoOutro, setMotivoOutro] = useState("");
   const [saving, setSaving] = useState(false);
@@ -50,6 +51,7 @@ export function EncerramentoModal({ open, onOpenChange, ticket, onClosed }: Prop
     setProcedimentos("");
     setCorrecao("");
     setResultado("");
+    setMensagemCliente("");
     setMotivo("");
     setMotivoOutro("");
   };
@@ -59,6 +61,14 @@ export function EncerramentoModal({ open, onOpenChange, ticket, onClosed }: Prop
       toast({
         title: "Preencha todos os campos da solução",
         description: "Diagnóstico, procedimentos, correção e resultado são obrigatórios.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!mensagemCliente.trim()) {
+      toast({
+        title: "Mensagem final para o cliente é obrigatória",
+        description: "Escreva a mensagem que será enviada ao cliente informando a solução.",
         variant: "destructive",
       });
       return;
@@ -111,8 +121,8 @@ export function EncerramentoModal({ open, onOpenChange, ticket, onClosed }: Prop
           { campo: "encerramento", valorAnterior: null, valorNovo: motivoLabel, observacao: solucao },
         ],
         comment: {
-          conteudo: `Encerramento — ${motivoLabel}\n\n${solucao}`,
-          tipo: "INTERNO",
+          conteudo: mensagemCliente.trim(),
+          tipo: "CLIENTE",
         },
       });
     } catch (e: any) {
@@ -174,6 +184,18 @@ export function EncerramentoModal({ open, onOpenChange, ticket, onClosed }: Prop
               />
             </div>
           </div>
+
+          <div>
+            <Label>Mensagem final para o cliente *</Label>
+            <Textarea
+              rows={3}
+              value={mensagemCliente}
+              onChange={(e) => setMensagemCliente(e.target.value)}
+              placeholder="Esta mensagem será enviada por e-mail ao solicitante do chamado."
+            />
+          </div>
+
+
 
           <div>
             <Label>Motivo do encerramento *</Label>

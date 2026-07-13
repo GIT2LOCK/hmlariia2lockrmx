@@ -65,6 +65,9 @@ serve(async (req) => {
     solicitante_nome: f.solicitante_nome ?? null,
     solicitante_email: f.solicitante_email ?? null,
     solicitante_telefone: f.solicitante_telefone ?? null,
+    solicitante_emails_extra: Array.isArray(f.solicitante_emails_extra)
+      ? Array.from(new Set(f.solicitante_emails_extra.map((e: any) => String(e).trim().toLowerCase()).filter(Boolean)))
+      : [],
     ativo: f.ativo ?? null,
     origem: f.origem ?? "MANUAL",
     tipo_chamado: (f.tipo_chamado || "T").toString().toUpperCase().slice(0, 1),

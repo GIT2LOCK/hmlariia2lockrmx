@@ -424,9 +424,13 @@ export default function ChamadoDetalhe() {
               variant="destructive"
               onClick={async () => {
                 if (!confirm(`Excluir definitivamente o chamado ${ticket.codigo}? Esta ação não pode ser desfeita.`)) return;
-                const { error } = await supabase.from("tickets").delete().eq("id", ticketId);
-                if (error) {
-                  toast({ title: "Erro ao excluir", description: error.message, variant: "destructive" });
+                const sessionToken = localStorage.getItem("auth_token") || "";
+                const { data, error } = await supabase.functions.invoke("delete-ticket", {
+                  body: { ticket_id: ticketId },
+                  headers: { Authorization: `Bearer ${sessionToken}` },
+                });
+                if (error || (data as any)?.error) {
+                  toast({ title: "Erro ao excluir", description: error?.message || (data as any)?.error || "Falha", variant: "destructive" });
                   return;
                 }
                 toast({ title: "Chamado excluído" });

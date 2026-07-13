@@ -81,10 +81,12 @@ export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
     solicitante_nome: "",
     solicitante_email: "",
     solicitante_telefone: "",
+    solicitante_emails_extra: [] as string[],
     ativo: "",
     origem: "MANUAL" as string,
     tipo_chamado: "T" as string,
   });
+  const [novoEmail, setNovoEmail] = useState("");
 
   const unidadesFiltered = useMemo(() => {
     if (!form.empresa_id) return [];
@@ -156,6 +158,7 @@ export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
             solicitante_nome: data.solicitante_nome || "",
             solicitante_email: data.solicitante_email || "",
             solicitante_telefone: data.solicitante_telefone || "",
+            solicitante_emails_extra: Array.isArray(data.solicitante_emails_extra) ? data.solicitante_emails_extra : [],
             ativo: data.ativo || "",
             origem: data.origem || "MANUAL",
             tipo_chamado: (data as any).tipo_chamado || "T",
@@ -173,6 +176,7 @@ export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
           empresa_id: "", unidade_id: "", operadora_id: "", fila_id: "",
           categoria_id: "", tecnico_id: "", solicitante_id: "",
           solicitante_nome: "", solicitante_email: "", solicitante_telefone: "",
+          solicitante_emails_extra: [],
           ativo: "", origem: "MANUAL", tipo_chamado: "T",
         });
         setExistingAttachments([]);
@@ -253,6 +257,23 @@ export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
       toast({ title: "Título obrigatório", variant: "destructive" });
       return;
     }
+    if (!form.fila_id) {
+      toast({ title: "Selecione a Fila / Equipe", description: "Todo chamado precisa de uma fila de destino.", variant: "destructive" });
+      return;
+    }
+    if (!form.tecnico_id) {
+      toast({ title: "Selecione o técnico responsável", description: "É obrigatório atribuir o chamado a um técnico ao abrir.", variant: "destructive" });
+      return;
+    }
+    // valida emails extras
+    const extras = (form.solicitante_emails_extra || []).map((e) => e.trim()).filter(Boolean);
+    const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    for (const em of extras) {
+      if (!emailRe.test(em)) {
+        toast({ title: "E-mail inválido", description: em, variant: "destructive" });
+        return;
+      }
+    }
     setLoading(true);
     const payload: any = {
       titulo: form.titulo.trim(),
@@ -268,6 +289,7 @@ export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
       solicitante_nome: form.solicitante_nome || null,
       solicitante_email: form.solicitante_email || null,
       solicitante_telefone: form.solicitante_telefone || null,
+      solicitante_emails_extra: extras,
       ativo: form.ativo || null,
       origem: form.origem,
       tipo_chamado: (form.tipo_chamado || "T").toUpperCase().slice(0, 1),
@@ -490,6 +512,73 @@ export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
                 {form.solicitante_telefone ? ` · ${form.solicitante_telefone}` : ""}
               </p>
             )}
+          </div>
+
+          <div className="md:col-span-2">
+            <Label>E-mails adicionais para notificação</Label>
+            <div className="flex gap-2">
+              <Input
+                placeholder="email@dominio.com"
+                value={novoEmail}
+                onChange={(e) => setNovoEmail(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    const em = novoEmail.trim().toLowerCase();
+                    if (!em) return;
+                    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) {
+                      toast({ title: "E-mail inválido", variant: "destructive" });
+                      return;
+                    }
+                    if (form.solicitante_email?.toLowerCase() === em || form.solicitante_emails_extra.includes(em)) {
+                      setNovoEmail("");
+                      return;
+                    }
+                    setForm({ ...form, solicitante_emails_extra: [...form.solicitante_emails_extra, em] });
+                    setNovoEmail("");
+                  }
+                }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  const em = novoEmail.trim().toLowerCase();
+                  if (!em) return;
+                  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) {
+                    toast({ title: "E-mail inválido", variant: "destructive" });
+                    return;
+                  }
+                  if (form.solicitante_email?.toLowerCase() === em || form.solicitante_emails_extra.includes(em)) {
+                    setNovoEmail("");
+                    return;
+                  }
+                  setForm({ ...form, solicitante_emails_extra: [...form.solicitante_emails_extra, em] });
+                  setNovoEmail("");
+                }}
+              >
+                Adicionar
+              </Button>
+            </div>
+            {form.solicitante_emails_extra.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-2">
+                {form.solicitante_emails_extra.map((em) => (
+                  <span key={em} className="inline-flex items-center gap-1 text-xs bg-muted rounded px-2 py-1">
+                    {em}
+                    <button
+                      type="button"
+                      className="text-destructive hover:opacity-70"
+                      onClick={() => setForm({ ...form, solicitante_emails_extra: form.solicitante_emails_extra.filter((x) => x !== em) })}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Estes e-mails receberão as mesmas notificações do solicitante principal (abertura, mensagens, status).
+            </p>
           </div>
 
           <div className="md:col-span-2">
