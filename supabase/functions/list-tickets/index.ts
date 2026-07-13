@@ -90,7 +90,10 @@ serve(async (req) => {
       unidadeIds = Array.from(new Set(directUnits));
     }
     const orClauses = [`criado_por.eq.${usuarioId}`];
-    if (user.email) orClauses.push(`solicitante_email.ilike.${user.email}`);
+    if (user.email) {
+      orClauses.push(`solicitante_email.ilike.${user.email}`);
+      orClauses.push(`solicitante_emails_extra.cs.{${user.email.toLowerCase()}}`);
+    }
     if (unidadeIds.length > 0) orClauses.push(`unidade_id.in.(${unidadeIds.join(",")})`);
     const q = supabase
       .from("tickets")
