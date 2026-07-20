@@ -106,8 +106,8 @@ serve(async (req) => {
     payload.criado_por = usuarioId;
     const { data, error } = await supabase.from("tickets").insert(payload).select("id, codigo").maybeSingle();
     if (error) return json({ error: error.message }, 500);
-    // Notifica solicitante da criação
-    if (payload.solicitante_email && data?.id) {
+    // Notifica sempre (solicitante + extras + responsáveis fixos são resolvidos no servidor)
+    if (data?.id) {
       supabase.functions.invoke("send-email-notification", {
         body: { ticket_id: data.id, event: "created" },
       }).catch((e) => console.error("[save-ticket] notify created", e));
