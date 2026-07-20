@@ -538,6 +538,31 @@ export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
             )}
           </div>
 
+          {form.empresa_id && responsaveisFixos.length > 0 && (
+            <div className="md:col-span-2 border border-primary/20 bg-primary/5 rounded-md p-3">
+              <Label className="text-sm font-semibold">Responsáveis fixos</Label>
+              <p className="text-[11px] text-muted-foreground mb-2">
+                Adicionados automaticamente conforme a empresa/unidade selecionada. Receberão todas as notificações do chamado.
+              </p>
+              <div className="space-y-1">
+                {responsaveisFixos.map((r) => (
+                  <div key={r.id} className="flex items-center justify-between text-sm bg-background/60 rounded px-2 py-1">
+                    <div className="min-w-0">
+                      <span className="font-medium">{r.nome}</span>
+                      {r.email && <span className="text-muted-foreground"> · {r.email}</span>}
+                    </div>
+                    <span className="text-[11px] px-2 py-0.5 rounded bg-primary/10 text-primary shrink-0">
+                      {r.cobre_empresa_inteira
+                        ? "Empresa inteira"
+                        : `Unidade${(r as any)._unidade_label ? `: ${(r as any)._unidade_label}` : " específica"}`}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+
           <div className="md:col-span-2">
             <Label>E-mails adicionais para notificação</Label>
             <div className="flex gap-2">
