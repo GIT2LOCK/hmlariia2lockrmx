@@ -84,6 +84,7 @@ export function ClienteAbrirChamadoModal({ open, onOpenChange, onSaved }: Props)
   const [unidades, setUnidades] = useState<Array<{ id: number; nome: string }>>([]);
   const [equipamentosUsados, setEquipamentosUsados] = useState<string[]>([]);
   const [categoriasMap, setCategoriasMap] = useState<Record<string, number>>({});
+  const [responsaveisAll, setResponsaveisAll] = useState<Array<{ id: number; nome: string; email: string | null; unidade_id: number | null; cobre_empresa_inteira: boolean }>>([]);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
 
   const [form, setForm] = useState({
