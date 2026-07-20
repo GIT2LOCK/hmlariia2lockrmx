@@ -27,7 +27,37 @@ serve(async (req) => {
 
     const primary = (toOverride || ticket.solicitante_email || "").toString().trim();
     const extras: string[] = Array.isArray(ticket.solicitante_emails_extra) ? ticket.solicitante_emails_extra : [];
-    const recipients = Array.from(new Set([primary, ...extras].map((e) => (e || "").toString().trim()).filter(Boolean)));
+
+    // Responsáveis fixos vinculados à empresa (escopo inteiro) e à unidade selecionada
+    const respEmails: string[] = [];
+    const respDetails: Array<{ nome: string; email: string; escopo: string; unidade_id: number | null }> = [];
+    if (ticket.empresa_id) {
+      const filters: string[] = [`and(cobre_empresa_inteira.eq.true)`];
+      if (ticket.unidade_id) filters.push(`and(unidade_id.eq.${ticket.unidade_id})`);
+      const { data: resps } = await supabase
+        .from("contatos")
+        .select("nome,email,unidade_id,cobre_empresa_inteira,empresa_id,tipo")
+        .eq("tipo", "responsavel")
+        .eq("empresa_id", ticket.empresa_id)
+        .or(
+          ticket.unidade_id
+            ? `cobre_empresa_inteira.eq.true,unidade_id.eq.${ticket.unidade_id}`
+            : `cobre_empresa_inteira.eq.true`,
+        );
+      for (const r of resps || []) {
+        const em = (r.email || "").toString().trim().toLowerCase();
+        if (!em) continue;
+        respEmails.push(em);
+        respDetails.push({
+          nome: r.nome,
+          email: em,
+          escopo: r.cobre_empresa_inteira ? "empresa" : "unidade",
+          unidade_id: r.unidade_id ?? null,
+        });
+      }
+    }
+
+    const recipients = Array.from(new Set([primary, ...extras, ...respEmails].map((e) => (e || "").toString().trim().toLowerCase()).filter(Boolean)));
     if (recipients.length === 0) return json({ ok: true, skipped: "sem email" });
 
     let conteudo = "";
@@ -78,6 +108,7 @@ serve(async (req) => {
       solicitante_nome: ticket.solicitante_nome,
       solicitante_email: ticket.solicitante_email,
       solicitante_emails_extra: extras,
+      responsaveis_fixos: respDetails,
       attachments: anexosLinks,
       extra: extra || null,
     };

@@ -84,6 +84,7 @@ export function ClienteAbrirChamadoModal({ open, onOpenChange, onSaved }: Props)
   const [unidades, setUnidades] = useState<Array<{ id: number; nome: string }>>([]);
   const [equipamentosUsados, setEquipamentosUsados] = useState<string[]>([]);
   const [categoriasMap, setCategoriasMap] = useState<Record<string, number>>({});
+  const [responsaveisAll, setResponsaveisAll] = useState<Array<{ id: number; nome: string; email: string | null; unidade_id: number | null; cobre_empresa_inteira: boolean }>>([]);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
 
   const [form, setForm] = useState({
@@ -114,7 +115,7 @@ export function ClienteAbrirChamadoModal({ open, onOpenChange, onSaved }: Props)
   useEffect(() => {
     if (!open || !user?.empresa_id) return;
     (async () => {
-      const [un, ats, cats] = await Promise.all([
+      const [un, ats, cats, resp] = await Promise.all([
         supabase
           .from("unidades")
           .select("id,nome_unidade")
@@ -130,7 +131,13 @@ export function ClienteAbrirChamadoModal({ open, onOpenChange, onSaved }: Props)
           .from("ticket_categorias")
           .select("id,nome")
           .is("parent_id", null),
+        supabase
+          .from("contatos")
+          .select("id,nome,email,unidade_id,cobre_empresa_inteira")
+          .eq("empresa_id", user.empresa_id!)
+          .eq("tipo", "responsavel"),
       ]);
+      setResponsaveisAll((resp.data || []) as any);
       const us = (un.data || []).map((u: any) => ({ id: u.id, nome: u.nome_unidade }));
       setUnidades(us);
       const distinct = Array.from(
@@ -291,6 +298,20 @@ export function ClienteAbrirChamadoModal({ open, onOpenChange, onSaved }: Props)
 
   const mostraUnidade = unidades.length > 1;
 
+  const responsaveisFixos = useMemo(() => {
+    const unidId = form.unidade_id ? Number(form.unidade_id) : (unidades.length === 1 ? unidades[0].id : null);
+    const list = responsaveisAll.filter((r) => r.cobre_empresa_inteira || (unidId && r.unidade_id === unidId));
+    const seen = new Set<string>();
+    const unidLabel = (id: number) => unidades.find((u) => u.id === id)?.nome || null;
+    return list.filter((r) => {
+      const key = (r.email || `id:${r.id}`).toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      (r as any)._unidade_label = r.unidade_id ? unidLabel(r.unidade_id) : null;
+      return true;
+    });
+  }, [responsaveisAll, form.unidade_id, unidades]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto">
@@ -409,6 +430,31 @@ export function ClienteAbrirChamadoModal({ open, onOpenChange, onSaved }: Props)
               onChange={(e) => setForm({ ...form, descricao: e.target.value })}
             />
           </div>
+
+          {/* Responsáveis fixos */}
+          {responsaveisFixos.length > 0 && (
+            <div className="space-y-2 border border-primary/20 bg-primary/5 rounded-md p-3">
+              <Label className="text-sm font-semibold">Responsáveis fixos</Label>
+              <p className="text-[11px] text-muted-foreground">
+                Adicionados automaticamente conforme a empresa/unidade. Receberão as notificações deste chamado.
+              </p>
+              <div className="space-y-1">
+                {responsaveisFixos.map((r) => (
+                  <div key={r.id} className="flex items-center justify-between text-sm bg-background/60 rounded px-2 py-1">
+                    <div className="min-w-0">
+                      <span className="font-medium">{r.nome}</span>
+                      {r.email && <span className="text-muted-foreground"> · {r.email}</span>}
+                    </div>
+                    <span className="text-[11px] px-2 py-0.5 rounded bg-primary/10 text-primary shrink-0">
+                      {r.cobre_empresa_inteira
+                        ? "Empresa inteira"
+                        : `Unidade${(r as any)._unidade_label ? `: ${(r as any)._unidade_label}` : " específica"}`}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Anexos */}
           <div className="space-y-2">
