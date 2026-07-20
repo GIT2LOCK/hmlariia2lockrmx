@@ -109,6 +109,30 @@ export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
     });
   }, [form.empresa_id, form.unidade_id, contatosAll]);
 
+  // Responsáveis fixos automáticos: escopo empresa inteira + vinculados à unidade selecionada
+  const responsaveisFixos = useMemo(() => {
+    if (!form.empresa_id) return [] as ContatoOpt[];
+    const empId = Number(form.empresa_id);
+    const unidId = form.unidade_id ? Number(form.unidade_id) : null;
+    const unidLabel = (id: number) => unidadesAll.find((u) => u.id === id)?.label || null;
+    const list = contatosAll.filter((c) => {
+      if (c.tipo !== "responsavel") return false;
+      if (c.empresa_id !== empId) return false;
+      if (c.cobre_empresa_inteira) return true;
+      if (unidId && c.unidade_id === unidId) return true;
+      return false;
+    });
+    // dedupe por email (fallback id)
+    const seen = new Set<string>();
+    return list.filter((c) => {
+      const key = (c.email || `id:${c.id}`).toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      (c as any)._unidade_label = c.unidade_id ? unidLabel(c.unidade_id) : null;
+      return true;
+    });
+  }, [form.empresa_id, form.unidade_id, contatosAll, unidadesAll]);
+
   useEffect(() => {
     if (!open) return;
     (async () => {
