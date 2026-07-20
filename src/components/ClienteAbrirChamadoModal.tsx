@@ -115,7 +115,7 @@ export function ClienteAbrirChamadoModal({ open, onOpenChange, onSaved }: Props)
   useEffect(() => {
     if (!open || !user?.empresa_id) return;
     (async () => {
-      const [un, ats, cats] = await Promise.all([
+      const [un, ats, cats, resp] = await Promise.all([
         supabase
           .from("unidades")
           .select("id,nome_unidade")
@@ -131,7 +131,13 @@ export function ClienteAbrirChamadoModal({ open, onOpenChange, onSaved }: Props)
           .from("ticket_categorias")
           .select("id,nome")
           .is("parent_id", null),
+        supabase
+          .from("contatos")
+          .select("id,nome,email,unidade_id,cobre_empresa_inteira")
+          .eq("empresa_id", user.empresa_id!)
+          .eq("tipo", "responsavel"),
       ]);
+      setResponsaveisAll((resp.data || []) as any);
       const us = (un.data || []).map((u: any) => ({ id: u.id, nome: u.nome_unidade }));
       setUnidades(us);
       const distinct = Array.from(
