@@ -108,6 +108,7 @@ serve(async (req) => {
       solicitante_nome: ticket.solicitante_nome,
       solicitante_email: ticket.solicitante_email,
       solicitante_emails_extra: extras,
+      responsaveis_fixos: respDetails,
       attachments: anexosLinks,
       extra: extra || null,
     };
