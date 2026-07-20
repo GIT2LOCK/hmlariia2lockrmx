@@ -298,6 +298,20 @@ export function ClienteAbrirChamadoModal({ open, onOpenChange, onSaved }: Props)
 
   const mostraUnidade = unidades.length > 1;
 
+  const responsaveisFixos = useMemo(() => {
+    const unidId = form.unidade_id ? Number(form.unidade_id) : (unidades.length === 1 ? unidades[0].id : null);
+    const list = responsaveisAll.filter((r) => r.cobre_empresa_inteira || (unidId && r.unidade_id === unidId));
+    const seen = new Set<string>();
+    const unidLabel = (id: number) => unidades.find((u) => u.id === id)?.nome || null;
+    return list.filter((r) => {
+      const key = (r.email || `id:${r.id}`).toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      (r as any)._unidade_label = r.unidade_id ? unidLabel(r.unidade_id) : null;
+      return true;
+    });
+  }, [responsaveisAll, form.unidade_id, unidades]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto">
