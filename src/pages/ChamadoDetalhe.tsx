@@ -124,6 +124,11 @@ export default function ChamadoDetalhe() {
   const [commentFiles, setCommentFiles] = useState<File[]>([]);
   const sendingRef = useRef(false);
 
+  // Alterações pendentes (não persistidas até clicar em "Salvar alterações").
+  // Evita que trocar status apague o texto digitado no compositor.
+  const [pendingStatus, setPendingStatus] = useState<TicketStatus | null>(null);
+  const [savingChanges, setSavingChanges] = useState(false);
+
   const load = async () => {
     setLoading(true);
     try {
@@ -151,9 +156,12 @@ export default function ChamadoDetalhe() {
 
   const sla = useMemo(() => ticket ? computeSlaSolucao(ticket) : null, [ticket]);
 
-  const changeStatus = async (status: TicketStatus) => {
-    if (!ticket) return;
+  const effectiveStatus = (pendingStatus ?? ticket?.status) as TicketStatus | undefined;
+  const hasPendingChanges = !!pendingStatus && pendingStatus !== ticket?.status;
 
+  const stageStatus = (status: TicketStatus) => {
+    if (!ticket) return;
+    // Fluxos que exigem modal continuam abrindo o modal (sem staging).
     if ((status === "RESOLVIDO" || status === "FECHADO") && !isClosed(ticket.status)) {
       setEncerrarOpen(true);
       return;
@@ -162,19 +170,69 @@ export default function ChamadoDetalhe() {
       setReabrirOpen(true);
       return;
     }
+    setPendingStatus(status === ticket.status ? null : status);
+  };
 
+  const discardChanges = () => {
+    setPendingStatus(null);
+  };
+
+  const saveChanges = async () => {
+    if (!ticket || !hasPendingChanges) return;
+    setSavingChanges(true);
     try {
-      await updateTicketViaEdge({
+      const updates = buildStatusUpdate(ticket, pendingStatus!);
+      const history = [{ campo: "status", valorAnterior: ticket.status, valorNovo: pendingStatus! }];
+
+      // Se o usuário digitou algo no compositor, envia junto como comentário
+      // e faz upload de eventuais anexos ligados a esse comentário.
+      const shouldAttachComment = !!novoComentario.trim() || commentFiles.length > 0;
+      const commentPayload = shouldAttachComment
+        ? {
+            conteudo: novoComentario.trim() || "(somente anexos)",
+            tipo: (isCliente ? "CLIENTE" : tipoComent) as "INTERNO" | "CLIENTE",
+          }
+        : null;
+
+      const res = await updateTicketViaEdge({
         ticketId,
-        updates: buildStatusUpdate(ticket, status),
-        history: [{ campo: "status", valorAnterior: ticket.status, valorNovo: status }],
+        updates,
+        history,
+        comment: commentPayload,
       });
+
+      // Anexos: como updateTicketViaEdge não retorna comment_id, fazemos upload
+      // atrelado ao ticket (sem comment_id) quando houver arquivos junto.
+      if (commentFiles.length > 0) {
+        for (const file of commentFiles) {
+          const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+          const path = `${ticketId}/${Date.now()}_${safeName}`;
+          const { error: upErr } = await supabase.storage.from("ticket-attachments").upload(path, file, {
+            contentType: file.type || "application/octet-stream",
+          });
+          if (upErr) continue;
+          await supabase.from("ticket_attachments").insert({
+            ticket_id: ticketId,
+            autor_id: user?.id ? Number(user.id) : null,
+            autor_nome: user?.nome || null,
+            storage_path: path,
+            file_name: file.name,
+            mime_type: file.type || null,
+            tamanho_bytes: file.size,
+          } as any);
+        }
+      }
+
+      setPendingStatus(null);
+      setNovoComentario("");
+      setCommentFiles([]);
+      toast({ title: "Alterações salvas" });
+      await load();
     } catch (e: any) {
-      toast({ title: "Erro", description: translateTicketError(e?.message || String(e)), variant: "destructive" });
-      return;
+      toast({ title: "Erro ao salvar", description: translateTicketError(e?.message || String(e)), variant: "destructive" });
+    } finally {
+      setSavingChanges(false);
     }
-    toast({ title: "Status atualizado" });
-    load();
   };
 
   const handleCommentFiles = (files: FileList | null) => {
@@ -399,16 +457,27 @@ export default function ChamadoDetalhe() {
             </Button>
           ) : (
             <>
-              <Select value={ticket.status} onValueChange={(v) => changeStatus(v as TicketStatus)}>
+              <Select value={effectiveStatus} onValueChange={(v) => stageStatus(v as TicketStatus)}>
                 <SelectTrigger className="w-56">
-                  <Badge className={STATUS_COLORS[ticket.status as TicketStatus]}>
-                    {STATUS_LABELS[ticket.status as TicketStatus]}
+                  <Badge className={STATUS_COLORS[(effectiveStatus || ticket.status) as TicketStatus]}>
+                    {STATUS_LABELS[(effectiveStatus || ticket.status) as TicketStatus]}
+                    {hasPendingChanges && " •"}
                   </Badge>
                 </SelectTrigger>
                 <SelectContent>
                   {STATUS_ORDER.map((s) => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}
                 </SelectContent>
               </Select>
+              {hasPendingChanges && (
+                <>
+                  <Button variant="default" onClick={saveChanges} disabled={savingChanges}>
+                    {savingChanges ? (<><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Salvando...</>) : "Salvar alterações"}
+                  </Button>
+                  <Button variant="ghost" onClick={discardChanges} disabled={savingChanges}>
+                    Descartar
+                  </Button>
+                </>
+              )}
               <Button variant="default" onClick={() => setEncerrarOpen(true)}>
                 <CheckCircle2 className="h-4 w-4 mr-1" /> Encerrar
               </Button>

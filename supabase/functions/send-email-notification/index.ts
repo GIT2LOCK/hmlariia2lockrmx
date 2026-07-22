@@ -1,4 +1,6 @@
-// Envia notificação de novo comentário público para o N8N → cliente por e-mail
+// Envia notificações de chamados ao webhook do N8N.
+// Cada tipo de evento envia um payload específico contendo TODOS os dados do
+// chamado (com relações) e, quando aplicável, a lista completa de alterações.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
@@ -9,6 +11,18 @@ const corsHeaders = {
 };
 const json = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+const EVENT_LABEL: Record<string, string> = {
+  created: "Chamado aberto",
+  comment: "Nova mensagem no chamado",
+  status_change: "Status do chamado alterado",
+  assigned: "Técnico atribuído ao chamado",
+  solicitante_added: "Você foi adicionado como solicitante",
+  updated: "Chamado atualizado",
+  reopened: "Chamado reaberto",
+  resolved: "Chamado resolvido",
+  closed: "Chamado encerrado",
+};
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -22,7 +36,25 @@ serve(async (req) => {
 
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-    const { data: ticket } = await supabase.from("tickets").select("*").eq("id", ticket_id).maybeSingle();
+    // Ticket + todas as relações relevantes
+    const { data: ticket } = await supabase
+      .from("tickets")
+      .select(`
+        *,
+        empresas:empresa_id(id,nome_fantasia,razao_social,cnpj),
+        unidades:unidade_id(id,nome_unidade,endereco,cidade,uf,cep,udm_codigo,prefixo_hostname),
+        operadoras:operadora_id(id,nome),
+        ticket_filas:fila_id(id,nome),
+        ticket_categorias:categoria_id(id,nome),
+        support_groups:assigned_group_id(id,nome),
+        tecnico:tecnico_id(id,nome,email),
+        criador:criado_por(id,nome,email),
+        atribuido_por:assigned_by(id,nome,email),
+        sla_policy:sla_policy_id(id,nome,first_response_minutes,resolution_minutes)
+      `)
+      .eq("id", ticket_id)
+      .maybeSingle();
+
     if (!ticket) return json({ error: "Ticket não encontrado" }, 404);
 
     const primary = (toOverride || ticket.solicitante_email || "").toString().trim();
@@ -32,8 +64,6 @@ serve(async (req) => {
     const respEmails: string[] = [];
     const respDetails: Array<{ nome: string; email: string; escopo: string; unidade_id: number | null }> = [];
     if (ticket.empresa_id) {
-      const filters: string[] = [`and(cobre_empresa_inteira.eq.true)`];
-      if (ticket.unidade_id) filters.push(`and(unidade_id.eq.${ticket.unidade_id})`);
       const { data: resps } = await supabase
         .from("contatos")
         .select("nome,email,unidade_id,cobre_empresa_inteira,empresa_id,tipo")
@@ -57,44 +87,91 @@ serve(async (req) => {
       }
     }
 
-    const recipients = Array.from(new Set([primary, ...extras, ...respEmails].map((e) => (e || "").toString().trim().toLowerCase()).filter(Boolean)));
+    const recipients = Array.from(new Set(
+      [primary, ...extras, ...respEmails].map((e) => (e || "").toString().trim().toLowerCase()).filter(Boolean),
+    ));
     if (recipients.length === 0) return json({ ok: true, skipped: "sem email" });
 
-    let conteudo = "";
+    // Comentário atrelado (se houver)
+    let comentario: any = null;
     if (comment_id) {
-      const { data: c } = await supabase.from("ticket_comments").select("conteudo").eq("id", comment_id).maybeSingle();
-      conteudo = c?.conteudo || "";
+      const { data: c } = await supabase
+        .from("ticket_comments")
+        .select("id,conteudo,tipo,autor_id,autor_nome,criado_em")
+        .eq("id", comment_id)
+        .maybeSingle();
+      if (c) comentario = c;
     }
+    let conteudo = comentario?.conteudo || "";
     if (!conteudo && event === "created") conteudo = ticket.descricao || "";
 
-    // Anexos (links assinados, válidos por 7 dias) — apenas para eventos com mensagem
-    const anexosLinks: Array<{ name: string; url: string }> = [];
-    if (event === "comment" || event === "created" || !event) {
-      const { data: anexos } = await supabase.from("ticket_attachments").select("*").eq("ticket_id", ticket_id);
-      for (const a of anexos || []) {
-        const { data: signed } = await supabase.storage.from("ticket-attachments")
-          .createSignedUrl(a.storage_path, 60 * 60 * 24 * 7);
-        if (signed?.signedUrl) anexosLinks.push({ name: a.file_name, url: signed.signedUrl });
+    // Todos os anexos do chamado, com links assinados de 7 dias
+    const anexosLinks: Array<{ id: number; name: string; url: string; comment_id: number | null; mime_type: string | null; size: number | null }> = [];
+    const { data: anexos } = await supabase
+      .from("ticket_attachments")
+      .select("id,file_name,mime_type,tamanho_bytes,storage_path,comment_id")
+      .eq("ticket_id", ticket_id);
+    for (const a of anexos || []) {
+      const { data: signed } = await supabase.storage.from("ticket-attachments")
+        .createSignedUrl(a.storage_path, 60 * 60 * 24 * 7);
+      if (signed?.signedUrl) {
+        anexosLinks.push({
+          id: a.id,
+          name: a.file_name,
+          url: signed.signedUrl,
+          comment_id: a.comment_id ?? null,
+          mime_type: a.mime_type ?? null,
+          size: a.tamanho_bytes ?? null,
+        });
       }
     }
+
+    // Últimos eventos do histórico (contexto adicional)
+    const { data: historico } = await supabase
+      .from("ticket_history")
+      .select("id,campo,valor_anterior,valor_novo,observacao,autor_nome,criado_em")
+      .eq("ticket_id", ticket_id)
+      .order("criado_em", { ascending: false })
+      .limit(30);
 
     const appBaseUrl = (Deno.env.get("APP_BASE_URL") || "https://ariia.2lock.com.br").replace(/\/+$/, "");
     const ticketUrl = `${appBaseUrl}/dashboard/chamados/${ticket.id}`;
 
-    const eventoLabel: Record<string, string> = {
-      created: "Chamado aberto",
-      comment: "Nova mensagem no chamado",
-      status_change: "Status do chamado alterado",
-      assigned: "Técnico atribuído ao chamado",
-      solicitante_added: "Você foi adicionado como solicitante",
-    };
-    const subjectPrefix = `[Chamado #${ticket.id}]`;
-    const subject = event && eventoLabel[event]
-      ? `${subjectPrefix} ${eventoLabel[event]} — ${ticket.titulo}`
-      : `${subjectPrefix} ${ticket.titulo}`;
+    const eventKey = event || (comment_id ? "comment" : "updated");
+    const subjectPrefix = `[Chamado #${ticket.id}${ticket.codigo ? ` · ${ticket.codigo}` : ""}]`;
+    const eventLabel = EVENT_LABEL[eventKey] || "Atualização do chamado";
+    const subject = `${subjectPrefix} ${eventLabel} — ${ticket.titulo}`;
+
+    // extra.changes = [{ campo, valor_anterior, valor_novo, label? }]
+    const changes = Array.isArray(extra?.changes) ? extra.changes : [];
+
+    // Payload específico por evento (o N8N pode ramificar por `event`)
+    const eventPayload: Record<string, unknown> = { event: eventKey };
+    if (eventKey === "status_change") {
+      eventPayload.status_anterior = extra?.status_anterior ?? null;
+      eventPayload.status_novo = extra?.status_novo ?? ticket.status;
+    }
+    if (eventKey === "assigned") {
+      eventPayload.tecnico_nome = extra?.tecnico_nome ?? ticket.tecnico?.nome ?? null;
+      eventPayload.tecnico_email = extra?.tecnico_email ?? ticket.tecnico?.email ?? null;
+      eventPayload.equipe_nome = extra?.equipe_nome ?? ticket.support_groups?.nome ?? null;
+    }
+    if (eventKey === "comment" && comentario) {
+      eventPayload.comment = {
+        id: comentario.id,
+        tipo: comentario.tipo,
+        autor_nome: comentario.autor_nome,
+        criado_em: comentario.criado_em,
+        conteudo: comentario.conteudo,
+      };
+    }
 
     const basePayload = {
-      event: event || "comment",
+      event: eventKey,
+      event_label: eventLabel,
+      timestamp: new Date().toISOString(),
+
+      // Identificadores rápidos
       ticket_id: String(ticket.id),
       ticket_numero: ticket.id,
       codigo: ticket.codigo,
@@ -102,14 +179,43 @@ serve(async (req) => {
       url: ticketUrl,
       subject,
       message: conteudo,
+
+      // Snapshot completo do chamado (todos os campos + relações)
+      ticket,
+
+      // Campos frequentemente usados em templates de e-mail
       titulo: ticket.titulo,
+      descricao: ticket.descricao,
       status: ticket.status,
       prioridade: ticket.prioridade,
+      tipo_chamado: ticket.tipo_chamado,
+      empresa: ticket.empresas ?? null,
+      unidade: ticket.unidades ?? null,
+      operadora: ticket.operadoras ?? null,
+      fila: ticket.ticket_filas ?? null,
+      categoria: ticket.ticket_categorias ?? null,
+      equipe: ticket.support_groups ?? null,
+      tecnico: ticket.tecnico ?? null,
+      criador: ticket.criador ?? null,
+      atribuido_por: ticket.atribuido_por ?? null,
+      sla_policy: ticket.sla_policy ?? null,
+
       solicitante_nome: ticket.solicitante_nome,
       solicitante_email: ticket.solicitante_email,
+      solicitante_telefone: ticket.solicitante_telefone,
       solicitante_emails_extra: extras,
       responsaveis_fixos: respDetails,
+
       attachments: anexosLinks,
+      historico_recente: historico ?? [],
+
+      // Todas as alterações desta interação (se houver)
+      changes,
+
+      // Payload específico do evento
+      event_data: eventPayload,
+
+      // Compat: campo extra bruto original
       extra: extra || null,
     };
 
@@ -125,7 +231,7 @@ serve(async (req) => {
     }
     const anyFail = results.some((r) => !r.ok);
     if (anyFail) return json({ error: "Falha em algum destinatário", results }, 502);
-    return json({ ok: true, results });
+    return json({ ok: true, event: eventKey, recipients, results });
   } catch (e) {
     return json({ error: (e as Error).message }, 500);
   }
