@@ -5,9 +5,9 @@ import { useUser } from "@/contexts/UserContext";
 import {
   ArrowLeft, Eye, EyeOff, Monitor, RefreshCw, Server, Wifi,
   AlertTriangle, Wrench, Activity, ChevronDown, ChevronRight,
-  HardDrive, Cpu, Radio, LayoutDashboard, Move, RotateCcw,
+  HardDrive, Radio, LayoutDashboard, Move, RotateCcw,
+  Gauge, CheckCircle2, MemoryStick,
 } from "lucide-react";
-import { motion } from "framer-motion";
 import { toast } from "sonner";
 
 // ── Types ──
@@ -35,8 +35,32 @@ interface ZabbixMaintenance {
   source?: string;
 }
 
+interface ZabbixSystemInfo {
+  serverRunning?: boolean;
+  version?: string | null;
+  frontendVersion?: string | null;
+  hostEnabled?: number | null;
+  hostDisabled?: number | null;
+  templates?: number | null;
+  itemsEnabled?: number | null;
+  itemsDisabled?: number | null;
+  itemsUnsupported?: number | null;
+  proxiesOnline?: number | null;
+  proxiesTotal?: number | null;
+}
+
+interface ZabbixServerMetrics {
+  diskUsagePct: number | null;
+  memoryAvailablePct?: number | null;
+  valuesPerSecond?: number | null;
+  cpuHosts: { hostid: string; hostname: string; name: string; cpuUtil: number; load1m: number | null; load5m: number | null; load15m: number | null; processes: number | null }[];
+  memoryHosts?: { hostid: string; hostname: string; name: string; memoryAvailablePct: number; memoryUtilPct: number }[];
+  proxies: { proxyid: string; name: string; lastaccess: number; delaySec: number }[];
+  systemInfo?: ZabbixSystemInfo;
+}
+
 type Category = "equipamentos" | "links" | "outros";
-type MonitorTileId = "equipamentos" | "links" | "proxies" | "cpu" | "disk" | "outros";
+type MonitorTileId = "equipamentos" | "links" | "cpu" | "resources" | "system" | "proxies" | "severity" | "outros";
 
 interface MonitorLayoutItem {
   id: MonitorTileId;
@@ -82,12 +106,19 @@ const needsSecondUpdateAlert = (problem: ZabbixProblem) => {
   return ageSeconds >= SECOND_UPDATE_ALERT_SECONDS && getAckCount(problem) < 2;
 };
 
+const normalizeProblemText = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
 function classifyProblem(p: ZabbixProblem): Category {
   if (p.category === "equipamentos" || p.category === "links" || p.category === "outros") return p.category;
-  const name = (p.triggerDescription || p.name || "").toLowerCase();
-  if (/indisponibilidade.*equipamento/i.test(name)) return "equipamentos";
-  if (/indisponibilidade.*link/i.test(name)) return "links";
-  if (/indisponibilidade de ddns/i.test(name)) return "links";
+  const name = normalizeProblemText(p.triggerDescription || p.name || "");
+  if (/\b(?:switch|ap|access point|ctrl|controller)\b.*\boff-?line\b/.test(name)) return "equipamentos";
+  if (/indisponibilidade.*(?:equipamento|ctrl|switch|\bap\b)/.test(name)) return "equipamentos";
+  if (/indisponibilidade.*link/.test(name)) return "links";
+  if (/indisponibilidade de ddns/.test(name)) return "links";
   if (/sem conex[ãa]o com a unidade/i.test(name)) return "links";
   return "outros";
 }
@@ -106,22 +137,27 @@ function formatDuration(epochSeconds: number): string {
 
 // ── Palette ──
 const C = {
-  cyan: "#4da6ff",
-  textCyan: "#7ec8e3",
-  white: "#e8f0ff",
-  dim: "#5a7a9a",
-  grid: "rgba(77,166,255,0.10)",
-  border: "rgba(77,166,255,0.22)",
-  borderHi: "rgba(77,166,255,0.50)",
-  glowSm: "0 0 18px rgba(77,166,255,0.12), inset 0 1px 0 rgba(77,166,255,0.10)",
-  glowLg: "0 0 40px rgba(77,166,255,0.22), inset 0 1px 0 rgba(77,166,255,0.18), 0 0 100px rgba(77,166,255,0.06)",
-  cardBg: "linear-gradient(145deg, rgba(12,22,50,0.88) 0%, rgba(6,12,30,0.94) 100%)",
-  pageBg: "radial-gradient(ellipse at 50% -10%, rgba(18,40,90,0.45) 0%, rgba(4,6,16,1) 65%)",
-  red: "#ff4d4d",
-  orange: "#ff9f43",
-  yellow: "#ffd93d",
-  green: "#3dd9b4",
-  blue: "#4da6ff",
+  cyan: "#4bb8d8",
+  blue: "#3d7ee8",
+  textCyan: "#8fd8ec",
+  white: "#e8eef8",
+  dim: "#9aa9bf",
+  muted: "#6d7a90",
+  grid: "rgba(160,185,220,0.08)",
+  border: "rgba(180,205,235,0.11)",
+  borderHi: "rgba(75,184,216,0.42)",
+  shell: "linear-gradient(145deg, rgba(12,24,43,0.72), rgba(8,18,34,0.82) 54%, rgba(7,10,24,0.78))",
+  panel: "linear-gradient(145deg, rgba(14,28,50,0.66), rgba(8,18,34,0.80) 52%, rgba(10,12,28,0.76))",
+  panelFlat: "rgba(10,24,44,0.54)",
+  panelSoft: "linear-gradient(135deg, rgba(75,184,216,0.11), rgba(61,126,232,0.07))",
+  pageBg: "linear-gradient(135deg, #050812 0%, #071424 48%, #070d1d 100%)",
+  red: "#e46b78",
+  danger: "#e46b78",
+  orange: "#e99552",
+  warning: "#e99552",
+  yellow: "#f0c45d",
+  green: "#51c59f",
+  ok: "#51c59f",
 };
 
 const CATEGORY_COLORS: Record<Category, string> = {
@@ -142,26 +178,39 @@ const CATEGORY_LABELS: Record<Category, string> = {
   outros: "OUTROS",
 };
 
+const SEVERITY_BUCKETS = [
+  { key: "5", label: "Disaster", color: "#b84e69" },
+  { key: "4", label: "High", color: "#e46b78" },
+  { key: "3", label: "Average", color: "#e99552" },
+  { key: "2", label: "Warning", color: "#f0c45d" },
+  { key: "1", label: "Information", color: "#6e92ff" },
+  { key: "0", label: "Not classified", color: "#8da4b2" },
+];
+
 const REFRESH_INTERVAL = 30_000;
-const MONITOR_LAYOUT_STORAGE_KEY = "ariia-zabbix-tv-canvas-v1";
+const MONITOR_LAYOUT_STORAGE_KEY = "ariia-zabbix-tv-canvas-v2";
 const MONITOR_CANVAS_MIN_W = 16;
 const MONITOR_CANVAS_MIN_H = 14;
 
 const DEFAULT_MONITOR_LAYOUT: MonitorLayoutItem[] = [
-  { id: "equipamentos", x: 0, y: 0, w: 36, h: 64, z: 1 },
-  { id: "links", x: 37, y: 0, w: 36, h: 64, z: 2 },
-  { id: "proxies", x: 74, y: 0, w: 26, h: 28, z: 3 },
-  { id: "cpu", x: 74, y: 30, w: 26, h: 52, z: 4 },
-  { id: "disk", x: 0, y: 67, w: 73, h: 18, z: 5 },
-  { id: "outros", x: 0, y: 87, w: 100, h: 13, z: 6 },
+  { id: "equipamentos", x: 0, y: 0, w: 43, h: 46, z: 1 },
+  { id: "links", x: 0, y: 49, w: 43, h: 51, z: 2 },
+  { id: "cpu", x: 44, y: 0, w: 28, h: 46, z: 3 },
+  { id: "resources", x: 44, y: 49, w: 28, h: 51, z: 4 },
+  { id: "system", x: 73, y: 0, w: 27, h: 31, z: 5 },
+  { id: "proxies", x: 73, y: 34, w: 27, h: 27, z: 6 },
+  { id: "severity", x: 73, y: 64, w: 27, h: 19, z: 7 },
+  { id: "outros", x: 73, y: 86, w: 27, h: 14, z: 8 },
 ];
 
 const MONITOR_TILE_LABELS: Record<MonitorTileId, string> = {
   equipamentos: "Equipamentos",
   links: "Links",
-  proxies: "Proxies",
   cpu: "CPU Hosts",
-  disk: "Disco",
+  resources: "Recursos",
+  system: "Sistema",
+  proxies: "Proxies",
+  severity: "Severidade",
   outros: "Outros",
 };
 
@@ -202,133 +251,62 @@ const normalizeMonitorLayoutItem = (candidate: Partial<MonitorLayoutItem> | unde
 
 // ── Sub-components ──
 
-const AnimNum = ({ value, className, style }: { value: number; className?: string; style?: React.CSSProperties }) => {
-  const [display, setDisplay] = useState(0);
-  const prev = useRef(0);
-  useEffect(() => {
-    const from = prev.current, to = value;
-    if (from === to) { setDisplay(to); return; }
-    const dur = 900, t0 = performance.now();
-    const step = (t: number) => {
-      const p = Math.min((t - t0) / dur, 1);
-      setDisplay(Math.round(from + (to - from) * (1 - Math.pow(1 - p, 3))));
-      if (p < 1) requestAnimationFrame(step);
-    };
-    requestAnimationFrame(step);
-    prev.current = to;
-  }, [value]);
-  return <span className={className} style={style}>{display}</span>;
-};
-
-const Particles = () => {
-  const ref = useRef<HTMLCanvasElement>(null);
-  useEffect(() => {
-    const c = ref.current; if (!c) return;
-    const ctx = c.getContext("2d"); if (!ctx) return;
-    let id: number;
-    const pts: { x: number; y: number; vx: number; vy: number; r: number; a: number }[] = [];
-    const resize = () => { c.width = window.innerWidth; c.height = window.innerHeight; };
-    resize(); window.addEventListener("resize", resize);
-    for (let i = 0; i < 90; i++) pts.push({
-      x: Math.random() * c.width, y: Math.random() * c.height,
-      vx: (Math.random() - 0.5) * 0.25, vy: (Math.random() - 0.5) * 0.25,
-      r: Math.random() * 1.8 + 0.4, a: Math.random() * 0.4 + 0.08,
-    });
-    const draw = () => {
-      ctx.clearRect(0, 0, c.width, c.height);
-      pts.forEach(p => {
-        p.x += p.vx; p.y += p.vy;
-        if (p.x < 0) p.x = c.width; if (p.x > c.width) p.x = 0;
-        if (p.y < 0) p.y = c.height; if (p.y > c.height) p.y = 0;
-        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(77,166,255,${p.a})`; ctx.fill();
-      });
-      for (let i = 0; i < pts.length; i++) for (let j = i + 1; j < pts.length; j++) {
-        const d = Math.hypot(pts[i].x - pts[j].x, pts[i].y - pts[j].y);
-        if (d < 130) { ctx.beginPath(); ctx.moveTo(pts[i].x, pts[i].y); ctx.lineTo(pts[j].x, pts[j].y);
-          ctx.strokeStyle = `rgba(77,166,255,${0.055 * (1 - d / 130)})`; ctx.stroke(); }
-      }
-      id = requestAnimationFrame(draw);
-    };
-    draw();
-    return () => { cancelAnimationFrame(id); window.removeEventListener("resize", resize); };
-  }, []);
-  return <canvas ref={ref} className="fixed inset-0 pointer-events-none" style={{ zIndex: 0 }} />;
-};
-
-const PulseDot = ({ color }: { color: string }) => (
-  <span className="relative flex h-2.5 w-2.5">
-    <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-40" style={{ backgroundColor: color }} />
-    <span className="relative inline-flex rounded-full h-2.5 w-2.5" style={{ backgroundColor: color, boxShadow: `0 0 6px ${color}` }} />
-  </span>
+const StaticDot = ({ color }: { color: string }) => (
+  <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
 );
 
-const GlowCard = ({ children, className = "", hi = false, delay = 0, contentClassName = "" }: {
-  children: React.ReactNode; className?: string; hi?: boolean; delay?: number; contentClassName?: string;
+const formatMetric = (value: number) => new Intl.NumberFormat("pt-BR").format(value || 0);
+const formatDecimal = (value: number | null | undefined, digits = 1) =>
+  typeof value === "number" && Number.isFinite(value) ? value.toLocaleString("pt-BR", { maximumFractionDigits: digits, minimumFractionDigits: digits }) : "--";
+const clampPct = (value: number) => Math.max(0, Math.min(100, value));
+
+const GlowCard = ({ children, className = "", hi = false, contentClassName = "" }: {
+  children: React.ReactNode; className?: string; hi?: boolean; contentClassName?: string;
 }) => (
-  <motion.div
-    initial={{ opacity: 0, y: 24, scale: 0.96 }}
-    animate={{ opacity: 1, y: 0, scale: 1 }}
-    transition={{ duration: 0.55, delay, ease: [0.22, 1, 0.36, 1] }}
-    className={`relative rounded-2xl overflow-hidden ${className}`}
+  <div
+    className={`relative overflow-hidden rounded-lg border ${className}`}
     style={{
-      background: C.cardBg,
-      backdropFilter: "blur(16px)",
-      border: `1px solid ${hi ? C.borderHi : C.border}`,
-      boxShadow: hi ? C.glowLg : C.glowSm,
+      background: C.panel,
+      borderColor: hi ? C.borderHi : C.border,
+      boxShadow: "0 8px 18px rgba(0,0,0,0.24), inset 0 1px 0 rgba(170,205,235,0.035)",
     }}
   >
-    <div className="absolute top-0 left-[8%] right-[8%] h-[1px]"
-      style={{ background: `linear-gradient(90deg, transparent, rgba(77,166,255,${hi ? 0.9 : 0.45}), transparent)` }} />
+    <div className="absolute inset-x-0 top-0 h-px"
+      style={{ background: "linear-gradient(90deg, transparent, rgba(120,180,220,0.12), transparent)" }} />
     <div className={`relative z-10 ${contentClassName}`}>{children}</div>
-  </motion.div>
+  </div>
 );
 
-const MiniDonut = ({ pct, color, size = 52 }: { pct: number; color: string; size?: number }) => {
-  const r = size * 0.34, circ = 2 * Math.PI * r, dash = (pct / 100) * circ;
+const MonitorSectionTitle = ({ children }: { children: React.ReactNode }) => (
+  <p className="text-xs 2xl:text-sm uppercase tracking-[0.12em]" style={{ color: C.dim, fontWeight: 300 }}>
+    {children}
+  </p>
+);
+
+const MonitorClock = ({ lastUpdate }: { lastUpdate: Date | null }) => {
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const secAgo = lastUpdate
+    ? Math.max(0, Math.floor((now.getTime() - lastUpdate.getTime()) / 1000))
+    : 0;
+
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="flex-shrink-0">
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(77,166,255,0.08)" strokeWidth="5" />
-      <motion.circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth="5"
-        strokeLinecap="round" strokeDasharray={`${dash} ${circ - dash}`} strokeDashoffset={circ / 4}
-        initial={{ strokeDasharray: `0 ${circ}` }}
-        animate={{ strokeDasharray: `${dash} ${circ - dash}` }}
-        transition={{ duration: 1.2, delay: 0.4, ease: "easeOut" }}
-        style={{ filter: `drop-shadow(0 0 6px ${color}70)` }} />
-      <text x={size / 2} y={size / 2} textAnchor="middle" dominantBaseline="central"
-        fill={color} fontSize={size * 0.2} fontWeight="400">{Math.round(pct)}%</text>
-    </svg>
+    <div className="rounded-lg border px-4 py-2.5 text-right" style={{ borderColor: C.border, background: "rgba(10,24,44,0.54)", boxShadow: "inset 0 1px 0 rgba(170,205,235,0.04)" }}>
+      <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: C.dim, fontWeight: 400 }}>
+        {secAgo < 5 ? "Atualizado agora" : `Atualizado ha ${secAgo}s`}
+      </p>
+      <p className="font-mono text-2xl tabular-nums leading-tight 2xl:text-3xl" style={{ color: C.white }}>
+        {now.toLocaleTimeString("pt-BR")}
+      </p>
+    </div>
   );
 };
 
-const MultiDonut = ({ segments, size = 60 }: { segments: { pct: number; color: string }[]; size?: number }) => {
-  const r = size * 0.34, circ = 2 * Math.PI * r;
-  let offset = circ / 4; // start at top
-  const total = segments.reduce((s, seg) => s + seg.pct, 0);
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="flex-shrink-0">
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(77,166,255,0.08)" strokeWidth="5" />
-      {segments.filter(s => s.pct > 0).map((seg, i) => {
-        const dash = (seg.pct / 100) * circ;
-        const gap = circ - dash;
-        const currentOffset = offset;
-        offset -= dash;
-        return (
-          <motion.circle key={i} cx={size / 2} cy={size / 2} r={r} fill="none" stroke={seg.color} strokeWidth="5"
-            strokeDasharray={`${dash} ${gap}`} strokeDashoffset={currentOffset}
-            initial={{ strokeDasharray: `0 ${circ}` }}
-            animate={{ strokeDasharray: `${dash} ${gap}` }}
-            transition={{ duration: 1.2, delay: 0.4 + i * 0.15, ease: "easeOut" }}
-            style={{ filter: `drop-shadow(0 0 6px ${seg.color}70)` }} />
-        );
-      })}
-      <text x={size / 2} y={size / 2} textAnchor="middle" dominantBaseline="central"
-        fill={C.white} fontSize={size * 0.18} fontWeight="400">{Math.round(total)}%</text>
-    </svg>
-  );
-};
-
-// ── Host grouping for TV ──
 interface TvHostGroup {
   hostKey: string;
   hostName: string;
@@ -364,17 +342,14 @@ function TvGroupedRows({ groups, expandedHosts, onToggle, gridCols = "grid-cols-
 }) {
   return (
     <>
-      {groups.map((group, gi) => {
+      {groups.map((group) => {
         const isMulti = group.problems.length > 1;
         const isExpanded = expandedHosts.has(group.hostKey);
         const hasSecondUpdateAlert = group.problems.some(needsSecondUpdateAlert);
 
         return (
           <div key={group.hostKey}>
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.02 * gi, ease: "easeOut" }}
+            <div
               className={`grid ${gridCols} gap-2 items-center py-2 px-3 ${isMulti ? "cursor-pointer" : ""}`}
               style={{
                 borderBottom: `1px solid rgba(77,166,255,0.06)`,
@@ -421,7 +396,7 @@ function TvGroupedRows({ groups, expandedHosts, onToggle, gridCols = "grid-cols-
                   </span>
                 );
               })()}
-            </motion.div>
+            </div>
 
             {isMulti && isExpanded && group.problems.map((p) => (
               <div
@@ -454,16 +429,10 @@ export default function ZabbixTvView() {
   const { isTvView } = useUser();
   const [problems, setProblems] = useState<ZabbixProblem[]>([]);
   const [maintenances, setMaintenances] = useState<ZabbixMaintenance[]>([]);
-  const [serverMetrics, setServerMetrics] = useState<{
-    diskUsagePct: number | null;
-    cpuHosts: { hostid: string; hostname: string; name: string; cpuUtil: number; load1m: number | null; load5m: number | null; load15m: number | null; processes: number | null }[];
-    proxies: { proxyid: string; name: string; lastaccess: number; delaySec: number }[];
-  } | null>(null);
+  const [serverMetrics, setServerMetrics] = useState<ZabbixServerMetrics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
-  const [now, setNow] = useState(new Date());
-  const [secAgo, setSecAgo] = useState(0);
   const [sidebarHidden, setSidebarHidden] = useState(true);
   const [expandedHosts, setExpandedHosts] = useState<Set<string>>(new Set());
   const [showCtrl, setShowCtrl] = useState(true);
@@ -596,11 +565,6 @@ export default function ZabbixTvView() {
     };
   }, []);
 
-  useEffect(() => {
-    const t = setInterval(() => { setNow(new Date()); setSecAgo(p => p + 1); }, 1000);
-    return () => clearInterval(t);
-  }, []);
-
   const fetchData = useCallback(async () => {
     try {
       setError(null);
@@ -615,7 +579,6 @@ export default function ZabbixTvView() {
       setMaintenances(Array.isArray(mRes.data) ? mRes.data : []);
       if (smRes.data && !smRes.error) setServerMetrics(smRes.data);
       setLastUpdate(new Date());
-      setSecAgo(0);
     } catch (err: any) {
       setError(err.message || "Erro");
     } finally {
@@ -705,13 +668,27 @@ export default function ZabbixTvView() {
     outros: categorized.outros.length,
   }), [categorized]);
   const totalProblems = catCounts.equipamentos + catCounts.links + catCounts.outros;
+  const systemInfo = serverMetrics?.systemInfo;
+  const proxies = serverMetrics?.proxies || [];
+  const proxyOffline = proxies.filter((proxy) => proxy.delaySec < 0 || proxy.delaySec > 120).length;
+  const memoryAvailablePct = serverMetrics?.memoryAvailablePct ?? null;
+  const memoryUsedPct = memoryAvailablePct === null ? null : clampPct(100 - memoryAvailablePct);
+  const diskUsagePct = serverMetrics?.diskUsagePct ?? null;
+  const valuesPerSecond = serverMetrics?.valuesPerSecond ?? null;
+  const topCpu = serverMetrics?.cpuHosts?.[0]?.cpuUtil ?? null;
+  const severityRows = SEVERITY_BUCKETS.map((bucket) => ({
+    ...bucket,
+    value: problems.filter((problem) => String(problem.severity) === bucket.key).length,
+  }));
+  const maxSeverity = Math.max(1, ...severityRows.map((item) => item.value));
 
   const kpis = [
-    { id: "total", label: "Total Problemas", value: totalProblems, icon: Activity, color: C.red, hi: true },
-    { id: "equip", label: "Equipamentos", value: catCounts.equipamentos, icon: Server, color: C.blue, hi: false },
-    { id: "links", label: "Links", value: catCounts.links, icon: Wifi, color: C.green, hi: false },
-    { id: "outros", label: "Outros", value: catCounts.outros, icon: AlertTriangle, color: C.dim, hi: false },
-    { id: "manut", label: "Manutenções", value: totalMaintenances, icon: Wrench, color: C.yellow, hi: false },
+    { id: "total", label: "Problemas", value: totalProblems, icon: Activity, color: C.red, progress: totalProblems > 0 ? 100 : 0 },
+    { id: "links", label: "Links", value: catCounts.links, icon: Wifi, color: C.green, progress: totalProblems > 0 ? (catCounts.links / totalProblems) * 100 : 0 },
+    { id: "ctrl", label: "CTRL/AP", value: catCounts.equipamentos, icon: Server, color: C.blue, progress: totalProblems > 0 ? (catCounts.equipamentos / totalProblems) * 100 : 0 },
+    { id: "proxy", label: "Proxies offline", value: proxyOffline, icon: Radio, color: proxyOffline > 0 ? C.red : C.green, progress: proxies.length > 0 ? (proxyOffline / proxies.length) * 100 : 0 },
+    { id: "values", label: "Valores/s", value: valuesPerSecond, icon: Gauge, color: C.cyan, progress: valuesPerSecond ? Math.min(100, valuesPerSecond) : 0 },
+    { id: "manut", label: "Manutencoes", value: totalMaintenances, icon: Wrench, color: C.yellow, progress: totalMaintenances > 0 ? 100 : 0 },
   ];
 
   const toggleSidebar = () => {
@@ -772,7 +749,7 @@ export default function ZabbixTvView() {
             data-monitor-no-drag
             onPointerDown={(event) => beginCanvasInteraction(event, item, "resize", handle.id)}
             className={`absolute z-30 ${handle.className}`}
-            style={{ background: activeTile === item.id ? "rgba(77,166,255,0.78)" : "rgba(126,200,227,0.30)" }}
+            style={{ background: activeTile === item.id ? "rgba(75,184,216,0.70)" : "rgba(160,185,220,0.28)" }}
           />
         ))}
       </>
@@ -787,10 +764,10 @@ export default function ZabbixTvView() {
         data-monitor-no-drag
         onPointerDown={(event) => beginCanvasInteraction(event, item, "move")}
         className="absolute left-2 top-2 z-20 flex items-center gap-2 rounded-lg border px-2.5 py-1.5"
-        style={{ borderColor: C.borderHi, background: "rgba(4,10,24,0.88)", color: C.textCyan, cursor: "move" }}
+        style={{ borderColor: C.border, background: "rgba(5,12,24,0.84)", color: C.dim, cursor: "move" }}
       >
         <Move className="h-3.5 w-3.5" />
-        <span className="text-[10px] uppercase tracking-[0.10em]" style={{ fontWeight: 600 }}>
+        <span className="text-[10px] uppercase tracking-[0.10em]" style={{ fontWeight: 300 }}>
           {MONITOR_TILE_LABELS[item.id]}
         </span>
       </div>
@@ -800,7 +777,7 @@ export default function ZabbixTvView() {
   const renderCanvasShell = (item: MonitorLayoutItem, children: React.ReactNode) => (
     <div
       key={item.id}
-      className={`absolute min-h-0 rounded-2xl ${editLayout ? "select-none" : ""} ${activeTile === item.id ? "ring-1" : ""}`}
+      className={`absolute min-h-0 rounded-lg ${editLayout ? "select-none" : ""} ${activeTile === item.id ? "ring-1" : ""}`}
       style={{
         left: `${item.x}%`,
         top: `${item.y}%`,
@@ -808,7 +785,7 @@ export default function ZabbixTvView() {
         height: `${item.h}%`,
         zIndex: item.z,
         touchAction: "none",
-        ...(activeTile === item.id ? { ["--tw-ring-color" as string]: "rgba(77,166,255,0.64)" } : {}),
+        ...(activeTile === item.id ? { ["--tw-ring-color" as string]: "rgba(75,184,216,0.58)" } : {}),
       }}
       onPointerDown={(event) => {
         if (!editLayout) return;
@@ -833,7 +810,7 @@ export default function ZabbixTvView() {
     return renderCanvasShell(item, (
       <>
         <div className="p-4 pb-2 flex items-center gap-2 flex-shrink-0" style={{ borderBottom: `1px solid ${C.grid}` }}>
-          <Icon className="h-6 w-6" style={{ color, filter: `drop-shadow(0 0 4px ${color}60)` }} />
+          <Icon className="h-6 w-6" style={{ color }} />
           <span className="text-sm uppercase tracking-[0.15em]" style={{ color, fontWeight: 700 }}>
             {CATEGORY_LABELS[cat]}
           </span>
@@ -860,311 +837,318 @@ export default function ZabbixTvView() {
     ));
   };
 
-  const renderMonitorTile = (item: MonitorLayoutItem) => {
+  const renderMonitorTileV2 = (item: MonitorLayoutItem) => {
     if (item.id === "equipamentos") {
-      return renderProblemPanel(item, "equipamentos", "grid-cols-[20px_1fr_2.5fr_100px_60px]");
+      return renderProblemPanel(item, "equipamentos", "grid-cols-[20px_1fr_2.3fr_88px_54px]");
     }
 
     if (item.id === "links") {
-      return renderProblemPanel(item, "links", "grid-cols-[20px_1.5fr_2fr_100px_60px]");
-    }
-
-    if (item.id === "proxies") {
-      return renderCanvasShell(item, (
-        <div className="px-4 py-3 flex min-h-0 flex-col">
-          <div className="flex items-center gap-2 mb-2">
-            <Radio className="h-5 w-5" style={{ color: C.cyan, filter: `drop-shadow(0 0 4px ${C.cyan}60)` }} />
-            <span className="text-xs uppercase tracking-[0.12em]" style={{ color: C.cyan, fontWeight: 700 }}>Proxies</span>
-          </div>
-          <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto custom-scrollbar">
-            {(serverMetrics?.proxies || []).map((px) => {
-              const isUp = px.delaySec >= 0 && px.delaySec <= 30;
-              const isWarning = px.delaySec > 30 && px.delaySec <= 120;
-              const statusColor = isUp ? C.green : isWarning ? C.orange : C.red;
-              return (
-                <div key={px.proxyid} className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: "rgba(77,166,255,0.04)", border: `1px solid rgba(77,166,255,0.08)` }}>
-                  <PulseDot color={statusColor} />
-                  <span className="text-sm font-mono truncate flex-1" style={{ color: C.textCyan, fontWeight: 600 }}>{px.name}</span>
-                  <span className="text-lg font-mono tabular-nums" style={{ color: statusColor, fontWeight: 700, textShadow: `0 0 10px ${statusColor}40` }}>
-                    {px.delaySec >= 0 ? `${px.delaySec}s` : "—"}
-                  </span>
-                </div>
-              );
-            })}
-            {(!serverMetrics || serverMetrics.proxies.length === 0) && (
-              <div className="py-6 text-center text-base" style={{ color: C.dim }}>Sem dados</div>
-            )}
-          </div>
-        </div>
-      ));
+      return renderProblemPanel(item, "links", "grid-cols-[20px_1.25fr_2.2fr_88px_54px]");
     }
 
     if (item.id === "cpu") {
       return renderCanvasShell(item, (
-        <div className="p-5 h-full flex min-h-0 flex-col">
-          <div className="flex items-center gap-2 mb-3 flex-shrink-0">
-            <Cpu className="h-6 w-6" style={{ color: C.cyan, filter: `drop-shadow(0 0 4px ${C.cyan}60)` }} />
-            <span className="text-sm uppercase tracking-[0.12em]" style={{ color: C.cyan, fontWeight: 700 }}>CPU Hosts</span>
+        <div className="flex h-full min-h-0 flex-col p-4">
+          <div className="mb-3 flex items-center justify-between gap-4 pr-20">
+            <MonitorSectionTitle>Top hosts por CPU</MonitorSectionTitle>
+            <span className="text-sm tabular-nums" style={{ color: C.muted, fontWeight: 300 }}>{formatDecimal(topCpu)}%</span>
           </div>
-          <div className="overflow-y-auto flex-1 min-h-0 custom-scrollbar flex flex-col gap-1 justify-evenly">
-            {(serverMetrics?.cpuHosts || []).map((h, i) => {
-              const barPct = Math.min(h.cpuUtil, 100);
-              const barColor = h.cpuUtil > 80 ? C.red : h.cpuUtil > 50 ? C.orange : C.green;
+          <div className="min-h-0 flex-1 overflow-y-auto custom-scrollbar space-y-2">
+            {(serverMetrics?.cpuHosts || []).map((host) => {
+              const pct = clampPct(host.cpuUtil);
+              const color = pct > 80 ? C.red : pct > 50 ? C.orange : C.green;
               return (
-                <div key={h.hostid + i} className="flex flex-col gap-2 py-3" style={{ borderBottom: `1px solid rgba(77,166,255,0.06)` }}>
-                  <div className="flex items-center justify-between">
-                    <span className="text-base truncate" style={{ color: C.textCyan, fontWeight: 600 }}>{h.name}</span>
-                    <span className="text-lg font-mono tabular-nums ml-2 whitespace-nowrap" style={{ color: barColor, fontWeight: 700 }}>{h.cpuUtil.toFixed(1)}%</span>
+                <div key={host.hostid} className="grid items-center gap-3" style={{ gridTemplateColumns: "minmax(0,1fr) 58px" }}>
+                  <div className="min-w-0">
+                    <div className="mb-1 flex items-center justify-between gap-2">
+                      <span className="truncate text-sm 2xl:text-base" style={{ color: C.white, fontWeight: 300 }}>{host.name}</span>
+                      <span className="text-xs tabular-nums" style={{ color: C.dim, fontWeight: 300 }}>P {host.processes ?? "--"}</span>
+                    </div>
+                    <div className="h-2.5 overflow-hidden rounded-full" style={{ background: "rgba(160,185,220,0.10)" }}>
+                      <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color }} />
+                    </div>
+                    <div className="mt-1 flex gap-3 text-[11px] tabular-nums" style={{ color: C.muted, fontWeight: 300 }}>
+                      <span>1m {host.load1m?.toFixed(2) ?? "--"}</span>
+                      <span>5m {host.load5m?.toFixed(2) ?? "--"}</span>
+                      <span>15m {host.load15m?.toFixed(2) ?? "--"}</span>
+                    </div>
                   </div>
-                  <div className="h-3 rounded-full overflow-hidden" style={{ background: "rgba(77,166,255,0.08)" }}>
-                    <div className="h-full rounded-full transition-all" style={{ width: `${barPct}%`, background: barColor, boxShadow: `0 0 8px ${barColor}40` }} />
-                  </div>
-                  <div className="flex gap-4 text-sm font-mono tabular-nums" style={{ color: C.dim }}>
-                    <span>1m: {h.load1m?.toFixed(2) ?? "—"}</span>
-                    <span>5m: {h.load5m?.toFixed(2) ?? "—"}</span>
-                    <span>15m: {h.load15m?.toFixed(2) ?? "—"}</span>
-                    <span className="ml-auto">P: {h.processes ?? "—"}</span>
-                  </div>
+                  <span className="text-right text-lg 2xl:text-xl tabular-nums" style={{ color, fontWeight: 300 }}>{host.cpuUtil.toFixed(1)}%</span>
                 </div>
               );
             })}
             {(!serverMetrics || serverMetrics.cpuHosts.length === 0) && (
-              <div className="py-3 text-center text-base" style={{ color: C.dim }}>Sem dados</div>
+              <div className="flex h-36 items-center justify-center text-base" style={{ color: C.muted }}>Sem dados de CPU</div>
             )}
           </div>
         </div>
       ));
     }
 
-    if (item.id === "disk") {
-      const pct = serverMetrics?.diskUsagePct ?? 0;
-      const diskColor = pct > 80 ? C.red : pct > 60 ? C.orange : C.green;
+    if (item.id === "resources") {
+      const resourceCards = [
+        { label: "Disco usado", value: diskUsagePct, suffix: "%", icon: HardDrive, color: (diskUsagePct ?? 0) > 80 ? C.red : C.cyan },
+        { label: "Memoria usada", value: memoryUsedPct, suffix: "%", icon: MemoryStick, color: (memoryUsedPct ?? 0) > 80 ? C.red : C.green },
+        { label: "Valores por segundo", value: valuesPerSecond, suffix: "", icon: Gauge, color: C.cyan },
+      ];
+
       return renderCanvasShell(item, (
-        <div className="px-6 py-4 h-full flex items-center">
-          <div className="flex w-full items-center gap-4">
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <HardDrive className="h-7 w-7" style={{ color: C.cyan, filter: `drop-shadow(0 0 4px ${C.cyan}60)` }} />
-              <span className="text-base uppercase tracking-[0.12em]" style={{ color: C.cyan, fontWeight: 700 }}>Espaço em disco</span>
-            </div>
-            <div className="flex-1 h-8 rounded-full overflow-hidden relative" style={{ background: "rgba(77,166,255,0.08)", border: `1px solid rgba(77,166,255,0.12)` }}>
-              <motion.div
-                className="h-full rounded-full"
-                initial={{ width: "0%" }}
-                animate={{ width: `${pct}%` }}
-                transition={{ duration: 1.2, delay: 0.4, ease: "easeOut" }}
-                style={{ background: `linear-gradient(90deg, ${diskColor}cc, ${diskColor})`, boxShadow: `0 0 16px ${diskColor}50, inset 0 1px 0 rgba(255,255,255,0.15)` }}
-              />
-              <span className="absolute inset-0 flex items-center justify-center text-sm font-mono font-bold" style={{ color: C.white, textShadow: "0 1px 3px rgba(0,0,0,0.6)" }}>
-                {pct.toFixed(1)}% USADO
-              </span>
-            </div>
+        <div className="flex h-full min-h-0 flex-col p-4">
+          <div className="mb-3 flex items-center justify-between gap-4 pr-20">
+            <MonitorSectionTitle>Recursos do Zabbix</MonitorSectionTitle>
+            <span className="text-sm" style={{ color: C.muted, fontWeight: 300 }}>CPU / memoria / disco</span>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {resourceCards.map((card) => (
+              <div key={card.label} className="rounded-lg border p-3" style={{ borderColor: C.grid, background: "rgba(10,24,44,0.42)" }}>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] uppercase tracking-[0.10em]" style={{ color: C.dim, fontWeight: 300 }}>{card.label}</span>
+                  <card.icon className="h-4 w-4" style={{ color: card.color }} />
+                </div>
+                <div className="mt-2 text-2xl 2xl:text-3xl tabular-nums" style={{ color: C.white, fontWeight: 300 }}>
+                  {formatDecimal(card.value, card.suffix ? 1 : 2)}{card.value === null || card.value === undefined ? "" : card.suffix}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 grid flex-1 grid-cols-2 gap-2 overflow-hidden">
+            {(serverMetrics?.memoryHosts || []).slice(0, 6).map((host) => (
+              <div key={host.hostid} className="flex items-center gap-3 rounded-lg border px-3 py-2" style={{ borderColor: C.grid, background: "rgba(8,24,46,0.48)" }}>
+                <div className="flex h-12 w-14 flex-shrink-0 items-center justify-center text-center" style={{ clipPath: "polygon(25% 6%, 75% 6%, 100% 50%, 75% 94%, 25% 94%, 0 50%)", background: "rgba(75,184,216,0.16)", color: C.white }}>
+                  <span className="text-sm tabular-nums" style={{ fontWeight: 300 }}>{host.memoryUtilPct.toFixed(0)}%</span>
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-sm" style={{ color: C.white, fontWeight: 300 }}>{host.name}</p>
+                  <p className="text-xs" style={{ color: C.muted, fontWeight: 300 }}>Memoria utilizada</p>
+                </div>
+              </div>
+            ))}
+            {(!serverMetrics?.memoryHosts || serverMetrics.memoryHosts.length === 0) && (
+              <div className="col-span-2 flex items-center justify-center text-base" style={{ color: C.muted }}>Sem dados de memoria</div>
+            )}
+          </div>
+        </div>
+      ));
+    }
+
+    if (item.id === "system") {
+      const rows = [
+        { label: "Zabbix server is running", value: systemInfo?.serverRunning ? "Yes" : "No", color: systemInfo?.serverRunning ? C.green : C.red },
+        { label: "Zabbix server version", value: systemInfo?.version || "--", color: C.white },
+        { label: "Zabbix frontend version", value: systemInfo?.frontendVersion || "--", color: C.white },
+        { label: "Hosts enabled/disabled", value: `${formatMetric(systemInfo?.hostEnabled ?? 0)} / ${formatMetric(systemInfo?.hostDisabled ?? 0)}`, color: C.white },
+        { label: "Templates", value: formatMetric(systemInfo?.templates ?? 0), color: C.white },
+        { label: "Items enabled/disabled/not supported", value: `${formatMetric(systemInfo?.itemsEnabled ?? 0)} / ${formatMetric(systemInfo?.itemsDisabled ?? 0)} / ${formatMetric(systemInfo?.itemsUnsupported ?? 0)}`, color: C.white },
+      ];
+      return renderCanvasShell(item, (
+        <div className="flex h-full min-h-0 flex-col p-4">
+          <div className="mb-3 flex items-center justify-between gap-4 pr-20">
+            <MonitorSectionTitle>System information</MonitorSectionTitle>
+            <CheckCircle2 className="h-4 w-4" style={{ color: systemInfo?.serverRunning ? C.green : C.red }} />
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto custom-scrollbar">
+            {rows.map((row) => (
+              <div key={row.label} className="grid gap-3 py-1.5" style={{ gridTemplateColumns: "minmax(0,1fr) auto", borderBottom: `1px solid ${C.grid}` }}>
+                <span className="truncate text-xs 2xl:text-sm" style={{ color: C.dim, fontWeight: 300 }}>{row.label}</span>
+                <span className="text-right text-xs 2xl:text-sm tabular-nums" style={{ color: row.color, fontWeight: 300 }}>{row.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ));
+    }
+
+    if (item.id === "proxies") {
+      return renderCanvasShell(item, (
+        <div className="flex h-full min-h-0 flex-col p-4">
+          <div className="mb-3 flex items-center justify-between gap-4 pr-20">
+            <MonitorSectionTitle>Proxies</MonitorSectionTitle>
+            <span className="text-sm tabular-nums" style={{ color: C.muted, fontWeight: 300 }}>
+              {systemInfo?.proxiesOnline ?? 0}/{systemInfo?.proxiesTotal ?? proxies.length} online
+            </span>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto custom-scrollbar space-y-2">
+            {proxies.map((proxy) => {
+              const color = proxy.delaySec >= 0 && proxy.delaySec <= 30 ? C.green : proxy.delaySec <= 120 && proxy.delaySec >= 0 ? C.orange : C.red;
+              return (
+                <div key={proxy.proxyid} className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2" style={{ borderColor: C.grid, background: "rgba(8,24,46,0.50)" }}>
+                  <span className="flex min-w-0 items-center gap-2 text-sm 2xl:text-base" style={{ color: C.white, fontWeight: 300 }}>
+                    <StaticDot color={color} />
+                    <span className="truncate">{proxy.name}</span>
+                  </span>
+                  <span className="text-xl 2xl:text-2xl tabular-nums" style={{ color, fontWeight: 300 }}>{proxy.delaySec >= 0 ? `${proxy.delaySec}s` : "--"}</span>
+                </div>
+              );
+            })}
+            {proxies.length === 0 && (
+              <div className="flex h-24 items-center justify-center text-base" style={{ color: C.muted }}>Sem dados de proxy</div>
+            )}
+          </div>
+        </div>
+      ));
+    }
+
+    if (item.id === "severity") {
+      return renderCanvasShell(item, (
+        <div className="flex h-full min-h-0 flex-col p-4">
+          <div className="mb-3 flex items-center justify-between gap-4 pr-20">
+            <MonitorSectionTitle>Problems by severity</MonitorSectionTitle>
+            <span className="text-sm tabular-nums" style={{ color: C.muted, fontWeight: 300 }}>{formatMetric(totalProblems)}</span>
+          </div>
+          <div className="grid flex-1 grid-cols-3 gap-2">
+            {severityRows.map((row) => (
+              <div key={row.key} className="rounded-lg border p-2" style={{ borderColor: `${row.color}22`, background: `${row.color}16` }}>
+                <div className="text-xl 2xl:text-2xl tabular-nums" style={{ color: C.white, fontWeight: 300 }}>{formatMetric(row.value)}</div>
+                <div className="mt-1 truncate text-[10px] uppercase tracking-[0.08em]" style={{ color: row.color, fontWeight: 300 }}>{row.label}</div>
+                <div className="mt-2 h-1.5 overflow-hidden rounded-full" style={{ background: "rgba(160,185,220,0.12)" }}>
+                  <div className="h-full rounded-full" style={{ width: `${(row.value / maxSeverity) * 100}%`, background: row.color }} />
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       ));
     }
 
     return renderCanvasShell(item, (
-      <div className="p-4 flex h-full min-h-0 items-center gap-3 overflow-hidden">
+      <div className="flex h-full min-h-0 items-center gap-3 overflow-hidden p-4">
         <AlertTriangle className="h-5 w-5 flex-shrink-0" style={{ color: C.dim }} />
-        <span className="text-sm uppercase tracking-[0.12em] flex-shrink-0" style={{ color: C.dim, fontWeight: 700 }}>
-          OUTROS: {categorized.outros.length}
+        <span className="text-xs uppercase tracking-[0.12em] flex-shrink-0" style={{ color: C.dim, fontWeight: 300 }}>
+          Outros: {categorized.outros.length}
         </span>
-        <div className="flex-1 flex flex-wrap gap-x-4 gap-y-1 overflow-hidden">
-          {categorized.outros.slice(0, 5).map((p) => (
-            <span key={p.eventid} className="text-sm" style={{ color: C.textCyan }}>
-              {p.hosts?.[0]?.name || "—"}: <span style={{ color: C.dim }}>{p.triggerDescription || p.name}</span>
-              <span className="ml-2 font-mono text-xs" style={{ color: C.orange }}>{formatDuration(Number(p.clock))}</span>
+        <div className="flex min-w-0 flex-1 flex-wrap gap-x-4 gap-y-1 overflow-hidden">
+          {categorized.outros.slice(0, 5).map((problem) => (
+            <span key={problem.eventid} className="truncate text-sm" style={{ color: C.white, fontWeight: 300 }}>
+              {problem.hosts?.[0]?.name || "--"}: <span style={{ color: C.dim }}>{problem.triggerDescription || problem.name}</span>
             </span>
           ))}
-          {categorized.outros.length === 0 && <span className="text-sm" style={{ color: C.green }}>Sem problemas adicionais</span>}
-          {categorized.outros.length > 5 && (
-            <span className="text-xs" style={{ color: C.dim }}>+{categorized.outros.length - 5} mais</span>
-          )}
+          {categorized.outros.length === 0 && <span className="text-sm" style={{ color: C.green, fontWeight: 300 }}>Sem problemas adicionais</span>}
         </div>
       </div>
     ));
   };
 
   return (
-    <div className="-m-4 md:-m-6 min-h-[calc(100vh-56px)] lg:min-h-screen overflow-hidden relative" style={{ background: C.pageBg, fontFamily: "'Poppins', sans-serif" }}>
-      <Particles />
-
-      <div className="relative z-10 p-4 lg:p-5 flex flex-col h-[calc(100vh-56px)] lg:h-screen">
-
-        {/* HEADER */}
-        <motion.div initial={{ opacity: 0, y: -24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7 }}
-          className="flex items-center justify-between mb-3 flex-shrink-0">
-          <div className="flex items-center gap-3">
-            {!isTvView && (
-              <button onClick={() => navigate("/dashboard/zabbix")} className="p-2 rounded-xl transition-all hover:bg-white/5 hover:scale-110 active:scale-95">
-                <ArrowLeft className="h-5 w-5" style={{ color: C.dim }} />
-              </button>
-            )}
-            {!isTvView && (
-              <button onClick={toggleSidebar} className="p-2 rounded-xl transition-all hover:bg-white/5 hover:scale-110 active:scale-95">
-                {sidebarHidden ? <Eye className="h-5 w-5" style={{ color: C.dim }} /> : <EyeOff className="h-5 w-5" style={{ color: C.dim }} />}
-              </button>
-            )}
-          <div className="flex items-center gap-3">
-            {isTvView && (
-              <button
-                onClick={() => navigate("/dashboard")}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs uppercase tracking-wider transition-all hover:scale-105"
-                style={{
-                  background: "rgba(77,166,255,0.12)",
-                  border: `1px solid ${C.border}`,
-                  color: C.cyan,
-                  fontWeight: 700,
-                }}
-              >
-                <Monitor className="h-4 w-4" />
-                Chamados
-              </button>
-            )}
-              <div className="p-2 rounded-xl" style={{ background: "rgba(77,166,255,0.12)", boxShadow: "0 0 20px rgba(77,166,255,0.25)" }}>
-                <Activity className="h-6 w-6" style={{ color: C.cyan, filter: `drop-shadow(0 0 6px ${C.cyan})` }} />
-              </div>
-              <div>
-                <h1 className="text-2xl tracking-wide" style={{ color: C.white, textShadow: `0 0 20px ${C.cyan}20`, fontWeight: 400 }}>
-                  Monitoramento
-                </h1>
-                <div className="flex items-center gap-2 text-sm" style={{ color: C.dim }}>
-                  <PulseDot color={totalProblems > 0 ? C.red : C.green} />
-                  <span style={{ fontWeight: 400 }}>
-                    {totalProblems > 0 ? `${totalProblems} problema${totalProblems > 1 ? "s" : ""} ativo${totalProblems > 1 ? "s" : ""}` : "Sem problemas ativos"}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => setShowCtrl(prev => !prev)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs uppercase tracking-wider transition-all"
-              style={{
-                background: showCtrl ? "rgba(77,166,255,0.15)" : "rgba(255,255,255,0.05)",
-                border: `1px solid ${showCtrl ? C.borderHi : C.border}`,
-                color: showCtrl ? C.cyan : C.dim,
-                fontWeight: 700,
-              }}
-            >
-              <Server className="h-3.5 w-3.5" />
-              CTRL
-              <span className="text-[10px] font-normal" style={{ color: showCtrl ? C.green : C.dim }}>
-                {showCtrl ? "ON" : "OFF"}
-              </span>
-            </button>
-            <button
-              onClick={() => setEditLayout(prev => !prev)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs uppercase tracking-wider transition-all"
-              style={{
-                background: editLayout ? "rgba(77,166,255,0.18)" : "rgba(255,255,255,0.05)",
-                border: `1px solid ${editLayout ? C.borderHi : C.border}`,
-                color: editLayout ? C.cyan : C.dim,
-                fontWeight: 700,
-              }}
-            >
-              <LayoutDashboard className="h-3.5 w-3.5" />
-              {editLayout ? "Concluir" : "Editar layout"}
-            </button>
-            {editLayout && (
-              <button
-                onClick={resetMonitorLayout}
-                className="p-2 rounded-xl transition-all hover:bg-white/8 hover:scale-110"
-                title="Restaurar layout"
-                style={{ color: C.dim, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.05)" }}
-              >
-                <RotateCcw className="h-4 w-4" />
-              </button>
-            )}
-            {error && (
-              <motion.span initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-                className="text-xs px-3 py-1.5 rounded-full"
-                style={{ color: "#ff6b6b", background: "rgba(255,107,107,0.10)", border: "1px solid rgba(255,107,107,0.25)" }}>
-                ⚠ {error}
-              </motion.span>
-            )}
-            <div className="flex items-center gap-3 px-4 py-2 rounded-xl"
-              style={{ background: "rgba(77,166,255,0.05)", border: `1px solid ${C.border}`, boxShadow: "0 0 15px rgba(77,166,255,0.06)" }}>
-              <div className="flex flex-col items-end">
-                <span className="text-[10px] uppercase tracking-wider" style={{ color: C.dim, fontWeight: 400 }}>
-                  {secAgo < 5 ? "● Atualizado agora" : `Atualizado há ${secAgo}s`}
-                </span>
-                <span className="font-mono text-lg tabular-nums tracking-widest" style={{ color: C.textCyan, textShadow: `0 0 14px ${C.cyan}50`, fontWeight: 400 }}>
-                  {now.toLocaleTimeString("pt-BR")}
-                </span>
-              </div>
-              <button onClick={fetchData} disabled={loading}
-                className="p-2 rounded-lg transition-all hover:bg-white/8 hover:scale-110" style={{ color: C.dim }}>
-                <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-              </button>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* KPI CARDS */}
-        <div className="grid grid-cols-5 gap-3 mb-3 flex-shrink-0">
-          {kpis.map((k, i) => (
-            <GlowCard key={k.id} hi={k.hi} delay={i * 0.07}>
-              <div className="p-5 lg:p-6 flex items-center gap-4 min-h-[110px]">
-                {k.id === "total" ? (
-                  <MultiDonut size={60} segments={[
-                    { pct: totalProblems > 0 ? (catCounts.equipamentos / totalProblems) * 100 : 0, color: C.blue },
-                    { pct: totalProblems > 0 ? (catCounts.links / totalProblems) * 100 : 0, color: C.green },
-                    { pct: totalProblems > 0 ? (catCounts.outros / totalProblems) * 100 : 0, color: C.dim },
-                  ]} />
-                ) : (
-                  <MiniDonut pct={totalProblems > 0 ? (k.value / totalProblems) * 100 : k.id === "manut" ? 100 : 0} color={k.color} size={60} />
-                )}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <k.icon className="h-5 w-5 flex-shrink-0" style={{ color: k.color, filter: `drop-shadow(0 0 5px ${k.color}60)` }} />
-                    <span className="text-xs uppercase tracking-[0.15em] truncate" style={{ color: k.color, fontWeight: 700 }}>
-                      {k.label}
-                    </span>
-                  </div>
-                  <AnimNum value={k.value}
-                    className="text-5xl xl:text-6xl tabular-nums block leading-none"
-                    style={{ color: C.white, textShadow: `0 0 35px ${k.color}45, 0 0 70px ${k.color}15`, fontWeight: 400 }} />
-                </div>
-              </div>
-            </GlowCard>
-          ))}
-        </div>
-
-        {/* MAIN CONTENT: FREE CANVAS */}
+    <div className="-m-4 md:-m-6 min-h-[calc(100vh-56px)] lg:min-h-screen overflow-hidden relative" style={{ background: C.pageBg, fontFamily: "'Roboto', 'Segoe UI', sans-serif" }}>
+      <div className="absolute inset-x-0 top-0 h-px" style={{ background: "linear-gradient(90deg, transparent, rgba(75,184,216,0.22), transparent)" }} />
+      <div className="relative mx-auto flex h-[calc(100vh-56px)] w-full max-w-[1920px] flex-col p-3 lg:h-screen lg:p-5">
         <div
-          ref={canvasRef}
-          className="relative flex-1 min-h-0 overflow-hidden rounded-2xl border"
+          className="relative flex min-h-0 flex-1 flex-col rounded-lg border p-3 lg:p-4"
           style={{
-            borderColor: editLayout ? "rgba(77,166,255,0.28)" : "transparent",
-            background: editLayout ? "rgba(4,10,24,0.24)" : "transparent",
+            background: C.shell,
+            borderColor: "rgba(180,205,235,0.10)",
+            boxShadow: "0 12px 28px rgba(0,0,0,0.28), inset 0 1px 0 rgba(170,205,235,0.035)",
           }}
         >
-          {monitorLayout.map(renderMonitorTile)}
-        </div>
+          <header className="flex items-center justify-between gap-5 pb-3 flex-shrink-0">
+            <div className="flex min-w-0 items-center gap-3">
+              {!isTvView && (
+                <button onClick={() => navigate("/dashboard/zabbix")} className="flex h-11 w-11 items-center justify-center rounded-lg border" style={{ borderColor: C.border, color: C.dim, background: C.panelFlat }}>
+                  <ArrowLeft className="h-5 w-5" />
+                </button>
+              )}
+              {!isTvView && (
+                <button onClick={toggleSidebar} className="flex h-11 w-11 items-center justify-center rounded-lg border" title={sidebarHidden ? "Mostrar menu" : "Ocultar menu"} style={{ borderColor: C.border, color: C.dim, background: C.panelFlat }}>
+                  {sidebarHidden ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}
+                </button>
+              )}
+              {isTvView && (
+                <button onClick={() => navigate("/dashboard")} className="flex h-11 items-center gap-2 rounded-lg border px-4 text-sm" style={{ borderColor: C.border, color: C.dim, background: C.panelFlat, fontWeight: 300 }}>
+                  <Monitor className="h-4 w-4" />
+                  Chamados
+                </button>
+              )}
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg border" style={{ background: C.panelSoft, color: C.white, borderColor: C.border, boxShadow: "inset 0 1px 0 rgba(170,205,235,0.04)" }}>
+                <Activity className="h-6 w-6" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="truncate text-2xl leading-none 2xl:text-3xl" style={{ color: C.white, fontWeight: 300 }}>
+                  Ariia Monitoramento TV
+                </h1>
+                <div className="mt-1 flex items-center gap-2 text-sm 2xl:text-base" style={{ color: C.dim, fontWeight: 300 }}>
+                  <StaticDot color={totalProblems > 0 ? C.red : C.green} />
+                  <span>{totalProblems > 0 ? `${formatMetric(totalProblems)} problemas ativos` : "Sem problemas ativos"}</span>
+                  <span style={{ color: C.muted }}>Zabbix 2LOCK</span>
+                </div>
+              </div>
+            </div>
 
-        
-        {/* FOOTER */}
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.2 }}
-          className="flex items-center justify-center gap-4 pt-1 flex-shrink-0">
-          <div className="h-[1px] flex-1" style={{ background: "linear-gradient(90deg, transparent, rgba(77,166,255,0.25), transparent)" }} />
-          <div className="flex items-center gap-2.5">
-            <PulseDot color={C.cyan} />
-            <span className="text-[10px] whitespace-nowrap" style={{ color: C.dim, fontWeight: 400 }}>
-              Auto-refresh 30s{lastUpdate ? ` · ${lastUpdate.toLocaleTimeString("pt-BR")}` : ""}
-            </span>
+            <div className="flex flex-shrink-0 items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setShowCtrl((prev) => !prev)}
+                className="flex h-12 items-center gap-2 rounded-lg border px-4 text-sm"
+                style={{ borderColor: showCtrl ? C.borderHi : C.border, color: C.white, background: showCtrl ? "rgba(75,184,216,0.14)" : "rgba(8,24,48,0.58)", fontWeight: 300 }}
+              >
+                <Server className="h-4 w-4" />
+                CTRL
+                <span className="text-xs" style={{ color: showCtrl ? C.green : C.muted }}>{showCtrl ? "ON" : "OFF"}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditLayout((editing) => !editing)}
+                className="flex h-12 items-center gap-2 rounded-lg border px-4 text-sm"
+                style={{ borderColor: editLayout ? C.borderHi : C.border, color: C.white, background: editLayout ? "rgba(75,184,216,0.14)" : "rgba(8,24,48,0.58)", fontWeight: 300 }}
+              >
+                <LayoutDashboard className="h-4 w-4" />
+                {editLayout ? "Concluir" : "Editar layout"}
+              </button>
+              {editLayout && (
+                <button type="button" onClick={resetMonitorLayout} className="flex h-12 w-12 items-center justify-center rounded-lg border" title="Restaurar layout" style={{ borderColor: C.border, color: C.dim, background: "rgba(8,24,48,0.58)" }}>
+                  <RotateCcw className="h-4 w-4" />
+                </button>
+              )}
+              {error && (
+                <span className="max-w-[420px] truncate rounded-lg border px-3 py-2 text-xs" style={{ color: C.red, borderColor: "rgba(228,107,120,0.42)", background: "rgba(228,107,120,0.10)" }}>
+                  Erro: {error}
+                </span>
+              )}
+              <MonitorClock lastUpdate={lastUpdate} />
+              <button onClick={fetchData} disabled={loading} className="flex h-12 w-12 items-center justify-center rounded-lg border" style={{ borderColor: C.border, color: C.dim, background: "rgba(8,24,48,0.58)" }}>
+                <RefreshCw className={`h-5 w-5 ${loading ? "animate-spin" : ""}`} />
+              </button>
+            </div>
+          </header>
+
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 2xl:grid-cols-6 flex-shrink-0">
+            {kpis.map((k) => (
+              <GlowCard key={k.id} className="min-h-[104px] p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <span className="truncate text-[11px] uppercase tracking-[0.12em] 2xl:text-xs" style={{ color: C.dim, fontWeight: 300 }}>
+                    {k.label}
+                  </span>
+                  <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg border" style={{ borderColor: `${k.color}22`, background: `${k.color}12` }}>
+                    <k.icon className="h-4 w-4" style={{ color: k.color }} />
+                  </span>
+                </div>
+                <div className="mt-1 text-3xl leading-none tabular-nums 2xl:text-[40px]" style={{ color: C.white, fontWeight: 300 }}>
+                  {k.id === "values" ? formatDecimal(k.value as number | null, 2) : formatMetric(Number(k.value || 0))}
+                </div>
+                <div className="mt-3 h-2 overflow-hidden rounded-full" style={{ background: "rgba(160,185,220,0.10)" }}>
+                  <div className="h-full rounded-full" style={{ width: `${clampPct(k.progress || 0)}%`, background: k.color }} />
+                </div>
+              </GlowCard>
+            ))}
           </div>
-          <div className="h-[1px] flex-1" style={{ background: "linear-gradient(90deg, transparent, rgba(77,166,255,0.25), transparent)" }} />
-        </motion.div>
+
+          <main
+            ref={canvasRef}
+            className="relative mt-3 min-h-0 flex-1 overflow-hidden rounded-lg border"
+            style={{
+              borderColor: editLayout ? "rgba(75,184,216,0.26)" : "transparent",
+              background: editLayout ? "rgba(3,10,22,0.20)" : "transparent",
+            }}
+          >
+            {monitorLayout.map(renderMonitorTileV2)}
+          </main>
+        </div>
       </div>
 
       <style>{`
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(77,166,255,0.2); border-radius: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(77,166,255,0.4); }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(160,185,220,0.18); border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(160,185,220,0.34); }
       `}</style>
     </div>
   );

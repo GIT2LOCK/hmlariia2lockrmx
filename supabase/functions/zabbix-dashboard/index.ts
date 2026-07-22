@@ -109,6 +109,8 @@ async function fetchEventsByTimeWindows(
 
 function classifyZabbix2(description: string): string {
   const d = normalizeText(description);
+  if (/\b(?:switch|ap|access point|ctrl|controller)\b.*\boff-?line\b/.test(d)) return "equipamentos";
+  if (/indisponibilidade.*(?:equipamento|ctrl|switch|\bap\b)/.test(d)) return "equipamentos";
   if (d.includes("indisponibilidade de ctrl")) return "equipamentos";
   if (d.includes("indisponibilidade de ddns")) return "links";
   if (d.includes("indisponibilidade de link")) return "links";
@@ -356,6 +358,90 @@ serve(async (req) => {
       }
 
       case "server_metrics": {
+        const countZabbix = async (method: string, params: Record<string, unknown>) => {
+          try {
+            const count = await zabbix2lock(method, { ...params, countOutput: true });
+            return Number(count) || 0;
+          } catch {
+            return null;
+          }
+        };
+
+        const latestNumericItem = async (
+          candidates: Array<{ filter?: Record<string, unknown>; search?: Record<string, unknown> }>,
+        ) => {
+          for (const candidate of candidates) {
+            try {
+              const items = await zabbix2lock("item.get", {
+                output: ["itemid", "hostid", "lastvalue", "name", "key_"],
+                ...candidate,
+                monitored: true,
+                selectHosts: ["hostid", "host", "name", "status"],
+                limit: 20,
+              });
+              const numeric = (items || [])
+                .filter((item: any) => item.hosts?.[0]?.status === "0" && Number.isFinite(parseFloat(item.lastvalue)))
+                .sort((a: any, b: any) => Number(b.lastclock || 0) - Number(a.lastclock || 0));
+              if (numeric.length > 0) return parseFloat(numeric[0].lastvalue);
+            } catch {
+              // Tenta o proximo formato de item.
+            }
+          }
+          return null;
+        };
+
+        let systemInfo: Record<string, number | string | boolean | null> = {
+          serverRunning: true,
+          version: null,
+          frontendVersion: null,
+          hostEnabled: null,
+          hostDisabled: null,
+          templates: null,
+          itemsEnabled: null,
+          itemsDisabled: null,
+          itemsUnsupported: null,
+          proxiesOnline: null,
+          proxiesTotal: null,
+        };
+
+        try {
+          const version = await zabbix2lock("apiinfo.version", []);
+          systemInfo.version = typeof version === "string" ? version : null;
+          systemInfo.frontendVersion = typeof version === "string" ? version : null;
+        } catch { /* no version */ }
+
+        const [
+          hostEnabled,
+          hostDisabled,
+          templates,
+          itemsEnabled,
+          itemsDisabled,
+          itemsUnsupported,
+        ] = await Promise.all([
+          countZabbix("host.get", { filter: { status: "0" } }),
+          countZabbix("host.get", { filter: { status: "1" } }),
+          countZabbix("template.get", {}),
+          countZabbix("item.get", { filter: { status: "0" } }),
+          countZabbix("item.get", { filter: { status: "1" } }),
+          countZabbix("item.get", { filter: { state: "1" } }),
+        ]);
+
+        systemInfo = {
+          ...systemInfo,
+          hostEnabled,
+          hostDisabled,
+          templates,
+          itemsEnabled,
+          itemsDisabled,
+          itemsUnsupported,
+        };
+
+        const valuesPerSecond = await latestNumericItem([
+          { filter: { key_: "zabbix[wcache,values,all]" } },
+          { search: { name: "Values processed by Zabbix server per second" } },
+          { search: { name: "values per second" } },
+        ]);
+
         let diskUsagePct: number | null = null;
         try {
           const diskItems = await zabbix2lock("item.get", {
@@ -378,6 +464,38 @@ serve(async (req) => {
             diskUsagePct = parseFloat(diskCandidates[0].lastvalue);
           }
         } catch { /* no disk item */ }
+
+        let memoryAvailablePct: number | null = null;
+        let memoryHosts: any[] = [];
+        try {
+          const memoryItems = await zabbix2lock("item.get", {
+            output: ["itemid", "hostid", "lastvalue", "name", "key_"],
+            filter: { key_: "vm.memory.size[pavailable]" },
+            monitored: true,
+            selectHosts: ["hostid", "host", "name", "status"],
+            limit: 100,
+          });
+          const normalizedMemory = (memoryItems || [])
+            .filter((item: any) => item.hosts?.[0]?.status === "0" && Number.isFinite(parseFloat(item.lastvalue)))
+            .map((item: any) => {
+              const available = parseFloat(item.lastvalue);
+              const host = item.hosts?.[0] || {};
+              return {
+                hostid: item.hostid,
+                hostname: host.host || "",
+                name: host.name || host.host || "",
+                memoryAvailablePct: available,
+                memoryUtilPct: Math.max(0, Math.min(100, 100 - available)),
+              };
+            });
+
+          memoryHosts = normalizedMemory
+            .sort((a: any, b: any) => b.memoryUtilPct - a.memoryUtilPct)
+            .slice(0, 8);
+
+          const zabbixMemory = normalizedMemory.find((item: any) => item.name.toLowerCase().includes("zabbix") || item.hostname.toLowerCase().includes("zabbix"));
+          memoryAvailablePct = zabbixMemory?.memoryAvailablePct ?? normalizedMemory[0]?.memoryAvailablePct ?? null;
+        } catch { /* no memory items */ }
 
         let cpuHosts: any[] = [];
         try {
@@ -485,7 +603,11 @@ serve(async (req) => {
           } catch { /* no proxy items */ }
         }
 
-        result = { diskUsagePct, cpuHosts, proxies };
+        const proxiesTotal = proxies.length;
+        const proxiesOnline = proxies.filter((proxy: any) => proxy.delaySec >= 0 && proxy.delaySec <= 120).length;
+        systemInfo = { ...systemInfo, proxiesOnline, proxiesTotal };
+
+        result = { diskUsagePct, memoryAvailablePct, valuesPerSecond, cpuHosts, memoryHosts, proxies, systemInfo };
         break;
       }
 
