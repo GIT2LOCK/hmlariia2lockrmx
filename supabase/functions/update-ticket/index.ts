@@ -141,37 +141,59 @@ serve(async (req) => {
   }
 
   // === Notificações ao solicitante (webhook mail2lock via n8n) ===
+  // Consolida TODAS as alterações desta chamada em uma única notificação, com
+  // o evento priorizado por tipo (resolved/closed/reopened/status_change/assigned/comment/updated).
   try {
-    const notifyBase = { ticket_id: ticketId };
-    // Comentário público → e-mail
-    if (comment?.conteudo) {
-      const tipoNorm = String(comment?.tipo || "INTERNO").toUpperCase();
-      if (tipoNorm === "CLIENTE" && (updated?.solicitante_email || ticket.solicitante_email)) {
-        supabase.functions.invoke("send-email-notification", {
-          body: { ...notifyBase, event: "comment" },
-        }).catch((e) => console.error("[notify comment]", e));
+    const changes: Array<{ campo: string; valor_anterior: any; valor_novo: any }> = [];
+    for (const [k, v] of Object.entries(updates)) {
+      const prev = (ticket as any)[k];
+      if (prev !== v) changes.push({ campo: k, valor_anterior: prev ?? null, valor_novo: v ?? null });
+    }
+
+    const statusChanged = Object.prototype.hasOwnProperty.call(updates, "status") && updates.status !== ticket.status;
+    const tecnicoChanged = Object.prototype.hasOwnProperty.call(updates, "tecnico_id")
+      && updates.tecnico_id && updates.tecnico_id !== ticket.tecnico_id;
+    const tipoNorm = String(comment?.tipo || "INTERNO").toUpperCase();
+    const hasPublicComment = !!comment?.conteudo && tipoNorm === "CLIENTE";
+
+    let eventName: string | null = null;
+    const extra: Record<string, unknown> = { changes };
+
+    if (statusChanged) {
+      const s = String(updates.status);
+      if (s === "RESOLVIDO") eventName = "resolved";
+      else if (s === "FECHADO") eventName = "closed";
+      else if (["EM_ATENDIMENTO", "NOVO", "TRIAGEM"].includes(s) && ["RESOLVIDO", "FECHADO", "CANCELADO"].includes(String(ticket.status))) eventName = "reopened";
+      else eventName = "status_change";
+      extra.status_anterior = ticket.status;
+      extra.status_novo = updates.status;
+    } else if (tecnicoChanged) {
+      eventName = "assigned";
+      const { data: tec } = await supabase.from("usuarios").select("nome,email").eq("id", updates.tecnico_id as any).maybeSingle();
+      extra.tecnico_nome = tec?.nome || null;
+      extra.tecnico_email = tec?.email || null;
+    } else if (hasPublicComment) {
+      eventName = "comment";
+    } else if (changes.length > 0) {
+      eventName = "updated";
+    }
+
+    if (eventName) {
+      const body: Record<string, unknown> = { ticket_id: ticketId, event: eventName, extra };
+      // Se houver comentário público nesta interação, anexa o comment_id ao evento
+      if (hasPublicComment) {
+        const { data: lastComment } = await supabase
+          .from("ticket_comments")
+          .select("id")
+          .eq("ticket_id", ticketId)
+          .eq("tipo", "CLIENTE")
+          .order("criado_em", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (lastComment?.id) body.comment_id = lastComment.id;
       }
-    }
-    // Mudança de status
-    if (Object.prototype.hasOwnProperty.call(updates, "status") && updates.status !== ticket.status) {
-      supabase.functions.invoke("send-email-notification", {
-        body: {
-          ...notifyBase,
-          event: "status_change",
-          extra: { status_anterior: ticket.status, status_novo: updates.status },
-        },
-      }).catch((e) => console.error("[notify status]", e));
-    }
-    // Técnico atribuído/alterado
-    if (Object.prototype.hasOwnProperty.call(updates, "tecnico_id") && updates.tecnico_id && updates.tecnico_id !== ticket.tecnico_id) {
-      const { data: tec } = await supabase.from("usuarios").select("nome").eq("id", updates.tecnico_id).maybeSingle();
-      supabase.functions.invoke("send-email-notification", {
-        body: {
-          ...notifyBase,
-          event: "assigned",
-          extra: { tecnico_nome: tec?.nome || null },
-        },
-      }).catch((e) => console.error("[notify assigned]", e));
+      supabase.functions.invoke("send-email-notification", { body })
+        .catch((e) => console.error("[notify]", eventName, e));
     }
   } catch (e) {
     console.error("[update-ticket] notify error", e);
