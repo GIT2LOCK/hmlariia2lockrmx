@@ -5,17 +5,64 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+type ZabbixParams = Record<string, unknown> | unknown[];
+
+function normalizeZabbixApiUrls(rawUrl: string) {
+  const trimmed = rawUrl.trim().replace(/\/+$/, "");
+  if (!trimmed) return [];
+
+  const urls = [trimmed];
+  if (!/\/api_jsonrpc\.php$/i.test(trimmed)) {
+    urls.unshift(`${trimmed}/api_jsonrpc.php`);
+  }
+
+  return Array.from(new Set(urls));
+}
+
 function createZabbixClient(url: string, token: string) {
-  return async (method: string, params: Record<string, unknown>) => {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ jsonrpc: "2.0", method, params, id: 1 }),
-    });
-    const data = await res.json();
-    if (data.error) throw new Error(`Zabbix API error: ${JSON.stringify(data.error)}`);
-    return data.result;
+  const candidateUrls = normalizeZabbixApiUrls(url);
+
+  return async (method: string, params: ZabbixParams) => {
+    let lastError: Error | null = null;
+
+    for (const endpoint of candidateUrls) {
+      try {
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ jsonrpc: "2.0", method, params, id: 1 }),
+        });
+        const text = await res.text();
+        let data: any;
+
+        try {
+          data = JSON.parse(text);
+        } catch {
+          lastError = new Error(`Zabbix endpoint did not return JSON (${res.status})`);
+          continue;
+        }
+
+        if (!res.ok) {
+          lastError = new Error(`Zabbix HTTP ${res.status}: ${JSON.stringify(data)}`);
+          continue;
+        }
+
+        if (data.error) throw new Error(`Zabbix API error: ${JSON.stringify(data.error)}`);
+        return data.result;
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+      }
+    }
+
+    throw lastError || new Error("Zabbix endpoint not configured");
   };
+}
+
+function normalizeText(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
 }
 
 async function fetchEventsByTimeWindows(
@@ -61,11 +108,11 @@ async function fetchEventsByTimeWindows(
 }
 
 function classifyZabbix2(description: string): string {
-  const d = description.toLowerCase();
+  const d = normalizeText(description);
   if (d.includes("indisponibilidade de ctrl")) return "equipamentos";
   if (d.includes("indisponibilidade de ddns")) return "links";
   if (d.includes("indisponibilidade de link")) return "links";
-  if (d.includes("sem conexão com a unidade")) return "links";
+  if (d.includes("sem conexao com a unidade")) return "links";
   return "outros";
 }
 
@@ -256,21 +303,16 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const ZABBIX_API_URL = Deno.env.get("ZABBIX_API_URL");
-  const ZABBIX_API_TOKEN = Deno.env.get("ZABBIX_API_TOKEN");
-  const ZABBIX_API_URL_2 = Deno.env.get("ZABBIX_API_URL_2");
-  const ZABBIX_API_TOKEN_2 = Deno.env.get("ZABBIX_API_TOKEN_2");
+  const ZABBIX_API_URL_2LOCK = Deno.env.get("ZABBIX_API_URL_2") || Deno.env.get("ZABBIX_API_URL");
+  const ZABBIX_API_TOKEN_2LOCK = Deno.env.get("ZABBIX_API_TOKEN_2") || Deno.env.get("ZABBIX_API_TOKEN");
 
-  if (!ZABBIX_API_URL || !ZABBIX_API_TOKEN) {
-    return new Response(JSON.stringify({ error: "Zabbix 1 credentials not configured" }), {
+  if (!ZABBIX_API_URL_2LOCK || !ZABBIX_API_TOKEN_2LOCK) {
+    return new Response(JSON.stringify({ error: "Zabbix 2LOCK credentials not configured" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
-  const zabbix1 = createZabbixClient(ZABBIX_API_URL, ZABBIX_API_TOKEN);
-  const zabbix2 = ZABBIX_API_URL_2 && ZABBIX_API_TOKEN_2
-    ? createZabbixClient(ZABBIX_API_URL_2, ZABBIX_API_TOKEN_2)
-    : null;
+  const zabbix2lock = createZabbixClient(ZABBIX_API_URL_2LOCK, ZABBIX_API_TOKEN_2LOCK);
 
   try {
     const body = await req.json();
@@ -279,75 +321,32 @@ serve(async (req) => {
 
     switch (action) {
       case "version": {
-        const vRes = await fetch(ZABBIX_API_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ jsonrpc: "2.0", method: "apiinfo.version", params: [], id: 1 }),
-        });
-        result = await vRes.json();
+        result = await zabbix2lock("apiinfo.version", []);
         break;
       }
 
       case "problems": {
-        const filter1 = (t: any) => {
-          const desc = (t.description || "").toLowerCase();
-          if (!desc.includes("indisponibilidade")) return false;
-          const groupNames = (t.groups || []).map((g: any) => g.name.toLowerCase());
-          if (groupNames.includes("infraestrutura")) return false;
-          return true;
-        };
-
-        const promises: Promise<any[]>[] = [fetchProblemsFromInstance(zabbix1, "z1", filter1)];
-
-        if (zabbix2) {
-          const filter2 = (t: any) => {
-            const desc = (t.description || "").toLowerCase();
-            return (
-              desc.includes("indisponibilidade de ctrl") ||
-              desc.includes("indisponibilidade de ddns") ||
-              desc.includes("indisponibilidade de link") ||
-              desc.includes("sem conexão com a unidade")
-            );
-          };
-          promises.push(fetchProblemsFromInstance(zabbix2, "z2", filter2, classifyZabbix2, [2, 3, 4, 5]));
-
-        }
-
-        const results = await Promise.all(promises);
-        result = results.flat();
+        result = await fetchProblemsFromInstance(zabbix2lock, "z2", () => true, classifyZabbix2, [2, 3, 4, 5]);
         break;
       }
 
       case "maintenance": {
-        const promises = [fetchMaintenanceFromInstance(zabbix1, "z1")];
-        if (zabbix2) promises.push(fetchMaintenanceFromInstance(zabbix2, "z2"));
-        const results = await Promise.all(promises);
-        result = results.flat();
+        result = await fetchMaintenanceFromInstance(zabbix2lock, "z2");
         break;
       }
 
       case "hosts_all": {
-        const filter1 = (h: any) => {
-          const groupNames = (h.groups || []).map((g: any) => g.name.toLowerCase());
-          return !groupNames.includes("infraestrutura");
-        };
-
-        const promises: Promise<any[]>[] = [fetchAllHostsFromInstance(zabbix1, "z1", filter1)];
-        if (zabbix2) {
-          promises.push(fetchAllHostsFromInstance(zabbix2, "z2"));
-        }
-        const results = await Promise.all(promises);
-        result = results.flat();
+        result = await fetchAllHostsFromInstance(zabbix2lock, "z2");
         break;
       }
 
       case "hostgroups": {
-        result = await zabbix1("hostgroup.get", { output: ["groupid", "name"], sortfield: "name" });
+        result = await zabbix2lock("hostgroup.get", { output: ["groupid", "name"], sortfield: "name" });
         break;
       }
 
       case "hosts": {
-        result = await zabbix1("host.get", {
+        result = await zabbix2lock("host.get", {
           output: ["hostid", "host", "name", "status", "maintenance_status"],
           selectGroups: ["groupid", "name"],
           selectInterfaces: ["ip", "dns", "type"],
@@ -357,65 +356,68 @@ serve(async (req) => {
       }
 
       case "server_metrics": {
-        // 1) Disk space of Zabbix server (filesystem /)
         let diskUsagePct: number | null = null;
         try {
-          const diskItems = await zabbix1("item.get", {
-            output: ["itemid", "lastvalue", "name", "key_"],
-            host: "Zabbix server",
-            filter: { key_: "vfs.fs.dependent.size[/,pused]" },
-            limit: 1,
+          const diskItems = await zabbix2lock("item.get", {
+            output: ["itemid", "hostid", "lastvalue", "name", "key_"],
+            search: { key_: "vfs.fs" },
+            searchByAny: true,
+            monitored: true,
+            selectHosts: ["hostid", "host", "name", "status"],
+            limit: 100,
           });
-          if (diskItems.length > 0) {
-            diskUsagePct = parseFloat(diskItems[0].lastvalue);
+          const diskCandidates = (diskItems || [])
+            .filter((item: any) =>
+              item.hosts?.[0]?.status === "0" &&
+              String(item.key_ || "").includes("pused") &&
+              Number.isFinite(parseFloat(item.lastvalue)),
+            )
+            .sort((a: any, b: any) => parseFloat(b.lastvalue) - parseFloat(a.lastvalue));
+
+          if (diskCandidates.length > 0) {
+            diskUsagePct = parseFloat(diskCandidates[0].lastvalue);
           }
         } catch { /* no disk item */ }
 
-        // 2) Top hosts by CPU utilization (from "Zabbix servers" group)
         let cpuHosts: any[] = [];
         try {
-          // First get the "Zabbix servers" host group ID
-          const groups = await zabbix1("hostgroup.get", {
-            output: ["groupid"],
-            filter: { name: "Zabbix servers" },
-          });
-          const groupIds = groups.map((g: any) => g.groupid);
-
-          // Get CPU utilization items from hosts in that group
-          const cpuItems = await zabbix1("item.get", {
+          const cpuItems = await zabbix2lock("item.get", {
             output: ["itemid", "hostid", "lastvalue", "name", "key_"],
-            filter: { key_: "system.cpu.util" },
-            groupids: groupIds.length > 0 ? groupIds : undefined,
+            search: { key_: "system.cpu.util" },
+            searchByAny: true,
             selectHosts: ["hostid", "host", "name", "status"],
             monitored: true,
-            limit: 50,
+            limit: 100,
           });
-          // Filter and sort by CPU desc, top 10
+
           const realCpuItems = cpuItems
-            .filter((i: any) => i.hosts?.[0]?.status === "0" && parseFloat(i.lastvalue) > 0)
+            .filter((i: any) => i.hosts?.[0]?.status === "0" && Number.isFinite(parseFloat(i.lastvalue)))
             .sort((a: any, b: any) => parseFloat(b.lastvalue) - parseFloat(a.lastvalue))
             .slice(0, 10);
-          // Also try to get load averages for these hosts
+
           const hostIds = realCpuItems.map((i: any) => i.hostid);
           let loadItems: any[] = [];
           if (hostIds.length > 0) {
             try {
-              loadItems = await zabbix1("item.get", {
+              loadItems = await zabbix2lock("item.get", {
                 output: ["itemid", "hostid", "lastvalue", "key_"],
                 hostids: hostIds,
                 search: { key_: "system.cpu.load[" },
                 searchByAny: true,
+                monitored: true,
               });
             } catch { /* no load items */ }
           }
-          // Get process count
+
           let procItems: any[] = [];
           if (hostIds.length > 0) {
             try {
-              procItems = await zabbix1("item.get", {
+              procItems = await zabbix2lock("item.get", {
                 output: ["itemid", "hostid", "lastvalue", "key_"],
                 hostids: hostIds,
-                filter: { key_: "proc.num" },
+                search: { key_: "proc.num" },
+                searchByAny: true,
+                monitored: true,
               });
             } catch { /* no proc items */ }
           }
@@ -442,34 +444,53 @@ serve(async (req) => {
           }));
         } catch { /* no CPU data */ }
 
-        // 3) Proxy last seen - fetched as items from "Zabbix server" host
         let proxies: any[] = [];
         try {
-          const proxyItems = await zabbix1("item.get", {
-            output: ["itemid", "lastvalue", "name", "key_"],
-            host: "Zabbix server",
-            search: { key_: "zabbix.proxy.last_seen" },
+          const proxyList = await zabbix2lock("proxy.get", {
+            output: ["proxyid", "name", "host", "lastaccess"],
           });
-          proxies = proxyItems.map((item: any) => {
-            // Extract proxy name from key like "zabbix.proxy.last_seen[PRX-RJ]"
-            const match = item.key_.match(/\[(.+?)\]/);
-            const proxyName = match ? match[1] : item.name;
-            const delaySec = parseInt(item.lastvalue) || 0;
+          const now = Math.floor(Date.now() / 1000);
+          proxies = (proxyList || []).map((proxy: any) => {
+            const lastaccess = Number(proxy.lastaccess || 0);
             return {
-              proxyid: item.itemid,
-              name: proxyName,
-              lastaccess: 0,
-              delaySec,
+              proxyid: proxy.proxyid,
+              name: proxy.name || proxy.host || `Proxy ${proxy.proxyid}`,
+              lastaccess,
+              delaySec: lastaccess > 0 ? Math.max(0, now - lastaccess) : -1,
             };
           });
-        } catch { /* no proxy items */ }
+        } catch {
+          proxies = [];
+        }
+
+        if (proxies.length === 0) {
+          try {
+            const proxyItems = await zabbix2lock("item.get", {
+              output: ["itemid", "lastvalue", "name", "key_"],
+              search: { key_: "zabbix.proxy.last_seen" },
+              searchByAny: true,
+              monitored: true,
+            });
+            proxies = proxyItems.map((item: any) => {
+              const match = item.key_.match(/\[(.+?)\]/);
+              const proxyName = match ? match[1] : item.name;
+              const delaySec = parseInt(item.lastvalue) || 0;
+              return {
+                proxyid: item.itemid,
+                name: proxyName,
+                lastaccess: 0,
+                delaySec,
+              };
+            });
+          } catch { /* no proxy items */ }
+        }
 
         result = { diskUsagePct, cpuHosts, proxies };
         break;
       }
 
       case "acknowledge": {
-        const { eventids, message, source, user_token } = body as { eventids: string[]; message: string; source?: string; user_token?: string };
+        const { eventids, message, user_token } = body as { eventids: string[]; message: string; user_token?: string };
         if (!Array.isArray(eventids) || eventids.length === 0 || !message || !message.trim()) {
           return new Response(JSON.stringify({ error: "eventids and message are required" }), {
             status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -478,7 +499,7 @@ serve(async (req) => {
         // Use per-user token if provided, otherwise fall back to global token
         let client;
         if (user_token && user_token.trim()) {
-          const targetUrl = source === "z2" ? ZABBIX_API_URL_2 : ZABBIX_API_URL;
+          const targetUrl = ZABBIX_API_URL_2LOCK;
           if (!targetUrl) {
             return new Response(JSON.stringify({ error: "Zabbix URL não configurada para essa instância" }), {
               status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -486,10 +507,10 @@ serve(async (req) => {
           }
           client = createZabbixClient(targetUrl, user_token.trim());
         } else {
-          client = source === "z2" && zabbix2 ? zabbix2 : zabbix1;
+          client = zabbix2lock;
         }
-        // Strip "z1_"/"z2_" source prefix from eventids before sending to Zabbix
-        const cleanEventIds = eventids.map((e) => String(e).replace(/^z[12]_/, ""));
+        // Remove o prefixo local antes de enviar para o Zabbix 2LOCK.
+        const cleanEventIds = eventids.map((e) => String(e).replace(/^z2_/, ""));
         // action=4 → add message (bit flag per Zabbix API)
         result = await client("event.acknowledge", {
           eventids: cleanEventIds,
@@ -500,13 +521,13 @@ serve(async (req) => {
       }
 
       case "test_token": {
-        const { token, source } = body as { token: string; source?: string };
+        const { token } = body as { token: string };
         if (!token || !token.trim()) {
           return new Response(JSON.stringify({ ok: false, error: "Token vazio" }), {
             status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
-        const targetUrl = source === "z2" ? ZABBIX_API_URL_2 : ZABBIX_API_URL;
+        const targetUrl = ZABBIX_API_URL_2LOCK;
         if (!targetUrl) {
           return new Response(JSON.stringify({ ok: false, error: "URL Zabbix não configurada" }), {
             status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -529,7 +550,6 @@ serve(async (req) => {
 
       case "events_history": {
         const {
-          source = "z1",
           time_from,
           time_till,
           severities = [4],
@@ -537,7 +557,6 @@ serve(async (req) => {
           search,
           limit = 5000,
         } = body as {
-          source?: string;
           time_from: number;
           time_till: number;
           severities?: number[];
@@ -552,7 +571,7 @@ serve(async (req) => {
           });
         }
 
-        const client = source === "z2" && zabbix2 ? zabbix2 : zabbix1;
+        const client = zabbix2lock;
         if (!client) {
           return new Response(JSON.stringify({ error: "Instância Zabbix não configurada" }), {
             status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -646,18 +665,16 @@ serve(async (req) => {
 
       case "current_open_problems": {
         const {
-          source = "z1",
           severities = [4],
           hostgroup_ids,
           search,
         } = body as {
-          source?: string;
           severities?: number[];
           hostgroup_ids?: string[];
           search?: string;
         };
 
-        const client = source === "z2" && zabbix2 ? zabbix2 : zabbix1;
+        const client = zabbix2lock;
         if (!client) {
           return new Response(JSON.stringify({ error: "Instância Zabbix não configurada" }), {
             status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -711,8 +728,7 @@ serve(async (req) => {
       }
 
       case "hostgroups_by_source": {
-        const { source = "z1" } = body as { source?: string };
-        const client = source === "z2" && zabbix2 ? zabbix2 : zabbix1;
+        const client = zabbix2lock;
         if (!client) {
           return new Response(JSON.stringify({ error: "Instância Zabbix não configurada" }), {
             status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },

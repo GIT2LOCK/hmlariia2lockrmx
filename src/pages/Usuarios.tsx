@@ -30,7 +30,6 @@ interface Usuario {
   ativo: boolean;
   avatar_url: string | null;
   criado_em: string | null;
-  zabbix_token_z1: string | null;
   zabbix_token_z2: string | null;
   empresa_id: number | null;
   access_scope: AccessScope;
@@ -39,7 +38,7 @@ interface Usuario {
 interface Empresa { id: number; razao_social: string }
 
 type TokenStatus = "idle" | "testing" | "ok" | "fail" | "missing";
-interface TestResult { z1: TokenStatus; z2: TokenStatus; z1Error?: string; z2Error?: string }
+interface TestResult { z2: TokenStatus; z2Error?: string }
 
 const roleLabels: Record<string, string> = {
   SUPERADMIN: "Super Admin", ADMIN: "Administrador", USER: "Usuário",
@@ -91,7 +90,7 @@ const Usuarios = () => {
     setLoading(true);
     const [{ data: us }, { data: emps }] = await Promise.all([
       supabase.from("usuarios")
-        .select("id, nome, email, permissao, ativo, avatar_url, criado_em, zabbix_token_z1, zabbix_token_z2, empresa_id, access_scope")
+        .select("id, nome, email, permissao, ativo, avatar_url, criado_em, zabbix_token_z2, empresa_id, access_scope")
         .order("nome"),
       supabase.from("empresas").select("id, razao_social").order("razao_social"),
     ]);
@@ -101,7 +100,6 @@ const Usuarios = () => {
     const init: Record<number, TestResult> = {};
     list.forEach((u) => {
       init[u.id] = {
-        z1: u.zabbix_token_z1?.trim() ? "idle" : "missing",
         z2: u.zabbix_token_z2?.trim() ? "idle" : "missing",
       };
     });
@@ -131,7 +129,7 @@ const Usuarios = () => {
     } finally { setDeleting(false); }
   };
 
-  const testToken = async (userId: number, source: "z1" | "z2", token: string | null) => {
+  const testToken = async (userId: number, source: "z2", token: string | null) => {
     if (!token?.trim()) {
       setResults(r => ({ ...r, [userId]: { ...r[userId], [source]: "missing" } }));
       return;
@@ -151,7 +149,7 @@ const Usuarios = () => {
 
   const testAll = async () => {
     setTestingAll(true);
-    await Promise.all(usuarios.flatMap(u => [testToken(u.id, "z1", u.zabbix_token_z1), testToken(u.id, "z2", u.zabbix_token_z2)]));
+    await Promise.all(usuarios.map(u => testToken(u.id, "z2", u.zabbix_token_z2)));
     setTestingAll(false);
     toast({ title: "Teste de tokens concluído" });
   };
@@ -309,8 +307,7 @@ const Usuarios = () => {
                           </TableCell>
                           <TableCell className="hidden lg:table-cell">
                             <div className="flex flex-col gap-1">
-                              {renderTokenBadge(results[u.id]?.z1 ?? "missing", "Z1", results[u.id]?.z1Error)}
-                              {renderTokenBadge(results[u.id]?.z2 ?? "missing", "Z2", results[u.id]?.z2Error)}
+                              {renderTokenBadge(results[u.id]?.z2 ?? "missing", "2LOCK", results[u.id]?.z2Error)}
                             </div>
                           </TableCell>
                           <TableCell>

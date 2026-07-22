@@ -61,8 +61,7 @@ const PERIOD_PRESETS = [
 ];
 
 const AMBIENTES = [
-  { value: "z1", label: "Brava" },
-  { value: "z2", label: "2lock" },
+  { value: "z2", label: "2LOCK" },
 ];
 
 interface ZabbixEvent {
@@ -116,7 +115,7 @@ const buildPositiveIntegerTicks = (maxValue: number) => {
 };
 
 export default function RelatorioAlertasZabbix() {
-  const [ambiente, setAmbiente] = useState<string>("z1");
+  const [ambiente, setAmbiente] = useState<string>("z2");
   const [period, setPeriod] = useState<string>("30d");
   const [customFrom, setCustomFrom] = useState<string>("");
   const [customTo, setCustomTo] = useState<string>("");

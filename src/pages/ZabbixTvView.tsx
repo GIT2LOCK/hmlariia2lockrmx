@@ -5,7 +5,7 @@ import { useUser } from "@/contexts/UserContext";
 import {
   ArrowLeft, Eye, EyeOff, Monitor, RefreshCw, Server, Wifi,
   AlertTriangle, Wrench, Activity, ChevronDown, ChevronRight,
-  HardDrive, Cpu, Radio,
+  HardDrive, Cpu, Radio, LayoutDashboard, Move, RotateCcw,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -36,12 +36,37 @@ interface ZabbixMaintenance {
 }
 
 type Category = "equipamentos" | "links" | "outros";
+type MonitorTileId = "equipamentos" | "links" | "proxies" | "cpu" | "disk" | "outros";
+
+interface MonitorLayoutItem {
+  id: MonitorTileId;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  z: number;
+}
+
+type MonitorResizeHandle = "n" | "e" | "s" | "w" | "ne" | "nw" | "se" | "sw";
+
+interface MonitorCanvasInteraction {
+  id: MonitorTileId;
+  mode: "move" | "resize";
+  handle?: MonitorResizeHandle;
+  startX: number;
+  startY: number;
+  origin: MonitorLayoutItem;
+  rect: DOMRect;
+}
 
 const isHighOrDisaster = (problem: ZabbixProblem) => {
   const severity = Number(problem.severity);
   if (severity === 4 || severity === 5) return true;
-  // Allow z2 link-category problems (e.g. "Sem Conexão com a Unidade") regardless of severity
-  if ((problem as any).source === "z2" && (problem as any).category === "links") return true;
+  // O Zabbix 2LOCK usa severidades menores para alguns alarmes operacionais importantes.
+  if (
+    (problem as any).source === "z2" &&
+    ((problem as any).category === "links" || (problem as any).category === "equipamentos")
+  ) return true;
   return false;
 };
 
@@ -118,6 +143,62 @@ const CATEGORY_LABELS: Record<Category, string> = {
 };
 
 const REFRESH_INTERVAL = 30_000;
+const MONITOR_LAYOUT_STORAGE_KEY = "ariia-zabbix-tv-canvas-v1";
+const MONITOR_CANVAS_MIN_W = 16;
+const MONITOR_CANVAS_MIN_H = 14;
+
+const DEFAULT_MONITOR_LAYOUT: MonitorLayoutItem[] = [
+  { id: "equipamentos", x: 0, y: 0, w: 36, h: 64, z: 1 },
+  { id: "links", x: 37, y: 0, w: 36, h: 64, z: 2 },
+  { id: "proxies", x: 74, y: 0, w: 26, h: 28, z: 3 },
+  { id: "cpu", x: 74, y: 30, w: 26, h: 52, z: 4 },
+  { id: "disk", x: 0, y: 67, w: 73, h: 18, z: 5 },
+  { id: "outros", x: 0, y: 87, w: 100, h: 13, z: 6 },
+];
+
+const MONITOR_TILE_LABELS: Record<MonitorTileId, string> = {
+  equipamentos: "Equipamentos",
+  links: "Links",
+  proxies: "Proxies",
+  cpu: "CPU Hosts",
+  disk: "Disco",
+  outros: "Outros",
+};
+
+const MONITOR_RESIZE_HANDLES: Array<{ id: MonitorResizeHandle; className: string }> = [
+  { id: "n", className: "left-5 right-5 top-[-4px] h-2 cursor-ns-resize" },
+  { id: "s", className: "left-5 right-5 bottom-[-4px] h-2 cursor-ns-resize" },
+  { id: "e", className: "right-[-4px] top-5 bottom-5 w-2 cursor-ew-resize" },
+  { id: "w", className: "left-[-4px] top-5 bottom-5 w-2 cursor-ew-resize" },
+  { id: "nw", className: "left-[-5px] top-[-5px] h-3 w-3 cursor-nwse-resize rounded-full" },
+  { id: "ne", className: "right-[-5px] top-[-5px] h-3 w-3 cursor-nesw-resize rounded-full" },
+  { id: "sw", className: "left-[-5px] bottom-[-5px] h-3 w-3 cursor-nesw-resize rounded-full" },
+  { id: "se", className: "right-[-5px] bottom-[-5px] h-3 w-3 cursor-nwse-resize rounded-full" },
+];
+
+const clampRange = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
+const roundLayoutValue = (value: number) => Math.round(value * 10) / 10;
+
+const normalizeMonitorLayoutItem = (candidate: Partial<MonitorLayoutItem> | undefined, fallback: MonitorLayoutItem): MonitorLayoutItem => {
+  const rawW = Number(candidate?.w);
+  const rawH = Number(candidate?.h);
+  const w = Number.isFinite(rawW) ? clampRange(rawW, MONITOR_CANVAS_MIN_W, 100) : fallback.w;
+  const h = Number.isFinite(rawH) ? clampRange(rawH, MONITOR_CANVAS_MIN_H, 100) : fallback.h;
+  const maxX = Math.max(0, 100 - w);
+  const maxY = Math.max(0, 100 - h);
+  const rawX = Number(candidate?.x);
+  const rawY = Number(candidate?.y);
+  const rawZ = Number(candidate?.z);
+
+  return {
+    ...fallback,
+    x: roundLayoutValue(Number.isFinite(rawX) ? clampRange(rawX, 0, maxX) : fallback.x),
+    y: roundLayoutValue(Number.isFinite(rawY) ? clampRange(rawY, 0, maxY) : fallback.y),
+    w: roundLayoutValue(w),
+    h: roundLayoutValue(h),
+    z: Number.isFinite(rawZ) ? rawZ : fallback.z,
+  };
+};
 
 // ── Sub-components ──
 
@@ -275,7 +356,7 @@ function groupByHostTv(items: ZabbixProblem[]): TvHostGroup[] {
 }
 
 // ── Grouped Problem Rows ──
-function TvGroupedRows({ groups, expandedHosts, onToggle, gridCols = "grid-cols-[20px_1fr_2.5fr_100px_60px_70px]" }: {
+function TvGroupedRows({ groups, expandedHosts, onToggle, gridCols = "grid-cols-[20px_1fr_2.5fr_100px_60px]" }: {
   groups: TvHostGroup[];
   expandedHosts: Set<string>;
   onToggle: (key: string) => void;
@@ -286,7 +367,6 @@ function TvGroupedRows({ groups, expandedHosts, onToggle, gridCols = "grid-cols-
       {groups.map((group, gi) => {
         const isMulti = group.problems.length > 1;
         const isExpanded = expandedHosts.has(group.hostKey);
-        const source = group.problems[0]?.source === "z1" ? "BRAVA" : "2LOCK";
         const hasSecondUpdateAlert = group.problems.some(needsSecondUpdateAlert);
 
         return (
@@ -341,7 +421,6 @@ function TvGroupedRows({ groups, expandedHosts, onToggle, gridCols = "grid-cols-
                   </span>
                 );
               })()}
-              <span className="text-sm text-right" style={{ color: C.dim }}>{source}</span>
             </motion.div>
 
             {isMulti && isExpanded && group.problems.map((p) => (
@@ -360,7 +439,6 @@ function TvGroupedRows({ groups, expandedHosts, onToggle, gridCols = "grid-cols-
                 <span className="text-xs text-center font-mono" style={{ color: (p.acknowledges?.length || 0) > 0 ? C.green : C.dim }}>
                   {(p.acknowledges?.length || 0) > 0 ? p.acknowledges!.length : "—"}
                 </span>
-                <span className="text-[11px] text-right" style={{ color: C.dim }}>{p.source === "z1" ? "BRAVA" : "2LOCK"}</span>
               </div>
             ))}
           </div>
@@ -389,6 +467,11 @@ export default function ZabbixTvView() {
   const [sidebarHidden, setSidebarHidden] = useState(true);
   const [expandedHosts, setExpandedHosts] = useState<Set<string>>(new Set());
   const [showCtrl, setShowCtrl] = useState(true);
+  const [editLayout, setEditLayout] = useState(false);
+  const [activeTile, setActiveTile] = useState<MonitorTileId | null>(null);
+  const [monitorLayout, setMonitorLayout] = useState<MonitorLayoutItem[]>(DEFAULT_MONITOR_LAYOUT);
+  const canvasRef = useRef<HTMLDivElement | null>(null);
+  const interactionRef = useRef<MonitorCanvasInteraction | null>(null);
   const knownEventIdsRef = useRef<Set<string> | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
 
@@ -421,6 +504,96 @@ export default function ZabbixTvView() {
   useEffect(() => {
     document.documentElement.setAttribute("data-sidebar-hidden", "true");
     return () => document.documentElement.removeAttribute("data-sidebar-hidden");
+  }, []);
+
+  useEffect(() => {
+    try {
+      const savedLayout = localStorage.getItem(MONITOR_LAYOUT_STORAGE_KEY);
+      if (!savedLayout) return;
+      const parsed = JSON.parse(savedLayout) as MonitorLayoutItem[];
+      if (!Array.isArray(parsed)) return;
+
+      setMonitorLayout(DEFAULT_MONITOR_LAYOUT.map((item) => {
+        const savedItem = parsed.find((candidate) => candidate.id === item.id);
+        return normalizeMonitorLayoutItem(savedItem, item);
+      }));
+    } catch {
+      setMonitorLayout(DEFAULT_MONITOR_LAYOUT);
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(MONITOR_LAYOUT_STORAGE_KEY, JSON.stringify(monitorLayout));
+    } catch {
+      // Preferencia local do layout da TV; falhas de storage nao bloqueiam a tela.
+    }
+  }, [monitorLayout]);
+
+  useEffect(() => {
+    const handlePointerMove = (event: PointerEvent) => {
+      const interaction = interactionRef.current;
+      if (!interaction) return;
+
+      event.preventDefault();
+
+      const dx = ((event.clientX - interaction.startX) / interaction.rect.width) * 100;
+      const dy = ((event.clientY - interaction.startY) / interaction.rect.height) * 100;
+      const { origin } = interaction;
+      let nextX = origin.x;
+      let nextY = origin.y;
+      let nextW = origin.w;
+      let nextH = origin.h;
+
+      if (interaction.mode === "move") {
+        nextX = clampRange(origin.x + dx, 0, 100 - origin.w);
+        nextY = clampRange(origin.y + dy, 0, 100 - origin.h);
+      } else {
+        const handle = interaction.handle || "se";
+
+        if (handle.includes("e")) nextW = clampRange(origin.w + dx, MONITOR_CANVAS_MIN_W, 100 - origin.x);
+        if (handle.includes("s")) nextH = clampRange(origin.h + dy, MONITOR_CANVAS_MIN_H, 100 - origin.y);
+        if (handle.includes("w")) {
+          const maxX = origin.x + origin.w - MONITOR_CANVAS_MIN_W;
+          nextX = clampRange(origin.x + dx, 0, maxX);
+          nextW = origin.w + origin.x - nextX;
+        }
+        if (handle.includes("n")) {
+          const maxY = origin.y + origin.h - MONITOR_CANVAS_MIN_H;
+          nextY = clampRange(origin.y + dy, 0, maxY);
+          nextH = origin.h + origin.y - nextY;
+        }
+      }
+
+      setMonitorLayout((layout) =>
+        layout.map((item) =>
+          item.id === interaction.id
+            ? {
+                ...item,
+                x: roundLayoutValue(nextX),
+                y: roundLayoutValue(nextY),
+                w: roundLayoutValue(nextW),
+                h: roundLayoutValue(nextH),
+              }
+            : item,
+        ),
+      );
+    };
+
+    const handlePointerUp = () => {
+      interactionRef.current = null;
+      setActiveTile(null);
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointercancel", handlePointerUp);
+
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
+    };
   }, []);
 
   useEffect(() => {
@@ -550,6 +723,268 @@ export default function ZabbixTvView() {
     });
   };
 
+  const resetMonitorLayout = () => {
+    setMonitorLayout(DEFAULT_MONITOR_LAYOUT);
+    setActiveTile(null);
+    interactionRef.current = null;
+  };
+
+  const beginCanvasInteraction = (
+    event: React.PointerEvent<HTMLElement>,
+    item: MonitorLayoutItem,
+    mode: "move" | "resize",
+    handle?: MonitorResizeHandle,
+  ) => {
+    if (!editLayout) return;
+
+    const canvasRect = canvasRef.current?.getBoundingClientRect();
+    if (!canvasRect) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const topZ = Math.max(...monitorLayout.map((candidate) => candidate.z || 0), 0);
+    interactionRef.current = {
+      id: item.id,
+      mode,
+      handle,
+      startX: event.clientX,
+      startY: event.clientY,
+      origin: item,
+      rect: canvasRect,
+    };
+    setActiveTile(item.id);
+    setMonitorLayout((layout) =>
+      layout.map((candidate) =>
+        candidate.id === item.id ? { ...candidate, z: topZ + 1 } : candidate,
+      ),
+    );
+  };
+
+  const renderResizeHandles = (item: MonitorLayoutItem) => {
+    if (!editLayout) return null;
+
+    return (
+      <>
+        {MONITOR_RESIZE_HANDLES.map((handle) => (
+          <span
+            key={handle.id}
+            data-monitor-no-drag
+            onPointerDown={(event) => beginCanvasInteraction(event, item, "resize", handle.id)}
+            className={`absolute z-30 ${handle.className}`}
+            style={{ background: activeTile === item.id ? "rgba(77,166,255,0.78)" : "rgba(126,200,227,0.30)" }}
+          />
+        ))}
+      </>
+    );
+  };
+
+  const renderTileControl = (item: MonitorLayoutItem) => {
+    if (!editLayout) return null;
+
+    return (
+      <div
+        data-monitor-no-drag
+        onPointerDown={(event) => beginCanvasInteraction(event, item, "move")}
+        className="absolute left-2 top-2 z-20 flex items-center gap-2 rounded-lg border px-2.5 py-1.5"
+        style={{ borderColor: C.borderHi, background: "rgba(4,10,24,0.88)", color: C.textCyan, cursor: "move" }}
+      >
+        <Move className="h-3.5 w-3.5" />
+        <span className="text-[10px] uppercase tracking-[0.10em]" style={{ fontWeight: 600 }}>
+          {MONITOR_TILE_LABELS[item.id]}
+        </span>
+      </div>
+    );
+  };
+
+  const renderCanvasShell = (item: MonitorLayoutItem, children: React.ReactNode) => (
+    <div
+      key={item.id}
+      className={`absolute min-h-0 rounded-2xl ${editLayout ? "select-none" : ""} ${activeTile === item.id ? "ring-1" : ""}`}
+      style={{
+        left: `${item.x}%`,
+        top: `${item.y}%`,
+        width: `${item.w}%`,
+        height: `${item.h}%`,
+        zIndex: item.z,
+        touchAction: "none",
+        ...(activeTile === item.id ? { ["--tw-ring-color" as string]: "rgba(77,166,255,0.64)" } : {}),
+      }}
+      onPointerDown={(event) => {
+        if (!editLayout) return;
+        const target = event.target as HTMLElement;
+        if (target.closest("[data-monitor-no-drag]")) return;
+        beginCanvasInteraction(event, item, "move");
+      }}
+    >
+      <GlowCard className="h-full min-h-0 flex flex-col" contentClassName={`h-full flex flex-col ${editLayout ? "pt-12" : ""}`}>
+        {renderTileControl(item)}
+        {renderResizeHandles(item)}
+        {children}
+      </GlowCard>
+    </div>
+  );
+
+  const renderProblemPanel = (item: MonitorLayoutItem, cat: Category, gridCols: string) => {
+    const items = categorized[cat];
+    const Icon = CATEGORY_ICONS[cat];
+    const color = CATEGORY_COLORS[cat];
+
+    return renderCanvasShell(item, (
+      <>
+        <div className="p-4 pb-2 flex items-center gap-2 flex-shrink-0" style={{ borderBottom: `1px solid ${C.grid}` }}>
+          <Icon className="h-6 w-6" style={{ color, filter: `drop-shadow(0 0 4px ${color}60)` }} />
+          <span className="text-sm uppercase tracking-[0.15em]" style={{ color, fontWeight: 700 }}>
+            {CATEGORY_LABELS[cat]}
+          </span>
+        </div>
+        <div className="flex-1 overflow-y-auto min-h-0 custom-scrollbar">
+          <div className={`grid ${gridCols} gap-2 px-3 py-2 sticky top-0 z-10`} style={{ background: "rgba(6,12,30,0.95)", borderBottom: `1px solid ${C.grid}` }}>
+            <span />
+            <span className="text-xs uppercase tracking-wider" style={{ color: C.dim, fontWeight: 700 }}>Host</span>
+            <span className="text-xs uppercase tracking-wider" style={{ color: C.dim, fontWeight: 700 }}>Problema</span>
+            <span className="text-xs uppercase tracking-wider" style={{ color: C.dim, fontWeight: 700 }}>Duração</span>
+            <span className="text-xs uppercase tracking-wider text-center" style={{ color: C.dim, fontWeight: 700 }}>Updates</span>
+          </div>
+          {items.length === 0 ? (
+            <div className="flex items-center justify-center py-8">
+              <span className="text-base" style={{ color: C.green }}>Sem problemas</span>
+            </div>
+          ) : (
+            <TvGroupedRows groups={groupByHostTv(items)} expandedHosts={expandedHosts}
+              gridCols={gridCols}
+              onToggle={(key) => setExpandedHosts(prev => { const next = new Set(prev); if (next.has(key)) next.delete(key); else next.add(key); return next; })} />
+          )}
+        </div>
+      </>
+    ));
+  };
+
+  const renderMonitorTile = (item: MonitorLayoutItem) => {
+    if (item.id === "equipamentos") {
+      return renderProblemPanel(item, "equipamentos", "grid-cols-[20px_1fr_2.5fr_100px_60px]");
+    }
+
+    if (item.id === "links") {
+      return renderProblemPanel(item, "links", "grid-cols-[20px_1.5fr_2fr_100px_60px]");
+    }
+
+    if (item.id === "proxies") {
+      return renderCanvasShell(item, (
+        <div className="px-4 py-3 flex min-h-0 flex-col">
+          <div className="flex items-center gap-2 mb-2">
+            <Radio className="h-5 w-5" style={{ color: C.cyan, filter: `drop-shadow(0 0 4px ${C.cyan}60)` }} />
+            <span className="text-xs uppercase tracking-[0.12em]" style={{ color: C.cyan, fontWeight: 700 }}>Proxies</span>
+          </div>
+          <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto custom-scrollbar">
+            {(serverMetrics?.proxies || []).map((px) => {
+              const isUp = px.delaySec >= 0 && px.delaySec <= 30;
+              const isWarning = px.delaySec > 30 && px.delaySec <= 120;
+              const statusColor = isUp ? C.green : isWarning ? C.orange : C.red;
+              return (
+                <div key={px.proxyid} className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: "rgba(77,166,255,0.04)", border: `1px solid rgba(77,166,255,0.08)` }}>
+                  <PulseDot color={statusColor} />
+                  <span className="text-sm font-mono truncate flex-1" style={{ color: C.textCyan, fontWeight: 600 }}>{px.name}</span>
+                  <span className="text-lg font-mono tabular-nums" style={{ color: statusColor, fontWeight: 700, textShadow: `0 0 10px ${statusColor}40` }}>
+                    {px.delaySec >= 0 ? `${px.delaySec}s` : "—"}
+                  </span>
+                </div>
+              );
+            })}
+            {(!serverMetrics || serverMetrics.proxies.length === 0) && (
+              <div className="py-6 text-center text-base" style={{ color: C.dim }}>Sem dados</div>
+            )}
+          </div>
+        </div>
+      ));
+    }
+
+    if (item.id === "cpu") {
+      return renderCanvasShell(item, (
+        <div className="p-5 h-full flex min-h-0 flex-col">
+          <div className="flex items-center gap-2 mb-3 flex-shrink-0">
+            <Cpu className="h-6 w-6" style={{ color: C.cyan, filter: `drop-shadow(0 0 4px ${C.cyan}60)` }} />
+            <span className="text-sm uppercase tracking-[0.12em]" style={{ color: C.cyan, fontWeight: 700 }}>CPU Hosts</span>
+          </div>
+          <div className="overflow-y-auto flex-1 min-h-0 custom-scrollbar flex flex-col gap-1 justify-evenly">
+            {(serverMetrics?.cpuHosts || []).map((h, i) => {
+              const barPct = Math.min(h.cpuUtil, 100);
+              const barColor = h.cpuUtil > 80 ? C.red : h.cpuUtil > 50 ? C.orange : C.green;
+              return (
+                <div key={h.hostid + i} className="flex flex-col gap-2 py-3" style={{ borderBottom: `1px solid rgba(77,166,255,0.06)` }}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-base truncate" style={{ color: C.textCyan, fontWeight: 600 }}>{h.name}</span>
+                    <span className="text-lg font-mono tabular-nums ml-2 whitespace-nowrap" style={{ color: barColor, fontWeight: 700 }}>{h.cpuUtil.toFixed(1)}%</span>
+                  </div>
+                  <div className="h-3 rounded-full overflow-hidden" style={{ background: "rgba(77,166,255,0.08)" }}>
+                    <div className="h-full rounded-full transition-all" style={{ width: `${barPct}%`, background: barColor, boxShadow: `0 0 8px ${barColor}40` }} />
+                  </div>
+                  <div className="flex gap-4 text-sm font-mono tabular-nums" style={{ color: C.dim }}>
+                    <span>1m: {h.load1m?.toFixed(2) ?? "—"}</span>
+                    <span>5m: {h.load5m?.toFixed(2) ?? "—"}</span>
+                    <span>15m: {h.load15m?.toFixed(2) ?? "—"}</span>
+                    <span className="ml-auto">P: {h.processes ?? "—"}</span>
+                  </div>
+                </div>
+              );
+            })}
+            {(!serverMetrics || serverMetrics.cpuHosts.length === 0) && (
+              <div className="py-3 text-center text-base" style={{ color: C.dim }}>Sem dados</div>
+            )}
+          </div>
+        </div>
+      ));
+    }
+
+    if (item.id === "disk") {
+      const pct = serverMetrics?.diskUsagePct ?? 0;
+      const diskColor = pct > 80 ? C.red : pct > 60 ? C.orange : C.green;
+      return renderCanvasShell(item, (
+        <div className="px-6 py-4 h-full flex items-center">
+          <div className="flex w-full items-center gap-4">
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <HardDrive className="h-7 w-7" style={{ color: C.cyan, filter: `drop-shadow(0 0 4px ${C.cyan}60)` }} />
+              <span className="text-base uppercase tracking-[0.12em]" style={{ color: C.cyan, fontWeight: 700 }}>Espaço em disco</span>
+            </div>
+            <div className="flex-1 h-8 rounded-full overflow-hidden relative" style={{ background: "rgba(77,166,255,0.08)", border: `1px solid rgba(77,166,255,0.12)` }}>
+              <motion.div
+                className="h-full rounded-full"
+                initial={{ width: "0%" }}
+                animate={{ width: `${pct}%` }}
+                transition={{ duration: 1.2, delay: 0.4, ease: "easeOut" }}
+                style={{ background: `linear-gradient(90deg, ${diskColor}cc, ${diskColor})`, boxShadow: `0 0 16px ${diskColor}50, inset 0 1px 0 rgba(255,255,255,0.15)` }}
+              />
+              <span className="absolute inset-0 flex items-center justify-center text-sm font-mono font-bold" style={{ color: C.white, textShadow: "0 1px 3px rgba(0,0,0,0.6)" }}>
+                {pct.toFixed(1)}% USADO
+              </span>
+            </div>
+          </div>
+        </div>
+      ));
+    }
+
+    return renderCanvasShell(item, (
+      <div className="p-4 flex h-full min-h-0 items-center gap-3 overflow-hidden">
+        <AlertTriangle className="h-5 w-5 flex-shrink-0" style={{ color: C.dim }} />
+        <span className="text-sm uppercase tracking-[0.12em] flex-shrink-0" style={{ color: C.dim, fontWeight: 700 }}>
+          OUTROS: {categorized.outros.length}
+        </span>
+        <div className="flex-1 flex flex-wrap gap-x-4 gap-y-1 overflow-hidden">
+          {categorized.outros.slice(0, 5).map((p) => (
+            <span key={p.eventid} className="text-sm" style={{ color: C.textCyan }}>
+              {p.hosts?.[0]?.name || "—"}: <span style={{ color: C.dim }}>{p.triggerDescription || p.name}</span>
+              <span className="ml-2 font-mono text-xs" style={{ color: C.orange }}>{formatDuration(Number(p.clock))}</span>
+            </span>
+          ))}
+          {categorized.outros.length === 0 && <span className="text-sm" style={{ color: C.green }}>Sem problemas adicionais</span>}
+          {categorized.outros.length > 5 && (
+            <span className="text-xs" style={{ color: C.dim }}>+{categorized.outros.length - 5} mais</span>
+          )}
+        </div>
+      </div>
+    ));
+  };
+
   return (
     <div className="-m-4 md:-m-6 min-h-[calc(100vh-56px)] lg:min-h-screen overflow-hidden relative" style={{ background: C.pageBg, fontFamily: "'Poppins', sans-serif" }}>
       <Particles />
@@ -620,6 +1055,29 @@ export default function ZabbixTvView() {
                 {showCtrl ? "ON" : "OFF"}
               </span>
             </button>
+            <button
+              onClick={() => setEditLayout(prev => !prev)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs uppercase tracking-wider transition-all"
+              style={{
+                background: editLayout ? "rgba(77,166,255,0.18)" : "rgba(255,255,255,0.05)",
+                border: `1px solid ${editLayout ? C.borderHi : C.border}`,
+                color: editLayout ? C.cyan : C.dim,
+                fontWeight: 700,
+              }}
+            >
+              <LayoutDashboard className="h-3.5 w-3.5" />
+              {editLayout ? "Concluir" : "Editar layout"}
+            </button>
+            {editLayout && (
+              <button
+                onClick={resetMonitorLayout}
+                className="p-2 rounded-xl transition-all hover:bg-white/8 hover:scale-110"
+                title="Restaurar layout"
+                style={{ color: C.dim, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.05)" }}
+              >
+                <RotateCcw className="h-4 w-4" />
+              </button>
+            )}
             {error && (
               <motion.span initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
                 className="text-xs px-3 py-1.5 rounded-full"
@@ -675,199 +1133,19 @@ export default function ZabbixTvView() {
           ))}
         </div>
 
-        {/* MAIN CONTENT: EQUIPAMENTOS | LINKS | Sidebar(Disk top + CPU bottom) */}
-        <div className="grid grid-cols-[1fr_1fr_360px] grid-rows-[1fr_auto] gap-3 flex-1 min-h-0">
-          {/* EQUIPAMENTOS */}
-          {(() => {
-            const cat: Category = "equipamentos";
-            const items = categorized[cat];
-            const Icon = CATEGORY_ICONS[cat];
-            const color = CATEGORY_COLORS[cat];
-            return (
-              <GlowCard delay={0.35} className="min-h-0 flex flex-col" contentClassName="h-full flex flex-col">
-                <div className="p-4 pb-2 flex items-center gap-2 flex-shrink-0" style={{ borderBottom: `1px solid ${C.grid}` }}>
-                  <Icon className="h-6 w-6" style={{ color, filter: `drop-shadow(0 0 4px ${color}60)` }} />
-                  <span className="text-sm uppercase tracking-[0.15em]" style={{ color, fontWeight: 700 }}>
-                    {CATEGORY_LABELS[cat]}
-                  </span>
-                </div>
-                <div className="flex-1 overflow-y-auto min-h-0 custom-scrollbar">
-                  <div className="grid grid-cols-[20px_1fr_2.5fr_100px_60px_70px] gap-2 px-3 py-2 sticky top-0" style={{ background: "rgba(6,12,30,0.95)", borderBottom: `1px solid ${C.grid}` }}>
-                    <span />
-                    <span className="text-xs uppercase tracking-wider" style={{ color: C.dim, fontWeight: 700 }}>Host</span>
-                    <span className="text-xs uppercase tracking-wider" style={{ color: C.dim, fontWeight: 700 }}>Problema</span>
-                    <span className="text-xs uppercase tracking-wider" style={{ color: C.dim, fontWeight: 700 }}>Duração</span>
-                    <span className="text-xs uppercase tracking-wider text-center" style={{ color: C.dim, fontWeight: 700 }}>Updates</span>
-                    <span className="text-xs uppercase tracking-wider text-right" style={{ color: C.dim, fontWeight: 700 }}>Origem</span>
-                  </div>
-                  {items.length === 0 ? (
-                    <div className="flex items-center justify-center py-8">
-                      <span className="text-base" style={{ color: C.green }}>✓ Sem problemas</span>
-                    </div>
-                  ) : (
-                    <TvGroupedRows groups={groupByHostTv(items)} expandedHosts={expandedHosts}
-                      onToggle={(key) => setExpandedHosts(prev => { const next = new Set(prev); if (next.has(key)) next.delete(key); else next.add(key); return next; })} />
-                  )}
-                </div>
-              </GlowCard>
-            );
-          })()}
-
-          {/* LINKS */}
-          {(() => {
-            const cat: Category = "links";
-            const items = categorized[cat];
-            const Icon = CATEGORY_ICONS[cat];
-            const color = CATEGORY_COLORS[cat];
-            return (
-              <GlowCard delay={0.4} className="min-h-0 flex flex-col" contentClassName="h-full flex flex-col">
-                <div className="p-4 pb-2 flex items-center gap-2 flex-shrink-0" style={{ borderBottom: `1px solid ${C.grid}` }}>
-                  <Icon className="h-6 w-6" style={{ color, filter: `drop-shadow(0 0 4px ${color}60)` }} />
-                  <span className="text-sm uppercase tracking-[0.15em]" style={{ color, fontWeight: 700 }}>
-                    {CATEGORY_LABELS[cat]}
-                  </span>
-                </div>
-                <div className="flex-1 overflow-y-auto min-h-0 custom-scrollbar">
-                  <div className="grid grid-cols-[20px_1.5fr_2fr_100px_60px_70px] gap-2 px-3 py-2 sticky top-0" style={{ background: "rgba(6,12,30,0.95)", borderBottom: `1px solid ${C.grid}` }}>
-                    <span />
-                    <span className="text-xs uppercase tracking-wider" style={{ color: C.dim, fontWeight: 700 }}>Host</span>
-                    <span className="text-xs uppercase tracking-wider" style={{ color: C.dim, fontWeight: 700 }}>Problema</span>
-                    <span className="text-xs uppercase tracking-wider" style={{ color: C.dim, fontWeight: 700 }}>Duração</span>
-                    <span className="text-xs uppercase tracking-wider text-center" style={{ color: C.dim, fontWeight: 700 }}>Updates</span>
-                    <span className="text-xs uppercase tracking-wider text-right" style={{ color: C.dim, fontWeight: 700 }}>Origem</span>
-                  </div>
-                  {items.length === 0 ? (
-                    <div className="flex items-center justify-center py-8">
-                      <span className="text-base" style={{ color: C.green }}>✓ Sem problemas</span>
-                    </div>
-                  ) : (
-                    <TvGroupedRows groups={groupByHostTv(items)} expandedHosts={expandedHosts}
-                      gridCols="grid-cols-[20px_1.5fr_2fr_100px_60px_70px]"
-                      onToggle={(key) => setExpandedHosts(prev => { const next = new Set(prev); if (next.has(key)) next.delete(key); else next.add(key); return next; })} />
-                  )}
-                </div>
-              </GlowCard>
-            );
-          })()}
-
-          {/* RIGHT SIDEBAR: Proxies (top) + CPU (bottom, stretches to fill) */}
-          {serverMetrics && (
-            <div className="flex flex-col gap-3 min-h-0 row-span-2">
-              {/* Proxies */}
-              {serverMetrics.proxies.length > 0 && (
-                <GlowCard delay={0.45} contentClassName="px-4 py-2.5 flex flex-col" className="flex-shrink-0">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Radio className="h-5 w-5" style={{ color: C.cyan, filter: `drop-shadow(0 0 4px ${C.cyan}60)` }} />
-                    <span className="text-xs uppercase tracking-[0.12em]" style={{ color: C.cyan, fontWeight: 700 }}>Proxies</span>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    {serverMetrics.proxies.map((px) => {
-                      const isUp = px.delaySec >= 0 && px.delaySec <= 30;
-                      const isWarning = px.delaySec > 30 && px.delaySec <= 120;
-                      const statusColor = isUp ? C.green : isWarning ? C.orange : C.red;
-                      return (
-                        <div key={px.proxyid} className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: "rgba(77,166,255,0.04)", border: `1px solid rgba(77,166,255,0.08)` }}>
-                          <PulseDot color={statusColor} />
-                          <span className="text-sm font-mono truncate flex-1" style={{ color: C.textCyan, fontWeight: 600 }}>{px.name}</span>
-                          <span className="text-lg font-mono tabular-nums" style={{ color: statusColor, fontWeight: 700, textShadow: `0 0 10px ${statusColor}40` }}>
-                            {px.delaySec >= 0 ? `${px.delaySec}s` : "—"}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </GlowCard>
-              )}
-
-              {/* CPU Hosts - fills remaining vertical space */}
-              <GlowCard delay={0.5} contentClassName="p-5 h-full flex flex-col" className="flex-1 min-h-0 flex flex-col">
-                <div className="flex items-center gap-2 mb-3 flex-shrink-0">
-                  <Cpu className="h-6 w-6" style={{ color: C.cyan, filter: `drop-shadow(0 0 4px ${C.cyan}60)` }} />
-                  <span className="text-sm uppercase tracking-[0.12em]" style={{ color: C.cyan, fontWeight: 700 }}>CPU Hosts</span>
-                </div>
-                <div className="overflow-y-auto flex-1 min-h-0 custom-scrollbar flex flex-col gap-1 justify-evenly">
-                  {serverMetrics.cpuHosts.map((h, i) => {
-                    const barPct = Math.min(h.cpuUtil, 100);
-                    const barColor = h.cpuUtil > 80 ? C.red : h.cpuUtil > 50 ? C.orange : C.green;
-                    return (
-                      <div key={h.hostid + i} className="flex flex-col gap-2 py-3" style={{ borderBottom: `1px solid rgba(77,166,255,0.06)` }}>
-                        <div className="flex items-center justify-between">
-                          <span className="text-base truncate" style={{ color: C.textCyan, fontWeight: 600 }}>{h.name}</span>
-                          <span className="text-lg font-mono tabular-nums ml-2 whitespace-nowrap" style={{ color: barColor, fontWeight: 700 }}>{h.cpuUtil.toFixed(1)}%</span>
-                        </div>
-                        <div className="h-3 rounded-full overflow-hidden" style={{ background: "rgba(77,166,255,0.08)" }}>
-                          <div className="h-full rounded-full transition-all" style={{ width: `${barPct}%`, background: barColor, boxShadow: `0 0 8px ${barColor}40` }} />
-                        </div>
-                        <div className="flex gap-4 text-sm font-mono tabular-nums" style={{ color: C.dim }}>
-                          <span className="font-extrabold">1m: {h.load1m?.toFixed(2) ?? "—"}</span>
-                          <span className="font-extrabold">5m: {h.load5m?.toFixed(2) ?? "—"}</span>
-                          <span className="font-extrabold">15m: {h.load15m?.toFixed(2) ?? "—"}</span>
-                          <span className="ml-auto font-extrabold">P: {h.processes ?? "—"}</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {serverMetrics.cpuHosts.length === 0 && (
-                    <div className="py-3 text-center text-base" style={{ color: C.dim }}>Sem dados</div>
-                  )}
-                </div>
-              </GlowCard>
-            </div>
-          )}
-          {/* DISK SPACE - spans columns 1-2, loading bar style */}
-          {serverMetrics && (() => {
-            const pct = serverMetrics.diskUsagePct ?? 0;
-            const diskColor = pct > 80 ? C.red : pct > 60 ? C.orange : C.green;
-            return (
-              <GlowCard delay={0.55} className="flex-shrink-0 col-span-2" contentClassName="px-6 py-4">
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <HardDrive className="h-7 w-7" style={{ color: C.cyan, filter: `drop-shadow(0 0 4px ${C.cyan}60)` }} />
-                    <span className="text-base uppercase tracking-[0.12em]" style={{ color: C.cyan, fontWeight: 700 }}>Espaço em disco</span>
-                  </div>
-                  <div className="flex-1 flex items-center gap-4">
-                    <div className="flex-1 h-8 rounded-full overflow-hidden relative" style={{ background: "rgba(77,166,255,0.08)", border: `1px solid rgba(77,166,255,0.12)` }}>
-                      <motion.div
-                        className="h-full rounded-full"
-                        initial={{ width: "0%" }}
-                        animate={{ width: `${pct}%` }}
-                        transition={{ duration: 1.2, delay: 0.4, ease: "easeOut" }}
-                        style={{ background: `linear-gradient(90deg, ${diskColor}cc, ${diskColor})`, boxShadow: `0 0 16px ${diskColor}50, inset 0 1px 0 rgba(255,255,255,0.15)` }}
-                      />
-                      <span className="absolute inset-0 flex items-center justify-center text-sm font-mono font-bold" style={{ color: C.white, textShadow: "0 1px 3px rgba(0,0,0,0.6)" }}>
-                        {pct.toFixed(1)}% USADO
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </GlowCard>
-            );
-          })()}
+        {/* MAIN CONTENT: FREE CANVAS */}
+        <div
+          ref={canvasRef}
+          className="relative flex-1 min-h-0 overflow-hidden rounded-2xl border"
+          style={{
+            borderColor: editLayout ? "rgba(77,166,255,0.28)" : "transparent",
+            background: editLayout ? "rgba(4,10,24,0.24)" : "transparent",
+          }}
+        >
+          {monitorLayout.map(renderMonitorTile)}
         </div>
 
-        {/* "OUTROS" bar if any */}
-        {categorized.outros.length > 0 && (
-          <GlowCard delay={0.6} className="mt-3 flex-shrink-0">
-            <div className="p-4 flex items-center gap-3">
-              <AlertTriangle className="h-5 w-5" style={{ color: C.dim }} />
-              <span className="text-sm uppercase tracking-[0.12em]" style={{ color: C.dim, fontWeight: 700 }}>
-                OUTROS: {categorized.outros.length} problema{categorized.outros.length > 1 ? "s" : ""}
-              </span>
-              <div className="flex-1 flex flex-wrap gap-x-4 gap-y-1 ml-4">
-                {categorized.outros.slice(0, 5).map((p) => (
-                  <span key={p.eventid} className="text-sm" style={{ color: C.textCyan }}>
-                    {p.hosts?.[0]?.name || "—"}: <span style={{ color: C.dim }}>{p.triggerDescription || p.name}</span>
-                    <span className="ml-2 font-mono text-xs" style={{ color: C.orange }}>{formatDuration(Number(p.clock))}</span>
-                  </span>
-                ))}
-                {categorized.outros.length > 5 && (
-                  <span className="text-xs" style={{ color: C.dim }}>+{categorized.outros.length - 5} mais</span>
-                )}
-              </div>
-            </div>
-          </GlowCard>
-        )}
-
+        
         {/* FOOTER */}
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.2 }}
           className="flex items-center justify-center gap-4 pt-1 flex-shrink-0">

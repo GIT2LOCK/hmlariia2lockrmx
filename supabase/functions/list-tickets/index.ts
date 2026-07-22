@@ -47,13 +47,13 @@ serve(async (req) => {
 
   const perm = user.permissao;
 
-  // ADMIN / SUPERADMIN: todos os chamados, sem filtro
-  if (perm === "SUPERADMIN" || perm === "ADMIN") {
+  // ADMIN / SUPERADMIN / TV_VIEW: leitura global dos chamados, sem filtro.
+  if (perm === "SUPERADMIN" || perm === "ADMIN" || perm === "TV_VIEW") {
     const { data, error } = await supabase
       .from("tickets")
       .select(selectCols)
       .order("data_abertura", { ascending: false })
-      .limit(500);
+      .limit(5000);
     if (error) return json({ error: error.message }, 500);
     return json({ tickets: data ?? [] });
   }

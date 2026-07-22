@@ -73,9 +73,9 @@ const MeuPerfil = () => {
   const [uploadingSignature, setUploadingSignature] = useState(false);
 
   // Zabbix tokens
-  const [zabbixTokens, setZabbixTokens] = useState({ z1: "", z2: "" });
+  const [zabbixTokens, setZabbixTokens] = useState({ z2: "" });
   const [savingZabbix, setSavingZabbix] = useState(false);
-  const [showZabbixTokens, setShowZabbixTokens] = useState({ z1: false, z2: false });
+  const [showZabbixTokens, setShowZabbixTokens] = useState({ z2: false });
 
   // Password change
   const [changingPassword, setChangingPassword] = useState(false);
@@ -157,7 +157,7 @@ const MeuPerfil = () => {
     // Fallback: load profile directly from database
     const { data: dbUser } = await supabase
       .from("usuarios")
-      .select("id, nome, email, permissao, telefone, avatar_url, totp_enabled, assinatura_email_url, zabbix_token_z1, zabbix_token_z2")
+      .select("id, nome, email, permissao, telefone, avatar_url, totp_enabled, assinatura_email_url, zabbix_token_z2")
       .eq("id", resolvedUserId)
       .single();
 
@@ -172,7 +172,6 @@ const MeuPerfil = () => {
         assinatura_email_url: (dbUser as any).assinatura_email_url || "",
       });
       setZabbixTokens({
-        z1: (dbUser as any).zabbix_token_z1 || "",
         z2: (dbUser as any).zabbix_token_z2 || "",
       });
       setEditForm({
@@ -187,14 +186,13 @@ const MeuPerfil = () => {
   const handleSaveZabbixTokens = async () => {
     setSavingZabbix(true);
     const { error } = await supabase.from("usuarios").update({
-      zabbix_token_z1: zabbixTokens.z1.trim() || null,
       zabbix_token_z2: zabbixTokens.z2.trim() || null,
     } as any).eq("id", user.id);
     setSavingZabbix(false);
     if (error) {
       toast({ title: "Erro ao salvar tokens", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Tokens Zabbix salvos!" });
+      toast({ title: "Token Zabbix salvo!" });
     }
   };
 
@@ -683,11 +681,10 @@ const MeuPerfil = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <p className="text-sm text-muted-foreground">
-                  Configure seu token pessoal de cada instância Zabbix. Quando você adicionar um update em um problema, ele será registrado em seu nome no Zabbix.
+                  Configure seu token pessoal do Zabbix 2LOCK. Quando você adicionar um update em um problema, ele será registrado em seu nome no Zabbix.
                 </p>
                 {([
-                  { key: "z1" as const, label: "Token Zabbix — Brava (z1)" },
-                  { key: "z2" as const, label: "Token Zabbix — 2lock (z2)" },
+                  { key: "z2" as const, label: "Token Zabbix 2LOCK" },
                 ]).map(({ key, label }) => (
                   <div key={key}>
                     <Label>{label}</Label>
