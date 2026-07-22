@@ -124,6 +124,11 @@ export default function ChamadoDetalhe() {
   const [commentFiles, setCommentFiles] = useState<File[]>([]);
   const sendingRef = useRef(false);
 
+  // Alterações pendentes (não persistidas até clicar em "Salvar alterações").
+  // Evita que trocar status apague o texto digitado no compositor.
+  const [pendingStatus, setPendingStatus] = useState<TicketStatus | null>(null);
+  const [savingChanges, setSavingChanges] = useState(false);
+
   const load = async () => {
     setLoading(true);
     try {
