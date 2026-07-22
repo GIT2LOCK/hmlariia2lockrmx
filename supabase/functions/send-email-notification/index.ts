@@ -233,18 +233,15 @@ serve(async (req) => {
       extra: extra || null,
     };
 
-    const results: any[] = [];
-    for (const to of recipients) {
-      const r = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...basePayload, to, recipients }),
-      });
-      const txt = await r.text();
-      results.push({ to, status: r.status, ok: r.ok, detail: r.ok ? undefined : txt });
-    }
-    const anyFail = results.some((r) => !r.ok);
-    if (anyFail) return json({ error: "Falha em algum destinatário", results }, 502);
+    const [primaryTo, ...ccList] = recipients;
+    const r = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...basePayload, to: primaryTo, cc: ccList, recipients }),
+    });
+    const txt = await r.text();
+    const results = [{ to: primaryTo, cc: ccList, status: r.status, ok: r.ok, detail: r.ok ? undefined : txt }];
+    if (!r.ok) return json({ error: "Falha no webhook", results }, 502);
     return json({ ok: true, event: eventKey, recipients, results });
   } catch (e) {
     return json({ error: (e as Error).message }, 500);
