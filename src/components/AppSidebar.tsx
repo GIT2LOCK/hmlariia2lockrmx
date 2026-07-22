@@ -14,6 +14,7 @@ import {
   BookOpen,
   Activity,
   Ticket,
+  Trello,
   ShieldCheck,
   AlertTriangle,
   Gauge,
@@ -51,6 +52,7 @@ interface MenuItem {
 const menuItems: MenuItem[] = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, tabKey: "dashboard" },
   { title: "Chamados", url: "/dashboard/chamados", icon: Ticket, permission: "tickets.view_own", tabKey: "chamados" },
+  { title: "Kanban", url: "/dashboard/chamados-kanban", icon: Trello, permission: "tickets.view_own", tabKey: "chamados" },
   { title: "Dashboard Atendimento", url: "/dashboard/atendimento", icon: Gauge, permission: "dashboard.team", tabKey: "atendimento" },
   { title: "Empresas", url: "/dashboard/empresas", icon: Building2, permission: "registry.view", tabKey: "empresas" },
   { title: "Unidades", url: "/dashboard/unidades", icon: MapPin, permission: "registry.view", tabKey: "unidades" },
@@ -62,6 +64,8 @@ const menuItems: MenuItem[] = [
   { title: "Relatórios Zabbix", url: "/dashboard/zabbix/relatorio-alertas", icon: AlertTriangle, permission: "registry.view", tabKey: "zabbix" },
   { title: "Monitoramento", url: "/dashboard/zabbix", icon: Activity, permission: "registry.view", tabKey: "zabbix" },
 ];
+
+const glassMenuButtonClassName = "ariia-glass-menu-button";
 
 export function AppSidebar() {
   const { state, toggleSidebar } = useSidebar();
@@ -95,9 +99,9 @@ export function AppSidebar() {
   };
 
   return (
-    <Sidebar className="border-r border-border bg-primary" collapsible="icon">
-      <SidebarHeader className="p-3 border-b border-primary-foreground/20">
-        <div className={`flex items-center ${collapsed ? 'justify-center' : 'gap-3'}`}>
+    <Sidebar className="ariia-glass-sidebar" collapsible="icon">
+      <SidebarHeader className="border-b border-sky-300/20 px-3 py-3">
+        <div className={`ariia-glass-user-card flex items-center ${collapsed ? 'justify-center !p-1' : 'gap-3'}`}>
           <Avatar className={`${collapsed ? 'h-8 w-8' : 'h-10 w-10'} transition-all duration-300`}>
             <AvatarImage src={user.avatar} alt={`${user.nome} ${user.sobrenome}`} />
             <AvatarFallback className="bg-primary-foreground/20 text-primary-foreground">
@@ -109,13 +113,13 @@ export function AppSidebar() {
               <span className="text-sm font-medium text-primary-foreground">
                 {user.nome} {user.sobrenome}
               </span>
-              <span className="text-xs text-primary-foreground/60">{user.cargo}</span>
+              <span className="text-xs font-medium text-white/85">{user.cargo}</span>
             </div>
           )}
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="bg-primary">
+      <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel className="text-primary-foreground/60 text-xs uppercase tracking-wider">
             Menu
@@ -128,7 +132,7 @@ export function AppSidebar() {
                     asChild 
                     isActive={isActive(item.url)}
                     tooltip={item.title}
-                    className="text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10 data-[active=true]:bg-primary-foreground/20 data-[active=true]:text-primary-foreground"
+                    className={glassMenuButtonClassName}
                   >
                     <NavLink to={item.url} className="flex items-center gap-3">
                       <item.icon className="h-5 w-5" />
@@ -153,7 +157,7 @@ export function AppSidebar() {
                     asChild
                     isActive={isActive("/dashboard/usuarios")}
                     tooltip="Usuários"
-                    className="text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10 data-[active=true]:bg-primary-foreground/20 data-[active=true]:text-primary-foreground"
+                    className={glassMenuButtonClassName}
                   >
                     <NavLink to="/dashboard/usuarios" className="flex items-center gap-3">
                       <Users className="h-5 w-5" />
@@ -168,7 +172,7 @@ export function AppSidebar() {
                     asChild
                     isActive={isActive("/dashboard/grafana")}
                     tooltip="Grafana"
-                    className="text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10 data-[active=true]:bg-primary-foreground/20 data-[active=true]:text-primary-foreground"
+                    className={glassMenuButtonClassName}
                   >
                     <NavLink to="/dashboard/grafana" className="flex items-center gap-3">
                       <ShieldCheck className="h-5 w-5" />
@@ -183,7 +187,7 @@ export function AppSidebar() {
                   asChild
                   isActive={isActive("/dashboard/perfil")}
                   tooltip="Meu Perfil"
-                  className="text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10 data-[active=true]:bg-primary-foreground/20 data-[active=true]:text-primary-foreground"
+                  className={glassMenuButtonClassName}
                 >
                   <NavLink to="/dashboard/perfil" className="flex items-center gap-3">
                     <User className="h-5 w-5" />
@@ -196,13 +200,13 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-primary-foreground/20 bg-primary px-2 py-2">
+      <SidebarFooter className="border-t border-sky-300/20 p-2">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton 
               onClick={handleLogout}
               tooltip="Sair"
-              className="text-primary-foreground/80 hover:text-red-300 hover:bg-primary-foreground/10"
+              className={glassMenuButtonClassName}
             >
               <LogOut className="h-5 w-5" />
               <span>Sair</span>
@@ -212,7 +216,7 @@ export function AppSidebar() {
             <SidebarMenuButton 
               onClick={toggleSidebar}
               tooltip={collapsed ? "Expandir" : "Minimizar"}
-              className="text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10"
+              className={glassMenuButtonClassName}
             >
               {collapsed ? <PanelLeft className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
               <span>Minimizar</span>

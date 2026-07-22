@@ -145,6 +145,142 @@ All colors MUST be HSL.
   }
 }
 
+@layer components {
+  .ariia-glass-sidebar {
+    --glass-panel: 224 100% 5%;
+    --glass-panel-deep: 230 100% 1%;
+    --glass-surface: 207 100% 48%;
+    --glass-surface-soft: 218 100% 20%;
+    --glass-ink: 207 100% 98%;
+    --glass-muted: 208 100% 84%;
+    --glass-accent: 201 100% 55%;
+    --glass-highlight: 200 100% 64%;
+    --glass-shadow: 218 100% 12%;
+  }
+
+  .dark .ariia-glass-sidebar {
+    --glass-panel: 224 100% 5%;
+    --glass-panel-deep: 230 100% 1%;
+    --glass-surface: 207 100% 44%;
+    --glass-surface-soft: 218 100% 18%;
+    --glass-ink: 207 100% 97%;
+    --glass-muted: 208 90% 82%;
+    --glass-accent: 201 100% 52%;
+    --glass-highlight: 200 100% 60%;
+    --glass-shadow: 218 100% 10%;
+  }
+
+  .ariia-glass-sidebar[data-sidebar="sidebar"],
+  .ariia-glass-sidebar [data-sidebar="sidebar"] {
+    position: relative;
+    overflow: hidden;
+    color: hsl(var(--glass-ink));
+    background:
+      linear-gradient(150deg, hsl(var(--glass-surface-soft) / 0.32), transparent 36%),
+      linear-gradient(145deg, hsl(var(--glass-panel) / 0.97), hsl(var(--glass-panel-deep)));
+    border: 1px solid hsl(var(--glass-highlight) / 0.22);
+    border-top: 0;
+    border-bottom: 0;
+    border-left: 0;
+    border-radius: 0;
+    box-shadow:
+      4px 0 14px hsl(var(--glass-shadow) / 0.16),
+      inset -1px 0 0 hsl(var(--glass-highlight) / 0.22);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    contain: layout paint style;
+  }
+
+  .ariia-glass-sidebar[data-sidebar="sidebar"]::before,
+  .ariia-glass-sidebar [data-sidebar="sidebar"]::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background:
+      linear-gradient(180deg, hsl(var(--glass-highlight) / 0.14), transparent 34%),
+      linear-gradient(112deg, transparent 28%, hsl(var(--glass-surface) / 0.14) 52%, transparent 78%);
+    opacity: 0.62;
+  }
+
+  .ariia-glass-sidebar [data-sidebar="header"],
+  .ariia-glass-sidebar [data-sidebar="content"],
+  .ariia-glass-sidebar [data-sidebar="footer"] {
+    position: relative;
+    z-index: 1;
+  }
+
+  .ariia-glass-sidebar [data-sidebar="header"],
+  .ariia-glass-sidebar [data-sidebar="footer"] {
+    background: hsl(var(--glass-surface) / 0.07);
+  }
+
+  .ariia-glass-sidebar [data-sidebar="group-label"] {
+    color: hsl(var(--glass-muted));
+    letter-spacing: 0;
+  }
+
+  .ariia-glass-user-card {
+    border: 1px solid hsl(var(--glass-highlight) / 0.2);
+    border-radius: 0.95rem;
+    background: hsl(var(--glass-surface) / 0.09);
+    box-shadow: inset 0 1px 0 hsl(var(--glass-highlight) / 0.18);
+    padding: 0.5rem;
+  }
+
+  .ariia-glass-sidebar .ariia-glass-menu-button {
+    position: relative;
+    background: hsl(var(--glass-surface) / 0.07);
+    border: 1px solid hsl(var(--glass-highlight) / 0.1);
+    border-radius: 0.75rem;
+    color: hsl(var(--glass-ink) / 0.82);
+    transition:
+      background-color 160ms ease,
+      border-color 160ms ease,
+      color 160ms ease;
+  }
+
+  .ariia-glass-sidebar .ariia-glass-menu-button:hover {
+    background: hsl(var(--glass-surface) / 0.16);
+    border-color: hsl(var(--glass-highlight) / 0.24);
+    color: hsl(var(--glass-ink));
+  }
+
+  .ariia-glass-sidebar .ariia-glass-menu-button:active {
+    background: hsl(var(--glass-surface) / 0.2);
+  }
+
+  .ariia-glass-sidebar .ariia-glass-menu-button[data-active="true"] {
+    background: hsl(var(--glass-surface) / 0.2);
+    border-color: hsl(var(--glass-highlight) / 0.28);
+    box-shadow: inset 0 1px 0 hsl(var(--glass-highlight) / 0.22);
+    color: hsl(var(--glass-ink));
+  }
+
+  .ariia-glass-sidebar .ariia-glass-menu-button[data-active="true"]::before {
+    content: "";
+    position: absolute;
+    left: -1px;
+    top: 0.5rem;
+    bottom: 0.5rem;
+    width: 2px;
+    border-radius: 999px;
+    background: hsl(var(--glass-accent));
+  }
+
+  @media (prefers-reduced-motion: reduce), (update: slow) {
+    .ariia-glass-sidebar .ariia-glass-menu-button {
+      transition: none;
+    }
+
+    .ariia-glass-sidebar[data-sidebar="sidebar"],
+    .ariia-glass-sidebar [data-sidebar="sidebar"] {
+      box-shadow: inset -1px 0 0 hsl(var(--glass-highlight) / 0.18);
+    }
+  }
+}
+
 /* TV Mode: hide sidebar completely */
 html[data-sidebar-hidden] .group.peer {
   display: none !important;
