@@ -457,16 +457,27 @@ export default function ChamadoDetalhe() {
             </Button>
           ) : (
             <>
-              <Select value={ticket.status} onValueChange={(v) => changeStatus(v as TicketStatus)}>
+              <Select value={effectiveStatus} onValueChange={(v) => stageStatus(v as TicketStatus)}>
                 <SelectTrigger className="w-56">
-                  <Badge className={STATUS_COLORS[ticket.status as TicketStatus]}>
-                    {STATUS_LABELS[ticket.status as TicketStatus]}
+                  <Badge className={STATUS_COLORS[(effectiveStatus || ticket.status) as TicketStatus]}>
+                    {STATUS_LABELS[(effectiveStatus || ticket.status) as TicketStatus]}
+                    {hasPendingChanges && " •"}
                   </Badge>
                 </SelectTrigger>
                 <SelectContent>
                   {STATUS_ORDER.map((s) => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}
                 </SelectContent>
               </Select>
+              {hasPendingChanges && (
+                <>
+                  <Button variant="default" onClick={saveChanges} disabled={savingChanges}>
+                    {savingChanges ? (<><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Salvando...</>) : "Salvar alterações"}
+                  </Button>
+                  <Button variant="ghost" onClick={discardChanges} disabled={savingChanges}>
+                    Descartar
+                  </Button>
+                </>
+              )}
               <Button variant="default" onClick={() => setEncerrarOpen(true)}>
                 <CheckCircle2 className="h-4 w-4 mr-1" /> Encerrar
               </Button>
