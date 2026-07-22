@@ -28,7 +28,8 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
-  const url = Deno.env.get("N8N_EMAIL_WEBHOOK_URL") || "https://webwork.2lock.app.br/webhook/mail2lock";
+  // Webhook fixo dos chamados (mail2lock). Não sobrescrever por env para evitar drift.
+  const url = "https://webwork.2lock.app.br/webhook/mail2lock";
 
   try {
     const { ticket_id, comment_id, event, extra, to: toOverride } = await req.json();
