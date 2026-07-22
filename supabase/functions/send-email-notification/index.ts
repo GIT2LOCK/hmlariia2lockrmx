@@ -38,7 +38,7 @@ serve(async (req) => {
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
     // Ticket + todas as relações relevantes
-    const { data: ticket } = await supabase
+    const { data: ticket, error: ticketErr } = await supabase
       .from("tickets")
       .select(`
         *,
@@ -47,16 +47,29 @@ serve(async (req) => {
         operadoras:operadora_id(id,nome),
         ticket_filas:fila_id(id,nome),
         ticket_categorias:categoria_id(id,nome),
-        support_groups:assigned_group_id(id,nome),
         tecnico:tecnico_id(id,nome,email),
         criador:criado_por(id,nome,email),
-        atribuido_por:assigned_by(id,nome,email),
         sla_policy:sla_policy_id(id,nome,first_response_minutes,resolution_minutes)
       `)
       .eq("id", ticket_id)
       .maybeSingle();
 
-    if (!ticket) return json({ error: "Ticket não encontrado" }, 404);
+    if (ticketErr) console.error("[send-email-notification] ticket select error", ticketErr);
+    if (!ticket) return json({ error: "Ticket não encontrado", detail: ticketErr?.message }, 404);
+
+    // Embeds sem FK declarada — buscar manualmente
+    let equipe: any = null;
+    if ((ticket as any).assigned_group_id) {
+      const { data } = await supabase.from("support_groups").select("id,nome").eq("id", (ticket as any).assigned_group_id).maybeSingle();
+      equipe = data ?? null;
+    }
+    let atribuidoPor: any = null;
+    if ((ticket as any).assigned_by) {
+      const { data } = await supabase.from("usuarios").select("id,nome,email").eq("id", (ticket as any).assigned_by).maybeSingle();
+      atribuidoPor = data ?? null;
+    }
+    (ticket as any).support_groups = equipe;
+    (ticket as any).atribuido_por = atribuidoPor;
 
     const primary = (toOverride || ticket.solicitante_email || "").toString().trim();
     const extras: string[] = Array.isArray(ticket.solicitante_emails_extra) ? ticket.solicitante_emails_extra : [];
