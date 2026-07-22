@@ -43,7 +43,7 @@ serve(async (req) => {
       .select(`
         *,
         empresas:empresa_id(id,nome_fantasia,razao_social,cnpj),
-        unidades:unidade_id(id,nome_unidade,endereco,cidade,uf,cep,udm_codigo,prefixo_hostname),
+        unidades:unidade_id(id,nome_unidade,logradouro,numero,bairro,cidade,estado,cep,udm_codigo,prefixo_hostname),
         operadoras:operadora_id(id,nome),
         ticket_filas:fila_id(id,nome),
         ticket_categorias:categoria_id(id,nome),
