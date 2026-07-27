@@ -153,6 +153,9 @@ export async function logout(logoutAll: boolean = false): Promise<void> {
 export async function renewAriiaSessionFromSupabase(): Promise<boolean> {
   const { supabase } = await import("@/integrations/supabase/client");
   const storedUser = getStoredUser();
+  const ariiaToken = getAuthToken();
+  if (!ariiaToken) return false;
+
   let { data: sessionData } = await supabase.auth.getSession();
   let accessToken = sessionData.session?.access_token;
 
@@ -173,6 +176,7 @@ export async function renewAriiaSessionFromSupabase(): Promise<boolean> {
       "Content-Type": "application/json",
       "apikey": ANON_KEY,
       "Authorization": `Bearer ${accessToken}`,
+      "x-ariia-token": ariiaToken,
     },
     body: JSON.stringify({}),
   });
