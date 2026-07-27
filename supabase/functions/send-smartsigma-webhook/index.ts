@@ -2,6 +2,7 @@
 // e abre automaticamente um chamado "Em Atendimento" no Ariia.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { requireCaller, authErrorResponse } from "../_shared/authz.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -20,6 +21,12 @@ const SLA_SOLUCAO: Record<string, number> = { CRITICO: 240, ALTO: 480, MEDIO: 14
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
+
+  try {
+    await requireCaller(req);
+  } catch (e) {
+    return authErrorResponse(e, corsHeaders);
+  }
 
   try {
     const body = await req.json();
