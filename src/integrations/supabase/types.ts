@@ -2099,6 +2099,14 @@ export type Database = {
       current_ariia_empresa_id: { Args: never; Returns: number }
       current_ariia_role: { Args: never; Returns: string }
       custom_access_token_hook: { Args: { event: Json }; Returns: Json }
+      fn_admin_zabbix_tokens: {
+        Args: never
+        Returns: {
+          usuario_id: number
+          zabbix_token_z1: string
+          zabbix_token_z2: string
+        }[]
+      }
       fn_can_view_ticket: { Args: { _ticket_id: number }; Returns: boolean }
       fn_cliente_encerrar_ticket: {
         Args: { _ticket_id: number }
@@ -2185,6 +2193,7 @@ export type Database = {
         Args: { _usuario_id: number }
         Returns: Json
       }
+      fn_delete_usuario_cascade_guard: { Args: never; Returns: undefined }
       fn_find_sla_policy: {
         Args: {
           _categoria_id: number
@@ -2218,6 +2227,14 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      fn_my_zabbix_tokens: {
+        Args: never
+        Returns: {
+          usuario_id: number
+          zabbix_token_z1: string
+          zabbix_token_z2: string
+        }[]
       }
       fn_user_allowed_tabs: {
         Args: { _usuario_id?: number }
