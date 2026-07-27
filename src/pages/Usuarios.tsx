@@ -88,13 +88,17 @@ const Usuarios = () => {
 
   const load = async () => {
     setLoading(true);
-    const [{ data: us }, { data: emps }] = await Promise.all([
+    const [{ data: us }, { data: emps }, { data: tokens }] = await Promise.all([
       supabase.from("usuarios")
-        .select("id, nome, email, permissao, ativo, avatar_url, criado_em, zabbix_token_z2, empresa_id, access_scope")
+        .select("id, nome, email, permissao, ativo, avatar_url, criado_em, empresa_id, access_scope")
         .order("nome"),
       supabase.from("empresas").select("id, razao_social").order("razao_social"),
+      supabase.rpc("fn_admin_zabbix_tokens" as any),
     ]);
-    const list = (us as Usuario[]) || [];
+    const tokenMap = new Map<number, string | null>(
+      (Array.isArray(tokens) ? tokens : []).map((t: any) => [Number(t.usuario_id), t.zabbix_token_z2 ?? null])
+    );
+    const list = ((us as any[]) || []).map((u) => ({ ...u, zabbix_token_z2: tokenMap.get(u.id) ?? null })) as Usuario[];
     setUsuarios(list);
     setEmpresas((emps as Empresa[]) || []);
     const init: Record<number, TestResult> = {};
@@ -103,6 +107,7 @@ const Usuarios = () => {
         z2: u.zabbix_token_z2?.trim() ? "idle" : "missing",
       };
     });
+
     setResults(init);
     setLoading(false);
   };
