@@ -179,6 +179,54 @@ export async function ensureSupabaseAuthSession(email: string, password: string)
   }
 }
 
+/**
+ * Creates a Supabase Auth session from the existing Ariia custom session token.
+ * This keeps existing logged-in users working after table grants were tightened:
+ * direct PostgREST reads must run as `authenticated`, never as `anon`.
+ */
+export async function ensureSupabaseSessionFromAriiaToken(): Promise<void> {
+  const token = getAuthToken();
+  const storedUser = getStoredUser();
+  if (!token || !storedUser?.email) return;
+
+  const { supabase } = await import("@/integrations/supabase/client");
+  const expectedEmail = storedUser.email.trim().toLowerCase();
+
+  const { data: current } = await supabase.auth.getSession();
+  const currentEmail = (current.session?.user?.email || "").trim().toLowerCase();
+  if (current.session && currentEmail === expectedEmail) return;
+  if (current.session && currentEmail !== expectedEmail) {
+    await supabase.auth.signOut();
+  }
+
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/bridge-supabase-session`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+  });
+
+  const result = await response.json().catch(() => null);
+  if (!response.ok || !result?.token_hash || !result?.email) {
+    throw new Error(result?.error || "Não foi possível criar sessão Supabase");
+  }
+
+  const { error } = await supabase.auth.verifyOtp({
+    email: String(result.email).trim().toLowerCase(),
+    token_hash: result.token_hash,
+    type: "magiclink",
+  });
+
+  if (error) {
+    throw new Error("Falha ao validar sessão Supabase: " + error.message);
+  }
+
+  const { data: verified } = await supabase.auth.getSession();
+  const verifiedEmail = (verified.session?.user?.email || "").trim().toLowerCase();
+  if (!verified.session || verifiedEmail !== expectedEmail) {
+    await supabase.auth.signOut();
+    throw new Error("Sessão Supabase criada para usuário diferente. Faça login novamente.");
+  }
+}
+
 export function getStoredUser(): AuthUser | null {
   const userStr = localStorage.getItem("auth_user");
   if (!userStr) return null;
