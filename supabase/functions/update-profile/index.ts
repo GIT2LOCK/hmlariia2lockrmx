@@ -108,6 +108,23 @@ serve(async (req) => {
       }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    if (action === "update-zabbix-tokens") {
+      const { zabbix_token_z2 } = body;
+      const tokenZ2 = typeof zabbix_token_z2 === "string" && zabbix_token_z2.trim()
+        ? zabbix_token_z2.trim()
+        : null;
+
+      const { error } = await supabase
+        .from("usuarios")
+        .update({ zabbix_token_z2: tokenZ2 })
+        .eq("id", userId);
+
+      if (error) throw error;
+
+      return new Response(JSON.stringify({ success: true }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     if (action === "revoke-session") {
       const { session_id } = body;
       await supabase.from("sessions").delete().eq("id", session_id).eq("user_id", userId);

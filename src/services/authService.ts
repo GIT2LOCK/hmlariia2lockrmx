@@ -38,6 +38,22 @@ export interface AuthResponse {
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
+async function clearAuthState(signOutSupabase: boolean = false): Promise<void> {
+  localStorage.removeItem("auth_token");
+  localStorage.removeItem("auth_expires");
+  localStorage.removeItem("auth_user");
+  sessionStorage.removeItem("twofa_validated");
+
+  if (signOutSupabase) {
+    try {
+      const { supabase } = await import("@/integrations/supabase/client");
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.error("Supabase signOut error:", e);
+    }
+  }
+}
+
 export function getAuthToken(): string | null {
   return localStorage.getItem("auth_token");
 }
@@ -131,10 +147,54 @@ export async function logout(logoutAll: boolean = false): Promise<void> {
     console.error("Supabase signOut error:", e);
   }
 
-  localStorage.removeItem("auth_token");
-  localStorage.removeItem("auth_expires");
-  localStorage.removeItem("auth_user");
-  sessionStorage.removeItem("twofa_validated");
+  await clearAuthState(false);
+}
+
+export async function renewAriiaSessionFromSupabase(): Promise<boolean> {
+  const { supabase } = await import("@/integrations/supabase/client");
+  const storedUser = getStoredUser();
+  const ariiaToken = getAuthToken();
+  if (!ariiaToken) return false;
+
+  let { data: sessionData } = await supabase.auth.getSession();
+  let accessToken = sessionData.session?.access_token;
+
+  if (accessToken) {
+    const { error: userError } = await supabase.auth.getUser(accessToken);
+    if (userError) {
+      const { data: refreshed } = await supabase.auth.refreshSession();
+      sessionData = refreshed;
+      accessToken = refreshed.session?.access_token;
+    }
+  }
+
+  if (!accessToken) return false;
+
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/renew-ariia-session`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "apikey": ANON_KEY,
+      "Authorization": `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ ariia_token: ariiaToken }),
+  });
+
+  const result = await response.json().catch(() => null);
+  if (!response.ok || !result?.session?.token || !result?.user) return false;
+
+  const storedEmail = (storedUser?.email || "").trim().toLowerCase();
+  const renewedEmail = (result.user.email || "").trim().toLowerCase();
+  if (storedEmail && renewedEmail && storedEmail !== renewedEmail) {
+    await clearAuthState(true);
+    return false;
+  }
+
+  localStorage.setItem("auth_token", result.session.token);
+  localStorage.setItem("auth_expires", result.session.expires_at);
+  localStorage.setItem("auth_user", JSON.stringify(result.user));
+  sessionStorage.setItem("twofa_validated", "1");
+  return true;
 }
 
 /**
@@ -185,18 +245,29 @@ export async function ensureSupabaseAuthSession(email: string, password: string)
  * direct PostgREST reads must run as `authenticated`, never as `anon`.
  */
 export async function ensureSupabaseSessionFromAriiaToken(): Promise<void> {
-  const token = getAuthToken();
-  const storedUser = getStoredUser();
-  if (!token || !storedUser?.email) return;
+  let token = getAuthToken();
+  let storedUser = getStoredUser();
+  const storedExpires = localStorage.getItem("auth_expires");
+  if (!token || !storedUser?.email) {
+    await renewAriiaSessionFromSupabase();
+    token = getAuthToken();
+    storedUser = getStoredUser();
+    if (!token || !storedUser?.email) return;
+  }
 
   const { supabase } = await import("@/integrations/supabase/client");
   const expectedEmail = storedUser.email.trim().toLowerCase();
 
   const { data: current } = await supabase.auth.getSession();
   const currentEmail = (current.session?.user?.email || "").trim().toLowerCase();
-  if (current.session && currentEmail === expectedEmail) return;
   if (current.session && currentEmail !== expectedEmail) {
     await supabase.auth.signOut();
+  }
+
+  const expiresAt = storedExpires ? new Date(storedExpires).getTime() : 0;
+  const renewWindowMs = 2 * 60 * 60 * 1000;
+  if (current.session && currentEmail === expectedEmail && expiresAt > Date.now() + renewWindowMs) {
+    return;
   }
 
   const response = await fetch(`${SUPABASE_URL}/functions/v1/bridge-supabase-session`, {
@@ -206,19 +277,24 @@ export async function ensureSupabaseSessionFromAriiaToken(): Promise<void> {
 
   const result = await response.json().catch(() => null);
 
-  // Sessão Ariia inválida/expirada: limpa credenciais locais e volta ao login
-  // em vez de lançar erro (que deixava a tela em branco).
+  // Sessão Ariia inválida/expirada: tenta recriar a sessão customizada a partir
+  // da sessão Supabase ainda válida no browser. Só volta ao login se ambas
+  // estiverem inválidas.
   if (!response.ok) {
-    localStorage.removeItem("auth_token");
-    localStorage.removeItem("auth_user");
-    localStorage.removeItem("auth_expires");
-    sessionStorage.removeItem("twofa_validated");
-    await supabase.auth.signOut().catch(() => {});
+    const renewed = await renewAriiaSessionFromSupabase();
+    if (renewed) return;
+    await clearAuthState(true);
     if (typeof window !== "undefined") {
       window.location.replace("/");
     }
     return;
   }
+
+  if (result?.session?.expires_at) {
+    localStorage.setItem("auth_expires", result.session.expires_at);
+  }
+
+  if (current.session && currentEmail === expectedEmail) return;
 
   if (!result?.token_hash) {
     throw new Error(result?.error || "Não foi possível criar sessão Supabase");

@@ -6,6 +6,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
+const SESSION_RENEW_GRACE_MS = 30 * 24 * 60 * 60 * 1000;
+
 /**
  * Bridges a valid custom Ariia session (auth_token in sessions table) into a
  * Supabase Auth session.
@@ -35,7 +38,7 @@ serve(async (req) => {
     // 1. Validate custom session
     const { data: session } = await supabase
       .from("sessions")
-      .select("user_id, expires_at")
+      .select("user_id, expires_at, last_activity, criado_em")
       .eq("token", token)
       .maybeSingle();
 
@@ -44,11 +47,21 @@ serve(async (req) => {
         status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    if (new Date(session.expires_at) < new Date()) {
+    const now = new Date();
+    const expiresAtMs = new Date(session.expires_at).getTime();
+    const activityAtMs = new Date(session.last_activity || session.criado_em || session.expires_at).getTime();
+    if (expiresAtMs < now.getTime() && activityAtMs < now.getTime() - SESSION_RENEW_GRACE_MS) {
+      await supabase.from("sessions").delete().eq("token", token);
       return new Response(JSON.stringify({ error: "Sessão expirada" }), {
         status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    const renewedExpiresAt = new Date(now.getTime() + SESSION_TTL_MS).toISOString();
+    await supabase
+      .from("sessions")
+      .update({ last_activity: now.toISOString(), expires_at: renewedExpiresAt })
+      .eq("token", token);
 
     // 2. Load usuario
     const { data: usuario } = await supabase
@@ -107,6 +120,7 @@ serve(async (req) => {
         success: true,
         email,
         token_hash: linkData.properties.hashed_token,
+        session: { token, expires_at: renewedExpiresAt },
         totp_enabled: !!usuario.totp_enabled,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },

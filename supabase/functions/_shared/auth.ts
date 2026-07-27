@@ -1,6 +1,8 @@
 // Shared authentication utilities for Edge Functions
 
 const PBKDF2_ITERATIONS = 600000;
+const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
+const SESSION_RENEW_GRACE_MS = 30 * 24 * 60 * 60 * 1000;
 
 export async function hashPassword(password: string): Promise<string> {
   const salt = new Uint8Array(16);
@@ -70,7 +72,7 @@ export async function createSession(
   supabase: any, userId: number, req: Request
 ): Promise<{ token: string; expires_at: string } | null> {
   const token = generateSessionToken();
-  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
+  const expiresAt = new Date(Date.now() + SESSION_TTL_MS); // sliding 24h window
 
   const ipAddress = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
     req.headers.get("x-real-ip") || "unknown";
@@ -92,15 +94,26 @@ export async function validateSession(req: Request, supabase: any): Promise<numb
   if (!token) throw new Error("Token de sessão não fornecido");
 
   const { data: session, error } = await supabase
-    .from("sessions").select("user_id, expires_at").eq("token", token).maybeSingle();
+    .from("sessions")
+    .select("user_id, expires_at, last_activity, criado_em")
+    .eq("token", token)
+    .maybeSingle();
 
   if (error || !session) throw new Error("Token de sessão inválido");
-  if (new Date(session.expires_at) < new Date()) {
+  const now = new Date();
+  const expiresAtMs = new Date(session.expires_at).getTime();
+  const activityAtMs = new Date(session.last_activity || session.criado_em || session.expires_at).getTime();
+
+  if (expiresAtMs < now.getTime() && activityAtMs < now.getTime() - SESSION_RENEW_GRACE_MS) {
     await supabase.from("sessions").delete().eq("token", token);
     throw new Error("Sessão expirada");
   }
 
-  await supabase.from("sessions").update({ last_activity: new Date().toISOString() }).eq("token", token);
+  const renewedExpiresAt = new Date(now.getTime() + SESSION_TTL_MS).toISOString();
+  await supabase
+    .from("sessions")
+    .update({ last_activity: now.toISOString(), expires_at: renewedExpiresAt })
+    .eq("token", token);
   return session.user_id;
 }
 

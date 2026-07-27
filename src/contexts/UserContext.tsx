@@ -102,12 +102,18 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const refreshContext = useCallback(async () => {
     try {
       const { supabase } = await import("@/integrations/supabase/client");
+      if (getStoredUser()) await ensureSupabaseSessionFromAriiaToken();
       const { data, error } = await supabase.rpc("fn_user_context");
       if (error || !data) return;
       const ctx: any = data;
       if (!ctx?.authenticated) return;
       if (ctx.user) {
         setAccessScope((ctx.user.access_scope as AccessScope) || "ARIIA_AND_GRAFANA");
+        setUser(prev => prev.id === ctx.user.id ? {
+          ...prev,
+          avatar: ctx.user.avatar_url || prev.avatar,
+          empresa_id: ctx.user.empresa_id ?? null,
+        } : prev);
       }
       setModulePerms((ctx.module_permissions as Record<string, ModulePerm>) || {});
       setGrafanaPerms((ctx.grafana_permissions as GrafanaPerms) || { is_grafana_admin: false, orgs: [] });
@@ -148,14 +154,17 @@ export function UserProvider({ children }: { children: ReactNode }) {
           console.warn("[UserContext] session check failed", e);
         }
 
-        const { data } = await supabase
-          .from("usuarios")
-          .select("avatar_url, empresa_id, access_scope")
-          .eq("id", storedUser.id)
-          .single();
-        avatarUrl = (data as any)?.avatar_url || "";
-        empresaId = (data as any)?.empresa_id ?? null;
-        if ((data as any)?.access_scope) setAccessScope((data as any).access_scope as AccessScope);
+        const { data, error } = await supabase.rpc("fn_user_context");
+        const ctx: any = data;
+        if (!error && ctx?.authenticated && ctx.user) {
+          avatarUrl = ctx.user.avatar_url || "";
+          empresaId = ctx.user.empresa_id ?? null;
+          if (ctx.user.access_scope) setAccessScope(ctx.user.access_scope as AccessScope);
+          setModulePerms((ctx.module_permissions as Record<string, ModulePerm>) || {});
+          setGrafanaPerms((ctx.grafana_permissions as GrafanaPerms) || { is_grafana_admin: false, orgs: [] });
+          setGrafanaGroups(ctx.grafana_groups || []);
+          setSyncStatus(ctx.sync_status || null);
+        }
       } catch {}
       setUser({
         id: storedUser.id, nome, sobrenome,
@@ -201,7 +210,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     const channel = (async () => {
       const { supabase } = await import("@/integrations/supabase/client");
       const ch = supabase
-        .channel(`user-role-${user.id}`)
+        .channel(`user-role-${user.id}-${Date.now()}-${Math.random().toString(36).slice(2)}`)
         .on(
           "postgres_changes" as any,
           { event: "UPDATE", schema: "public", table: "usuarios", filter: `id=eq.${user.id}` },
