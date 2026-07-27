@@ -876,10 +876,10 @@ function ContactButton({
         const stored = JSON.parse(localStorage.getItem("auth_user") || "{}");
         const uid = Number(stored?.id || 0);
         if (uid) {
-          const col = "zabbix_token_z2";
-          const { data } = await supabase.from("usuarios").select(col).eq("id", uid).maybeSingle();
-          user_token = (data as any)?.[col] || null;
+          const { data } = await supabase.rpc("fn_my_zabbix_tokens" as any);
+          user_token = (Array.isArray(data) ? (data[0] as any)?.zabbix_token_z2 : null) || null;
         }
+
       } catch { /* fallback to global */ }
 
       if (!user_token) {
