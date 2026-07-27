@@ -244,6 +244,7 @@ export async function ensureSupabaseAuthSession(email: string, password: string)
 export async function ensureSupabaseSessionFromAriiaToken(): Promise<void> {
   let token = getAuthToken();
   let storedUser = getStoredUser();
+  const storedExpires = localStorage.getItem("auth_expires");
   if (!token || !storedUser?.email) {
     await renewAriiaSessionFromSupabase();
     token = getAuthToken();
@@ -258,6 +259,12 @@ export async function ensureSupabaseSessionFromAriiaToken(): Promise<void> {
   const currentEmail = (current.session?.user?.email || "").trim().toLowerCase();
   if (current.session && currentEmail !== expectedEmail) {
     await supabase.auth.signOut();
+  }
+
+  const expiresAt = storedExpires ? new Date(storedExpires).getTime() : 0;
+  const renewWindowMs = 2 * 60 * 60 * 1000;
+  if (current.session && currentEmail === expectedEmail && expiresAt > Date.now() + renewWindowMs) {
+    return;
   }
 
   const response = await fetch(`${SUPABASE_URL}/functions/v1/bridge-supabase-session`, {
