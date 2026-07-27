@@ -157,7 +157,7 @@ const MeuPerfil = () => {
     // Fallback: load profile directly from database
     const { data: dbUser } = await supabase
       .from("usuarios")
-      .select("id, nome, email, permissao, telefone, avatar_url, totp_enabled, assinatura_email_url, zabbix_token_z2")
+      .select("id, nome, email, permissao, telefone, avatar_url, totp_enabled, assinatura_email_url")
       .eq("id", resolvedUserId)
       .single();
 
@@ -171,9 +171,11 @@ const MeuPerfil = () => {
         permissao: dbUser.permissao,
         assinatura_email_url: (dbUser as any).assinatura_email_url || "",
       });
+      const { data: tk } = await supabase.rpc("fn_my_zabbix_tokens" as any);
       setZabbixTokens({
-        z2: (dbUser as any).zabbix_token_z2 || "",
+        z2: (Array.isArray(tk) ? (tk[0] as any)?.zabbix_token_z2 : null) || "",
       });
+
       setEditForm({
         nome: dbUser.nome || "",
         email: dbUser.email || "",
