@@ -176,9 +176,8 @@ export async function renewAriiaSessionFromSupabase(): Promise<boolean> {
       "Content-Type": "application/json",
       "apikey": ANON_KEY,
       "Authorization": `Bearer ${accessToken}`,
-      "x-ariia-token": ariiaToken,
     },
-    body: JSON.stringify({}),
+    body: JSON.stringify({ ariia_token: ariiaToken }),
   });
 
   const result = await response.json().catch(() => null);

@@ -11,7 +11,8 @@ serve(async (req) => {
   try {
     const authHeader = req.headers.get("Authorization") || "";
     const jwt = authHeader.replace("Bearer ", "").trim();
-    const ariiaToken = (req.headers.get("x-ariia-token") || "").trim();
+    const body = await req.json().catch(() => ({}));
+    const ariiaToken = typeof body?.ariia_token === "string" ? body.ariia_token.trim() : "";
     if (!jwt) {
       return new Response(JSON.stringify({ error: "Sessão Supabase ausente" }), {
         status: 401,
