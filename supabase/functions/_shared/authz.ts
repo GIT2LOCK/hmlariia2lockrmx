@@ -3,6 +3,8 @@
 
 import { getCallerUsuario } from "./grafana.ts";
 
+export { getCallerUsuario };
+
 function decodeJwtClaims(jwt: string): Record<string, any> | null {
   try {
     const part = jwt.split(".")[1];
