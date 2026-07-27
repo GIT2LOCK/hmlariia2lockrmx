@@ -48,6 +48,7 @@ const Index = () => {
   const [show2FASetup, setShow2FASetup] = useState(false);
   const [pending2FAUserId, setPending2FAUserId] = useState<number>(0);
   const [setupToken, setSetupToken] = useState("");
+  const [challenge2FAToken, setChallenge2FAToken] = useState("");
   const [pendingSignupUser, setPendingSignupUser] = useState<any>(null);
   const [setupTokenExpires, setSetupTokenExpires] = useState<string>("");
 
@@ -148,6 +149,7 @@ const Index = () => {
       if (result.success) {
         if ((result as any).requires2FA) {
           setPending2FAUserId((result as any).userId);
+          setChallenge2FAToken((result as any).challengeToken || "");
           setShow2FAModal(true);
         } else if (result.session) {
           await completeLogin(result.user, result.session);
@@ -343,7 +345,7 @@ const Index = () => {
         </div>
       </div>
 
-      <TwoFactorModal open={show2FAModal} userId={pending2FAUserId} onComplete={completeLogin} onCancel={() => setShow2FAModal(false)} />
+      <TwoFactorModal open={show2FAModal} userId={pending2FAUserId} challengeToken={challenge2FAToken} onComplete={completeLogin} onCancel={() => setShow2FAModal(false)} />
       <TwoFactorSetupModal
         open={show2FASetup}
         userId={pending2FAUserId}
