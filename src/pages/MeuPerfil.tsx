@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useUser } from "@/contexts/UserContext";
-import { getAuthHeaders } from "@/services/authService";
+import { ensureSupabaseSessionFromAriiaToken, getAuthHeaders } from "@/services/authService";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -66,6 +66,7 @@ const MeuPerfil = () => {
   const signatureInputRef = useRef<HTMLInputElement>(null);
 
   const [profile, setProfile] = useState<ProfileData | null>(null);
+  const [profileError, setProfileError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({ nome: "", email: "", telefone: "" });
   const [saving, setSaving] = useState(false);
@@ -106,27 +107,22 @@ const MeuPerfil = () => {
     }
   };
 
-  const hasValidSessionToken = async () => {
-    const token = localStorage.getItem("auth_token");
-    if (!token) return false;
-
-    const { data: session } = await supabase
-      .from("sessions")
-      .select("expires_at")
-      .eq("token", token)
-      .maybeSingle();
-
-    if (!session?.expires_at) return false;
-    return new Date(session.expires_at) > new Date();
-  };
-
   const callProfileAPI = async (body: any) => {
     try {
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/update-profile`, {
+      await ensureSupabaseSessionFromAriiaToken();
+
+      const request = () => fetch(`${SUPABASE_URL}/functions/v1/update-profile`, {
         method: "POST",
         headers: getAuthHeaders(),
         body: JSON.stringify(body),
       });
+
+      let res = await request();
+      if (res.status === 401) {
+        await ensureSupabaseSessionFromAriiaToken();
+        res = await request();
+      }
+
       const data = await res.json();
       if (!res.ok) return { success: false, error: data.error };
       return data;
@@ -138,61 +134,33 @@ const MeuPerfil = () => {
   const loadProfile = async () => {
     const resolvedUserId = getCurrentUserId();
     if (!resolvedUserId) return;
+    setProfileError(null);
 
-    const canUseEdge = await hasValidSessionToken();
-    if (canUseEdge) {
-      const data = await callProfileAPI({ action: "get-profile" });
-      if (data.success) {
-        setProfile(data.user);
-        setEditForm({
-          nome: data.user.nome || "",
-          email: data.user.email || "",
-          telefone: data.user.telefone || "",
-        });
-        if (data.user.avatar_url) updateAvatar(data.user.avatar_url);
-        return;
-      }
-    }
-
-    // Fallback: load profile directly from database
-    const { data: dbUser } = await supabase
-      .from("usuarios")
-      .select("id, nome, email, permissao, telefone, avatar_url, totp_enabled, assinatura_email_url")
-      .eq("id", resolvedUserId)
-      .single();
-
-    if (dbUser) {
-      setProfile({
-        nome: dbUser.nome,
-        email: dbUser.email,
-        telefone: dbUser.telefone || "",
-        avatar_url: dbUser.avatar_url || "",
-        totp_enabled: dbUser.totp_enabled || false,
-        permissao: dbUser.permissao,
-        assinatura_email_url: (dbUser as any).assinatura_email_url || "",
-      });
+    const data = await callProfileAPI({ action: "get-profile" });
+    if (data.success) {
+      setProfile(data.user);
       const { data: tk } = await supabase.rpc("fn_my_zabbix_tokens" as any);
       setZabbixTokens({
         z2: (Array.isArray(tk) ? (tk[0] as any)?.zabbix_token_z2 : null) || "",
       });
-
       setEditForm({
-        nome: dbUser.nome || "",
-        email: dbUser.email || "",
-        telefone: dbUser.telefone || "",
+        nome: data.user.nome || "",
+        email: data.user.email || "",
+        telefone: data.user.telefone || "",
       });
-      if (dbUser.avatar_url) updateAvatar(dbUser.avatar_url);
+      if (data.user.avatar_url) updateAvatar(data.user.avatar_url);
+      return;
     }
+
+    setProfileError(data.error || "Não foi possível carregar seu perfil.");
   };
 
   const handleSaveZabbixTokens = async () => {
     setSavingZabbix(true);
-    const { error } = await supabase.from("usuarios").update({
-      zabbix_token_z2: zabbixTokens.z2.trim() || null,
-    } as any).eq("id", user.id);
+    const data = await callProfileAPI({ action: "update-zabbix-tokens", zabbix_token_z2: zabbixTokens.z2 });
     setSavingZabbix(false);
-    if (error) {
-      toast({ title: "Erro ao salvar tokens", description: error.message, variant: "destructive" });
+    if (!data.success) {
+      toast({ title: "Erro ao salvar tokens", description: data.error, variant: "destructive" });
     } else {
       toast({ title: "Token Zabbix salvo!" });
     }
@@ -208,34 +176,8 @@ const MeuPerfil = () => {
       return;
     }
 
-    const canUseEdge = await hasValidSessionToken();
-    if (canUseEdge) {
-      const data = await callProfileAPI({ action: "get-sessions" });
-      if (data.success) {
-        setSessions(data.sessions);
-        setLoadingSessions(false);
-        return;
-      }
-    }
-
-    // Fallback: load sessions directly from database
-    const currentToken = localStorage.getItem("auth_token");
-    const { data: sessionsData } = await supabase
-      .from("sessions")
-      .select("id, ip_address, user_agent, criado_em, last_activity, expires_at")
-      .eq("user_id", resolvedUserId)
-      .order("last_activity", { ascending: false });
-
-    const { data: currentSession } = currentToken
-      ? await supabase.from("sessions").select("id").eq("token", currentToken).maybeSingle()
-      : { data: null };
-
-    setSessions(
-      (sessionsData || []).map((s: any) => ({
-        ...s,
-        is_current: s.id === currentSession?.id,
-      }))
-    );
+    const data = await callProfileAPI({ action: "get-sessions" });
+    setSessions(data.success ? data.sessions : []);
     setLoadingSessions(false);
   };
 
@@ -259,6 +201,7 @@ const MeuPerfil = () => {
 
     setUploadingAvatar(true);
     try {
+      await ensureSupabaseSessionFromAriiaToken();
       const ext = file.name.split(".").pop();
       const path = `user-${user.id}/${Date.now()}.${ext}`;
 
@@ -292,14 +235,15 @@ const MeuPerfil = () => {
     }
     setUploadingSignature(true);
     try {
+      await ensureSupabaseSessionFromAriiaToken();
       const ext = file.name.split(".").pop();
       const path = `user-${user.id}/${Date.now()}.${ext}`;
       const { error: upErr } = await supabase.storage.from("email-signatures").upload(path, file, { upsert: true });
       if (upErr) throw upErr;
       const { data: urlData } = supabase.storage.from("email-signatures").getPublicUrl(path);
       const assinatura_email_url = urlData.publicUrl;
-      const { error: updErr } = await supabase.from("usuarios").update({ assinatura_email_url }).eq("id", user.id);
-      if (updErr) throw updErr;
+      const data = await callProfileAPI({ action: "update-info", assinatura_email_url });
+      if (!data.success) throw new Error(data.error || "Erro ao salvar assinatura");
       setProfile(prev => prev ? { ...prev, assinatura_email_url } : prev);
       toast({ title: "Assinatura atualizada!" });
     } catch (err: any) {
@@ -311,9 +255,13 @@ const MeuPerfil = () => {
   };
 
   const handleRemoveSignature = async () => {
-    await supabase.from("usuarios").update({ assinatura_email_url: null }).eq("id", user.id);
-    setProfile(prev => prev ? { ...prev, assinatura_email_url: "" } : prev);
-    toast({ title: "Assinatura removida" });
+    const data = await callProfileAPI({ action: "update-info", assinatura_email_url: null });
+    if (data.success) {
+      setProfile(prev => prev ? { ...prev, assinatura_email_url: "" } : prev);
+      toast({ title: "Assinatura removida" });
+    } else {
+      toast({ title: data.error || "Erro ao remover assinatura", variant: "destructive" });
+    }
   };
 
   const handleSaveInfo = async () => {
@@ -440,6 +388,14 @@ const MeuPerfil = () => {
   };
 
   if (!profile) {
+    if (profileError) {
+      return (
+        <div className="flex flex-col items-center justify-center gap-4 py-12 text-center">
+          <p className="text-sm text-muted-foreground">{profileError}</p>
+          <Button variant="outline" onClick={loadProfile}>Tentar novamente</Button>
+        </div>
+      );
+    }
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />

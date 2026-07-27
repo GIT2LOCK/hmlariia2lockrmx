@@ -100,7 +100,12 @@ export async function validateSession(req: Request, supabase: any): Promise<numb
     throw new Error("Sessão expirada");
   }
 
-  await supabase.from("sessions").update({ last_activity: new Date().toISOString() }).eq("token", token);
+  const now = new Date();
+  const renewedExpiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
+  await supabase
+    .from("sessions")
+    .update({ last_activity: now.toISOString(), expires_at: renewedExpiresAt })
+    .eq("token", token);
   return session.user_id;
 }
 

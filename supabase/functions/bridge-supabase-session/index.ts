@@ -50,6 +50,13 @@ serve(async (req) => {
       });
     }
 
+    const now = new Date();
+    const renewedExpiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
+    await supabase
+      .from("sessions")
+      .update({ last_activity: now.toISOString(), expires_at: renewedExpiresAt })
+      .eq("token", token);
+
     // 2. Load usuario
     const { data: usuario } = await supabase
       .from("usuarios")
@@ -107,6 +114,7 @@ serve(async (req) => {
         success: true,
         email,
         token_hash: linkData.properties.hashed_token,
+        session: { token, expires_at: renewedExpiresAt },
         totp_enabled: !!usuario.totp_enabled,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
