@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
-import { getStoredUser, syncUserFromDatabase, AuthUser } from "@/services/authService";
+import { ensureSupabaseSessionFromAriiaToken, getStoredUser, syncUserFromDatabase } from "@/services/authService";
 import { can as permCan, Permission, Role } from "@/lib/permissions";
 
 export type UserRole = Role;
@@ -127,6 +127,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
       let empresaId: number | null = null;
       try {
         const { supabase } = await import("@/integrations/supabase/client");
+
+        await ensureSupabaseSessionFromAriiaToken();
 
         // Detecta sessão Supabase residual de OUTRO usuário. Se houver
         // divergência, derruba a sessão para evitar que o PostgREST execute
