@@ -208,20 +208,22 @@ export async function ensureSupabaseSessionFromAriiaToken(): Promise<void> {
 
   // Sessão Ariia inválida/expirada: limpa credenciais locais e volta ao login
   // em vez de lançar erro (que deixava a tela em branco).
-  if (response.status === 401 || response.status === 403) {
+  if (!response.ok) {
     localStorage.removeItem("auth_token");
     localStorage.removeItem("auth_user");
     localStorage.removeItem("auth_expires");
+    sessionStorage.removeItem("twofa_validated");
     await supabase.auth.signOut().catch(() => {});
-    if (typeof window !== "undefined" && window.location.pathname !== "/") {
-      window.location.href = "/";
+    if (typeof window !== "undefined") {
+      window.location.replace("/");
     }
     return;
   }
 
-  if (!response.ok || !result?.token_hash) {
+  if (!result?.token_hash) {
     throw new Error(result?.error || "Não foi possível criar sessão Supabase");
   }
+
 
   // IMPORTANTE: com token_hash, apenas token_hash + type podem ser enviados.
   const { error } = await supabase.auth.verifyOtp({
