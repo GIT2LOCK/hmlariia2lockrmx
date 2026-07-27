@@ -153,8 +153,17 @@ export async function logout(logoutAll: boolean = false): Promise<void> {
 export async function renewAriiaSessionFromSupabase(): Promise<boolean> {
   const { supabase } = await import("@/integrations/supabase/client");
   const storedUser = getStoredUser();
-  const { data: sessionData } = await supabase.auth.getSession();
-  const accessToken = sessionData.session?.access_token;
+  let { data: sessionData } = await supabase.auth.getSession();
+  let accessToken = sessionData.session?.access_token;
+
+  if (accessToken) {
+    const { error: userError } = await supabase.auth.getUser(accessToken);
+    if (userError) {
+      const { data: refreshed } = await supabase.auth.refreshSession();
+      sessionData = refreshed;
+      accessToken = refreshed.session?.access_token;
+    }
+  }
 
   if (!accessToken) return false;
 
