@@ -1,10 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { encode as base32Encode } from "https://deno.land/std@0.168.0/encoding/base32.ts";
+import { getCallerUsuario } from "../_shared/authz.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-ariia-token",
 };
 
 function generateTOTPSecret(): string {
@@ -19,31 +20,39 @@ serve(async (req) => {
   }
 
   try {
-    const { userId, setupToken } = await req.json();
-
-    if (!userId && !setupToken) {
-      return new Response(JSON.stringify({ error: "userId ou setupToken é obrigatório" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
+    const { setupToken } = await req.json().catch(() => ({}));
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    let targetUserId = userId;
+    // Identity MUST come from proof of possession: a valid session token
+    // (Authorization header / x-ariia-token / post-signup setupToken).
+    // The `userId` sent by the client is never trusted.
+    let targetUserId: number | null = null;
 
-    // If setupToken provided (post-signup flow), validate it
-    if (setupToken && !userId) {
+    if (setupToken) {
       const { data: session } = await supabase
-        .from("sessions").select("user_id").eq("token", setupToken).maybeSingle();
-      if (!session) {
-        return new Response(JSON.stringify({ error: "Token inválido" }),
-          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        .from("sessions").select("user_id, expires_at").eq("token", setupToken).maybeSingle();
+      if (session && new Date(session.expires_at) > new Date()) {
+        targetUserId = session.user_id;
       }
-      targetUserId = session.user_id;
     }
 
-    // Get user
+    if (!targetUserId) {
+      try {
+        const caller = await getCallerUsuario(req);
+        targetUserId = caller.id;
+      } catch {
+        targetUserId = null;
+      }
+    }
+
+    if (!targetUserId) {
+      return new Response(JSON.stringify({ error: "Não autenticado" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     const { data: user, error: userError } = await supabase
       .from("usuarios").select("id, nome, email, totp_enabled").eq("id", targetUserId).maybeSingle();
 
