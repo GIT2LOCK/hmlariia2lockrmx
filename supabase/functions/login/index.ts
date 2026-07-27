@@ -177,18 +177,22 @@ serve(async (req) => {
     if (refreshed?.permissao) userData.permissao = refreshed.permissao;
 
 
-    // If 2FA is enabled, don't create session yet
+    // If 2FA is enabled, don't create session yet.
+    // A signed short-lived challenge token proves the password step was passed.
     if (userData.totp_enabled) {
+      const challengeToken = await signChallengeToken(userData.id);
       return new Response(
         JSON.stringify({
           success: true,
           requires2FA: true,
           userId: userData.id,
+          challengeToken,
           message: "Verificação 2FA necessária",
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
 
     const session = await createSession(supabase, userData.id, req);
     if (!session) {
