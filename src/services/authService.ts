@@ -205,15 +205,30 @@ export async function ensureSupabaseSessionFromAriiaToken(): Promise<void> {
   });
 
   const result = await response.json().catch(() => null);
-  if (!response.ok || !result?.token_hash || !result?.email) {
+
+  // Sessão Ariia inválida/expirada: limpa credenciais locais e volta ao login
+  // em vez de lançar erro (que deixava a tela em branco).
+  if (response.status === 401 || response.status === 403) {
+    localStorage.removeItem("auth_token");
+    localStorage.removeItem("auth_user");
+    localStorage.removeItem("auth_expires");
+    await supabase.auth.signOut().catch(() => {});
+    if (typeof window !== "undefined" && window.location.pathname !== "/") {
+      window.location.href = "/";
+    }
+    return;
+  }
+
+  if (!response.ok || !result?.token_hash) {
     throw new Error(result?.error || "Não foi possível criar sessão Supabase");
   }
 
+  // IMPORTANTE: com token_hash, apenas token_hash + type podem ser enviados.
   const { error } = await supabase.auth.verifyOtp({
-    email: String(result.email).trim().toLowerCase(),
     token_hash: result.token_hash,
     type: "magiclink",
   });
+
 
   if (error) {
     throw new Error("Falha ao validar sessão Supabase: " + error.message);
