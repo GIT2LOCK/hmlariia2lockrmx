@@ -2,10 +2,12 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { decode as base32Decode } from "https://deno.land/std@0.168.0/encoding/base32.ts";
 import { createSession } from "../_shared/auth.ts";
+import { getCallerUsuario } from "../_shared/authz.ts";
+import { verifyChallengeToken } from "../_shared/twofa.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-ariia-token",
 };
 
 async function generateTOTP(secret: string, timeStep: number): Promise<string> {
@@ -41,7 +43,7 @@ serve(async (req) => {
   }
 
   try {
-    const { userId, code, isSetup, setupToken } = await req.json();
+    const { code, isSetup, setupToken, challengeToken } = await req.json();
 
     if (!code) {
       return new Response(JSON.stringify({ error: "Código é obrigatório" }),
@@ -52,32 +54,47 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    let targetUserId = userId;
+    // Identity resolution — never from a raw `userId` in the body:
+    // 1) signed login challenge (password already verified by `login`)
+    // 2) post-signup session token
+    // 3) an authenticated caller (Ariia session or Supabase JWT)
+    let targetUserId: number | null = await verifyChallengeToken(challengeToken);
 
-    // If setupToken (post-signup), resolve userId
-    if (setupToken && !userId) {
+    if (!targetUserId && setupToken) {
       const { data: session } = await supabase
-        .from("sessions").select("user_id").eq("token", setupToken).maybeSingle();
-      if (!session) {
-        return new Response(JSON.stringify({ error: "Token inválido" }),
-          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        .from("sessions").select("user_id, expires_at").eq("token", setupToken).maybeSingle();
+      if (session && new Date(session.expires_at) > new Date()) {
+        targetUserId = session.user_id;
       }
-      targetUserId = session.user_id;
     }
 
     if (!targetUserId) {
-      return new Response(JSON.stringify({ error: "userId é obrigatório" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      try {
+        const caller = await getCallerUsuario(req);
+        targetUserId = caller.id;
+      } catch {
+        targetUserId = null;
+      }
+    }
+
+    if (!targetUserId) {
+      return new Response(JSON.stringify({ error: "Não autenticado" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // Get user with TOTP secret
     const { data: user, error: userError } = await supabase
-      .from("usuarios").select("id, nome, email, permissao, totp_secret, totp_enabled")
+      .from("usuarios").select("id, nome, email, permissao, ativo, totp_secret, totp_enabled")
       .eq("id", targetUserId).maybeSingle();
 
     if (userError || !user || !user.totp_secret) {
       return new Response(JSON.stringify({ error: "2FA não configurado" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    if (!user.ativo) {
+      return new Response(JSON.stringify({ error: "Usuário inativo" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const isValid = await verifyTOTP(user.totp_secret, code);

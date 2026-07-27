@@ -11,11 +11,12 @@ const ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 interface TwoFactorModalProps {
   open: boolean;
   userId: number;
+  challengeToken?: string;
   onComplete: (user: any, session: any) => void;
   onCancel: () => void;
 }
 
-export default function TwoFactorModal({ open, userId, onComplete, onCancel }: TwoFactorModalProps) {
+export default function TwoFactorModal({ open, userId, challengeToken, onComplete, onCancel }: TwoFactorModalProps) {
   const { toast } = useToast();
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
@@ -27,8 +28,9 @@ export default function TwoFactorModal({ open, userId, onComplete, onCancel }: T
       const res = await fetch(`${SUPABASE_URL}/functions/v1/verify-2fa`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "apikey": ANON_KEY },
-        body: JSON.stringify({ userId, code, isSetup: false }),
+        body: JSON.stringify({ challengeToken, code, isSetup: false }),
       });
+
       const data = await res.json();
       if (data.success) {
         onComplete(data.user, data.session);

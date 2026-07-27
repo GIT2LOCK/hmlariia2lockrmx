@@ -2,6 +2,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyPassword, createSession } from "../_shared/auth.ts";
 import { syncUserToGrafana, logSync } from "../_shared/grafana.ts";
+import { signChallengeToken } from "../_shared/twofa.ts";
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -177,18 +179,22 @@ serve(async (req) => {
     if (refreshed?.permissao) userData.permissao = refreshed.permissao;
 
 
-    // If 2FA is enabled, don't create session yet
+    // If 2FA is enabled, don't create session yet.
+    // A signed short-lived challenge token proves the password step was passed.
     if (userData.totp_enabled) {
+      const challengeToken = await signChallengeToken(userData.id);
       return new Response(
         JSON.stringify({
           success: true,
           requires2FA: true,
           userId: userData.id,
+          challengeToken,
           message: "Verificação 2FA necessária",
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
 
     const session = await createSession(supabase, userData.id, req);
     if (!session) {

@@ -35,8 +35,9 @@ export default function TwoFactorSetupModal({ open, userId, setupToken, onComple
       const res = await fetch(`${SUPABASE_URL}/functions/v1/setup-2fa`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "apikey": ANON_KEY },
-        body: JSON.stringify({ userId, setupToken }),
+        body: JSON.stringify({ setupToken }),
       });
+
       const data = await res.json();
       if (data.success) {
         setQrCodeUrl(data.qrCodeUrl);
@@ -56,8 +57,9 @@ export default function TwoFactorSetupModal({ open, userId, setupToken, onComple
       const res = await fetch(`${SUPABASE_URL}/functions/v1/verify-2fa`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "apikey": ANON_KEY },
-        body: JSON.stringify({ userId, code, isSetup: true, setupToken }),
+        body: JSON.stringify({ code, isSetup: true, setupToken }),
       });
+
       const data = await res.json();
       if (data.success) {
         toast({ title: "2FA ativado!", description: "Autenticação de dois fatores configurada." });

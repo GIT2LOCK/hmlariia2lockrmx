@@ -1,3 +1,4 @@
+import { requireCaller, authErrorResponse } from '../_shared/authz.ts'
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -547,6 +548,12 @@ function buildReports(tickets: ReportTicket[]) {
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
+  }
+
+  try {
+    await requireCaller(req);
+  } catch (e) {
+    return authErrorResponse(e, corsHeaders);
   }
 
   const GLPI_URL = normalizeGlpiUrl(Deno.env.get('GLPI_API_URL'))

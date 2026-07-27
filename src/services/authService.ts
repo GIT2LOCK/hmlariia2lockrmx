@@ -98,8 +98,9 @@ export async function login(data: LoginData): Promise<AuthResponse> {
 
     // If 2FA required, don't store session yet
     if (result.requires2FA) {
-      return { success: true, message: result.message, requires2FA: true, userId: result.userId };
+      return { success: true, message: result.message, requires2FA: true, userId: result.userId, challengeToken: result.challengeToken } as any;
     }
+
 
     return { success: true, message: result.message, user: result.user, session: result.session };
   } catch (error) {

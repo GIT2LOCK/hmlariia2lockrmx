@@ -383,7 +383,7 @@ const MeuPerfil = () => {
       const res = await fetch(`${SUPABASE_URL}/functions/v1/setup-2fa`, {
         method: "POST",
         headers: getAuthHeaders(),
-        body: JSON.stringify({ userId: user.id }),
+        body: JSON.stringify({}),
       });
       const data = await res.json();
       if (data.success) {
@@ -401,8 +401,8 @@ const MeuPerfil = () => {
     try {
       const res = await fetch(`${SUPABASE_URL}/functions/v1/verify-2fa`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", apikey: ANON_KEY },
-        body: JSON.stringify({ userId: user.id, code: code2FA, isSetup: true }),
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ code: code2FA, isSetup: true }),
       });
       const data = await res.json();
       if (data.success) {

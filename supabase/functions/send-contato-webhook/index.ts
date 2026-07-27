@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { requireCaller, authErrorResponse } from "../_shared/authz.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,6 +11,12 @@ const WEBHOOK_URL = "https://workflow01.2lock.com.br/webhook/ariia";
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    await requireCaller(req);
+  } catch (e) {
+    return authErrorResponse(e, corsHeaders);
   }
 
   try {
