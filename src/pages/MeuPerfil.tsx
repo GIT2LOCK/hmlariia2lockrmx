@@ -518,7 +518,7 @@ const MeuPerfil = () => {
                 </p>
                 {profile.assinatura_email_url ? (
                   <div className="border rounded p-3 bg-muted/30 inline-block">
-                    <img src={profile.assinatura_email_url} alt="Assinatura" className="max-h-32" />
+                    <img src={profile.assinatura_email_url} alt="Assinatura de e-mail do usuário" className="max-h-32" />
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground italic">Nenhuma assinatura enviada.</p>
@@ -743,7 +743,7 @@ const MeuPerfil = () => {
             {secret2FA && (
               <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
                 <code className="text-xs flex-1 break-all font-mono">{secret2FA}</code>
-                <Button variant="ghost" size="icon" onClick={copySecret}>
+                <Button variant="ghost" size="icon" aria-label="Copiar chave secreta" onClick={copySecret}>
                   {copied2FA ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
                 </Button>
               </div>

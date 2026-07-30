@@ -242,7 +242,7 @@ const Index = () => {
       >
         <div className="w-full max-w-md space-y-6">
           <div className="flex flex-col items-center">
-            <img src={logo} alt="Ariia" className="max-h-16 md:max-h-24 w-auto mb-6 mx-auto object-contain" />
+            <img src={logo} alt="Logotipo Ariia 2lock" className="max-h-16 md:max-h-24 w-auto mb-6 mx-auto object-contain" />
             <h1 className="text-2xl font-bold text-foreground">Entrar na Conta</h1>
             <p className="text-sm text-muted-foreground mt-1">Use seu e-mail para login</p>
           </div>
@@ -258,6 +258,7 @@ const Index = () => {
                 className="pl-10 pr-10 h-12 bg-muted/50 border-border"
                 value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} required />
               <button type="button" onClick={() => setShowLoginPassword(!showLoginPassword)}
+                aria-label={showLoginPassword ? "Ocultar senha" : "Mostrar senha"}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
                 {showLoginPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
@@ -296,8 +297,8 @@ const Index = () => {
       >
         <div className="w-full max-w-md space-y-5">
           <div className="flex flex-col items-center">
-            <img src={logo} alt="Ariia" className="max-h-16 md:max-h-24 w-auto mb-6 mx-auto object-contain" />
-            <h1 className="text-2xl font-bold text-foreground">Criar Conta</h1>
+            <img src={logo} alt="Logotipo Ariia 2lock" className="max-h-16 md:max-h-24 w-auto mb-6 mx-auto object-contain" />
+            <h2 className="text-2xl font-bold text-foreground">Criar Conta</h2>
             <p className="text-sm text-muted-foreground mt-1">Preencha os dados para se cadastrar</p>
           </div>
           <form onSubmit={handleSignup} className="space-y-3">
@@ -317,6 +318,7 @@ const Index = () => {
                 className="pl-10 pr-10 h-11 bg-muted/50 border-border"
                 value={signupPassword} onChange={(e) => setSignupPassword(e.target.value)} required />
               <button type="button" onClick={() => setShowSignupPassword(!showSignupPassword)}
+                aria-label={showSignupPassword ? "Ocultar senha" : "Mostrar senha"}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
                 {showSignupPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
@@ -328,6 +330,7 @@ const Index = () => {
                 className="pl-10 pr-10 h-11 bg-muted/50 border-border"
                 value={signupConfirmPassword} onChange={(e) => setSignupConfirmPassword(e.target.value)} required />
               <button type="button" onClick={() => setShowSignupConfirmPassword(!showSignupConfirmPassword)}
+                aria-label={showSignupConfirmPassword ? "Ocultar confirmação de senha" : "Mostrar confirmação de senha"}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
                 {showSignupConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
