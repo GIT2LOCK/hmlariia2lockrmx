@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { requireCaller, authErrorResponse } from "../_shared/authz.ts";
+import { requireStaff, authErrorResponse } from "../_shared/authz.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -307,7 +307,7 @@ serve(async (req) => {
   }
 
   try {
-    await requireCaller(req);
+    await requireStaff(req);
   } catch (e) {
     return authErrorResponse(e, corsHeaders);
   }

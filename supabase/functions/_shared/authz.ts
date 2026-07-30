@@ -50,3 +50,61 @@ export function authErrorResponse(e: unknown, corsHeaders: Record<string, string
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 }
+
+/**
+ * Verifica se o usuário Ariia informado pode visualizar o chamado.
+ * Espelha a mesma lógica já usada por get-ticket-cliente / fn_can_view_ticket
+ * (admin total, CLIENTE por empresa/unidade/solicitante, técnico por vínculo).
+ */
+export async function canUsuarioViewTicket(
+  svc: any,
+  usuarioId: number,
+  ticketId: number,
+): Promise<boolean> {
+  const { data: user } = await svc
+    .from("usuarios")
+    .select("id, permissao, empresa_id, email, ativo, access_scope")
+    .eq("id", usuarioId)
+    .maybeSingle();
+  if (!user || !user.ativo) return false;
+  if (user.access_scope === "BLOCKED" || user.access_scope === "GRAFANA_ONLY") return false;
+
+  const perm = user.permissao;
+  if (perm === "SUPERADMIN" || perm === "ADMIN") return true;
+
+  const { data: ticket } = await svc
+    .from("tickets")
+    .select("id, empresa_id, unidade_id, criado_por, tecnico_id, assigned_by, assigned_group_id, solicitante_email, solicitante_emails_extra")
+    .eq("id", ticketId)
+    .maybeSingle();
+  if (!ticket) return false;
+
+  const email = (user.email || "").toString().trim().toLowerCase();
+  const extras: string[] = Array.isArray(ticket.solicitante_emails_extra) ? ticket.solicitante_emails_extra : [];
+  const isSolicitante = !!email && (
+    (ticket.solicitante_email || "").toString().trim().toLowerCase() === email ||
+    extras.some((e) => (e || "").toString().trim().toLowerCase() === email)
+  );
+  if (isSolicitante) return true;
+
+  if (perm === "CLIENTE") {
+    if (!user.empresa_id) return ticket.criado_por === usuarioId;
+    if (ticket.empresa_id !== user.empresa_id) return false;
+    return true;
+  }
+
+  if (ticket.criado_por === usuarioId || ticket.tecnico_id === usuarioId || ticket.assigned_by === usuarioId) {
+    return true;
+  }
+  if (ticket.assigned_group_id) {
+    const { data: m } = await svc
+      .from("support_group_members")
+      .select("usuario_id")
+      .eq("group_id", ticket.assigned_group_id)
+      .eq("usuario_id", usuarioId)
+      .eq("ativo", true)
+      .maybeSingle();
+    return !!m;
+  }
+  return false;
+}

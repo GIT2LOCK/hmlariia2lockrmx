@@ -3,7 +3,7 @@
 // chamado (com relações) e, quando aplicável, a lista completa de alterações.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { requireCallerOrInternal, authErrorResponse } from "../_shared/authz.ts";
+import { requireCallerOrInternal, authErrorResponse, canUsuarioViewTicket } from "../_shared/authz.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -29,8 +29,9 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
+  let caller: { id: number } | null = null;
   try {
-    await requireCallerOrInternal(req);
+    caller = await requireCallerOrInternal(req);
   } catch (e) {
     return authErrorResponse(e, corsHeaders);
   }
@@ -43,6 +44,14 @@ serve(async (req) => {
     if (!ticket_id) return json({ error: "ticket_id obrigatório" }, 400);
 
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+
+    // IDOR guard: chamadas de usuário só podem notificar chamados que o usuário pode ver.
+    // Chamadas internas (service_role) seguem sem restrição.
+    if (caller) {
+      const allowed = await canUsuarioViewTicket(supabase, (caller as any).id, Number(ticket_id));
+      if (!allowed) return json({ error: "forbidden" }, 403);
+    }
+
 
     // Ticket + todas as relações relevantes
     const { data: ticket, error: ticketErr } = await supabase
