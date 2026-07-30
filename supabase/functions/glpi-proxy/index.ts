@@ -1,4 +1,4 @@
-import { requireCaller, authErrorResponse } from '../_shared/authz.ts'
+import { requireStaff, authErrorResponse } from '../_shared/authz.ts'
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -551,7 +551,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    await requireCaller(req);
+    await requireStaff(req);
   } catch (e) {
     return authErrorResponse(e, corsHeaders);
   }
