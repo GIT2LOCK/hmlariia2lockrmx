@@ -1,0 +1,9 @@
+# Ariia 2lock
+
+> Plataforma interna da 2lock para consultas técnicas de TI: cadastro de empresas e unidades, links de internet, chamados de suporte e monitoramento (Zabbix/Grafana).
+
+O acesso ao sistema exige autenticação com 2FA. Apenas a página de login é pública.
+
+## Pages
+
+- [Login](/): Acesso ao Ariia 2lock para usuários cadastrados.

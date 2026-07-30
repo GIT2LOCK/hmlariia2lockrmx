@@ -200,7 +200,7 @@ const Index = () => {
   const formsVisible = phase === "idle";
 
   return (
-    <div className="min-h-screen flex bg-background overflow-hidden relative">
+    <main className="min-h-screen flex bg-background overflow-hidden relative">
       {/* Blue overlay panel */}
       <div
         className="absolute top-0 bottom-0 z-20 bg-primary flex items-center justify-center"
@@ -360,7 +360,7 @@ const Index = () => {
           }
         }}
       />
-    </div>
+    </main>
   );
 };
 
