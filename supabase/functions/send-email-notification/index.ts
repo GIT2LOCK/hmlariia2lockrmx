@@ -3,7 +3,7 @@
 // chamado (com relações) e, quando aplicável, a lista completa de alterações.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { requireCallerOrInternal, authErrorResponse } from "../_shared/authz.ts";
+import { requireCallerOrInternal, authErrorResponse, canUsuarioViewTicket } from "../_shared/authz.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
