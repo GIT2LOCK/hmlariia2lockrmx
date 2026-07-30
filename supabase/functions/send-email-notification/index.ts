@@ -87,8 +87,42 @@ serve(async (req) => {
     (ticket as any).support_groups = equipe;
     (ticket as any).atribuido_por = atribuidoPor;
 
-    const primary = (toOverride || ticket.solicitante_email || "").toString().trim();
+    let primary = (toOverride || ticket.solicitante_email || "").toString().trim();
     const extras: string[] = Array.isArray(ticket.solicitante_emails_extra) ? ticket.solicitante_emails_extra : [];
+
+    // Allowlist do "to" para chamadas de usuário (service_role segue livre).
+    // Só é permitido enviar para: solicitante(s) do chamado, contatos/responsáveis
+    // cadastrados da empresa/unidade, usuários da empresa, técnico/criador,
+    // ou qualquer endereço no mesmo domínio desses endereços.
+    if (caller && toOverride) {
+      const want = primary.toLowerCase();
+      const allowed = new Set<string>();
+      const allowedDomains = new Set<string>();
+      const add = (e?: string | null) => {
+        const v = (e || "").toString().trim().toLowerCase();
+        if (!v || !v.includes("@")) return;
+        allowed.add(v);
+        allowedDomains.add(v.split("@")[1]);
+      };
+      add(ticket.solicitante_email);
+      extras.forEach(add);
+      add((ticket as any).tecnico?.email);
+      add((ticket as any).criador?.email);
+      if (ticket.empresa_id) {
+        const [{ data: cts }, { data: usrs }] = await Promise.all([
+          supabase.from("contatos").select("email").eq("empresa_id", ticket.empresa_id),
+          supabase.from("usuarios").select("email").eq("empresa_id", ticket.empresa_id),
+        ]);
+        (cts || []).forEach((c: any) => add(c.email));
+        (usrs || []).forEach((u: any) => add(u.email));
+      }
+      const wantDomain = want.includes("@") ? want.split("@")[1] : "";
+      if (!allowed.has(want) && !(wantDomain && allowedDomains.has(wantDomain))) {
+        return json({ error: "destinatario_nao_autorizado" }, 403);
+      }
+      primary = want;
+    }
+
 
     // Responsáveis fixos vinculados à empresa (escopo inteiro) e à unidade selecionada
     const respEmails: string[] = [];
