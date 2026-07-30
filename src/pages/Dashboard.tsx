@@ -1289,12 +1289,12 @@ const Dashboard = () => {
             <header className="flex items-center justify-between gap-5 pb-3 flex-shrink-0">
               <div className="flex items-center gap-3 min-w-0">
                 {!isTvView && (
-                  <button onClick={() => { setTvMode(false); setSidebarHidden(false); }} className="h-11 w-11 rounded-lg border flex items-center justify-center" style={{ borderColor: C.border, color: C.dim, background: C.panelFlat }}>
+                  <button onClick={() => { setTvMode(false); setSidebarHidden(false); }} aria-label="Sair do modo TV" title="Sair do modo TV" className="h-11 w-11 rounded-lg border flex items-center justify-center" style={{ borderColor: C.border, color: C.dim, background: C.panelFlat }}>
                     <ArrowLeft className="h-5 w-5" />
                   </button>
                 )}
                 {!isTvView && (
-                  <button onClick={() => setSidebarHidden(!sidebarHidden)} className="h-11 w-11 rounded-lg border flex items-center justify-center" title={sidebarHidden ? "Mostrar menu" : "Ocultar menu"} style={{ borderColor: C.border, color: C.dim, background: C.panelFlat }}>
+                  <button onClick={() => setSidebarHidden(!sidebarHidden)} aria-label={sidebarHidden ? "Mostrar menu" : "Ocultar menu"} className="h-11 w-11 rounded-lg border flex items-center justify-center" title={sidebarHidden ? "Mostrar menu" : "Ocultar menu"} style={{ borderColor: C.border, color: C.dim, background: C.panelFlat }}>
                     {sidebarHidden ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}
                   </button>
                 )}
