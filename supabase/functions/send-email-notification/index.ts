@@ -151,6 +151,20 @@ serve(async (req) => {
       }
     }
 
+    // E-mail da própria unidade selecionada: recebe as mesmas notificações dos responsáveis
+    const unidadeEmail = ((ticket as any).unidades?.email || "").toString().trim().toLowerCase();
+    if (unidadeEmail && unidadeEmail.includes("@")) {
+      if (!respDetails.some((r) => r.email === unidadeEmail)) {
+        respDetails.push({
+          nome: (ticket as any).unidades?.nome_unidade || "Unidade",
+          email: unidadeEmail,
+          escopo: "unidade_email",
+          unidade_id: (ticket as any).unidades?.id ?? null,
+        });
+      }
+      respEmails.push(unidadeEmail);
+    }
+
     const recipients = Array.from(new Set(
       [primary, ...extras, ...respEmails].map((e) => (e || "").toString().trim().toLowerCase()).filter(Boolean),
     ));
