@@ -545,7 +545,7 @@ export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
             )}
           </div>
 
-          {form.empresa_id && (responsaveisFixos.length > 0 || !!unidadeEmail) && (
+          {(responsaveisFixos.length > 0 || !!unidadeEmail) && (
             <div className="md:col-span-2 border border-primary/20 bg-primary/5 rounded-md p-3">
               <Label className="text-sm font-semibold">Responsáveis fixos</Label>
               <p className="text-[11px] text-muted-foreground mb-2">
