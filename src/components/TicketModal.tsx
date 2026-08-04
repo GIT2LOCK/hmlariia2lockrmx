@@ -29,7 +29,7 @@ import {
 } from "@/lib/ticketSla";
 
 interface Option { id: number; label: string }
-interface UnidadeOpt extends Option { empresa_id: number }
+interface UnidadeOpt extends Option { empresa_id: number; email?: string | null }
 interface ContatoOpt {
   id: number;
   nome: string;
