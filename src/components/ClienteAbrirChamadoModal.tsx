@@ -118,7 +118,7 @@ export function ClienteAbrirChamadoModal({ open, onOpenChange, onSaved }: Props)
       const [un, ats, cats, resp] = await Promise.all([
         supabase
           .from("unidades")
-          .select("id,nome_unidade")
+          .select("id,nome_unidade,email")
           .eq("empresa_id", user.empresa_id!)
           .order("nome_unidade"),
         supabase
