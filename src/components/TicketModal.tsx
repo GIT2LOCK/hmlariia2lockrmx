@@ -152,7 +152,7 @@ export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
         supabase.from("contatos").select("id,nome,email,telefone,tipo,empresa_id,unidade_id,cobre_empresa_inteira").order("nome"),
       ]);
       setEmpresas((e.data || []).map((r: any) => ({ id: r.id, label: r.nome_fantasia })));
-      setUnidadesAll((u.data || []).map((r: any) => ({ id: r.id, label: r.nome_unidade, empresa_id: r.empresa_id })));
+      setUnidadesAll((u.data || []).map((r: any) => ({ id: r.id, label: r.nome_unidade, email: r.email, empresa_id: r.empresa_id })));
       setOperadoras((o.data || []).map((r: any) => ({ id: r.id, label: r.nome })));
       setFilas((f.data || []).map((r: any) => ({ id: r.id, label: r.nome })));
       setCategorias((c.data || []).map((r: any) => ({ id: r.id, label: r.nome })));
