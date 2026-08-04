@@ -29,7 +29,7 @@ import {
 } from "@/lib/ticketSla";
 
 interface Option { id: number; label: string }
-interface UnidadeOpt extends Option { empresa_id: number }
+interface UnidadeOpt extends Option { empresa_id: number; email?: string | null }
 interface ContatoOpt {
   id: number;
   nome: string;
@@ -133,12 +133,19 @@ export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
     });
   }, [form.empresa_id, form.unidade_id, contatosAll, unidadesAll]);
 
+  // E-mail cadastrado na unidade selecionada (recebe as mesmas notificações dos responsáveis)
+  const unidadeSelecionada = useMemo(
+    () => (form.unidade_id ? unidadesAll.find((u) => u.id === Number(form.unidade_id)) || null : null),
+    [form.unidade_id, unidadesAll],
+  );
+  const unidadeEmail = (unidadeSelecionada?.email || "").trim();
+
   useEffect(() => {
     if (!open) return;
     (async () => {
       const [e, u, o, f, c, us, ct] = await Promise.all([
         supabase.from("empresas").select("id,nome_fantasia").order("nome_fantasia"),
-        supabase.from("unidades").select("id,nome_unidade,empresa_id").order("nome_unidade"),
+        supabase.from("unidades").select("id,nome_unidade,email,empresa_id").order("nome_unidade"),
         supabase.from("operadoras").select("id,nome").order("nome"),
         supabase.from("support_groups").select("id,nome").eq("ativo", true).order("nome"),
         supabase.from("ticket_categorias").select("id,nome,parent_id").is("parent_id", null).order("nome"),
@@ -152,7 +159,7 @@ export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
         supabase.from("contatos").select("id,nome,email,telefone,tipo,empresa_id,unidade_id,cobre_empresa_inteira").order("nome"),
       ]);
       setEmpresas((e.data || []).map((r: any) => ({ id: r.id, label: r.nome_fantasia })));
-      setUnidadesAll((u.data || []).map((r: any) => ({ id: r.id, label: r.nome_unidade, empresa_id: r.empresa_id })));
+      setUnidadesAll((u.data || []).map((r: any) => ({ id: r.id, label: r.nome_unidade, email: r.email, empresa_id: r.empresa_id })));
       setOperadoras((o.data || []).map((r: any) => ({ id: r.id, label: r.nome })));
       setFilas((f.data || []).map((r: any) => ({ id: r.id, label: r.nome })));
       setCategorias((c.data || []).map((r: any) => ({ id: r.id, label: r.nome })));
@@ -538,13 +545,24 @@ export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
             )}
           </div>
 
-          {form.empresa_id && responsaveisFixos.length > 0 && (
+          {form.empresa_id && (responsaveisFixos.length > 0 || !!unidadeEmail) && (
             <div className="md:col-span-2 border border-primary/20 bg-primary/5 rounded-md p-3">
               <Label className="text-sm font-semibold">Responsáveis fixos</Label>
               <p className="text-[11px] text-muted-foreground mb-2">
                 Adicionados automaticamente conforme a empresa/unidade selecionada. Receberão todas as notificações do chamado.
               </p>
               <div className="space-y-1">
+                {unidadeEmail && (
+                  <div className="flex items-center justify-between text-sm bg-background/60 rounded px-2 py-1">
+                    <div className="min-w-0">
+                      <span className="font-medium">{unidadeSelecionada?.label}</span>
+                      <span className="text-muted-foreground"> · {unidadeEmail}</span>
+                    </div>
+                    <span className="text-[11px] px-2 py-0.5 rounded bg-primary/10 text-primary shrink-0">
+                      E-mail da unidade
+                    </span>
+                  </div>
+                )}
                 {responsaveisFixos.map((r) => (
                   <div key={r.id} className="flex items-center justify-between text-sm bg-background/60 rounded px-2 py-1">
                     <div className="min-w-0">
