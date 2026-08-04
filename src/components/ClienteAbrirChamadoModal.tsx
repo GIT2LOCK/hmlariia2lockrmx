@@ -438,13 +438,24 @@ export function ClienteAbrirChamadoModal({ open, onOpenChange, onSaved }: Props)
           </div>
 
           {/* Responsáveis fixos */}
-          {responsaveisFixos.length > 0 && (
+          {(responsaveisFixos.length > 0 || !!unidadeEmail) && (
             <div className="space-y-2 border border-primary/20 bg-primary/5 rounded-md p-3">
               <Label className="text-sm font-semibold">Responsáveis fixos</Label>
               <p className="text-[11px] text-muted-foreground">
                 Adicionados automaticamente conforme a empresa/unidade. Receberão as notificações deste chamado.
               </p>
               <div className="space-y-1">
+                {unidadeEmail && (
+                  <div className="flex items-center justify-between text-sm bg-background/60 rounded px-2 py-1">
+                    <div className="min-w-0">
+                      <span className="font-medium">{unidadeAtual?.nome}</span>
+                      <span className="text-muted-foreground"> · {unidadeEmail}</span>
+                    </div>
+                    <span className="text-[11px] px-2 py-0.5 rounded bg-primary/10 text-primary shrink-0">
+                      E-mail da unidade
+                    </span>
+                  </div>
+                )}
                 {responsaveisFixos.map((r) => (
                   <div key={r.id} className="flex items-center justify-between text-sm bg-background/60 rounded px-2 py-1">
                     <div className="min-w-0">
