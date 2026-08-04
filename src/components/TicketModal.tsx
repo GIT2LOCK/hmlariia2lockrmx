@@ -138,7 +138,7 @@ export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
     (async () => {
       const [e, u, o, f, c, us, ct] = await Promise.all([
         supabase.from("empresas").select("id,nome_fantasia").order("nome_fantasia"),
-        supabase.from("unidades").select("id,nome_unidade,empresa_id").order("nome_unidade"),
+        supabase.from("unidades").select("id,nome_unidade,email,empresa_id").order("nome_unidade"),
         supabase.from("operadoras").select("id,nome").order("nome"),
         supabase.from("support_groups").select("id,nome").eq("ativo", true).order("nome"),
         supabase.from("ticket_categorias").select("id,nome,parent_id").is("parent_id", null).order("nome"),
