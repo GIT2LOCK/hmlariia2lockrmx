@@ -133,6 +133,13 @@ export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
     });
   }, [form.empresa_id, form.unidade_id, contatosAll, unidadesAll]);
 
+  // E-mail cadastrado na unidade selecionada (recebe as mesmas notificações dos responsáveis)
+  const unidadeSelecionada = useMemo(
+    () => (form.unidade_id ? unidadesAll.find((u) => u.id === Number(form.unidade_id)) || null : null),
+    [form.unidade_id, unidadesAll],
+  );
+  const unidadeEmail = (unidadeSelecionada?.email || "").trim();
+
   useEffect(() => {
     if (!open) return;
     (async () => {
