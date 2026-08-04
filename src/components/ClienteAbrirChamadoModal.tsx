@@ -298,6 +298,12 @@ export function ClienteAbrirChamadoModal({ open, onOpenChange, onSaved }: Props)
 
   const mostraUnidade = unidades.length > 1;
 
+  const unidadeAtual = useMemo(() => {
+    const unidId = form.unidade_id ? Number(form.unidade_id) : (unidades.length === 1 ? unidades[0].id : null);
+    return unidId ? unidades.find((u) => u.id === unidId) || null : null;
+  }, [form.unidade_id, unidades]);
+  const unidadeEmail = (unidadeAtual?.email || "").trim();
+
   const responsaveisFixos = useMemo(() => {
     const unidId = form.unidade_id ? Number(form.unidade_id) : (unidades.length === 1 ? unidades[0].id : null);
     const list = responsaveisAll.filter((r) => r.cobre_empresa_inteira || (unidId && r.unidade_id === unidId));
