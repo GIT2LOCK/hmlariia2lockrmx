@@ -138,7 +138,7 @@ export function ClienteAbrirChamadoModal({ open, onOpenChange, onSaved }: Props)
           .eq("tipo", "responsavel"),
       ]);
       setResponsaveisAll((resp.data || []) as any);
-      const us = (un.data || []).map((u: any) => ({ id: u.id, nome: u.nome_unidade }));
+      const us = (un.data || []).map((u: any) => ({ id: u.id, nome: u.nome_unidade, email: u.email }));
       setUnidades(us);
       const distinct = Array.from(
         new Set(
