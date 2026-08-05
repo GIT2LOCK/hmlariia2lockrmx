@@ -45,14 +45,15 @@ interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   ticketId?: number | null;
-  onSaved?: () => void;
+  prefill?: { titulo?: string; descricao?: string; ativo?: string };
+  onSaved?: (info?: { ticketId: number | null; titulo: string; descricao: string }) => void;
 }
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
+export function TicketModal({ open, onOpenChange, ticketId, prefill, onSaved }: Props) {
   const { user } = useUser();
   const [loading, setLoading] = useState(false);
   const [empresas, setEmpresas] = useState<Option[]>([]);
