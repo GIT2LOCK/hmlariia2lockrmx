@@ -1029,6 +1029,64 @@ function ContactButton({
   );
 }
 
+// ── Abrir Chamado (a partir do problema no Zabbix) ───────────────────────
+function AbrirChamadoZabbixButton({ group, onUpdated }: { group: HostGroup; onUpdated: () => void }) {
+  const { toast } = useToast();
+  const [open, setOpen] = useState(false);
+
+  const problemaResumo = group.problems
+    .map(p => p.triggerDescription || p.name)
+    .filter((v, i, a) => a.indexOf(v) === i)
+    .join(" | ");
+
+  const handleSaved = async (info?: { ticketId: number | null; titulo: string; descricao: string }) => {
+    onUpdated();
+    const descricao = (info?.descricao || "").trim();
+    if (!descricao) {
+      toast({ title: "Chamado criado", description: "Sem descrição para enviar como update no Zabbix." });
+      return;
+    }
+    const eventids = group.problems.map(p => p.eventid);
+    const source = (group.problems[0] as any)?.source;
+    try {
+      await postZabbixUpdate(eventids, source, descricao);
+      toast({ title: "Update adicionado no Zabbix", description: "Descrição do chamado enviada ao problema." });
+      onUpdated();
+    } catch (err: any) {
+      toast({ title: "Chamado criado, mas o update no Zabbix falhou", description: err.message, variant: "destructive" });
+    }
+  };
+
+  return (
+    <>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="gap-1 h-7 px-2"
+        onClick={(e) => { e.stopPropagation(); setOpen(true); }}
+      >
+        <Ticket className="h-4 w-4 text-primary" />
+        <span className="text-xs">Abrir chamado</span>
+      </Button>
+      {open && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <TicketModal
+            open={open}
+            onOpenChange={setOpen}
+            prefill={{
+              titulo: `${group.hostName} — ${problemaResumo}`.slice(0, 200),
+              descricao: "",
+              ativo: group.hostCode || group.hostName,
+            }}
+            onSaved={handleSaved}
+          />
+        </div>
+      )}
+    </>
+  );
+}
+
+
 // ── Helpers ──────────────────────────────────────────────────────────────
 function formatDuration(epochSeconds: number): string {
   const now = Math.floor(Date.now() / 1000);
