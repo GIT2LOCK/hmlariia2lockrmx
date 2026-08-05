@@ -22,7 +22,19 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { Send, MessageSquarePlus } from "lucide-react";
+import { Send, MessageSquarePlus, Ticket } from "lucide-react";
+import { TicketModal } from "@/components/TicketModal";
+
+// Envia um update (mensagem) nos eventos do Zabbix usando o token pessoal do usuário
+async function postZabbixUpdate(eventids: string[], source: string | undefined, message: string) {
+  const { data } = await supabase.rpc("fn_my_zabbix_tokens" as any);
+  const user_token = (Array.isArray(data) ? (data[0] as any)?.zabbix_token_z2 : null) || null;
+  if (!user_token) throw new Error("Token Zabbix pessoal não configurado em Meu Perfil.");
+  const res = await supabase.functions.invoke("zabbix-dashboard", {
+    body: { action: "acknowledge", eventids, message: message.trim(), source, user_token },
+  });
+  if (res.error) throw new Error(res.error.message);
+}
 
 // ── Types ──────────────────────────────────────────────────────────────
 interface ZabbixProblem {
