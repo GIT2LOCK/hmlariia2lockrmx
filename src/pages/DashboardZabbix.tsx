@@ -887,32 +887,7 @@ function ContactButton({
     const source = (group.problems[0] as any)?.source;
     setSending(true);
     try {
-      // Get current user's personal Zabbix token for this source
-      let user_token: string | null = null;
-      try {
-        const stored = JSON.parse(localStorage.getItem("auth_user") || "{}");
-        const uid = Number(stored?.id || 0);
-        if (uid) {
-          const { data } = await supabase.rpc("fn_my_zabbix_tokens" as any);
-          user_token = (Array.isArray(data) ? (data[0] as any)?.zabbix_token_z2 : null) || null;
-        }
-
-      } catch { /* fallback to global */ }
-
-      if (!user_token) {
-        toast({
-          title: "Token Zabbix não configurado",
-          description: "Configure seu token pessoal em Meu Perfil para que o update saia em seu nome.",
-          variant: "destructive",
-        });
-        setSending(false);
-        return;
-      }
-
-      const res = await supabase.functions.invoke("zabbix-dashboard", {
-        body: { action: "acknowledge", eventids, message: text.trim(), source, user_token },
-      });
-      if (res.error) throw new Error(res.error.message);
+      await postZabbixUpdate(eventids, source, text.trim());
       toast({ title: "Update adicionado no Zabbix" });
       onUpdated();
       close();
@@ -922,6 +897,7 @@ function ContactButton({
       setSending(false);
     }
   };
+
 
   return (
     <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setTimeout(reset, 200); }}>
