@@ -378,7 +378,7 @@ export function TicketModal({ open, onOpenChange, ticketId, prefill, onSaved }: 
     setLoading(false);
     toast({ title: ticketId ? "Chamado atualizado" : "Chamado criado" });
     onOpenChange(false);
-    onSaved?.();
+    onSaved?.({ ticketId: savedId, titulo: payload.titulo, descricao: payload.descricao || "" });
   };
 
   const removeExisting = async (att: any) => {
