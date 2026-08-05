@@ -22,7 +22,19 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { Send, MessageSquarePlus } from "lucide-react";
+import { Send, MessageSquarePlus, Ticket } from "lucide-react";
+import { TicketModal } from "@/components/TicketModal";
+
+// Envia um update (mensagem) nos eventos do Zabbix usando o token pessoal do usuário
+async function postZabbixUpdate(eventids: string[], source: string | undefined, message: string) {
+  const { data } = await supabase.rpc("fn_my_zabbix_tokens" as any);
+  const user_token = (Array.isArray(data) ? (data[0] as any)?.zabbix_token_z2 : null) || null;
+  if (!user_token) throw new Error("Token Zabbix pessoal não configurado em Meu Perfil.");
+  const res = await supabase.functions.invoke("zabbix-dashboard", {
+    body: { action: "acknowledge", eventids, message: message.trim(), source, user_token },
+  });
+  if (res.error) throw new Error(res.error.message);
+}
 
 // ── Types ──────────────────────────────────────────────────────────────
 interface ZabbixProblem {
@@ -742,7 +754,12 @@ function GroupRows({
           {isMulti ? formatDuration(group.newestClock) : formatDuration(Number(group.problems[0]?.clock))}
         </td>
         <td className="px-4 py-2"><AcksPopover acks={group.allAcks} /></td>
-        <td className="px-4 py-2"><ContactButton contato={contato} group={group} onUpdated={onUpdated} /></td>
+        <td className="px-4 py-2">
+          <div className="flex items-center gap-1">
+            <ContactButton contato={contato} group={group} onUpdated={onUpdated} />
+            <AbrirChamadoZabbixButton group={group} onUpdated={onUpdated} />
+          </div>
+        </td>
       </tr>
       {isMulti && isExpanded && sortedProblems.map((p) => {
         const pSev = SEVERITY_CONFIG[p.severity] || SEVERITY_CONFIG["0"];
@@ -870,32 +887,7 @@ function ContactButton({
     const source = (group.problems[0] as any)?.source;
     setSending(true);
     try {
-      // Get current user's personal Zabbix token for this source
-      let user_token: string | null = null;
-      try {
-        const stored = JSON.parse(localStorage.getItem("auth_user") || "{}");
-        const uid = Number(stored?.id || 0);
-        if (uid) {
-          const { data } = await supabase.rpc("fn_my_zabbix_tokens" as any);
-          user_token = (Array.isArray(data) ? (data[0] as any)?.zabbix_token_z2 : null) || null;
-        }
-
-      } catch { /* fallback to global */ }
-
-      if (!user_token) {
-        toast({
-          title: "Token Zabbix não configurado",
-          description: "Configure seu token pessoal em Meu Perfil para que o update saia em seu nome.",
-          variant: "destructive",
-        });
-        setSending(false);
-        return;
-      }
-
-      const res = await supabase.functions.invoke("zabbix-dashboard", {
-        body: { action: "acknowledge", eventids, message: text.trim(), source, user_token },
-      });
-      if (res.error) throw new Error(res.error.message);
+      await postZabbixUpdate(eventids, source, text.trim());
       toast({ title: "Update adicionado no Zabbix" });
       onUpdated();
       close();
@@ -905,6 +897,7 @@ function ContactButton({
       setSending(false);
     }
   };
+
 
   return (
     <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setTimeout(reset, 200); }}>
@@ -1035,6 +1028,64 @@ function ContactButton({
     </Dialog>
   );
 }
+
+// ── Abrir Chamado (a partir do problema no Zabbix) ───────────────────────
+function AbrirChamadoZabbixButton({ group, onUpdated }: { group: HostGroup; onUpdated: () => void }) {
+  const { toast } = useToast();
+  const [open, setOpen] = useState(false);
+
+  const problemaResumo = group.problems
+    .map(p => p.triggerDescription || p.name)
+    .filter((v, i, a) => a.indexOf(v) === i)
+    .join(" | ");
+
+  const handleSaved = async (info?: { ticketId: number | null; titulo: string; descricao: string }) => {
+    onUpdated();
+    const descricao = (info?.descricao || "").trim();
+    if (!descricao) {
+      toast({ title: "Chamado criado", description: "Sem descrição para enviar como update no Zabbix." });
+      return;
+    }
+    const eventids = group.problems.map(p => p.eventid);
+    const source = (group.problems[0] as any)?.source;
+    try {
+      await postZabbixUpdate(eventids, source, descricao);
+      toast({ title: "Update adicionado no Zabbix", description: "Descrição do chamado enviada ao problema." });
+      onUpdated();
+    } catch (err: any) {
+      toast({ title: "Chamado criado, mas o update no Zabbix falhou", description: err.message, variant: "destructive" });
+    }
+  };
+
+  return (
+    <>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="gap-1 h-7 px-2"
+        onClick={(e) => { e.stopPropagation(); setOpen(true); }}
+      >
+        <Ticket className="h-4 w-4 text-primary" />
+        <span className="text-xs">Abrir chamado</span>
+      </Button>
+      {open && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <TicketModal
+            open={open}
+            onOpenChange={setOpen}
+            prefill={{
+              titulo: `${group.hostName} — ${problemaResumo}`.slice(0, 200),
+              descricao: "",
+              ativo: group.hostCode || group.hostName,
+            }}
+            onSaved={handleSaved}
+          />
+        </div>
+      )}
+    </>
+  );
+}
+
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 function formatDuration(epochSeconds: number): string {

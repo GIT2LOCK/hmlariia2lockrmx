@@ -45,14 +45,15 @@ interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   ticketId?: number | null;
-  onSaved?: () => void;
+  prefill?: { titulo?: string; descricao?: string; ativo?: string };
+  onSaved?: (info?: { ticketId: number | null; titulo: string; descricao: string }) => void;
 }
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
+export function TicketModal({ open, onOpenChange, ticketId, prefill, onSaved }: Props) {
   const { user } = useUser();
   const [loading, setLoading] = useState(false);
   const [empresas, setEmpresas] = useState<Option[]>([]);
@@ -203,12 +204,12 @@ export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
         setExistingAttachments(atts || []);
       } else {
         setForm({
-          titulo: "", descricao: "", prioridade: "MEDIO", status: "NOVO",
+          titulo: prefill?.titulo || "", descricao: prefill?.descricao || "", prioridade: "MEDIO", status: "NOVO",
           empresa_id: "", unidade_id: "", operadora_id: "", fila_id: "",
           categoria_id: "", tecnico_id: "", solicitante_id: "",
           solicitante_nome: "", solicitante_email: "", solicitante_telefone: "",
           solicitante_emails_extra: [],
-          ativo: "", origem: "MANUAL", tipo_chamado: "T",
+          ativo: prefill?.ativo || "", origem: "MANUAL", tipo_chamado: "T",
         });
         setExistingAttachments([]);
       }
@@ -377,7 +378,7 @@ export function TicketModal({ open, onOpenChange, ticketId, onSaved }: Props) {
     setLoading(false);
     toast({ title: ticketId ? "Chamado atualizado" : "Chamado criado" });
     onOpenChange(false);
-    onSaved?.();
+    onSaved?.({ ticketId: savedId, titulo: payload.titulo, descricao: payload.descricao || "" });
   };
 
   const removeExisting = async (att: any) => {
