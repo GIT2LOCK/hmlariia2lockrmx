@@ -754,7 +754,12 @@ function GroupRows({
           {isMulti ? formatDuration(group.newestClock) : formatDuration(Number(group.problems[0]?.clock))}
         </td>
         <td className="px-4 py-2"><AcksPopover acks={group.allAcks} /></td>
-        <td className="px-4 py-2"><ContactButton contato={contato} group={group} onUpdated={onUpdated} /></td>
+        <td className="px-4 py-2">
+          <div className="flex items-center gap-1">
+            <ContactButton contato={contato} group={group} onUpdated={onUpdated} />
+            <AbrirChamadoZabbixButton group={group} onUpdated={onUpdated} />
+          </div>
+        </td>
       </tr>
       {isMulti && isExpanded && sortedProblems.map((p) => {
         const pSev = SEVERITY_CONFIG[p.severity] || SEVERITY_CONFIG["0"];
