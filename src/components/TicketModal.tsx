@@ -204,12 +204,12 @@ export function TicketModal({ open, onOpenChange, ticketId, prefill, onSaved }: 
         setExistingAttachments(atts || []);
       } else {
         setForm({
-          titulo: "", descricao: "", prioridade: "MEDIO", status: "NOVO",
+          titulo: prefill?.titulo || "", descricao: prefill?.descricao || "", prioridade: "MEDIO", status: "NOVO",
           empresa_id: "", unidade_id: "", operadora_id: "", fila_id: "",
           categoria_id: "", tecnico_id: "", solicitante_id: "",
           solicitante_nome: "", solicitante_email: "", solicitante_telefone: "",
           solicitante_emails_extra: [],
-          ativo: "", origem: "MANUAL", tipo_chamado: "T",
+          ativo: prefill?.ativo || "", origem: "MANUAL", tipo_chamado: "T",
         });
         setExistingAttachments([]);
       }
