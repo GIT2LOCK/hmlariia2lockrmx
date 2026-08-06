@@ -31,6 +31,7 @@ import GrafanaControle from "./pages/GrafanaControle";
 import RelatorioAlertasZabbix from "./pages/RelatorioAlertasZabbix";
 import Permissoes from "./pages/Permissoes";
 import GrafanaKiosk from "./pages/GrafanaKiosk";
+import Linkai from "./pages/Linkai";
 import { UserProvider } from "./contexts/UserContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
