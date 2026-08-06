@@ -5,12 +5,12 @@ import { useUser } from "@/contexts/UserContext";
 export type TabKey =
   | "dashboard" | "chamados" | "atendimento" | "usuarios" | "empresas"
   | "unidades" | "operadoras" | "grafana" | "permissoes" | "base_conhecimento"
-  | "relatorios" | "equipes" | "zabbix" | "pessoas" | "responsaveis";
+  | "relatorios" | "equipes" | "zabbix" | "pessoas" | "responsaveis" | "linkai";
 
 const ALL_TABS: TabKey[] = [
   "dashboard","chamados","atendimento","usuarios","empresas","unidades",
   "operadoras","grafana","permissoes","base_conhecimento","relatorios",
-  "equipes","zabbix","pessoas","responsaveis",
+  "equipes","zabbix","pessoas","responsaveis","linkai",
 ];
 
 /** Hook que retorna as abas que o usuário atual pode acessar.

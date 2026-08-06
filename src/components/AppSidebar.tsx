@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   AlertTriangle,
   Gauge,
+  Link2,
 } from "lucide-react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -63,6 +64,7 @@ const menuItems: MenuItem[] = [
   { title: "Equipes", url: "/dashboard/equipes", icon: Users, permission: "team.view", tabKey: "equipes" },
   { title: "Relatórios Zabbix", url: "/dashboard/zabbix/relatorio-alertas", icon: AlertTriangle, permission: "registry.view", tabKey: "zabbix" },
   { title: "Monitoramento", url: "/dashboard/zabbix", icon: Activity, permission: "registry.view", tabKey: "zabbix" },
+  { title: "Linkai", url: "/dashboard/linkai", icon: Link2, tabKey: "linkai" },
 ];
 
 const glassMenuButtonClassName = "ariia-glass-menu-button";
