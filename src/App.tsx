@@ -79,6 +79,7 @@ const App = () => (
               <Route path="zabbix/tv" element={<ProtectedRoute tabKey="zabbix" forbidRoles={["CLIENTE"]}><ZabbixTvView /></ProtectedRoute>} />
               <Route path="zabbix/relatorio-alertas" element={<ProtectedRoute tabKey="zabbix" forbidRoles={["CLIENTE"]}><RelatorioAlertasZabbix /></ProtectedRoute>} />
               <Route path="grafana" element={<ProtectedRoute tabKey="grafana" forbidRoles={["CLIENTE"]}><GrafanaControle /></ProtectedRoute>} />
+              <Route path="linkai" element={<ProtectedRoute tabKey="linkai" forbidRoles={["CLIENTE"]}><Linkai /></ProtectedRoute>} />
               <Route path="grafana-kiosk" element={<ProtectedRoute allowGrafanaOnly><GrafanaKiosk /></ProtectedRoute>} />
               <Route path="perfil" element={<ProtectedRoute allowGrafanaOnly><MeuPerfil /></ProtectedRoute>} />
             </Route>
