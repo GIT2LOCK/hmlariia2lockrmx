@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   AlertTriangle,
   Gauge,
+  Link2,
 } from "lucide-react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";

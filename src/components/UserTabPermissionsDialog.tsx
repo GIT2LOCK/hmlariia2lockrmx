@@ -24,6 +24,7 @@ const TAB_DEFS: { key: string; label: string }[] = [
   { key: "usuarios", label: "Usuários" },
   { key: "permissoes", label: "Permissões" },
   { key: "grafana", label: "Controle Grafana" },
+  { key: "linkai", label: "Linkai" },
 ];
 
 interface Props {
