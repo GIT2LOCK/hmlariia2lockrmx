@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { validateSession } from "../_shared/auth.ts";
+import { getUserCompanyGroupScope, ticketMatchesCompanyScope } from "../_shared/authz.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -65,6 +66,11 @@ serve(async (req) => {
   const perm = user.permissao;
   const isAdmin = perm === "SUPERADMIN" || perm === "ADMIN";
   let autorizado = isAdmin;
+
+  if (!autorizado) {
+    const goodStorageScope = await getUserCompanyGroupScope(supabase, usuarioId, "GoodStorage");
+    autorizado = ticketMatchesCompanyScope(ticket, goodStorageScope);
+  }
 
   if (!autorizado && perm === "CLIENTE") {
     autorizado = ticket.criado_por === usuarioId;

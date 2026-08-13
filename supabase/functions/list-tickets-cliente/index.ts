@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { validateSession } from "../_shared/auth.ts";
+import { addCompanyScopeOrClauses, getUserCompanyGroupScope } from "../_shared/authz.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -37,6 +38,7 @@ serve(async (req) => {
 
   if (!user || !user.ativo) return json({ error: "usuario_invalido" }, 403);
   if (user.permissao !== "CLIENTE") return json({ error: "only_cliente" }, 403);
+  const goodStorageScope = await getUserCompanyGroupScope(supabase, usuarioId, "GoodStorage");
 
   // Descobrir unidades vinculadas ao cliente via contatos (match por e-mail)
   let unidadeIds: number[] = [];
@@ -82,6 +84,7 @@ serve(async (req) => {
   if (unidadeIds.length > 0) {
     orClauses.push(`unidade_id.in.(${unidadeIds.join(",")})`);
   }
+  addCompanyScopeOrClauses(orClauses, goodStorageScope);
 
   let query = supabase
     .from("tickets")

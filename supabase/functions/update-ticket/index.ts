@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { validateSession } from "../_shared/auth.ts";
+import { getUserCompanyGroupScope, ticketMatchesCompanyScope } from "../_shared/authz.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -40,6 +41,8 @@ const ALLOWED_UPDATE_FIELDS = new Set([
 async function userCanUpdateTicket(supabase: any, user: any, ticket: any) {
   if (ADMIN_ROLES.has(user.permissao)) return true;
   if (user.permissao !== "USER") return false;
+  const goodStorageScope = await getUserCompanyGroupScope(supabase, user.id, "GoodStorage");
+  if (ticketMatchesCompanyScope(ticket, goodStorageScope)) return true;
   if (ticket.criado_por === user.id || ticket.tecnico_id === user.id || ticket.assigned_by === user.id) return true;
   if (user.email && ticket.solicitante_email &&
       String(ticket.solicitante_email).toLowerCase() === String(user.email).toLowerCase()) return true;

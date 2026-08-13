@@ -51,6 +51,79 @@ export function authErrorResponse(e: unknown, corsHeaders: Record<string, string
   });
 }
 
+export type CompanyTicketScope = {
+  empresaIds: number[];
+  unidadeIds: number[];
+};
+
+const uniqueNumbers = (values: unknown[]) =>
+  Array.from(new Set(
+    values
+      .filter((v) => v !== null && v !== undefined && v !== "")
+      .map((v) => Number(v))
+      .filter(Number.isFinite),
+  ));
+
+export async function getCompanyTicketScopeByName(
+  svc: any,
+  companyName: string,
+): Promise<CompanyTicketScope> {
+  const { data: empresas } = await svc
+    .from("empresas")
+    .select("id")
+    .or(`nome_fantasia.ilike.%${companyName}%,razao_social.ilike.%${companyName}%`);
+
+  const empresaIds = uniqueNumbers((empresas ?? []).map((e: any) => e.id));
+  if (empresaIds.length === 0) return { empresaIds: [], unidadeIds: [] };
+
+  const { data: unidades } = await svc
+    .from("unidades")
+    .select("id")
+    .in("empresa_id", empresaIds);
+
+  return {
+    empresaIds,
+    unidadeIds: uniqueNumbers((unidades ?? []).map((u: any) => u.id)),
+  };
+}
+
+export async function getUserCompanyGroupScope(
+  svc: any,
+  usuarioId: number,
+  groupName: string,
+): Promise<CompanyTicketScope> {
+  const { data: memberships } = await svc
+    .from("support_group_members")
+    .select("group_id")
+    .eq("usuario_id", usuarioId)
+    .eq("ativo", true);
+
+  const groupIds = uniqueNumbers((memberships ?? []).map((m: any) => m.group_id));
+  if (groupIds.length === 0) return { empresaIds: [], unidadeIds: [] };
+
+  const { data: groups } = await svc
+    .from("support_groups")
+    .select("id")
+    .in("id", groupIds)
+    .eq("ativo", true)
+    .ilike("nome", `%${groupName}%`);
+
+  if (!groups || groups.length === 0) return { empresaIds: [], unidadeIds: [] };
+  return getCompanyTicketScopeByName(svc, groupName);
+}
+
+export function addCompanyScopeOrClauses(orClauses: string[], scope: CompanyTicketScope) {
+  if (scope.empresaIds.length > 0) orClauses.push(`empresa_id.in.(${scope.empresaIds.join(",")})`);
+  if (scope.unidadeIds.length > 0) orClauses.push(`unidade_id.in.(${scope.unidadeIds.join(",")})`);
+}
+
+export function ticketMatchesCompanyScope(ticket: any, scope: CompanyTicketScope) {
+  const empresaId = ticket?.empresa_id === null || ticket?.empresa_id === undefined ? NaN : Number(ticket.empresa_id);
+  const unidadeId = ticket?.unidade_id === null || ticket?.unidade_id === undefined ? NaN : Number(ticket.unidade_id);
+  return (Number.isFinite(empresaId) && scope.empresaIds.includes(empresaId)) ||
+    (Number.isFinite(unidadeId) && scope.unidadeIds.includes(unidadeId));
+}
+
 /**
  * Verifica se o usuário Ariia informado pode visualizar o chamado.
  * Espelha a mesma lógica já usada por get-ticket-cliente / fn_can_view_ticket
@@ -78,6 +151,9 @@ export async function canUsuarioViewTicket(
     .eq("id", ticketId)
     .maybeSingle();
   if (!ticket) return false;
+
+  const goodStorageScope = await getUserCompanyGroupScope(svc, usuarioId, "GoodStorage");
+  if (ticketMatchesCompanyScope(ticket, goodStorageScope)) return true;
 
   const email = (user.email || "").toString().trim().toLowerCase();
   const extras: string[] = Array.isArray(ticket.solicitante_emails_extra) ? ticket.solicitante_emails_extra : [];

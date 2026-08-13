@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { validateSession } from "../_shared/auth.ts";
+import { addCompanyScopeOrClauses, getUserCompanyGroupScope } from "../_shared/authz.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -46,7 +47,6 @@ serve(async (req) => {
     usuarios:tecnico_id(nome)`;
 
   const perm = user.permissao;
-
   // ADMIN / SUPERADMIN / TV_VIEW: leitura global dos chamados, sem filtro.
   if (perm === "SUPERADMIN" || perm === "ADMIN" || perm === "TV_VIEW") {
     const { data, error } = await supabase
@@ -59,6 +59,8 @@ serve(async (req) => {
   }
 
   // CLIENTE: criados pelo próprio OU unidades vinculadas via contatos, escopo empresa
+  const goodStorageScope = await getUserCompanyGroupScope(supabase, usuarioId, "GoodStorage");
+
   if (perm === "CLIENTE") {
     let unidadeIds: number[] = [];
     if (user.email) {
@@ -95,6 +97,7 @@ serve(async (req) => {
       orClauses.push(`solicitante_emails_extra.cs.{${user.email.toLowerCase()}}`);
     }
     if (unidadeIds.length > 0) orClauses.push(`unidade_id.in.(${unidadeIds.join(",")})`);
+    addCompanyScopeOrClauses(orClauses, goodStorageScope);
     const q = supabase
       .from("tickets")
       .select(selectCols)
@@ -124,6 +127,7 @@ serve(async (req) => {
     orClauses.push(`solicitante_emails_extra.cs.{${user.email.toLowerCase()}}`);
   }
   if (groupIds.length > 0) orClauses.push(`assigned_group_id.in.(${groupIds.join(",")})`);
+  addCompanyScopeOrClauses(orClauses, goodStorageScope);
 
   const { data, error } = await supabase
     .from("tickets")
