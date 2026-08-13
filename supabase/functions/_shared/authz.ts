@@ -92,6 +92,8 @@ export async function getUserCompanyGroupScope(
   usuarioId: number,
   groupName: string,
 ): Promise<CompanyTicketScope> {
+  let hasCompanyGroup = false;
+
   const { data: memberships } = await svc
     .from("support_group_members")
     .select("group_id")
@@ -99,16 +101,37 @@ export async function getUserCompanyGroupScope(
     .eq("ativo", true);
 
   const groupIds = uniqueNumbers((memberships ?? []).map((m: any) => m.group_id));
-  if (groupIds.length === 0) return { empresaIds: [], unidadeIds: [] };
+  if (groupIds.length > 0) {
+    const { data: groups } = await svc
+      .from("support_groups")
+      .select("id")
+      .in("id", groupIds)
+      .eq("ativo", true)
+      .ilike("nome", `%${groupName}%`);
 
-  const { data: groups } = await svc
-    .from("support_groups")
-    .select("id")
-    .in("id", groupIds)
-    .eq("ativo", true)
-    .ilike("nome", `%${groupName}%`);
+    hasCompanyGroup = !!groups?.length;
+  }
 
-  if (!groups || groups.length === 0) return { empresaIds: [], unidadeIds: [] };
+  if (!hasCompanyGroup) {
+    const { data: grafanaMemberships } = await svc
+      .from("grafana_access_group_members")
+      .select("group_id")
+      .eq("usuario_id", usuarioId);
+
+    const grafanaGroupIds = uniqueNumbers((grafanaMemberships ?? []).map((m: any) => m.group_id));
+    if (grafanaGroupIds.length > 0) {
+      const { data: grafanaGroups } = await svc
+        .from("grafana_access_groups")
+        .select("id")
+        .in("id", grafanaGroupIds)
+        .eq("active", true)
+        .ilike("name", `%${groupName}%`);
+
+      hasCompanyGroup = !!grafanaGroups?.length;
+    }
+  }
+
+  if (!hasCompanyGroup) return { empresaIds: [], unidadeIds: [] };
   return getCompanyTicketScopeByName(svc, groupName);
 }
 
