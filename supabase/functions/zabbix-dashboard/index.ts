@@ -716,9 +716,11 @@ serve(async (req) => {
           object: 0,
           value: 1,
           severities,
+          selectTags: "extend",
           sortfield: ["clock"],
           sortorder: "DESC",
         };
+
         if (Array.isArray(hostgroup_ids) && hostgroup_ids.length > 0) {
           problemParams.groupids = hostgroup_ids;
         }
