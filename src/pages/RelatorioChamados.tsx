@@ -536,6 +536,7 @@ export default function RelatorioChamados() {
           </Button>
           <Button variant="outline" size="sm" onClick={exportXLSX}><FileSpreadsheet className="mr-2 h-4 w-4" /> Excel</Button>
           <Button variant="outline" size="sm" onClick={exportCSV}><Download className="mr-2 h-4 w-4" /> CSV</Button>
+          <Button variant="outline" size="sm" onClick={exportPDF}><FileText className="mr-2 h-4 w-4" /> PDF</Button>
         </div>
       </div>
 
