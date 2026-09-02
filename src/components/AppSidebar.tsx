@@ -19,6 +19,8 @@ import {
   AlertTriangle,
   Gauge,
   Link2,
+  BarChart3,
+
 } from "lucide-react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
