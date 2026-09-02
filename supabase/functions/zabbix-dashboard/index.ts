@@ -685,6 +685,7 @@ serve(async (req) => {
           hostgroup_ids,
           search,
           limit = 5000,
+          min_duration_sec = 300,
         } = body as {
           time_from: number;
           time_till: number;
@@ -692,7 +693,9 @@ serve(async (req) => {
           hostgroup_ids?: string[];
           search?: string;
           limit?: number;
+          min_duration_sec?: number;
         };
+
 
         if (!time_from || !time_till) {
           return new Response(JSON.stringify({ error: "time_from and time_till are required" }), {
