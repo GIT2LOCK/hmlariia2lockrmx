@@ -78,7 +78,8 @@ interface ZabbixEvent {
   acknowledged: boolean;
 }
 
-interface Empresa { id: number; razao_social: string; }
+interface Empresa { id: number; nome_fantasia: string; }
+interface Unidade { id: number; empresa_id: number; nome_unidade: string; hostname: string | null; abreviacao: string | null; }
 interface HostGroup { groupid: string; name: string; }
 
 const fmtDuration = (sec: number) => {
@@ -124,15 +125,24 @@ export default function RelatorioAlertasZabbix() {
   const [hostgroupId, setHostgroupId] = useState<string>("all");
   const [search, setSearch] = useState("");
 
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [ackFilter, setAckFilter] = useState<string>("all");
+  const [minDurationH, setMinDurationH] = useState<string>("0");
+  const [topN, setTopN] = useState<string>("10");
+
   const [loading, setLoading] = useState(false);
-  const [events, setEvents] = useState<ZabbixEvent[]>([]);
+  const [rawEvents, setRawEvents] = useState<ZabbixEvent[]>([]);
   const [openCount, setOpenCount] = useState<number>(0);
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
+  const [unidades, setUnidades] = useState<Unidade[]>([]);
   const [hostgroups, setHostgroups] = useState<HostGroup[]>([]);
 
   useEffect(() => {
-    supabase.from("empresas").select("id, razao_social").order("razao_social").then(({ data }) => {
-      setEmpresas((data as Empresa[]) || []);
+    supabase.from("empresas").select("id, nome_fantasia").order("nome_fantasia").then(({ data }) => {
+      setEmpresas(((data as Empresa[]) || []).filter((e) => !!e.nome_fantasia));
+    });
+    supabase.from("unidades").select("id, empresa_id, nome_unidade, hostname, abreviacao").then(({ data }) => {
+      setUnidades((data as Unidade[]) || []);
     });
   }, []);
 
@@ -193,7 +203,7 @@ export default function RelatorioAlertasZabbix() {
         }),
       ]);
       if (historyRes.error) throw historyRes.error;
-      setEvents((historyRes.data?.events as ZabbixEvent[]) || []);
+      setRawEvents((historyRes.data?.events as ZabbixEvent[]) || []);
       setOpenCount(Number(openRes.data?.count ?? 0));
       toast.success(`${historyRes.data?.total ?? 0} alertas encontrados`);
     } catch (e: any) {
@@ -202,6 +212,33 @@ export default function RelatorioAlertasZabbix() {
       setLoading(false);
     }
   };
+
+  // Tokens de hostname das unidades da empresa selecionada (Empresa -> hostnames).
+  const empresaTokens = useMemo(() => {
+    if (empresaId === "all") return null;
+    const tokens = unidades
+      .filter((u) => String(u.empresa_id) === empresaId)
+      .flatMap((u) => [u.hostname, u.abreviacao, u.nome_unidade])
+      .filter((v): v is string => !!v && v.trim().length >= 2)
+      .map((v) => v.trim().toLowerCase());
+    return Array.from(new Set(tokens));
+  }, [empresaId, unidades]);
+
+  const events = useMemo(() => {
+    const minSec = (Number(minDurationH) || 0) * 3600;
+    return rawEvents.filter((e) => {
+      if (statusFilter !== "all" && e.status !== statusFilter) return false;
+      if (ackFilter === "ack" && !e.acknowledged) return false;
+      if (ackFilter === "unack" && e.acknowledged) return false;
+      if (minSec > 0 && (e.duration_sec || 0) < minSec) return false;
+      if (empresaTokens) {
+        if (empresaTokens.length === 0) return false;
+        const haystack = `${e.hostname || ""} ${e.host_visible || ""} ${(e.groups || []).join(" ")}`.toLowerCase();
+        if (!empresaTokens.some((t) => haystack.includes(t))) return false;
+      }
+      return true;
+    });
+  }, [rawEvents, statusFilter, ackFilter, minDurationH, empresaTokens]);
 
   const total = events.length;
   const resolved = events.filter((e) => e.status === "RESOLVED").length;
@@ -252,6 +289,15 @@ export default function RelatorioAlertasZabbix() {
     }));
   }, [events]);
 
+  const topTriggers = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const e of events) map[e.name] = (map[e.name] || 0) + 1;
+    return Object.entries(map)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, Number(topN) || 10)
+      .map(([name, count]) => ({ host: name.length > 60 ? name.slice(0, 59) + "…" : name, count }));
+  }, [events, topN]);
+
   const topHosts = useMemo(() => {
     const map: Record<string, number> = {};
     for (const e of events) {
@@ -260,9 +306,9 @@ export default function RelatorioAlertasZabbix() {
     }
     return Object.entries(map)
       .sort(([, a], [, b]) => b - a)
-      .slice(0, 10)
+      .slice(0, Number(topN) || 10)
       .map(([host, count]) => ({ host, count }));
-  }, [events]);
+  }, [events, topN]);
 
   const rangeLabel = () => {
     const range = computeRange();
@@ -371,7 +417,7 @@ export default function RelatorioAlertasZabbix() {
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos</SelectItem>
-                {empresas.map((e) => <SelectItem key={e.id} value={String(e.id)}>{e.razao_social}</SelectItem>)}
+                {empresas.map((e) => <SelectItem key={e.id} value={String(e.id)}>{e.nome_fantasia}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -409,6 +455,45 @@ export default function RelatorioAlertasZabbix() {
               </div>
             </>
           )}
+
+          <div className="space-y-1.5">
+            <Label>Situação do evento</Label>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="OPEN">Somente em aberto</SelectItem>
+                <SelectItem value="RESOLVED">Somente resolvidos</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Reconhecimento</Label>
+            <Select value={ackFilter} onValueChange={setAckFilter}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="ack">Reconhecidos</SelectItem>
+                <SelectItem value="unack">Não reconhecidos</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Duração mínima (horas)</Label>
+            <Input type="number" min="0" step="0.5" value={minDurationH} onChange={(e) => setMinDurationH(e.target.value)} />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Top N (rankings)</Label>
+            <Select value={topN} onValueChange={setTopN}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {["5", "10", "15", "25", "50"].map((n) => <SelectItem key={n} value={n}>{n}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
 
           <div className="space-y-1.5 md:col-span-2">
             <Label>Severidades</Label>
@@ -504,7 +589,7 @@ export default function RelatorioAlertasZabbix() {
         </Card>
 
         <Card className="lg:col-span-3">
-          <CardHeader><CardTitle className="text-base">Top 10 hosts com mais alertas</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base">Top {topN} hosts com mais alertas</CardTitle></CardHeader>
           <CardContent style={{ height: Math.max(288, topHosts.length * 40 + 40) }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={topHosts} layout="vertical" margin={{ left: 8, right: 16, top: 8, bottom: 8 }}>
@@ -513,6 +598,20 @@ export default function RelatorioAlertasZabbix() {
                 <YAxis type="category" dataKey="host" width={200} interval={0} tick={{ fontSize: 12 }} />
                 <Tooltip />
                 <Bar dataKey="count" fill="hsl(var(--primary))" barSize={20} />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+        <Card className="lg:col-span-3">
+          <CardHeader><CardTitle className="text-base">Top {topN} triggers mais recorrentes</CardTitle></CardHeader>
+          <CardContent style={{ height: Math.max(288, topTriggers.length * 40 + 40) }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={topTriggers} layout="vertical" margin={{ left: 8, right: 16, top: 8, bottom: 8 }}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                <XAxis type="number" allowDecimals={false} />
+                <YAxis type="category" dataKey="host" width={300} interval={0} tick={{ fontSize: 11 }} />
+                <Tooltip />
+                <Bar dataKey="count" fill="hsl(215 85% 65%)" barSize={18} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
