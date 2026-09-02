@@ -444,6 +444,82 @@ export default function RelatorioChamados() {
     URL.revokeObjectURL(url);
   };
 
+  const exportPDF = () => {
+    if (!current.length) return toast.error("Sem dados para exportar");
+    const doc = new jsPDF({ orientation: "landscape" });
+    const periodo = ranges
+      ? `${format(ranges.from, "dd/MM/yyyy HH:mm")} a ${format(ranges.till, "dd/MM/yyyy HH:mm")}`
+      : "—";
+
+    doc.setFontSize(16);
+    doc.text("Relatório de Chamados", 14, 16);
+    doc.setFontSize(10);
+    doc.text(`Período: ${periodo}`, 14, 23);
+    doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 14, 28);
+
+    autoTable(doc, {
+      startY: 34,
+      head: [["Indicador", "Valor"]],
+      body: [
+        ["Total de chamados", String(kpi.total)],
+        ["Em aberto", String(kpi.abertos)],
+        ["Encerrados", String(kpi.encerrados)],
+        ["Tempo médio de 1º atendimento", fmtDuration(kpi.tma)],
+        ["Tempo médio de solução (MTTR)", fmtDuration(kpi.mttr)],
+        ["SLA de solução cumprido (%)", kpi.slaResPct !== null ? `${kpi.slaResPct}%` : "—"],
+        ["SLA de solução violados", String(kpi.slaResViolados)],
+        ["Operadora com mais chamados", byOperadora[0]?.name || "—"],
+        ["Unidade com mais chamados", byUnidade[0]?.name || "—"],
+      ],
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [12, 25, 92] },
+    });
+
+    const rankSection = (title: string, rows: { name: string; total: number }[]) => {
+      if (!rows.length) return;
+      autoTable(doc, {
+        startY: ((doc as any).lastAutoTable?.finalY ?? 34) + 8,
+        head: [[title, "Chamados"]],
+        body: rows.slice(0, 10).map((r) => [r.name, String(r.total)]),
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [12, 25, 92] },
+      });
+    };
+
+    rankSection("Empresa", byEmpresa);
+    rankSection("Unidade", byUnidade);
+    rankSection("Operadora", byOperadora);
+    rankSection("Categoria", byCategoria);
+    rankSection("Técnico", byTecnico);
+    rankSection("Status", byStatus);
+
+    if (mttrOperadora.length) {
+      autoTable(doc, {
+        startY: ((doc as any).lastAutoTable?.finalY ?? 34) + 8,
+        head: [["Operadora", "MTTR", "Chamados"]],
+        body: mttrOperadora.slice(0, 10).map((r) => [r.name, fmtDuration(r.minutos), String(r.chamados)]),
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [12, 25, 92] },
+      });
+    }
+
+    doc.addPage();
+    doc.setFontSize(13);
+    doc.text("Detalhamento dos chamados", 14, 16);
+    const rows = detailRows();
+    const cols = ["Código", "Abertura", "Empresa", "Unidade", "Operadora", "Título", "Prioridade", "Status", "Técnico", "SLA solução"];
+    autoTable(doc, {
+      startY: 22,
+      head: [cols],
+      body: rows.map((r) => cols.map((c) => String((r as any)[c] ?? "—"))),
+      styles: { fontSize: 7, cellPadding: 1.5 },
+      headStyles: { fillColor: [12, 25, 92] },
+    });
+
+    doc.save(`relatorio-chamados-${format(new Date(), "yyyy-MM-dd")}.pdf`);
+  };
+
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
