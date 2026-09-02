@@ -770,11 +770,14 @@ serve(async (req) => {
             eventid: e.eventid,
             clock: startClock,
             name: trg.description || e.name,
+            triggerid: e.objectid || null,
             severity: Number(e.severity),
             hostid: host.hostid || null,
             hostname: host.host || "",
             host_visible: host.name || host.host || "",
             groups: (trg.groups || []).map((g: any) => g.name),
+            groupids: (trg.groups || []).map((g: any) => String(g.groupid)),
+            tags: (e.tags || []).map((t: any) => ({ tag: String(t.tag || ""), value: String(t.value ?? "") })),
             duration_sec: Math.max(0, endClock - startClock),
             status: recoveryClock ? "RESOLVED" : "OPEN",
             resolved_at: recoveryClock ? Number(recoveryClock) : null,
@@ -782,8 +785,9 @@ serve(async (req) => {
           };
         });
 
-        // Apenas alertas com duração >= 5 minutos (300s)
-        let filtered = result_events.filter((r: any) => r.duration_sec >= 300);
+        const minDur = Math.max(0, Number(min_duration_sec) || 0);
+        let filtered = result_events.filter((r: any) => r.duration_sec >= minDur);
+
         if (search && search.trim()) {
           const s = search.trim().toLowerCase();
           filtered = filtered.filter((r: any) =>
