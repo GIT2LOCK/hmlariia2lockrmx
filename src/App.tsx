@@ -21,6 +21,7 @@ import BaseConhecimento from "./pages/BaseConhecimento";
 import DashboardZabbix from "./pages/DashboardZabbix";
 import ZabbixTvView from "./pages/ZabbixTvView";
 import Relatorios from "./pages/Relatorios";
+import RelatorioChamados from "./pages/RelatorioChamados";
 import Chamados from "./pages/Chamados";
 import ChamadosKanban from "./pages/ChamadosKanban";
 import DashboardAtendimento from "./pages/DashboardAtendimento";
@@ -70,6 +71,7 @@ const App = () => (
               <Route path="permissoes" element={<ProtectedRoute tabKey="permissoes" forbidRoles={["CLIENTE"]}><Permissoes /></ProtectedRoute>} />
               <Route path="base-conhecimento" element={<ProtectedRoute tabKey="base_conhecimento" forbidRoles={["CLIENTE"]}><BaseConhecimento /></ProtectedRoute>} />
               <Route path="relatorios" element={<ProtectedRoute tabKey="relatorios" forbidRoles={["CLIENTE"]}><Relatorios /></ProtectedRoute>} />
+              <Route path="relatorios/chamados" element={<ProtectedRoute tabKey="relatorios" forbidRoles={["CLIENTE"]}><RelatorioChamados /></ProtectedRoute>} />
               <Route path="chamados" element={<ProtectedRoute tabKey="chamados"><Chamados /></ProtectedRoute>} />
               <Route path="chamados-kanban" element={<ProtectedRoute tabKey="chamados" forbidRoles={["CLIENTE"]}><ChamadosKanban /></ProtectedRoute>} />
               <Route path="atendimento" element={<ProtectedRoute tabKey="atendimento" forbidRoles={["CLIENTE"]}><DashboardAtendimento /></ProtectedRoute>} />
