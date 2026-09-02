@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import {
   Activity, ArrowDownRight, ArrowUpRight, BarChart3, Building2, CheckCircle2, Download,
-  FileSpreadsheet, Loader2, RefreshCw, Search, Timer, Trophy, Wifi,
+  FileSpreadsheet, FileText, Loader2, RefreshCw, Search, Timer, Trophy, Wifi,
 } from "lucide-react";
 import {
   Bar, BarChart, CartesianGrid, Cell, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
@@ -20,6 +20,9 @@ import {
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+
 
 /* ----------------------------- domínio ----------------------------- */
 
