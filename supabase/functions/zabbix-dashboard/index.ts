@@ -685,6 +685,7 @@ serve(async (req) => {
           hostgroup_ids,
           search,
           limit = 5000,
+          min_duration_sec = 300,
         } = body as {
           time_from: number;
           time_till: number;
@@ -692,7 +693,9 @@ serve(async (req) => {
           hostgroup_ids?: string[];
           search?: string;
           limit?: number;
+          min_duration_sec?: number;
         };
+
 
         if (!time_from || !time_till) {
           return new Response(JSON.stringify({ error: "time_from and time_till are required" }), {
@@ -713,9 +716,11 @@ serve(async (req) => {
           object: 0,
           value: 1,
           severities,
+          selectTags: "extend",
           sortfield: ["clock"],
           sortorder: "DESC",
         };
+
         if (Array.isArray(hostgroup_ids) && hostgroup_ids.length > 0) {
           problemParams.groupids = hostgroup_ids;
         }
@@ -765,11 +770,14 @@ serve(async (req) => {
             eventid: e.eventid,
             clock: startClock,
             name: trg.description || e.name,
+            triggerid: e.objectid || null,
             severity: Number(e.severity),
             hostid: host.hostid || null,
             hostname: host.host || "",
             host_visible: host.name || host.host || "",
             groups: (trg.groups || []).map((g: any) => g.name),
+            groupids: (trg.groups || []).map((g: any) => String(g.groupid)),
+            tags: (e.tags || []).map((t: any) => ({ tag: String(t.tag || ""), value: String(t.value ?? "") })),
             duration_sec: Math.max(0, endClock - startClock),
             status: recoveryClock ? "RESOLVED" : "OPEN",
             resolved_at: recoveryClock ? Number(recoveryClock) : null,
@@ -777,8 +785,9 @@ serve(async (req) => {
           };
         });
 
-        // Apenas alertas com duração >= 5 minutos (300s)
-        let filtered = result_events.filter((r: any) => r.duration_sec >= 300);
+        const minDur = Math.max(0, Number(min_duration_sec) || 0);
+        let filtered = result_events.filter((r: any) => r.duration_sec >= minDur);
+
         if (search && search.trim()) {
           const s = search.trim().toLowerCase();
           filtered = filtered.filter((r: any) =>
