@@ -466,7 +466,7 @@ export default function RelatorioAlertasZabbix() {
     }
     return Object.entries(map)
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([k, v]) => ({ bucket: bucketLabel(k, granularity), key: k, ...v }));
+      .map(([k, v]) => ({ bucket: bucketLabel(k, granularity), key: k, ...v }) as { bucket: string; key: string; total: number } & Record<string, number | string>);
   }, [events, granularity]);
 
   const seriesTicks = useMemo(
