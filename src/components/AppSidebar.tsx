@@ -19,6 +19,8 @@ import {
   AlertTriangle,
   Gauge,
   Link2,
+  BarChart3,
+
 } from "lucide-react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -62,6 +64,7 @@ const menuItems: MenuItem[] = [
   { title: "Responsáveis", url: "/dashboard/responsaveis", icon: UserCheck, permission: "registry.view", tabKey: "responsaveis" },
   { title: "Base de Conhecimento", url: "/dashboard/base-conhecimento", icon: BookOpen, tabKey: "base_conhecimento" },
   { title: "Equipes", url: "/dashboard/equipes", icon: Users, permission: "team.view", tabKey: "equipes" },
+  { title: "Relatório de Chamados", url: "/dashboard/relatorios/chamados", icon: BarChart3, permission: "registry.view", tabKey: "relatorios" },
   { title: "Relatórios Zabbix", url: "/dashboard/zabbix/relatorio-alertas", icon: AlertTriangle, permission: "registry.view", tabKey: "zabbix" },
   { title: "Monitoramento", url: "/dashboard/zabbix", icon: Activity, permission: "registry.view", tabKey: "zabbix" },
   { title: "Linkai", url: "/dashboard/linkai", icon: Link2, tabKey: "linkai" },
