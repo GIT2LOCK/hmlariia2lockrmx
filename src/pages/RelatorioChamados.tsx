@@ -715,34 +715,32 @@ export default function RelatorioChamados() {
       (v) => `${Math.round(v)}h`,
       true,
     );
-    pdfHeatmap(
+    pdfCalendarHeatmap(
       doc, { x: M + colW + 6, y: rowY2, w: colW, h: chartH },
-      "Abertura por dia da semana x hora",
-      DOW,
-      Array.from({ length: 24 }, (_, h) => String(h).padStart(2, "0")),
-      heatDowHour,
+      "Calendário de aberturas (chamados por dia)",
+      calendarioDias,
     );
 
     /* ---------- 4. SLA e criticidade ---------- */
     newSection("SLA e criticidade");
     pdfHBarChart(
       doc, { x: M, y: rowY1, w: colW, h: chartH },
-      "Unidades com mais violações de SLA",
-      violPorUnidade.slice(0, 10).map((r) => ({ name: r.name, value: r.violados, color: PDF_COLORS.red })),
+      "Analistas com mais violações de SLA",
+      violPorTecnico.slice(0, 10).map((r) => ({ name: r.name, value: r.violados, color: PDF_COLORS.red })),
     );
     pdfHBarChart(
       doc, { x: M + colW + 6, y: rowY1, w: colW, h: chartH },
-      "Operadoras com mais violações de SLA",
+      "Operadoras com mais violações de SLA (chamado, link ou unidade)",
       violPorOperadora.slice(0, 10).map((r) => ({ name: r.name, value: r.violados, color: PDF_COLORS.orange })),
     );
-    pdfBarChart(
+    pdfHBarChart(
       doc, { x: M, y: rowY2, w: colW, h: chartH },
-      "% dentro do SLA por unidade (Top 12) x meta",
-      crossUnidade.slice(0, 12).map((r) => r.name.slice(0, 12)),
-      [
-        { name: "% dentro do SLA", color: PDF_COLORS.blue, values: crossUnidade.slice(0, 12).map((r) => r.slaPct ?? 0) },
-        { name: `Meta ${SLA_META}%`, color: PDF_COLORS.red, values: crossUnidade.slice(0, 12).map(() => SLA_META) },
-      ],
+      `% dentro do SLA por unidade (Top 10) — meta ${SLA_META}%`,
+      crossUnidade.slice(0, 10).map((r) => ({
+        name: r.name,
+        value: r.slaPct ?? 0,
+        color: (r.slaPct ?? 0) >= SLA_META ? PDF_COLORS.teal : PDF_COLORS.red,
+      })),
       (v) => `${Math.round(v)}%`,
     );
     pdfHeatmap(
