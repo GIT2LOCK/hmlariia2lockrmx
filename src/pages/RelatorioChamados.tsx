@@ -22,6 +22,11 @@ import { ptBR } from "date-fns/locale";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import {
+  PDF_COLORS, SERIES_PALETTE, pdfBarChart, pdfCoverPage, pdfDonutChart, pdfGaugeBar,
+  pdfHBarChart, pdfHeatmap, pdfKpiCards, pdfLineChart, pdfPageFooter, pdfPageHeader,
+  pdfParetoChart, pdfStackedBarChart, type KpiItem,
+} from "@/lib/pdfCharts";
 
 
 /* ----------------------------- domínio ----------------------------- */
