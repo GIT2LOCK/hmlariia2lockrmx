@@ -308,7 +308,7 @@ export function pdfHBarChart(
   fmtV: (v: number) => string = (v) => String(v),
 ) {
   pdfPanel(doc, box, title);
-  const top = Math.max(1, ...rows.map((r) => r.value));
+  const top = Math.max(1, ...rows.map((r) => Math.max(0, r.value)));
   const labelW = Math.min(38, box.w * 0.4);
   const startX = box.x + 4 + labelW;
   const availW = box.w - labelW - 24;
@@ -319,7 +319,7 @@ export function pdfHBarChart(
     const y = box.y + 10 + i * rowH;
     setText(doc, PDF_COLORS.text);
     doc.text(doc.splitTextToSize(r.name, labelW)[0], box.x + 4, y + rowH * 0.6);
-    const w = Math.max(0.6, (r.value / top) * availW);
+    const w = Math.max(0.6, (Math.max(0, r.value) / top) * availW);
     setFill(doc, r.color || PDF_COLORS.blue);
     doc.rect(startX, y + rowH * 0.15, w, rowH * 0.6, "F");
     setText(doc, PDF_COLORS.muted);
@@ -351,7 +351,7 @@ export function pdfDonutChart(
     setFill(doc, s.color);
     for (let i = 0; i < steps; i++) {
       const a1 = start + (angle * i) / steps;
-      const a2 = start + (angle * (i + 1)) / steps;
+      const a2 = start + (angle * (i + 1)) / steps + 0.006;
       doc.triangle(
         cx, cy,
         cx + Math.cos(a1) * r, cy + Math.sin(a1) * r,
@@ -394,7 +394,11 @@ export function pdfHeatmap(
   base: RGB = PDF_COLORS.navy,
 ) {
   pdfPanel(doc, box, title);
-  const labelW = Math.min(34, box.w * 0.28);
+  doc.setFontSize(5.4);
+  const labelW = Math.min(
+    box.w * 0.28,
+    Math.max(8, ...rowLabels.map((l) => doc.getTextWidth(String(l)))) + 1.5,
+  );
   const gridX = box.x + 3 + labelW;
   const gridY = box.y + 13;
   const gridW = box.w - labelW - 8;
