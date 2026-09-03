@@ -594,7 +594,7 @@ export default function RelatorioChamados() {
     const byTipo = rank(current, (t) => label(t.tipo_chamado) || "—");
     const byNivel = rank(current, (t) => t.nivel_escalonamento || "—");
 
-    const DOW = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+    
     const calendarioDias = (() => {
       const m = new Map<string, number>();
       for (const t of current) {
