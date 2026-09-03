@@ -568,10 +568,25 @@ export default function RelatorioChamados() {
       return st.length ? Math.round((st.filter((s) => s === "CUMPRIDO").length / st.length) * 100) : 0;
     });
 
-    const violPorUnidade = crossBy((t) => names.unidade.get(t.unidade_id || -1) || "Sem unidade")
+    /* Operadora efetiva: do chamado, senão do link, senão do link principal da unidade */
+    const linkOperadora = new Map(lookups.links.map((l) => [l.id, l.operadora_id]));
+    const unidadeOperadora = new Map<number, number>();
+    for (const l of lookups.links) {
+      if (!unidadeOperadora.has(l.unidade_id) || l.finalidade === "principal") {
+        unidadeOperadora.set(l.unidade_id, l.operadora_id);
+      }
+    }
+    const operadoraNome = (t: Ticket) => {
+      const id = t.operadora_id
+        ?? (t.link_id ? linkOperadora.get(t.link_id) : undefined)
+        ?? (t.unidade_id ? unidadeOperadora.get(t.unidade_id) : undefined);
+      return (id ? names.operadora.get(id) : undefined) || "Sem operadora";
+    };
+
+    const violPorTecnico = crossBy((t) => names.tecnico.get(t.tecnico_id || -1) || "Sem técnico")
       .filter((r) => r.violados > 0)
       .sort((a, b) => b.violados - a.violados);
-    const violPorOperadora = crossBy((t) => names.operadora.get(t.operadora_id || -1) || "Sem operadora")
+    const violPorOperadora = crossBy(operadoraNome)
       .filter((r) => r.violados > 0)
       .sort((a, b) => b.violados - a.violados);
 
@@ -580,14 +595,16 @@ export default function RelatorioChamados() {
     const byNivel = rank(current, (t) => t.nivel_escalonamento || "—");
 
     const DOW = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
-    const heatDowHour = DOW.map((_, d) =>
-      Array.from({ length: 24 }, (_, h) =>
-        current.filter((t) => {
-          const dt = parseISO(t.data_abertura);
-          return dt.getDay() === d && dt.getHours() === h;
-        }).length,
-      ),
-    );
+    const calendarioDias = (() => {
+      const m = new Map<string, number>();
+      for (const t of current) {
+        const k = format(parseISO(t.data_abertura), "yyyy-MM-dd");
+        m.set(k, (m.get(k) || 0) + 1);
+      }
+      return Array.from(m.entries())
+        .map(([date, value]) => ({ date, value }))
+        .sort((a, b) => a.date.localeCompare(b.date));
+    })();
 
     const topUnidades = byUnidade.slice(0, 10).map((r) => r.name);
     const heatUnidadePrio = topUnidades.map((u) =>
