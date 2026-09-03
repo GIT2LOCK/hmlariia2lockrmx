@@ -23,7 +23,7 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import {
-  PDF_COLORS, SERIES_PALETTE, pdfBarChart, pdfCoverPage, pdfDonutChart, pdfGaugeBar,
+  PDF_COLORS, SERIES_PALETTE, pdfBarChart, pdfCalendarHeatmap, pdfCoverPage, pdfDonutChart, pdfGaugeBar,
   pdfHBarChart, pdfHeatmap, pdfKpiCards, pdfLineChart, pdfPageFooter, pdfPageHeader,
   pdfParetoChart, pdfStackedBarChart, type KpiItem,
 } from "@/lib/pdfCharts";
