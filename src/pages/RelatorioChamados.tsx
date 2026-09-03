@@ -23,7 +23,7 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import {
-  PDF_COLORS, SERIES_PALETTE, pdfBarChart, pdfCoverPage, pdfDonutChart, pdfGaugeBar,
+  PDF_COLORS, SERIES_PALETTE, pdfBarChart, pdfCalendarHeatmap, pdfCoverPage, pdfDonutChart, pdfGaugeBar,
   pdfHBarChart, pdfHeatmap, pdfKpiCards, pdfLineChart, pdfPageFooter, pdfPageHeader,
   pdfParetoChart, pdfStackedBarChart, type KpiItem,
 } from "@/lib/pdfCharts";
@@ -568,10 +568,25 @@ export default function RelatorioChamados() {
       return st.length ? Math.round((st.filter((s) => s === "CUMPRIDO").length / st.length) * 100) : 0;
     });
 
-    const violPorUnidade = crossBy((t) => names.unidade.get(t.unidade_id || -1) || "Sem unidade")
+    /* Operadora efetiva: do chamado, senão do link, senão do link principal da unidade */
+    const linkOperadora = new Map(lookups.links.map((l) => [l.id, l.operadora_id]));
+    const unidadeOperadora = new Map<number, number>();
+    for (const l of lookups.links) {
+      if (!unidadeOperadora.has(l.unidade_id) || l.finalidade === "principal") {
+        unidadeOperadora.set(l.unidade_id, l.operadora_id);
+      }
+    }
+    const operadoraNome = (t: Ticket) => {
+      const id = t.operadora_id
+        ?? (t.link_id ? linkOperadora.get(t.link_id) : undefined)
+        ?? (t.unidade_id ? unidadeOperadora.get(t.unidade_id) : undefined);
+      return (id ? names.operadora.get(id) : undefined) || "Sem operadora";
+    };
+
+    const violPorTecnico = crossBy((t) => names.tecnico.get(t.tecnico_id || -1) || "Sem técnico")
       .filter((r) => r.violados > 0)
       .sort((a, b) => b.violados - a.violados);
-    const violPorOperadora = crossBy((t) => names.operadora.get(t.operadora_id || -1) || "Sem operadora")
+    const violPorOperadora = crossBy(operadoraNome)
       .filter((r) => r.violados > 0)
       .sort((a, b) => b.violados - a.violados);
 
@@ -579,15 +594,17 @@ export default function RelatorioChamados() {
     const byTipo = rank(current, (t) => label(t.tipo_chamado) || "—");
     const byNivel = rank(current, (t) => t.nivel_escalonamento || "—");
 
-    const DOW = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
-    const heatDowHour = DOW.map((_, d) =>
-      Array.from({ length: 24 }, (_, h) =>
-        current.filter((t) => {
-          const dt = parseISO(t.data_abertura);
-          return dt.getDay() === d && dt.getHours() === h;
-        }).length,
-      ),
-    );
+    
+    const calendarioDias = (() => {
+      const m = new Map<string, number>();
+      for (const t of current) {
+        const k = format(parseISO(t.data_abertura), "yyyy-MM-dd");
+        m.set(k, (m.get(k) || 0) + 1);
+      }
+      return Array.from(m.entries())
+        .map(([date, value]) => ({ date, value }))
+        .sort((a, b) => a.date.localeCompare(b.date));
+    })();
 
     const topUnidades = byUnidade.slice(0, 10).map((r) => r.name);
     const heatUnidadePrio = topUnidades.map((u) =>
@@ -698,34 +715,32 @@ export default function RelatorioChamados() {
       (v) => `${Math.round(v)}h`,
       true,
     );
-    pdfHeatmap(
+    pdfCalendarHeatmap(
       doc, { x: M + colW + 6, y: rowY2, w: colW, h: chartH },
-      "Abertura por dia da semana x hora",
-      DOW,
-      Array.from({ length: 24 }, (_, h) => String(h).padStart(2, "0")),
-      heatDowHour,
+      "Calendário de aberturas (chamados por dia)",
+      calendarioDias,
     );
 
     /* ---------- 4. SLA e criticidade ---------- */
     newSection("SLA e criticidade");
     pdfHBarChart(
       doc, { x: M, y: rowY1, w: colW, h: chartH },
-      "Unidades com mais violações de SLA",
-      violPorUnidade.slice(0, 10).map((r) => ({ name: r.name, value: r.violados, color: PDF_COLORS.red })),
+      "Analistas com mais violações de SLA",
+      violPorTecnico.slice(0, 10).map((r) => ({ name: r.name, value: r.violados, color: PDF_COLORS.red })),
     );
     pdfHBarChart(
       doc, { x: M + colW + 6, y: rowY1, w: colW, h: chartH },
-      "Operadoras com mais violações de SLA",
+      "Operadoras com mais violações de SLA (chamado, link ou unidade)",
       violPorOperadora.slice(0, 10).map((r) => ({ name: r.name, value: r.violados, color: PDF_COLORS.orange })),
     );
-    pdfBarChart(
+    pdfHBarChart(
       doc, { x: M, y: rowY2, w: colW, h: chartH },
-      "% dentro do SLA por unidade (Top 12) x meta",
-      crossUnidade.slice(0, 12).map((r) => r.name.slice(0, 12)),
-      [
-        { name: "% dentro do SLA", color: PDF_COLORS.blue, values: crossUnidade.slice(0, 12).map((r) => r.slaPct ?? 0) },
-        { name: `Meta ${SLA_META}%`, color: PDF_COLORS.red, values: crossUnidade.slice(0, 12).map(() => SLA_META) },
-      ],
+      `% dentro do SLA por unidade (Top 10) — meta ${SLA_META}%`,
+      crossUnidade.slice(0, 10).map((r) => ({
+        name: r.name,
+        value: r.slaPct ?? 0,
+        color: (r.slaPct ?? 0) >= SLA_META ? PDF_COLORS.teal : PDF_COLORS.red,
+      })),
       (v) => `${Math.round(v)}%`,
     );
     pdfHeatmap(

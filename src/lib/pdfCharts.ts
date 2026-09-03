@@ -540,3 +540,100 @@ export function pdfCoverPage(
   }
   setText(doc, PDF_COLORS.text);
 }
+
+/** Calendário (estilo contribuições): semanas nas colunas, dias da semana nas linhas. */
+export function pdfCalendarHeatmap(
+  doc: jsPDF,
+  box: Box,
+  title: string,
+  days: { date: string; value: number }[],
+  base: RGB = PDF_COLORS.navy,
+) {
+  pdfPanel(doc, box, title);
+  const map = new Map(days.map((d) => [d.date, d.value]));
+  const parse = (s: string) => {
+    const [y, m, d] = s.split("-").map(Number);
+    return new Date(y, m - 1, d);
+  };
+  const iso = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const sorted = days.map((d) => d.date).sort();
+  if (!sorted.length) return;
+  const start = parse(sorted[0]);
+  start.setDate(start.getDate() - start.getDay());
+  const end = parse(sorted[sorted.length - 1]);
+  end.setDate(end.getDate() + (6 - end.getDay()));
+  const weeks = Math.max(1, Math.round((end.getTime() - start.getTime()) / (7 * 86400000)) + 1);
+  const dowLabels = ["D", "S", "T", "Q", "Q", "S", "S"];
+  const monthLabels = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+
+  const gridX = box.x + 10;
+  const gridY = box.y + 16;
+  const gridW = box.w - 16;
+  const gridH = box.h - 26;
+  const cell = Math.max(1.4, Math.min(gridW / weeks, gridH / 7));
+  const max = Math.max(1, ...days.map((d) => d.value));
+
+  doc.setFontSize(5);
+  setText(doc, PDF_COLORS.muted);
+  dowLabels.forEach((l, i) => {
+    if (i % 2 === 0) doc.text(l, gridX - 1.5, gridY + cell * i + cell * 0.72, { align: "right" });
+  });
+
+  let lastMonth = -1;
+  for (let w = 0; w < weeks; w++) {
+    for (let d = 0; d < 7; d++) {
+      const day = new Date(start);
+      day.setDate(start.getDate() + w * 7 + d);
+      const key = iso(day);
+      const v = map.get(key);
+      const x = gridX + cell * w;
+      const y = gridY + cell * d;
+      if (v === undefined) {
+        setFill(doc, PDF_COLORS.white);
+      } else {
+        const t = v / max;
+        setFill(doc, [
+          Math.round(255 - (255 - base[0]) * (0.15 + 0.85 * t)),
+          Math.round(255 - (255 - base[1]) * (0.15 + 0.85 * t)),
+          Math.round(255 - (255 - base[2]) * (0.15 + 0.85 * t)),
+        ] as RGB);
+      }
+      setDraw(doc, PDF_COLORS.grid);
+      doc.setLineWidth(0.12);
+      doc.rect(x, y, cell - 0.3, cell - 0.3, "FD");
+      if (v && cell >= 5.5) {
+        setText(doc, v / max > 0.55 ? PDF_COLORS.white : PDF_COLORS.text);
+        doc.setFontSize(Math.min(4.6, cell * 0.55));
+        doc.text(String(v), x + (cell - 0.3) / 2, y + cell * 0.68, { align: "center" });
+        doc.setFontSize(5);
+      }
+      if (d === 0 && day.getMonth() !== lastMonth) {
+        lastMonth = day.getMonth();
+        setText(doc, PDF_COLORS.muted);
+        doc.setFontSize(5);
+        doc.text(monthLabels[lastMonth], x + cell / 2, gridY - 1.5, { align: "center" });
+      }
+    }
+  }
+
+  // legenda de intensidade
+  const lx = gridX;
+  const ly = gridY + cell * 7 + 4;
+  setText(doc, PDF_COLORS.muted);
+  doc.setFontSize(5);
+  doc.text("0", lx, ly + 1.6);
+  for (let i = 0; i < 5; i++) {
+    const t = 0.15 + (0.85 * i) / 4;
+    setFill(doc, [
+      Math.round(255 - (255 - base[0]) * t),
+      Math.round(255 - (255 - base[1]) * t),
+      Math.round(255 - (255 - base[2]) * t),
+    ] as RGB);
+    setDraw(doc, PDF_COLORS.grid);
+    doc.setLineWidth(0.12);
+    doc.rect(lx + 2.5 + i * 3, ly - 1.2, 2.6, 2.6, "FD");
+  }
+  doc.text(`máx ${max}/dia`, lx + 19, ly + 1.6);
+  setText(doc, PDF_COLORS.text);
+}
