@@ -444,76 +444,416 @@ export default function RelatorioChamados() {
     URL.revokeObjectURL(url);
   };
 
+  /* --------------------------- exportação PDF --------------------------- */
+
+  const SLA_META = 95;
+
+  const activeFilterLabels = () => {
+    const out: string[] = [];
+    if (empresaId !== "all") out.push(`Empresa: ${names.empresa.get(Number(empresaId)) || empresaId}`);
+    if (unidadeId !== "all") out.push(`Unidade: ${names.unidade.get(Number(unidadeId)) || unidadeId}`);
+    if (operadoraId !== "all") out.push(`Operadora: ${names.operadora.get(Number(operadoraId)) || operadoraId}`);
+    if (linkId !== "all") out.push(`Link: ${names.link.get(Number(linkId)) || linkId}`);
+    if (tecnicoId !== "all") out.push(`Técnico: ${names.tecnico.get(Number(tecnicoId)) || tecnicoId}`);
+    if (filaId !== "all") out.push(`Fila: ${names.fila.get(Number(filaId)) || filaId}`);
+    if (grupoId !== "all") out.push(`Equipe: ${names.grupo.get(Number(grupoId)) || grupoId}`);
+    if (categoriaId !== "all") out.push(`Categoria: ${names.categoria.get(Number(categoriaId)) || categoriaId}`);
+    if (tipoChamado !== "all") out.push(`Tipo: ${tipoChamado}`);
+    if (nivel !== "all") out.push(`Nível: ${nivel}`);
+    if (origem !== "all") out.push(`Origem: ${origem}`);
+    if (slaFilter !== "all") out.push(`SLA: ${slaFilter}`);
+    if (statusSel.length) out.push(`Status: ${statusSel.map(label).join(", ")}`);
+    if (prioridadeSel.length) out.push(`Prioridade: ${prioridadeSel.join(", ")}`);
+    if (search.trim()) out.push(`Busca: "${search.trim()}"`);
+    return out;
+  };
+
+  /** Métricas agregadas por dimensão, usadas nas tabelas cruzadas do PDF. */
+  const crossBy = (keyOf: (t: Ticket) => string) => {
+    const map = new Map<string, Ticket[]>();
+    for (const t of current) {
+      const k = keyOf(t);
+      map.set(k, [...(map.get(k) || []), t]);
+    }
+    return Array.from(map.entries())
+      .map(([name, list]) => {
+        const s = summarize(list);
+        return {
+          name,
+          total: s.total,
+          abertos: s.abertos,
+          encerrados: s.encerrados,
+          mttr: s.mttr,
+          tma: s.tma,
+          slaPct: s.slaResPct,
+          violados: s.slaResViolados,
+          criticos: list.filter((t) => t.prioridade === "CRITICO").length,
+        };
+      })
+      .sort((a, b) => b.total - a.total);
+  };
+
   const exportPDF = () => {
     if (!current.length) return toast.error("Sem dados para exportar");
-    const doc = new jsPDF({ orientation: "landscape" });
+    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+    const W = doc.internal.pageSize.getWidth();
     const periodo = ranges
       ? `${format(ranges.from, "dd/MM/yyyy HH:mm")} a ${format(ranges.till, "dd/MM/yyyy HH:mm")}`
       : "—";
+    const geradoEm = format(new Date(), "dd/MM/yyyy HH:mm");
+    const footer = `Ariia 2lock · Relatório de Chamados · ${periodo}`;
 
-    doc.setFontSize(16);
-    doc.text("Relatório de Chamados", 14, 16);
-    doc.setFontSize(10);
-    doc.text(`Período: ${periodo}`, 14, 23);
-    doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 14, 28);
+    const M = 12;
+    const colW = (W - M * 2 - 6) / 2;
+    const rowY1 = 24;
+    const rowY2 = 112;
+    const chartH = 82;
 
-    autoTable(doc, {
-      startY: 34,
-      head: [["Indicador", "Valor"]],
-      body: [
-        ["Total de chamados", String(kpi.total)],
-        ["Em aberto", String(kpi.abertos)],
-        ["Encerrados", String(kpi.encerrados)],
-        ["Tempo médio de 1º atendimento", fmtDuration(kpi.tma)],
-        ["Tempo médio de solução (MTTR)", fmtDuration(kpi.mttr)],
-        ["SLA de solução cumprido (%)", kpi.slaResPct !== null ? `${kpi.slaResPct}%` : "—"],
-        ["SLA de solução violados", String(kpi.slaResViolados)],
-        ["Operadora com mais chamados", byOperadora[0]?.name || "—"],
-        ["Unidade com mais chamados", byUnidade[0]?.name || "—"],
-      ],
-      styles: { fontSize: 9 },
-      headStyles: { fillColor: [12, 25, 92] },
-    });
-
-    const rankSection = (title: string, rows: { name: string; total: number }[]) => {
-      if (!rows.length) return;
-      autoTable(doc, {
-        startY: ((doc as any).lastAutoTable?.finalY ?? 34) + 8,
-        head: [[title, "Chamados"]],
-        body: rows.slice(0, 10).map((r) => [r.name, String(r.total)]),
-        styles: { fontSize: 9 },
-        headStyles: { fillColor: [12, 25, 92] },
-      });
+    const newSection = (title: string) => {
+      doc.addPage();
+      pdfPageHeader(doc, title, `${periodo} · gerado em ${geradoEm}`);
+      pdfPageFooter(doc, footer);
     };
 
-    rankSection("Empresa", byEmpresa);
-    rankSection("Unidade", byUnidade);
-    rankSection("Operadora", byOperadora);
-    rankSection("Categoria", byCategoria);
-    rankSection("Técnico", byTecnico);
-    rankSection("Status", byStatus);
+    /* ---------- dados derivados ---------- */
+    const bucketsSorted = (() => {
+      const set = new Set<string>();
+      for (const t of current) {
+        set.add(bucketKey(t.data_abertura, groupBy));
+        const end = closedAt(t);
+        if (end) set.add(bucketKey(end, groupBy));
+      }
+      return Array.from(set).sort();
+    })();
+    const bucketLabels = bucketsSorted.map((k) => bucketLabel(k, groupBy));
 
-    if (mttrOperadora.length) {
+    const abertosSerie = bucketsSorted.map((k) => current.filter((t) => bucketKey(t.data_abertura, groupBy) === k).length);
+    const encerradosSerie = bucketsSorted.map(
+      (k) => current.filter((t) => { const e = closedAt(t); return e && bucketKey(e, groupBy) === k; }).length,
+    );
+    const backlogSerie = (() => {
+      let acc = 0;
+      return bucketsSorted.map((_, i) => { acc += abertosSerie[i] - encerradosSerie[i]; return Math.max(0, acc); });
+    })();
+
+    const prioridadeStack = PRIORIDADES.map((p, i) => ({
+      name: p,
+      color: [PDF_COLORS.red, PDF_COLORS.orange, PDF_COLORS.amber, PDF_COLORS.lightBlue][i],
+      values: bucketsSorted.map(
+        (k) => current.filter((t) => t.prioridade === p && bucketKey(t.data_abertura, groupBy) === k).length,
+      ),
+    }));
+
+    const mttrSerie = bucketsSorted.map((k) => {
+      const mins = current
+        .filter((t) => { const e = closedAt(t); return e && bucketKey(e, groupBy) === k; })
+        .map(resolutionMinutes)
+        .filter((v): v is number => v !== null);
+      return mins.length ? Math.round((avg(mins) || 0) / 60) : 0;
+    });
+
+    const slaSerie = bucketsSorted.map((k) => {
+      const list = current.filter((t) => bucketKey(t.data_abertura, groupBy) === k);
+      const st = list.map(slaResolution).filter(Boolean) as string[];
+      return st.length ? Math.round((st.filter((s) => s === "CUMPRIDO").length / st.length) * 100) : 0;
+    });
+    const slaFrSerie = bucketsSorted.map((k) => {
+      const list = current.filter((t) => bucketKey(t.data_abertura, groupBy) === k);
+      const st = list.map(slaFirstResponse).filter(Boolean) as string[];
+      return st.length ? Math.round((st.filter((s) => s === "CUMPRIDO").length / st.length) * 100) : 0;
+    });
+
+    const violPorUnidade = crossBy((t) => names.unidade.get(t.unidade_id || -1) || "Sem unidade")
+      .filter((r) => r.violados > 0)
+      .sort((a, b) => b.violados - a.violados);
+    const violPorOperadora = crossBy((t) => names.operadora.get(t.operadora_id || -1) || "Sem operadora")
+      .filter((r) => r.violados > 0)
+      .sort((a, b) => b.violados - a.violados);
+
+    const byOrigem = rank(current, (t) => label(t.origem) || "—");
+    const byTipo = rank(current, (t) => label(t.tipo_chamado) || "—");
+    const byNivel = rank(current, (t) => t.nivel_escalonamento || "—");
+
+    const DOW = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+    const heatDowHour = DOW.map((_, d) =>
+      Array.from({ length: 24 }, (_, h) =>
+        current.filter((t) => {
+          const dt = parseISO(t.data_abertura);
+          return dt.getDay() === d && dt.getHours() === h;
+        }).length,
+      ),
+    );
+
+    const topUnidades = byUnidade.slice(0, 10).map((r) => r.name);
+    const heatUnidadePrio = topUnidades.map((u) =>
+      PRIORIDADES.map((p) => current.filter(
+        (t) => (names.unidade.get(t.unidade_id || -1) || "Sem unidade") === u && t.prioridade === p,
+      ).length),
+    );
+
+    const crossUnidade = crossBy((t) => names.unidade.get(t.unidade_id || -1) || "Sem unidade");
+    const crossOperadora = crossBy((t) => names.operadora.get(t.operadora_id || -1) || "Sem operadora");
+    const crossTecnico = crossBy((t) => names.tecnico.get(t.tecnico_id || -1) || "Sem técnico");
+    const crossCategoria = crossBy((t) => names.categoria.get(t.categoria_id || -1) || "Sem categoria");
+
+    const delta = (cur: number | null, prev: number | null, invert = false) => {
+      if (cur === null || prev === null || prev === 0) return undefined;
+      const diff = Math.round(((cur - prev) / prev) * 100);
+      const sign = diff > 0 ? "+" : "";
+      const tone: KpiItem["tone"] = diff === 0 ? "neutral" : (invert ? diff < 0 : diff > 0) ? "good" : "bad";
+      return { hint: `${sign}${diff}% vs. período anterior`, tone };
+    };
+
+    /* ---------- 1. Capa ---------- */
+    pdfCoverPage(doc, {
+      title: "Relatório de Chamados",
+      subtitle: "Indicadores operacionais, SLA e cruzamentos",
+      periodo,
+      geradoEm,
+      filtros: activeFilterLabels(),
+    });
+
+    /* ---------- 2. Painel de indicadores ---------- */
+    newSection("Painel de indicadores");
+    const d1 = delta(kpi.total, kpiPrev.total, true);
+    const d2 = delta(kpi.mttr, kpiPrev.mttr, true);
+    const d3 = delta(kpi.tma, kpiPrev.tma, true);
+    const d4 = delta(kpi.slaResPct, kpiPrev.slaResPct);
+    const kpis: KpiItem[] = [
+      { label: "Total de chamados", value: String(kpi.total), hint: d1?.hint, tone: d1?.tone },
+      { label: "Em aberto", value: String(kpi.abertos), tone: kpi.abertos ? "warn" : "good" },
+      { label: "Encerrados", value: String(kpi.encerrados), tone: "good" },
+      { label: "Backlog final", value: String(Math.max(0, kpi.total - kpi.encerrados)) },
+      { label: "MTTR (solução)", value: fmtDuration(kpi.mttr), hint: d2?.hint, tone: d2?.tone },
+      { label: "Tempo 1º atendimento", value: fmtDuration(kpi.tma), hint: d3?.hint, tone: d3?.tone },
+      { label: "SLA solução cumprido", value: kpi.slaResPct !== null ? `${kpi.slaResPct}%` : "—", hint: d4?.hint, tone: d4?.tone },
+      { label: "SLA 1º atendimento", value: kpi.slaFrPct !== null ? `${kpi.slaFrPct}%` : "—" },
+      { label: "SLA violados", value: String(kpi.slaResViolados), tone: kpi.slaResViolados ? "bad" : "good" },
+      { label: "Chamados críticos", value: String(current.filter((t) => t.prioridade === "CRITICO").length), tone: "bad" },
+      { label: "Unidade + acionada", value: (byUnidade[0]?.name || "—").slice(0, 22), hint: byUnidade[0] ? `${byUnidade[0].total} chamados` : undefined },
+      { label: "Operadora + acionada", value: (byOperadora[0]?.name || "—").slice(0, 22), hint: byOperadora[0] ? `${byOperadora[0].total} chamados` : undefined },
+    ];
+    pdfKpiCards(doc, { x: M, y: 24, w: W - M * 2, h: 46 }, kpis, 6, 22);
+
+    pdfGaugeBar(
+      doc, { x: M, y: 74, w: colW, h: 34 },
+      "SLA de solução — dentro x fora do prazo",
+      kpi.slaResPct ?? 0, SLA_META,
+      `${current.filter((t) => slaResolution(t) === "CUMPRIDO").length} dentro do prazo`,
+      `${kpi.slaResViolados} fora do prazo`,
+    );
+    pdfGaugeBar(
+      doc, { x: M + colW + 6, y: 74, w: colW, h: 34 },
+      "SLA de 1º atendimento — dentro x fora do prazo",
+      kpi.slaFrPct ?? 0, SLA_META,
+      `${current.filter((t) => slaFirstResponse(t) === "CUMPRIDO").length} dentro do prazo`,
+      `${current.filter((t) => slaFirstResponse(t) === "VIOLADO").length} fora do prazo`,
+    );
+
+    pdfLineChart(
+      doc, { x: M, y: 112, w: colW, h: 76 },
+      "Nível de serviço (% dentro do SLA) x meta",
+      bucketLabels,
+      [
+        { name: "SLA solução", color: PDF_COLORS.blue, values: slaSerie },
+        { name: "SLA 1º atendimento", color: PDF_COLORS.teal, values: slaFrSerie },
+        { name: `Meta ${SLA_META}%`, color: PDF_COLORS.red, values: bucketsSorted.map(() => SLA_META), dashed: true },
+      ],
+      (v) => `${Math.round(v)}%`,
+    );
+    pdfDonutChart(
+      doc, { x: M + colW + 6, y: 112, w: colW, h: 76 },
+      "Distribuição por status",
+      byStatus.slice(0, 8).map((r, i) => ({ name: r.name, value: r.total, color: SERIES_PALETTE[i % SERIES_PALETTE.length] })),
+    );
+
+    /* ---------- 3. Volume, backlog e tempos ---------- */
+    newSection("Volume, backlog e tempos");
+    pdfLineChart(
+      doc, { x: M, y: rowY1, w: colW, h: chartH },
+      "Chamados abertos, encerrados e backlog",
+      bucketLabels,
+      [
+        { name: "Abertos", color: PDF_COLORS.navy, values: abertosSerie },
+        { name: "Encerrados", color: PDF_COLORS.teal, values: encerradosSerie },
+        { name: "Backlog", color: PDF_COLORS.orange, values: backlogSerie },
+      ],
+    );
+    pdfStackedBarChart(
+      doc, { x: M + colW + 6, y: rowY1, w: colW, h: chartH },
+      "Composição por prioridade no tempo",
+      bucketLabels,
+      prioridadeStack,
+    );
+    pdfBarChart(
+      doc, { x: M, y: rowY2, w: colW, h: chartH },
+      "MTTR médio por período (horas)",
+      bucketLabels,
+      [{ name: "MTTR (h)", color: PDF_COLORS.purple, values: mttrSerie }],
+      (v) => `${Math.round(v)}h`,
+      true,
+    );
+    pdfHeatmap(
+      doc, { x: M + colW + 6, y: rowY2, w: colW, h: chartH },
+      "Abertura por dia da semana x hora",
+      DOW,
+      Array.from({ length: 24 }, (_, h) => String(h).padStart(2, "0")),
+      heatDowHour,
+    );
+
+    /* ---------- 4. SLA e criticidade ---------- */
+    newSection("SLA e criticidade");
+    pdfHBarChart(
+      doc, { x: M, y: rowY1, w: colW, h: chartH },
+      "Unidades com mais violações de SLA",
+      violPorUnidade.slice(0, 10).map((r) => ({ name: r.name, value: r.violados, color: PDF_COLORS.red })),
+    );
+    pdfHBarChart(
+      doc, { x: M + colW + 6, y: rowY1, w: colW, h: chartH },
+      "Operadoras com mais violações de SLA",
+      violPorOperadora.slice(0, 10).map((r) => ({ name: r.name, value: r.violados, color: PDF_COLORS.orange })),
+    );
+    pdfBarChart(
+      doc, { x: M, y: rowY2, w: colW, h: chartH },
+      "% dentro do SLA por unidade (Top 12) x meta",
+      crossUnidade.slice(0, 12).map((r) => r.name.slice(0, 12)),
+      [
+        { name: "% dentro do SLA", color: PDF_COLORS.blue, values: crossUnidade.slice(0, 12).map((r) => r.slaPct ?? 0) },
+        { name: `Meta ${SLA_META}%`, color: PDF_COLORS.red, values: crossUnidade.slice(0, 12).map(() => SLA_META) },
+      ],
+      (v) => `${Math.round(v)}%`,
+    );
+    pdfHeatmap(
+      doc, { x: M + colW + 6, y: rowY2, w: colW, h: chartH },
+      "Unidade x prioridade",
+      topUnidades,
+      [...PRIORIDADES],
+      heatUnidadePrio,
+      PDF_COLORS.red,
+    );
+
+    /* ---------- 5. Rankings ---------- */
+    newSection("Rankings e Pareto");
+    pdfHBarChart(
+      doc, { x: M, y: rowY1, w: colW, h: chartH },
+      "Top unidades por chamados",
+      byUnidade.slice(0, 10).map((r) => ({ name: r.name, value: r.total, color: PDF_COLORS.navy })),
+    );
+    pdfHBarChart(
+      doc, { x: M + colW + 6, y: rowY1, w: colW, h: chartH },
+      "Top operadoras por chamados",
+      byOperadora.slice(0, 10).map((r) => ({ name: r.name, value: r.total, color: PDF_COLORS.blue })),
+    );
+    pdfParetoChart(
+      doc, { x: M, y: rowY2, w: colW, h: chartH },
+      "Pareto — categorias de serviço",
+      byCategoria.slice(0, 10).map((r) => ({ name: r.name.slice(0, 12), value: r.total })),
+    );
+    pdfHBarChart(
+      doc, { x: M + colW + 6, y: rowY2, w: colW, h: chartH },
+      "Top técnicos por chamados atendidos",
+      byTecnico.slice(0, 10).map((r) => ({ name: r.name, value: r.total, color: PDF_COLORS.teal })),
+    );
+
+    /* ---------- 6. Cruzamentos operacionais ---------- */
+    newSection("Cruzamentos operacionais");
+    pdfDonutChart(
+      doc, { x: M, y: rowY1, w: colW, h: chartH },
+      "Forma de solicitação (origem)",
+      byOrigem.slice(0, 8).map((r, i) => ({ name: r.name, value: r.total, color: SERIES_PALETTE[i % SERIES_PALETTE.length] })),
+    );
+    pdfDonutChart(
+      doc, { x: M + colW + 6, y: rowY1, w: colW, h: chartH },
+      "Tipos de chamado",
+      byTipo.slice(0, 8).map((r, i) => ({ name: r.name, value: r.total, color: SERIES_PALETTE[(i + 3) % SERIES_PALETTE.length] })),
+    );
+    pdfBarChart(
+      doc, { x: M, y: rowY2, w: colW, h: chartH },
+      "Atendimento por nível de solução",
+      byNivel.map((r) => r.name),
+      [{ name: "Chamados", color: PDF_COLORS.navy, values: byNivel.map((r) => r.total) }],
+      (v) => String(Math.round(v)),
+      true,
+    );
+    pdfHBarChart(
+      doc, { x: M + colW + 6, y: rowY2, w: colW, h: chartH },
+      "MTTR por operadora (horas)",
+      mttrOperadora.slice(0, 10).map((r) => ({ name: r.name, value: Math.round(r.minutos / 60), color: PDF_COLORS.purple })),
+      (v) => `${v}h`,
+    );
+
+    /* ---------- 7. Tabelas cruzadas ---------- */
+    const crossTable = (
+      title: string,
+      dimension: string,
+      rows: ReturnType<typeof crossBy>,
+      startY: number,
+    ) => {
       autoTable(doc, {
-        startY: ((doc as any).lastAutoTable?.finalY ?? 34) + 8,
-        head: [["Operadora", "MTTR", "Chamados"]],
-        body: mttrOperadora.slice(0, 10).map((r) => [r.name, fmtDuration(r.minutos), String(r.chamados)]),
-        styles: { fontSize: 9 },
-        headStyles: { fillColor: [12, 25, 92] },
+        startY,
+        head: [[dimension, "Total", "Abertos", "Encerrados", "Críticos", "1º atend.", "MTTR", "SLA %", "Violados"]],
+        body: rows.slice(0, 15).map((r) => [
+          r.name, String(r.total), String(r.abertos), String(r.encerrados), String(r.criticos),
+          fmtDuration(r.tma), fmtDuration(r.mttr), r.slaPct !== null ? `${r.slaPct}%` : "—", String(r.violados),
+        ]),
+        styles: { fontSize: 7, cellPadding: 1.4 },
+        headStyles: { fillColor: PDF_COLORS.navy as [number, number, number], fontSize: 7 },
+        alternateRowStyles: { fillColor: [246, 248, 251] },
+        margin: { left: M, right: M },
+        didDrawPage: () => {
+          pdfPageHeader(doc, title, `${periodo} · gerado em ${geradoEm}`);
+          pdfPageFooter(doc, footer);
+        },
       });
-    }
+      return ((doc as any).lastAutoTable?.finalY ?? startY) + 8;
+    };
 
     doc.addPage();
-    doc.setFontSize(13);
-    doc.text("Detalhamento dos chamados", 14, 16);
-    const rows = detailRows();
-    const cols = ["Código", "Abertura", "Empresa", "Unidade", "Operadora", "Título", "Prioridade", "Status", "Técnico", "SLA solução"];
+    let y = crossTable("Cruzamento por unidade e operadora", "Unidade", crossUnidade, 24);
+    y = crossTable("Cruzamento por unidade e operadora", "Operadora", crossOperadora, y);
+
+    doc.addPage();
+    y = crossTable("Cruzamento por técnico e categoria", "Técnico", crossTecnico, 24);
+    y = crossTable("Cruzamento por técnico e categoria", "Categoria", crossCategoria, y);
+
+    /* ---------- 8. Série temporal detalhada ---------- */
+    doc.addPage();
     autoTable(doc, {
-      startY: 22,
+      startY: 24,
+      head: [["Período", "Abertos", "Encerrados", "Backlog", "MTTR (h)", "SLA solução %", "SLA 1º atend. %"]],
+      body: bucketLabels.map((l, i) => [
+        l, String(abertosSerie[i]), String(encerradosSerie[i]), String(backlogSerie[i]),
+        String(mttrSerie[i]), `${slaSerie[i]}%`, `${slaFrSerie[i]}%`,
+      ]),
+      styles: { fontSize: 7, cellPadding: 1.4 },
+      headStyles: { fillColor: PDF_COLORS.navy as [number, number, number], fontSize: 7 },
+      alternateRowStyles: { fillColor: [246, 248, 251] },
+      margin: { left: M, right: M },
+      didDrawPage: () => {
+        pdfPageHeader(doc, "Série temporal consolidada", `${periodo} · gerado em ${geradoEm}`);
+        pdfPageFooter(doc, footer);
+      },
+    });
+
+    /* ---------- 9. Detalhamento ---------- */
+    doc.addPage();
+    const rows = detailRows();
+    const cols = [
+      "Código", "Abertura", "Empresa", "Unidade", "Operadora", "Título", "Tipo",
+      "Prioridade", "Status", "Técnico", "1º atendimento (min)", "Solução (min)", "SLA solução",
+    ];
+    autoTable(doc, {
+      startY: 24,
       head: [cols],
       body: rows.map((r) => cols.map((c) => String((r as any)[c] ?? "—"))),
-      styles: { fontSize: 7, cellPadding: 1.5 },
-      headStyles: { fillColor: [12, 25, 92] },
+      styles: { fontSize: 6, cellPadding: 1 },
+      headStyles: { fillColor: PDF_COLORS.navy as [number, number, number], fontSize: 6 },
+      alternateRowStyles: { fillColor: [246, 248, 251] },
+      margin: { left: M, right: M, top: 24, bottom: 14 },
+      didDrawPage: () => {
+        pdfPageHeader(doc, "Detalhamento dos chamados", `${rows.length} registros · ${periodo}`);
+        pdfPageFooter(doc, footer);
+      },
     });
 
     doc.save(`relatorio-chamados-${format(new Date(), "yyyy-MM-dd")}.pdf`);
