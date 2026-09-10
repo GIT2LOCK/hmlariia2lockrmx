@@ -19,7 +19,7 @@ export function DashboardLayout() {
                 <Menu className="h-5 w-5" />
                 <span className="sr-only">Toggle sidebar</span>
               </SidebarTrigger>
-              <span className="font-semibold text-lg">WebCount</span>
+              <span className="font-semibold text-lg">Ariia2lock</span>
             </header>
           )}
           <div className="flex-1 p-4 md:p-6 bg-muted/30 overflow-auto">
