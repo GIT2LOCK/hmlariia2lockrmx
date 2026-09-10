@@ -614,7 +614,7 @@ export default function RelatorioChamados() {
     );
 
     const crossUnidade = crossBy((t) => names.unidade.get(t.unidade_id || -1) || "Sem unidade");
-    const crossOperadora = crossBy((t) => names.operadora.get(t.operadora_id || -1) || "Sem operadora");
+    
     const crossTecnico = crossBy((t) => names.tecnico.get(t.tecnico_id || -1) || "Sem técnico");
     const crossCategoria = crossBy((t) => names.categoria.get(t.categoria_id || -1) || "Sem categoria");
 
