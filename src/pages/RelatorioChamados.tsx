@@ -614,7 +614,7 @@ export default function RelatorioChamados() {
     );
 
     const crossUnidade = crossBy((t) => names.unidade.get(t.unidade_id || -1) || "Sem unidade");
-    const crossOperadora = crossBy((t) => names.operadora.get(t.operadora_id || -1) || "Sem operadora");
+    
     const crossTecnico = crossBy((t) => names.tecnico.get(t.tecnico_id || -1) || "Sem técnico");
     const crossCategoria = crossBy((t) => names.categoria.get(t.categoria_id || -1) || "Sem categoria");
 
@@ -802,19 +802,206 @@ export default function RelatorioChamados() {
       (v) => `${v}h`,
     );
 
-    /* ---------- 7. Tabelas cruzadas ---------- */
+    /* ---------- 7. Matrizes de cruzamento ---------- */
+    const kUnidade = (t: Ticket) => names.unidade.get(t.unidade_id || -1) || "Sem unidade";
+    const kEmpresa = (t: Ticket) => names.empresa.get(t.empresa_id || -1) || "Sem empresa";
+    const kCategoria = (t: Ticket) => names.categoria.get(t.categoria_id || -1) || "Sem categoria";
+    const kTecnico = (t: Ticket) => names.tecnico.get(t.tecnico_id || -1) || "Sem técnico";
+    const kFila = (t: Ticket) => names.fila.get(t.fila_id || -1) || "Sem fila";
+    const kEquipe = (t: Ticket) => names.grupo.get(t.assigned_group_id || -1) || "Sem equipe";
+    const kStatus = (t: Ticket) => label(t.status);
+    const kOrigem = (t: Ticket) => label(t.origem);
+    const kTipo = (t: Ticket) => (t.tipo_chamado === "I" ? "Incidente" : t.tipo_chamado === "R" ? "Requisição" : "—");
+    const kNivel = (t: Ticket) => t.nivel_escalonamento || "—";
+
+    const matrix = (
+      rowKeys: string[], colKeys: string[],
+      rowOf: (t: Ticket) => string, colOf: (t: Ticket) => string,
+    ) => rowKeys.map((r) => colKeys.map((c) => current.filter((t) => rowOf(t) === r && colOf(t) === c).length));
+
+    const topKeys = (keyOf: (t: Ticket) => string, n: number) => rank(current, keyOf).slice(0, n).map((r) => r.name);
+
+    const stackFrom = (
+      cats: string[], series: string[],
+      catOf: (t: Ticket) => string, serOf: (t: Ticket) => string,
+      palette: typeof SERIES_PALETTE = SERIES_PALETTE,
+    ) => series.map((s, i) => ({
+      name: s,
+      color: palette[i % palette.length],
+      values: cats.map((c) => current.filter((t) => catOf(t) === c && serOf(t) === s).length),
+    }));
+
+    const DOW = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+    const HOUR_BANDS = ["00-03", "04-07", "08-11", "12-15", "16-19", "20-23"];
+    const dowHora = DOW.map((_, d) =>
+      HOUR_BANDS.map((_, b) => current.filter((t) => {
+        const dt = parseISO(t.data_abertura);
+        return dt.getDay() === d && Math.floor(dt.getHours() / 4) === b;
+      }).length),
+    );
+
+    const topCat10 = topKeys(kCategoria, 10);
+    const topOper10 = topKeys(operadoraNome, 10);
+    const topTec10 = topKeys(kTecnico, 10);
+    const topFila8 = topKeys(kFila, 8);
+    const topEquipe8 = topKeys(kEquipe, 8);
+    const topUni8 = topKeys(kUnidade, 8);
+    const topStatus6 = byStatus.slice(0, 6).map((r) => r.name);
+
+    newSection("Matrizes de cruzamento");
+    pdfHeatmap(
+      doc, { x: M, y: rowY1, w: colW, h: chartH },
+      "Categoria x prioridade",
+      topCat10, [...PRIORIDADES], matrix(topCat10, [...PRIORIDADES], kCategoria, (t) => t.prioridade),
+      PDF_COLORS.red,
+    );
+    pdfHeatmap(
+      doc, { x: M + colW + 6, y: rowY1, w: colW, h: chartH },
+      "Operadora x status",
+      topOper10, topStatus6, matrix(topOper10, topStatus6, operadoraNome, kStatus),
+      PDF_COLORS.navy,
+    );
+    pdfHeatmap(
+      doc, { x: M, y: rowY2, w: colW, h: chartH },
+      "Técnico x nível de solução",
+      topTec10, [...NIVEIS], matrix(topTec10, [...NIVEIS], kTecnico, kNivel),
+      PDF_COLORS.teal,
+    );
+    pdfHeatmap(
+      doc, { x: M + colW + 6, y: rowY2, w: colW, h: chartH },
+      "Dia da semana x faixa horária de abertura",
+      DOW, HOUR_BANDS, dowHora, PDF_COLORS.purple,
+    );
+
+    /* ---------- 8. Composições cruzadas ---------- */
+    newSection("Composições cruzadas");
+    pdfStackedBarChart(
+      doc, { x: M, y: rowY1, w: colW, h: chartH },
+      "Status por fila de atendimento",
+      topFila8, stackFrom(topFila8, topStatus6, kFila, kStatus),
+    );
+    pdfStackedBarChart(
+      doc, { x: M + colW + 6, y: rowY1, w: colW, h: chartH },
+      "Prioridade por operadora",
+      topOper10, stackFrom(topOper10, [...PRIORIDADES], operadoraNome, (t) => t.prioridade,
+        [PDF_COLORS.red, PDF_COLORS.orange, PDF_COLORS.amber, PDF_COLORS.lightBlue]),
+    );
+    pdfStackedBarChart(
+      doc, { x: M, y: rowY2, w: colW, h: chartH },
+      "Tipo de chamado por origem",
+      byOrigem.slice(0, 8).map((r) => r.name),
+      stackFrom(byOrigem.slice(0, 8).map((r) => r.name), ["Incidente", "Requisição"], kOrigem, kTipo,
+        [PDF_COLORS.navy, PDF_COLORS.blue]),
+    );
+    pdfStackedBarChart(
+      doc, { x: M + colW + 6, y: rowY2, w: colW, h: chartH },
+      "Nível de solução por equipe",
+      topEquipe8, stackFrom(topEquipe8, [...NIVEIS], kEquipe, kNivel, [PDF_COLORS.teal, PDF_COLORS.blue, PDF_COLORS.purple]),
+    );
+
+    /* ---------- 9. SLA e tempos cruzados ---------- */
+    const crossFila = crossBy(kFila);
+    const crossEquipe = crossBy(kEquipe);
+    const crossOperEfetiva = crossBy(operadoraNome);
+    const crossEmpresa = crossBy(kEmpresa);
+    const crossOrigem = crossBy(kOrigem);
+    const crossTipo = crossBy(kTipo);
+    const crossNivel = crossBy(kNivel);
+    const crossPrioridade = crossBy((t) => t.prioridade);
+
+    const slaSplit = (rows: ReturnType<typeof crossBy>, keys: string[]) => [
+      {
+        name: "Dentro do SLA", color: PDF_COLORS.teal,
+        values: keys.map((k) => {
+          const r = rows.find((x) => x.name === k);
+          return r ? Math.max(0, r.encerrados - r.violados) : 0;
+        }),
+      },
+      {
+        name: "Fora do SLA", color: PDF_COLORS.red,
+        values: keys.map((k) => rows.find((x) => x.name === k)?.violados || 0),
+      },
+    ];
+
+    newSection("SLA e tempos cruzados");
+    pdfStackedBarChart(
+      doc, { x: M, y: rowY1, w: colW, h: chartH },
+      "Dentro x fora do SLA por equipe",
+      topEquipe8, slaSplit(crossEquipe, topEquipe8),
+    );
+    pdfStackedBarChart(
+      doc, { x: M + colW + 6, y: rowY1, w: colW, h: chartH },
+      "Dentro x fora do SLA por categoria",
+      topCat10, slaSplit(crossCategoria, topCat10),
+    );
+    pdfBarChart(
+      doc, { x: M, y: rowY2, w: colW, h: chartH },
+      "1º atendimento x solução por técnico (horas)",
+      topTec10,
+      [
+        { name: "1º atendimento (h)", color: PDF_COLORS.blue, values: topTec10.map((k) => Math.round((crossTecnico.find((r) => r.name === k)?.tma || 0) / 60)) },
+        { name: "Solução (h)", color: PDF_COLORS.purple, values: topTec10.map((k) => Math.round((crossTecnico.find((r) => r.name === k)?.mttr || 0) / 60)) },
+      ],
+      (v) => `${Math.round(v)}h`,
+    );
+    pdfHBarChart(
+      doc, { x: M + colW + 6, y: rowY2, w: colW, h: chartH },
+      `% dentro do SLA por operadora — meta ${SLA_META}%`,
+      crossOperEfetiva.slice(0, 10).map((r) => ({
+        name: r.name,
+        value: r.slaPct ?? 0,
+        color: (r.slaPct ?? 0) >= SLA_META ? PDF_COLORS.teal : PDF_COLORS.red,
+      })),
+      (v) => `${Math.round(v)}%`,
+    );
+
+    /* ---------- 10. Backlog, criticidade e empresas ---------- */
+    newSection("Backlog, criticidade e volume por empresa");
+    pdfHBarChart(
+      doc, { x: M, y: rowY1, w: colW, h: chartH },
+      "Chamados em aberto por unidade (backlog atual)",
+      crossUnidade.filter((r) => r.abertos > 0).sort((a, b) => b.abertos - a.abertos).slice(0, 10)
+        .map((r) => ({ name: r.name, value: r.abertos, color: PDF_COLORS.orange })),
+    );
+    pdfHBarChart(
+      doc, { x: M + colW + 6, y: rowY1, w: colW, h: chartH },
+      "Chamados críticos por unidade",
+      crossUnidade.filter((r) => r.criticos > 0).sort((a, b) => b.criticos - a.criticos).slice(0, 10)
+        .map((r) => ({ name: r.name, value: r.criticos, color: PDF_COLORS.red })),
+    );
+    pdfStackedBarChart(
+      doc, { x: M, y: rowY2, w: colW, h: chartH },
+      "Abertos x encerrados por empresa",
+      crossEmpresa.slice(0, 8).map((r) => r.name),
+      [
+        { name: "Em aberto", color: PDF_COLORS.orange, values: crossEmpresa.slice(0, 8).map((r) => r.abertos) },
+        { name: "Encerrados", color: PDF_COLORS.teal, values: crossEmpresa.slice(0, 8).map((r) => r.encerrados) },
+      ],
+    );
+    pdfHeatmap(
+      doc, { x: M + colW + 6, y: rowY2, w: colW, h: chartH },
+      "Unidade x categoria de serviço",
+      topUni8, topCat10.slice(0, 8),
+      matrix(topUni8, topCat10.slice(0, 8), kUnidade, kCategoria),
+      PDF_COLORS.blue,
+    );
+
+    /* ---------- 11. Tabelas cruzadas ---------- */
     const crossTable = (
       title: string,
       dimension: string,
       rows: ReturnType<typeof crossBy>,
       startY: number,
     ) => {
+      const totalGeral = current.length || 1;
       autoTable(doc, {
         startY,
-        head: [[dimension, "Total", "Abertos", "Encerrados", "Críticos", "1º atend.", "MTTR", "SLA %", "Violados"]],
+        head: [[dimension, "Total", "% do total", "Abertos", "Encerrados", "Críticos", "1º atend.", "MTTR", "SLA %", "Violados", "vs. meta"]],
         body: rows.slice(0, 15).map((r) => [
-          r.name, String(r.total), String(r.abertos), String(r.encerrados), String(r.criticos),
+          r.name, String(r.total), `${Math.round((r.total / totalGeral) * 100)}%`,
+          String(r.abertos), String(r.encerrados), String(r.criticos),
           fmtDuration(r.tma), fmtDuration(r.mttr), r.slaPct !== null ? `${r.slaPct}%` : "—", String(r.violados),
+          r.slaPct === null ? "—" : `${r.slaPct - SLA_META > 0 ? "+" : ""}${r.slaPct - SLA_META} p.p.`,
         ]),
         styles: { fontSize: 7, cellPadding: 1.4 },
         headStyles: { fillColor: PDF_COLORS.navy as [number, number, number], fontSize: 7 },
@@ -830,11 +1017,22 @@ export default function RelatorioChamados() {
 
     doc.addPage();
     let y = crossTable("Cruzamento por unidade e operadora", "Unidade", crossUnidade, 24);
-    y = crossTable("Cruzamento por unidade e operadora", "Operadora", crossOperadora, y);
+    y = crossTable("Cruzamento por unidade e operadora", "Operadora", crossOperEfetiva, y);
 
     doc.addPage();
     y = crossTable("Cruzamento por técnico e categoria", "Técnico", crossTecnico, 24);
     y = crossTable("Cruzamento por técnico e categoria", "Categoria", crossCategoria, y);
+
+    doc.addPage();
+    y = crossTable("Cruzamento por fila e equipe", "Fila", crossFila, 24);
+    y = crossTable("Cruzamento por fila e equipe", "Equipe", crossEquipe, y);
+
+    doc.addPage();
+    y = crossTable("Cruzamento por empresa, origem, tipo e criticidade", "Empresa", crossEmpresa, 24);
+    y = crossTable("Cruzamento por empresa, origem, tipo e criticidade", "Origem", crossOrigem, y);
+    y = crossTable("Cruzamento por empresa, origem, tipo e criticidade", "Tipo", crossTipo, y);
+    y = crossTable("Cruzamento por empresa, origem, tipo e criticidade", "Nível", crossNivel, y);
+    y = crossTable("Cruzamento por empresa, origem, tipo e criticidade", "Prioridade", crossPrioridade, y);
 
     /* ---------- 8. Série temporal detalhada ---------- */
     doc.addPage();
