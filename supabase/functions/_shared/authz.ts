@@ -19,6 +19,12 @@ function decodeJwtClaims(jwt: string): Record<string, any> | null {
 /** True when the request carries the service_role JWT (function-to-function call). */
 export function isInternalServiceCall(req: Request): boolean {
   const jwt = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+  const apiKey = req.headers.get("apikey") || "";
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+  // Supabase may provide either the legacy service_role JWT or the newer
+  // opaque sb_secret key. Compare against the runtime secret before trying
+  // to decode JWT claims so both formats work for function-to-function calls.
+  if (serviceRoleKey && (jwt === serviceRoleKey || apiKey === serviceRoleKey)) return true;
   if (!jwt) return false;
   const claims = decodeJwtClaims(jwt);
   return claims?.role === "service_role";
