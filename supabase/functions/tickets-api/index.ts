@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { sendTicketNotification } from "../_shared/ticket-notification.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -205,7 +206,10 @@ serve(async (req) => {
       };
       const { data, error } = await supabase.from("tickets").insert(payload).select("*").maybeSingle();
       if (error) return json({ error: error.message }, 500);
-      return json({ data }, 201);
+      const notification = data?.id
+        ? await sendTicketNotification(supabase, { ticket_id: data.id, event: "created" }, "tickets-api:created")
+        : { ok: false, error: "ticket_id_missing" };
+      return json({ data, notification }, 201);
     }
 
     const id = Number(segs[1]);

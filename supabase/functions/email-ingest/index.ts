@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { decode as b64decode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
+import { sendTicketNotification } from "../_shared/ticket-notification.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -261,6 +262,17 @@ serve(async (req) => {
         autor_nome: `email:${email}`,
         observacao: `Criado via e-mail (domínio: ${domain})`,
       });
+      const notification = await sendTicketNotification(
+        supabase,
+        { ticket_id: created.id, event: "created" },
+        "email-ingest:created",
+      );
+      if (!notification.ok) {
+        console.error("[email-ingest] created ticket without email delivery", {
+          ticket_id: created.id,
+          error: notification.error,
+        });
+      }
     }
 
     // Anexos — armazena, e mapeia Content-ID -> URL pública para reescrever cid: no HTML

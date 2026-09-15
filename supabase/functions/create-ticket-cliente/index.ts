@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { validateSession } from "../_shared/auth.ts";
+import { sendTicketNotification } from "../_shared/ticket-notification.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -77,11 +78,13 @@ serve(async (req) => {
     return json({ error: error.message }, 500);
   }
 
-  if (data?.id) {
-    supabase.functions.invoke("send-email-notification", {
-      body: { ticket_id: data.id, event: "created" },
-    }).catch((e) => console.error("[create-ticket-cliente] notify", e));
-  }
+  const notification = data?.id
+    ? await sendTicketNotification(
+      supabase,
+      { ticket_id: data.id, event: "created" },
+      "create-ticket-cliente:created",
+    )
+    : { ok: false, error: "ticket_id_missing" };
 
-  return json({ ok: true, ticket: data });
+  return json({ ok: true, ticket: data, notification });
 });

@@ -3,6 +3,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { validateSession } from "../_shared/auth.ts";
+import { sendTicketNotification } from "../_shared/ticket-notification.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -85,19 +86,19 @@ serve(async (req) => {
       const oldEmail = (beforeRow?.solicitante_email || "").toLowerCase().trim();
       const newEmail = (payload.solicitante_email as string || "").toLowerCase().trim();
       if (newEmail && newEmail !== oldEmail) {
-        supabase.functions.invoke("send-email-notification", {
-          body: { ticket_id: ticketId, event: "solicitante_added", to: newEmail },
-        }).catch((e) => console.error("[save-ticket] notify solicitante_added", e));
+        await sendTicketNotification(
+          supabase,
+          { ticket_id: ticketId, event: "solicitante_added", to: newEmail },
+          "save-ticket:solicitante_added",
+        );
       }
       // Mudança de status via edição
       if (payload.status && beforeRow?.status && payload.status !== beforeRow.status) {
-        supabase.functions.invoke("send-email-notification", {
-          body: {
-            ticket_id: ticketId,
-            event: "status_change",
-            extra: { status_anterior: beforeRow.status, status_novo: payload.status },
-          },
-        }).catch((e) => console.error("[save-ticket] notify status", e));
+        await sendTicketNotification(supabase, {
+          ticket_id: ticketId,
+          event: "status_change",
+          extra: { status_anterior: beforeRow.status, status_novo: payload.status },
+        }, "save-ticket:status");
       }
     } catch (e) { console.error("[save-ticket] notify block", e); }
 
@@ -107,11 +108,14 @@ serve(async (req) => {
     const { data, error } = await supabase.from("tickets").insert(payload).select("id, codigo").maybeSingle();
     if (error) return json({ error: error.message }, 500);
     // Notifica sempre (solicitante + extras + responsáveis fixos são resolvidos no servidor)
+    let notification = { ok: false, error: "ticket_id_missing" };
     if (data?.id) {
-      supabase.functions.invoke("send-email-notification", {
-        body: { ticket_id: data.id, event: "created" },
-      }).catch((e) => console.error("[save-ticket] notify created", e));
+      notification = await sendTicketNotification(
+        supabase,
+        { ticket_id: data.id, event: "created" },
+        "save-ticket:created",
+      );
     }
-    return json({ ok: true, ticket_id: data?.id, codigo: data?.codigo });
+    return json({ ok: true, ticket_id: data?.id, codigo: data?.codigo, notification });
   }
 });
