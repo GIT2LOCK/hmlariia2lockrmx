@@ -168,7 +168,6 @@ serve(async (req) => {
     const recipients = Array.from(new Set(
       [primary, ...extras, ...respEmails].map((e) => (e || "").toString().trim().toLowerCase()).filter(Boolean),
     ));
-    if (recipients.length === 0) return json({ ok: true, skipped: "sem email" });
 
     // Comentário atrelado (se houver)
     let comentario: any = null;
@@ -297,7 +296,8 @@ serve(async (req) => {
       extra: extra || null,
     };
 
-    const [primaryTo, ...ccList] = recipients;
+    const [firstRecipient, ...ccList] = recipients;
+    const primaryTo = firstRecipient || "";
     const webhookBody = JSON.stringify({ ...basePayload, to: primaryTo, cc: ccList, recipients });
     const results: Array<{ to: string; cc: string[]; status: number; ok: boolean; attempt: number; detail?: string }> = [];
     let delivered = false;
@@ -307,6 +307,7 @@ serve(async (req) => {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: webhookBody,
+          signal: AbortSignal.timeout(10000),
         });
         const txt = await r.text();
         results.push({ to: primaryTo, cc: ccList, status: r.status, ok: r.ok, attempt, detail: r.ok ? undefined : txt.slice(0, 1000) });

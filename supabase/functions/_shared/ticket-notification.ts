@@ -15,13 +15,13 @@ export type TicketNotificationResult = {
 
 /**
  * Aguarda a Edge Function de notificação terminar e nunca ignora respostas HTTP de erro.
- * As tentativas adicionais cobrem falhas transitórias entre Edge Functions.
+ * O webhook faz suas próprias tentativas; esta camada garante que a função chamadora aguarde o resultado.
  */
 export async function sendTicketNotification(
   supabase: FunctionsClient,
   body: Record<string, unknown>,
   source: string,
-  attempts = 3,
+  attempts = 1,
 ): Promise<TicketNotificationResult> {
   const ticketId = Number(body.ticket_id);
   let lastError = "notification_failed";
