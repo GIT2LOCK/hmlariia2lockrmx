@@ -168,7 +168,6 @@ serve(async (req) => {
     const recipients = Array.from(new Set(
       [primary, ...extras, ...respEmails].map((e) => (e || "").toString().trim().toLowerCase()).filter(Boolean),
     ));
-    if (recipients.length === 0) return json({ ok: true, skipped: "sem email" });
 
     // Comentário atrelado (se houver)
     let comentario: any = null;
@@ -297,15 +296,38 @@ serve(async (req) => {
       extra: extra || null,
     };
 
-    const [primaryTo, ...ccList] = recipients;
-    const r = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...basePayload, to: primaryTo, cc: ccList, recipients }),
-    });
-    const txt = await r.text();
-    const results = [{ to: primaryTo, cc: ccList, status: r.status, ok: r.ok, detail: r.ok ? undefined : txt }];
-    if (!r.ok) return json({ error: "Falha no webhook", results }, 502);
+    const [firstRecipient, ...ccList] = recipients;
+    const primaryTo = firstRecipient || "";
+    const webhookBody = JSON.stringify({ ...basePayload, to: primaryTo, cc: ccList, recipients });
+    const results: Array<{ to: string; cc: string[]; status: number; ok: boolean; attempt: number; detail?: string }> = [];
+    let delivered = false;
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      try {
+        const r = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: webhookBody,
+          signal: AbortSignal.timeout(10000),
+        });
+        const txt = await r.text();
+        results.push({ to: primaryTo, cc: ccList, status: r.status, ok: r.ok, attempt, detail: r.ok ? undefined : txt.slice(0, 1000) });
+        console.log("[send-email-notification] webhook response", {
+          ticket_id: Number(ticket_id), event: eventKey, attempt, status: r.status, ok: r.ok, recipients: recipients.length,
+        });
+        if (r.ok) {
+          delivered = true;
+          break;
+        }
+      } catch (error) {
+        const detail = (error as Error)?.message || String(error);
+        results.push({ to: primaryTo, cc: ccList, status: 0, ok: false, attempt, detail });
+        console.error("[send-email-notification] webhook fetch failed", {
+          ticket_id: Number(ticket_id), event: eventKey, attempt, error: detail,
+        });
+      }
+      if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, attempt * 750));
+    }
+    if (!delivered) return json({ error: "Falha no webhook após 3 tentativas", results }, 502);
     return json({ ok: true, event: eventKey, recipients, results });
   } catch (e) {
     return json({ error: (e as Error).message }, 500);

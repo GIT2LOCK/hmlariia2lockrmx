@@ -271,6 +271,7 @@ export function ClienteAbrirChamadoModal({ open, onOpenChange, onSaved }: Props)
         },
       );
       const data = (fnData as any)?.ticket as { id: number; codigo: string } | undefined;
+      const notificationFailed = (fnData as any)?.notification?.ok === false;
       const error = fnError
         ? { message: (fnError as any).message || "Falha ao abrir chamado" }
         : (fnData as any)?.error
@@ -287,7 +288,10 @@ export function ClienteAbrirChamadoModal({ open, onOpenChange, onSaved }: Props)
 
       toast({
         title: "Chamado aberto",
-        description: data?.codigo ? `Seu chamado ${data.codigo} foi registrado.` : "Seu chamado foi registrado.",
+        description: notificationFailed
+          ? "Seu chamado foi registrado, mas o envio de e-mail falhou após 3 tentativas. A falha foi registrada."
+          : data?.codigo ? `Seu chamado ${data.codigo} foi registrado.` : "Seu chamado foi registrado.",
+        variant: notificationFailed ? "destructive" : "default",
       });
       onOpenChange(false);
       onSaved?.();

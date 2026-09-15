@@ -332,6 +332,7 @@ export function TicketModal({ open, onOpenChange, ticketId, prefill, onSaved }: 
     let savedId = ticketId || null;
     let beforeRow: any = null;
     let errMsg: string | null = null;
+    let notificationFailed = false;
     try {
       const ariiaToken = localStorage.getItem("auth_token");
       if (!ariiaToken) throw new Error("Sessão expirada. Faça login novamente.");
@@ -350,6 +351,7 @@ export function TicketModal({ open, onOpenChange, ticketId, prefill, onSaved }: 
       if (res?.error) throw new Error(res.error);
       savedId = res?.ticket_id ?? savedId;
       beforeRow = res?.before ?? null;
+      notificationFailed = !ticketId && res?.notification?.ok === false;
     } catch (e: any) {
       errMsg = e?.message || String(e);
     }
@@ -376,7 +378,13 @@ export function TicketModal({ open, onOpenChange, ticketId, prefill, onSaved }: 
 
     if (savedId) await uploadAttachments(savedId);
     setLoading(false);
-    toast({ title: ticketId ? "Chamado atualizado" : "Chamado criado" });
+    toast({
+      title: ticketId ? "Chamado atualizado" : "Chamado criado",
+      description: notificationFailed
+        ? "O chamado foi salvo, mas o envio de e-mail falhou após 3 tentativas. A falha foi registrada."
+        : undefined,
+      variant: notificationFailed ? "destructive" : "default",
+    });
     onOpenChange(false);
     onSaved?.({ ticketId: savedId, titulo: payload.titulo, descricao: payload.descricao || "" });
   };

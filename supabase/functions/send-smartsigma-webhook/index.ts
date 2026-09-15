@@ -3,6 +3,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { requireStaff, authErrorResponse } from "../_shared/authz.ts";
+import { sendTicketNotification } from "../_shared/ticket-notification.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -107,6 +108,19 @@ serve(async (req) => {
         console.error("[smartsigma] erro ao criar ticket:", insErr.message);
       } else {
         ticket = inserted;
+        if (inserted?.id) {
+          const notification = await sendTicketNotification(
+            supabase,
+            { ticket_id: inserted.id, event: "created" },
+            "send-smartsigma-webhook:created",
+          );
+          if (!notification.ok) {
+            console.error("[smartsigma] ticket created without mail2lock delivery", {
+              ticket_id: inserted.id,
+              error: notification.error,
+            });
+          }
+        }
       }
     } catch (e) {
       console.error("[smartsigma] exceção ao criar ticket:", (e as Error).message);
