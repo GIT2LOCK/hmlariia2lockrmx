@@ -98,6 +98,44 @@ export default function Elevadores() {
     { label: "Pendentes", value: count("PENDENTE") },
   ];
 
+  const lojaPorId = useMemo(() => new Map(lojas.map((l) => [l.unidade_id, l])), [lojas]);
+  const lojaNome = (id: number) => lojaPorId.get(id)?.unidades?.nome_unidade || `Loja ${id}`;
+  const lojasVisiveis = useMemo(() => new Set(lista.map((x) => x.l.unidade_id)), [lista]);
+  const elevKanban = elev.filter((e) => lojasVisiveis.has(e.unidade_id) && (fStatus === "todos" || e.status === fStatus));
+
+  const renderElevador = (e: Elevador, showLoja = false) => (
+    <div key={e.id} className="rounded-lg border border-border bg-card p-3 space-y-2 shadow-sm">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          {showLoja && <p className="text-xs font-semibold text-primary truncate">{lojaNome(e.unidade_id)}</p>}
+          <p className="font-medium text-sm text-foreground">{e.tipo}</p>
+          <p className="text-xs text-muted-foreground">{e.marca || "Marca —"} · Série {e.numero_serie || "—"}</p>
+        </div>
+        <Badge variant={STATUS_VARIANT[e.status]}>{STATUS_LABEL[e.status]}</Badge>
+      </div>
+      {(e.iniciado_em || e.instalado_em) && (
+        <div className="text-xs text-muted-foreground space-y-0.5">
+          {e.iniciado_em && <p>Iniciado {fmt(e.iniciado_em)}{e.ini?.nome ? ` por ${e.ini.nome}` : ""}</p>}
+          {e.instalado_em && <p>Encerrado {fmt(e.instalado_em)}{e.fim?.nome ? ` por ${e.fim.nome}` : ""}</p>}
+        </div>
+      )}
+      {acoes(e).length > 0 && (
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
+          {acoes(e).map((a) => {
+            const I = icon(a.label);
+            return (
+              <Button key={a.label} size="sm" className="h-10 sm:h-9"
+                variant={a.label === "Iniciar" || a.label === "Retomar" || a.label === "Encerrar" ? "default" : "outline"}
+                disabled={busy === e.id} onClick={() => setConfirm(a)}>
+                <I className="h-4 w-4 mr-1" />{a.label}
+              </Button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <main className="space-y-4 sm:space-y-6">
       <header className="flex items-center gap-3">
