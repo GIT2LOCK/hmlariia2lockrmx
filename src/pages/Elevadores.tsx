@@ -228,37 +228,7 @@ export default function Elevadores() {
                   {l.observacoes && <p className="text-xs text-muted-foreground">{l.observacoes}</p>}
                 </CardHeader>
                 <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0 space-y-2">
-                  {es.map((e) => (
-                    <div key={e.id} className="rounded-lg border border-border p-3 space-y-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="font-medium text-sm text-foreground">{e.tipo}</p>
-                          <p className="text-xs text-muted-foreground">{e.marca || "Marca —"} · Série {e.numero_serie || "—"}</p>
-                        </div>
-                        <Badge variant={STATUS_VARIANT[e.status]}>{STATUS_LABEL[e.status]}</Badge>
-                      </div>
-                      {(e.iniciado_em || e.instalado_em) && (
-                        <div className="text-xs text-muted-foreground space-y-0.5">
-                          {e.iniciado_em && <p>Iniciado {fmt(e.iniciado_em)}{e.ini?.nome ? ` por ${e.ini.nome}` : ""}</p>}
-                          {e.instalado_em && <p>Encerrado {fmt(e.instalado_em)}{e.fim?.nome ? ` por ${e.fim.nome}` : ""}</p>}
-                        </div>
-                      )}
-                      {acoes(e).length > 0 && (
-                        <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
-                          {acoes(e).map((a) => {
-                            const I = icon(a.label);
-                            return (
-                              <Button key={a.label} size="sm" className="h-10 sm:h-9"
-                                variant={a.label === "Iniciar" || a.label === "Retomar" || a.label === "Encerrar" ? "default" : "outline"}
-                                disabled={busy === e.id} onClick={() => setConfirm(a)}>
-                                <I className="h-4 w-4 mr-1" />{a.label}
-                              </Button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                  {es.map((e) => renderElevador(e))}
                 </CardContent>
               </Card>
             );
