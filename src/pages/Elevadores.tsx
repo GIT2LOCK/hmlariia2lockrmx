@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowUpDown, Search, Play, Pause, CheckCircle2, RotateCcw } from "lucide-react";
+import { ArrowUpDown, Search, Play, Pause, CheckCircle2, RotateCcw, LayoutGrid, Columns3 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -41,6 +41,7 @@ export default function Elevadores() {
   const [loading, setLoading] = useState(true);
   const [confirm, setConfirm] = useState<Acao | null>(null);
   const [busy, setBusy] = useState<number | null>(null);
+  const [visao, setVisao] = useState<"lojas" | "kanban">("lojas");
 
   const load = async () => {
     const [l, e] = await Promise.all([
@@ -97,6 +98,44 @@ export default function Elevadores() {
     { label: "Pendentes", value: count("PENDENTE") },
   ];
 
+  const lojaPorId = useMemo(() => new Map(lojas.map((l) => [l.unidade_id, l])), [lojas]);
+  const lojaNome = (id: number) => lojaPorId.get(id)?.unidades?.nome_unidade || `Loja ${id}`;
+  const lojasVisiveis = useMemo(() => new Set(lista.map((x) => x.l.unidade_id)), [lista]);
+  const elevKanban = elev.filter((e) => lojasVisiveis.has(e.unidade_id) && (fStatus === "todos" || e.status === fStatus));
+
+  const renderElevador = (e: Elevador, showLoja = false) => (
+    <div key={e.id} className="rounded-lg border border-border bg-card p-3 space-y-2 shadow-sm">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          {showLoja && <p className="text-xs font-semibold text-primary truncate">{lojaNome(e.unidade_id)}</p>}
+          <p className="font-medium text-sm text-foreground">{e.tipo}</p>
+          <p className="text-xs text-muted-foreground">{e.marca || "Marca —"} · Série {e.numero_serie || "—"}</p>
+        </div>
+        <Badge variant={STATUS_VARIANT[e.status]}>{STATUS_LABEL[e.status]}</Badge>
+      </div>
+      {(e.iniciado_em || e.instalado_em) && (
+        <div className="text-xs text-muted-foreground space-y-0.5">
+          {e.iniciado_em && <p>Iniciado {fmt(e.iniciado_em)}{e.ini?.nome ? ` por ${e.ini.nome}` : ""}</p>}
+          {e.instalado_em && <p>Encerrado {fmt(e.instalado_em)}{e.fim?.nome ? ` por ${e.fim.nome}` : ""}</p>}
+        </div>
+      )}
+      {acoes(e).length > 0 && (
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
+          {acoes(e).map((a) => {
+            const I = icon(a.label);
+            return (
+              <Button key={a.label} size="sm" className="h-10 sm:h-9"
+                variant={a.label === "Iniciar" || a.label === "Retomar" || a.label === "Encerrar" ? "default" : "outline"}
+                disabled={busy === e.id} onClick={() => setConfirm(a)}>
+                <I className="h-4 w-4 mr-1" />{a.label}
+              </Button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <main className="space-y-4 sm:space-y-6">
       <header className="flex items-center gap-3">
@@ -140,10 +179,36 @@ export default function Elevadores() {
               {(Object.keys(STATUS_LABEL) as Status[]).map((s) => <SelectItem key={s} value={s}>{STATUS_LABEL[s]}</SelectItem>)}
             </SelectContent>
           </Select>
+          <div className="col-span-2 sm:col-span-1 flex rounded-md border border-border overflow-hidden">
+            <Button type="button" size="sm" variant={visao === "lojas" ? "default" : "ghost"} className="flex-1 rounded-none h-9" onClick={() => setVisao("lojas")}>
+              <LayoutGrid className="h-4 w-4 mr-1" />Lojas
+            </Button>
+            <Button type="button" size="sm" variant={visao === "kanban" ? "default" : "ghost"} className="flex-1 rounded-none h-9" onClick={() => setVisao("kanban")}>
+              <Columns3 className="h-4 w-4 mr-1" />Kanban
+            </Button>
+          </div>
         </div>
       </div>
 
-      {loading ? <p className="text-sm text-muted-foreground">Carregando...</p> : (
+      {loading ? <p className="text-sm text-muted-foreground">Carregando...</p> : visao === "kanban" ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 items-start">
+          {(Object.keys(STATUS_LABEL) as Status[]).map((s) => {
+            const itens = elevKanban.filter((e) => e.status === s);
+            return (
+              <section key={s} className="rounded-lg border border-border bg-muted/40 p-2 space-y-2">
+                <header className="flex items-center justify-between px-1 pt-1">
+                  <h2 className="text-sm font-semibold text-foreground">{STATUS_LABEL[s]}</h2>
+                  <Badge variant={STATUS_VARIANT[s]}>{itens.length}</Badge>
+                </header>
+                <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-0.5">
+                  {itens.map((e) => renderElevador(e, true))}
+                  {!itens.length && <p className="text-xs text-muted-foreground px-1 pb-2">Nenhum elevador.</p>}
+                </div>
+              </section>
+            );
+          })}
+        </div>
+      ) : (
         <div className="space-y-3 sm:space-y-4">
           {lista.map(({ l, es }) => {
             const all = elev.filter((e) => e.unidade_id === l.unidade_id);
@@ -163,37 +228,7 @@ export default function Elevadores() {
                   {l.observacoes && <p className="text-xs text-muted-foreground">{l.observacoes}</p>}
                 </CardHeader>
                 <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0 space-y-2">
-                  {es.map((e) => (
-                    <div key={e.id} className="rounded-lg border border-border p-3 space-y-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="font-medium text-sm text-foreground">{e.tipo}</p>
-                          <p className="text-xs text-muted-foreground">{e.marca || "Marca —"} · Série {e.numero_serie || "—"}</p>
-                        </div>
-                        <Badge variant={STATUS_VARIANT[e.status]}>{STATUS_LABEL[e.status]}</Badge>
-                      </div>
-                      {(e.iniciado_em || e.instalado_em) && (
-                        <div className="text-xs text-muted-foreground space-y-0.5">
-                          {e.iniciado_em && <p>Iniciado {fmt(e.iniciado_em)}{e.ini?.nome ? ` por ${e.ini.nome}` : ""}</p>}
-                          {e.instalado_em && <p>Encerrado {fmt(e.instalado_em)}{e.fim?.nome ? ` por ${e.fim.nome}` : ""}</p>}
-                        </div>
-                      )}
-                      {acoes(e).length > 0 && (
-                        <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
-                          {acoes(e).map((a) => {
-                            const I = icon(a.label);
-                            return (
-                              <Button key={a.label} size="sm" className="h-10 sm:h-9"
-                                variant={a.label === "Iniciar" || a.label === "Retomar" || a.label === "Encerrar" ? "default" : "outline"}
-                                disabled={busy === e.id} onClick={() => setConfirm(a)}>
-                                <I className="h-4 w-4 mr-1" />{a.label}
-                              </Button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                  {es.map((e) => renderElevador(e))}
                 </CardContent>
               </Card>
             );
