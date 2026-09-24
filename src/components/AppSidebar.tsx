@@ -20,6 +20,7 @@ import {
   Gauge,
   Link2,
   BarChart3,
+  ArrowUpDown,
 
 } from "lucide-react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
@@ -68,6 +69,7 @@ const menuItems: MenuItem[] = [
   { title: "Relatórios Zabbix", url: "/dashboard/zabbix/relatorio-alertas", icon: AlertTriangle, permission: "registry.view", tabKey: "zabbix" },
   { title: "Monitoramento", url: "/dashboard/zabbix", icon: Activity, permission: "registry.view", tabKey: "zabbix" },
   { title: "Linkai", url: "/dashboard/linkai", icon: Link2, tabKey: "linkai" },
+  { title: "Elevadores", url: "/dashboard/elevadores", icon: ArrowUpDown, permission: "registry.view", tabKey: "elevadores" },
 ];
 
 const glassMenuButtonClassName = "ariia-glass-menu-button";
