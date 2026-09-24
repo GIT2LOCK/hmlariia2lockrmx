@@ -190,7 +190,25 @@ export default function Elevadores() {
         </div>
       </div>
 
-      {loading ? <p className="text-sm text-muted-foreground">Carregando...</p> : (
+      {loading ? <p className="text-sm text-muted-foreground">Carregando...</p> : visao === "kanban" ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 items-start">
+          {(Object.keys(STATUS_LABEL) as Status[]).map((s) => {
+            const itens = elevKanban.filter((e) => e.status === s);
+            return (
+              <section key={s} className="rounded-lg border border-border bg-muted/40 p-2 space-y-2">
+                <header className="flex items-center justify-between px-1 pt-1">
+                  <h2 className="text-sm font-semibold text-foreground">{STATUS_LABEL[s]}</h2>
+                  <Badge variant={STATUS_VARIANT[s]}>{itens.length}</Badge>
+                </header>
+                <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-0.5">
+                  {itens.map((e) => renderElevador(e, true))}
+                  {!itens.length && <p className="text-xs text-muted-foreground px-1 pb-2">Nenhum elevador.</p>}
+                </div>
+              </section>
+            );
+          })}
+        </div>
+      ) : (
         <div className="space-y-3 sm:space-y-4">
           {lista.map(({ l, es }) => {
             const all = elev.filter((e) => e.unidade_id === l.unidade_id);
