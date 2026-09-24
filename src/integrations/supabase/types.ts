@@ -275,6 +275,149 @@ export type Database = {
           },
         ]
       }
+      elev_elevadores: {
+        Row: {
+          atualizado_em: string
+          criado_em: string
+          id: number
+          instalado_em: string | null
+          instalado_por: number | null
+          marca: string | null
+          numero_serie: string | null
+          observacao: string | null
+          status: Database["public"]["Enums"]["elev_status"]
+          tipo: string
+          unidade_id: number
+        }
+        Insert: {
+          atualizado_em?: string
+          criado_em?: string
+          id?: number
+          instalado_em?: string | null
+          instalado_por?: number | null
+          marca?: string | null
+          numero_serie?: string | null
+          observacao?: string | null
+          status?: Database["public"]["Enums"]["elev_status"]
+          tipo: string
+          unidade_id: number
+        }
+        Update: {
+          atualizado_em?: string
+          criado_em?: string
+          id?: number
+          instalado_em?: string | null
+          instalado_por?: number | null
+          marca?: string | null
+          numero_serie?: string | null
+          observacao?: string | null
+          status?: Database["public"]["Enums"]["elev_status"]
+          tipo?: string
+          unidade_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "elev_elevadores_instalado_por_fkey"
+            columns: ["instalado_por"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "elev_elevadores_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      elev_historico: {
+        Row: {
+          criado_em: string
+          elevador_id: number
+          id: number
+          observacao: string | null
+          status_anterior: Database["public"]["Enums"]["elev_status"] | null
+          status_novo: Database["public"]["Enums"]["elev_status"] | null
+          usuario_id: number | null
+        }
+        Insert: {
+          criado_em?: string
+          elevador_id: number
+          id?: number
+          observacao?: string | null
+          status_anterior?: Database["public"]["Enums"]["elev_status"] | null
+          status_novo?: Database["public"]["Enums"]["elev_status"] | null
+          usuario_id?: number | null
+        }
+        Update: {
+          criado_em?: string
+          elevador_id?: number
+          id?: number
+          observacao?: string | null
+          status_anterior?: Database["public"]["Enums"]["elev_status"] | null
+          status_novo?: Database["public"]["Enums"]["elev_status"] | null
+          usuario_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "elev_historico_elevador_id_fkey"
+            columns: ["elevador_id"]
+            isOneToOne: false
+            referencedRelation: "elev_elevadores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "elev_historico_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      elev_lojas: {
+        Row: {
+          ano_migracao: string | null
+          atualizado_em: string
+          criado_em: string
+          data_prevista: string | null
+          estoque_leitoras: number
+          lote: string | null
+          observacoes: string | null
+          unidade_id: number
+        }
+        Insert: {
+          ano_migracao?: string | null
+          atualizado_em?: string
+          criado_em?: string
+          data_prevista?: string | null
+          estoque_leitoras?: number
+          lote?: string | null
+          observacoes?: string | null
+          unidade_id: number
+        }
+        Update: {
+          ano_migracao?: string | null
+          atualizado_em?: string
+          criado_em?: string
+          data_prevista?: string | null
+          estoque_leitoras?: number
+          lote?: string | null
+          observacoes?: string | null
+          unidade_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "elev_lojas_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: true
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       empresas: {
         Row: {
           atualizado_em: string | null
@@ -2194,6 +2337,8 @@ export type Database = {
         Returns: Json
       }
       fn_delete_usuario_cascade_guard: { Args: never; Returns: undefined }
+      fn_elev_is_admin: { Args: never; Returns: boolean }
+      fn_elev_is_staff: { Args: never; Returns: boolean }
       fn_find_sla_policy: {
         Args: {
           _categoria_id: number
@@ -2292,6 +2437,7 @@ export type Database = {
         | "GRAFANA_ONLY"
         | "ARIIA_AND_GRAFANA"
         | "BLOCKED"
+      elev_status: "PENDENTE" | "EM_ANDAMENTO" | "INSTALADO"
       finalidade_link: "principal" | "backup"
       grafana_role: "None" | "Viewer" | "Editor" | "Admin"
       ip_tipo: "dinamico" | "fixo"
@@ -2460,6 +2606,7 @@ export const Constants = {
         "ARIIA_AND_GRAFANA",
         "BLOCKED",
       ],
+      elev_status: ["PENDENTE", "EM_ANDAMENTO", "INSTALADO"],
       finalidade_link: ["principal", "backup"],
       grafana_role: ["None", "Viewer", "Editor", "Admin"],
       ip_tipo: ["dinamico", "fixo"],
