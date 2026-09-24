@@ -377,7 +377,7 @@ export default function Elevadores() {
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => salvarChecklist(false)} disabled={salvando}>Salvar validação</Button>
-            <Button onClick={() => salvarChecklist(true)} disabled={salvando || CHECKLIST.some((c) => !checkSel[c.key])}>
+            <Button onClick={() => setConfirmarInicio(true)} disabled={salvando || CHECKLIST.some((c) => !checkSel[c.key])}>
               <Play className="h-4 w-4 mr-1" />Iniciar instalação
             </Button>
           </DialogFooter>
