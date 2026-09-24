@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowUpDown, Search, Play, Pause, CheckCircle2, RotateCcw } from "lucide-react";
+import { ArrowUpDown, Search, Play, Pause, CheckCircle2, RotateCcw, LayoutGrid, Columns3 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -41,6 +41,7 @@ export default function Elevadores() {
   const [loading, setLoading] = useState(true);
   const [confirm, setConfirm] = useState<Acao | null>(null);
   const [busy, setBusy] = useState<number | null>(null);
+  const [visao, setVisao] = useState<"lojas" | "kanban">("lojas");
 
   const load = async () => {
     const [l, e] = await Promise.all([
