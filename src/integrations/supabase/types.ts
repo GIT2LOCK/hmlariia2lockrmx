@@ -280,6 +280,8 @@ export type Database = {
           atualizado_em: string
           criado_em: string
           id: number
+          iniciado_em: string | null
+          iniciado_por: number | null
           instalado_em: string | null
           instalado_por: number | null
           marca: string | null
@@ -293,6 +295,8 @@ export type Database = {
           atualizado_em?: string
           criado_em?: string
           id?: number
+          iniciado_em?: string | null
+          iniciado_por?: number | null
           instalado_em?: string | null
           instalado_por?: number | null
           marca?: string | null
@@ -306,6 +310,8 @@ export type Database = {
           atualizado_em?: string
           criado_em?: string
           id?: number
+          iniciado_em?: string | null
+          iniciado_por?: number | null
           instalado_em?: string | null
           instalado_por?: number | null
           marca?: string | null
@@ -316,6 +322,13 @@ export type Database = {
           unidade_id?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "elev_elevadores_iniciado_por_fkey"
+            columns: ["iniciado_por"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "elev_elevadores_instalado_por_fkey"
             columns: ["instalado_por"]
@@ -2437,7 +2450,7 @@ export type Database = {
         | "GRAFANA_ONLY"
         | "ARIIA_AND_GRAFANA"
         | "BLOCKED"
-      elev_status: "PENDENTE" | "EM_ANDAMENTO" | "INSTALADO"
+      elev_status: "PENDENTE" | "EM_ANDAMENTO" | "INSTALADO" | "PAUSADO"
       finalidade_link: "principal" | "backup"
       grafana_role: "None" | "Viewer" | "Editor" | "Admin"
       ip_tipo: "dinamico" | "fixo"
@@ -2606,7 +2619,7 @@ export const Constants = {
         "ARIIA_AND_GRAFANA",
         "BLOCKED",
       ],
-      elev_status: ["PENDENTE", "EM_ANDAMENTO", "INSTALADO"],
+      elev_status: ["PENDENTE", "EM_ANDAMENTO", "INSTALADO", "PAUSADO"],
       finalidade_link: ["principal", "backup"],
       grafana_role: ["None", "Viewer", "Editor", "Admin"],
       ip_tipo: ["dinamico", "fixo"],
