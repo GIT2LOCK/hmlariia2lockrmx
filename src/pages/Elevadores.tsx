@@ -384,6 +384,22 @@ export default function Elevadores() {
         </DialogContent>
       </Dialog>
 
+      <AlertDialog open={confirmarInicio} onOpenChange={(o) => !o && setConfirmarInicio(false)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Deseja mesmo iniciar a instalação?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Todos os itens de validação foram confirmados. Após o início, ninguém poderá iniciar novamente — apenas pausar ou encerrar.
+              <span className="block mt-2 font-medium text-destructive">Somente o administrador da aplicação poderá reverter essa ação.</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setConfirmarInicio(false); salvarChecklist(true); }}>Sim, iniciar instalação</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <AlertDialog open={!!confirm} onOpenChange={(o) => !o && setConfirm(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
