@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowUpDown, Search, Play, Pause, CheckCircle2, RotateCcw, LayoutGrid, Columns3 } from "lucide-react";
+import { ArrowUpDown, Search, Play, Pause, CheckCircle2, RotateCcw, LayoutGrid, Columns3, Plus } from "lucide-react";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -42,6 +45,28 @@ export default function Elevadores() {
   const [confirm, setConfirm] = useState<Acao | null>(null);
   const [busy, setBusy] = useState<number | null>(null);
   const [visao, setVisao] = useState<"lojas" | "kanban">("lojas");
+  const [novoOpen, setNovoOpen] = useState(false);
+  const [novo, setNovo] = useState({ unidade_id: "", tipo: "", marca: "", numero_serie: "", observacao: "" });
+  const [salvando, setSalvando] = useState(false);
+  const tiposExistentes = useMemo(() => Array.from(new Set(elev.map((e) => e.tipo).filter(Boolean))).sort(), [elev]);
+  const marcasExistentes = useMemo(() => Array.from(new Set(elev.map((e) => e.marca).filter(Boolean) as string[])).sort(), [elev]);
+
+  const salvarNovo = async () => {
+    if (!novo.unidade_id || !novo.tipo.trim()) {
+      toast({ title: "Preencha a loja e o tipo", variant: "destructive" }); return;
+    }
+    setSalvando(true);
+    const { error } = await db.from("elev_elevadores").insert({
+      unidade_id: Number(novo.unidade_id), tipo: novo.tipo.trim(),
+      marca: novo.marca.trim() || null, numero_serie: novo.numero_serie.trim() || null,
+      observacao: novo.observacao.trim() || null, status: "PENDENTE",
+    });
+    setSalvando(false);
+    if (error) { toast({ title: "Não foi possível adicionar", description: error.message, variant: "destructive" }); return; }
+    toast({ title: "Elevador adicionado" });
+    setNovoOpen(false); setNovo({ unidade_id: "", tipo: "", marca: "", numero_serie: "", observacao: "" });
+    load();
+  };
 
   const load = async () => {
     const [l, e] = await Promise.all([
@@ -140,11 +165,58 @@ export default function Elevadores() {
     <main className="space-y-4 sm:space-y-6">
       <header className="flex items-center gap-3">
         <div className="rounded-lg bg-primary/10 p-2 text-primary"><ArrowUpDown className="h-6 w-6" /></div>
-        <div>
+        <div className="flex-1">
           <h1 className="text-lg sm:text-2xl font-semibold text-foreground">Implantação — Elevadores</h1>
           <p className="text-xs sm:text-sm text-muted-foreground">GoodStorage · controle de acesso por loja</p>
         </div>
+        {admin && (
+          <Button onClick={() => setNovoOpen(true)}><Plus className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline">Adicionar elevador</span></Button>
+        )}
       </header>
+
+      <Dialog open={novoOpen} onOpenChange={setNovoOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>Adicionar elevador</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label>Loja *</Label>
+              <Select value={novo.unidade_id} onValueChange={(v) => setNovo({ ...novo, unidade_id: v })}>
+                <SelectTrigger><SelectValue placeholder="Selecione a loja" /></SelectTrigger>
+                <SelectContent className="max-h-72">
+                  {[...lojas].sort((a, b) => (a.unidades?.nome_unidade || "").localeCompare(b.unidades?.nome_unidade || "")).map((l) => (
+                    <SelectItem key={l.unidade_id} value={String(l.unidade_id)}>{l.unidades?.nome_unidade}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>Tipo *</Label>
+              <Input list="elev-tipos" value={novo.tipo} onChange={(e) => setNovo({ ...novo, tipo: e.target.value })} placeholder="Ex.: Carga, Social" />
+              <datalist id="elev-tipos">{tiposExistentes.map((t) => <option key={t} value={t} />)}</datalist>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>Marca</Label>
+                <Input list="elev-marcas" value={novo.marca} onChange={(e) => setNovo({ ...novo, marca: e.target.value })} />
+                <datalist id="elev-marcas">{marcasExistentes.map((t) => <option key={t} value={t} />)}</datalist>
+              </div>
+              <div className="space-y-1">
+                <Label>Número de série</Label>
+                <Input value={novo.numero_serie} onChange={(e) => setNovo({ ...novo, numero_serie: e.target.value })} />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label>Observação</Label>
+              <Textarea value={novo.observacao} onChange={(e) => setNovo({ ...novo, observacao: e.target.value })} rows={3} />
+            </div>
+            <p className="text-xs text-muted-foreground">O elevador entra como Pendente.</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNovoOpen(false)}>Cancelar</Button>
+            <Button onClick={salvarNovo} disabled={salvando}>{salvando ? "Salvando..." : "Adicionar"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <section className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-3">
         {kpis.map((k) => (
