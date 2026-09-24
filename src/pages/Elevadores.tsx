@@ -179,6 +179,14 @@ export default function Elevadores() {
               {(Object.keys(STATUS_LABEL) as Status[]).map((s) => <SelectItem key={s} value={s}>{STATUS_LABEL[s]}</SelectItem>)}
             </SelectContent>
           </Select>
+          <div className="col-span-2 sm:col-span-1 flex rounded-md border border-border overflow-hidden">
+            <Button type="button" size="sm" variant={visao === "lojas" ? "default" : "ghost"} className="flex-1 rounded-none h-9" onClick={() => setVisao("lojas")}>
+              <LayoutGrid className="h-4 w-4 mr-1" />Lojas
+            </Button>
+            <Button type="button" size="sm" variant={visao === "kanban" ? "default" : "ghost"} className="flex-1 rounded-none h-9" onClick={() => setVisao("kanban")}>
+              <Columns3 className="h-4 w-4 mr-1" />Kanban
+            </Button>
+          </div>
         </div>
       </div>
 
