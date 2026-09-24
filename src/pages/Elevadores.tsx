@@ -60,6 +60,7 @@ export default function Elevadores() {
   const [salvando, setSalvando] = useState(false);
   const [checkEl, setCheckEl] = useState<Elevador | null>(null);
   const [checkSel, setCheckSel] = useState<Record<string, { por?: string; em?: string }>>({});
+  const [confirmarInicio, setConfirmarInicio] = useState(false);
   const abrirChecklist = (e: Elevador) => { setCheckEl(e); setCheckSel({ ...(e.checklist || {}) }); };
   const toggleItem = (k: string) => setCheckSel((c) => {
     const n = { ...c };
@@ -376,12 +377,28 @@ export default function Elevadores() {
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => salvarChecklist(false)} disabled={salvando}>Salvar validação</Button>
-            <Button onClick={() => salvarChecklist(true)} disabled={salvando || CHECKLIST.some((c) => !checkSel[c.key])}>
+            <Button onClick={() => setConfirmarInicio(true)} disabled={salvando || CHECKLIST.some((c) => !checkSel[c.key])}>
               <Play className="h-4 w-4 mr-1" />Iniciar instalação
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={confirmarInicio} onOpenChange={(o) => !o && setConfirmarInicio(false)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Deseja mesmo iniciar a instalação?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Todos os itens de validação foram confirmados. Após o início, ninguém poderá iniciar novamente — apenas pausar ou encerrar.
+              <span className="block mt-2 font-medium text-destructive">Somente o administrador da aplicação poderá reverter essa ação.</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setConfirmarInicio(false); salvarChecklist(true); }}>Sim, iniciar instalação</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={!!confirm} onOpenChange={(o) => !o && setConfirm(null)}>
         <AlertDialogContent>
