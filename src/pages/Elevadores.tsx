@@ -60,6 +60,7 @@ export default function Elevadores() {
   const [salvando, setSalvando] = useState(false);
   const [checkEl, setCheckEl] = useState<Elevador | null>(null);
   const [checkSel, setCheckSel] = useState<Record<string, { por?: string; em?: string }>>({});
+  const [confirmarInicio, setConfirmarInicio] = useState(false);
   const abrirChecklist = (e: Elevador) => { setCheckEl(e); setCheckSel({ ...(e.checklist || {}) }); };
   const toggleItem = (k: string) => setCheckSel((c) => {
     const n = { ...c };
