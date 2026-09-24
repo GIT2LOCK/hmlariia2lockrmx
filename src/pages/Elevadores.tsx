@@ -355,7 +355,10 @@ export default function Elevadores() {
       <Dialog open={!!checkEl} onOpenChange={(o) => !o && setCheckEl(null)}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Validação antes de iniciar</DialogTitle></DialogHeader>
-          {checkEl && <p className="text-sm text-muted-foreground">{lojaNome(checkEl.unidade_id)} · {checkEl.tipo}</p>}
+          {checkEl && (() => {
+            const feitos = CHECKLIST.filter((c) => checkSel[c.key]).length;
+            return <p className="text-sm text-muted-foreground">{lojaNome(checkEl.unidade_id)} · {checkEl.tipo} · <span className="text-primary font-medium">{feitos}/{CHECKLIST.length} validados</span></p>;
+          })()}
           <div className="space-y-2">
             {CHECKLIST.map((c) => {
               const v = checkSel[c.key];
