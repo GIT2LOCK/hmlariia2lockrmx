@@ -278,6 +278,7 @@ export type Database = {
       elev_elevadores: {
         Row: {
           atualizado_em: string
+          checklist: Json
           criado_em: string
           id: number
           iniciado_em: string | null
@@ -293,6 +294,7 @@ export type Database = {
         }
         Insert: {
           atualizado_em?: string
+          checklist?: Json
           criado_em?: string
           id?: number
           iniciado_em?: string | null
@@ -308,6 +310,7 @@ export type Database = {
         }
         Update: {
           atualizado_em?: string
+          checklist?: Json
           criado_em?: string
           id?: number
           iniciado_em?: string | null
