@@ -21,8 +21,13 @@ import {
   Link2,
   BarChart3,
   ArrowUpDown,
+  Palette,
+  Sun,
+  Moon,
+  Warehouse,
 
 } from "lucide-react";
+import { useTheme } from "next-themes";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useUser } from "@/contexts/UserContext";
@@ -44,6 +49,14 @@ import {
 
 import { Permission } from "@/lib/permissions";
 import { useAllowedTabs, type TabKey } from "@/hooks/useAllowedTabs";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface MenuItem {
   title: string;
@@ -82,6 +95,7 @@ export function AppSidebar() {
   const currentPath = location.pathname;
   const { user, refreshUser, canManageUsers, can, isGrafanaOnly, isBlocked } = useUser();
   const { allows } = useAllowedTabs();
+  const { theme = "light", setTheme } = useTheme();
 
   const isCliente = user.role === "CLIENTE";
   const isActive = (path: string) => currentPath === path;
@@ -209,6 +223,36 @@ export function AppSidebar() {
 
       <SidebarFooter className="border-t border-sky-300/20 p-2">
         <SidebarMenu>
+          <SidebarMenuItem>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <SidebarMenuButton tooltip="Tema" className={glassMenuButtonClassName}>
+                  <Palette className="h-5 w-5" />
+                  <span>Tema</span>
+                </SidebarMenuButton>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="right" align="end" className="w-52">
+                <DropdownMenuLabel>Aparência</DropdownMenuLabel>
+                <DropdownMenuRadioGroup value={theme} onValueChange={setTheme}>
+                  <DropdownMenuRadioItem value="light" className="gap-2">
+                    <Sun className="h-4 w-4" /> Claro
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="dark" className="gap-2">
+                    <Moon className="h-4 w-4" /> Escuro
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="goodstorage" className="gap-2">
+                    <Warehouse className="h-4 w-4" />
+                    <span className="flex-1">GoodStorage</span>
+                    <span className="flex gap-1" aria-hidden="true">
+                      <span className="h-2.5 w-2.5 rounded-full bg-primary" />
+                      <span className="h-2.5 w-2.5 rounded-full bg-secondary" />
+                      <span className="h-2.5 w-2.5 rounded-full bg-accent" />
+                    </span>
+                  </DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton 
               onClick={handleLogout}

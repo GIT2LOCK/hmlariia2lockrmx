@@ -97,6 +97,50 @@ All colors MUST be HSL.
     --brand-blue: 215 80% 65%;
     --brand-blue-light: 215 70% 75%;
   }
+
+  .goodstorage {
+    --background: 220 22% 97%;
+    --foreground: 240 18% 16%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 240 18% 16%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 18% 16%;
+
+    --primary: 31 100% 50%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 65 100% 42%;
+    --secondary-foreground: 240 18% 14%;
+
+    --muted: 240 20% 95%;
+    --muted-foreground: 240 8% 42%;
+
+    --accent: 240 100% 71%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 240 18% 88%;
+    --input: 240 18% 88%;
+    --ring: 31 100% 50%;
+
+    --sidebar-background: 240 27% 15%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 31 100% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 100% 71%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 240 25% 27%;
+    --sidebar-ring: 65 100% 42%;
+
+    --brand-navy: 240 100% 71%;
+    --brand-navy-light: 240 85% 76%;
+    --brand-blue: 31 100% 50%;
+    --brand-blue-light: 65 100% 42%;
+  }
 }
 
 @keyframes overlayFadeIn {
@@ -168,6 +212,18 @@ All colors MUST be HSL.
     --glass-accent: 201 100% 52%;
     --glass-highlight: 200 100% 60%;
     --glass-shadow: 218 100% 10%;
+  }
+
+  .goodstorage .ariia-glass-sidebar {
+    --glass-panel: 240 29% 13%;
+    --glass-panel-deep: 240 33% 8%;
+    --glass-surface: 31 100% 50%;
+    --glass-surface-soft: 240 100% 71%;
+    --glass-ink: 0 0% 100%;
+    --glass-muted: 65 100% 76%;
+    --glass-accent: 65 100% 42%;
+    --glass-highlight: 31 100% 64%;
+    --glass-shadow: 240 33% 6%;
   }
 
   .ariia-glass-sidebar[data-sidebar="sidebar"],
