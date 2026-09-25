@@ -108,7 +108,7 @@ export async function login(data: LoginData): Promise<AuthResponse> {
 
     const result = await response.json();
 
-    if (!response.ok) {
+    if (!response.ok || result?.success === false || result?.error) {
       return { success: false, message: result.error || "Erro ao fazer login", error: result.error };
     }
 

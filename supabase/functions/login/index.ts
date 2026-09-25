@@ -98,8 +98,8 @@ serve(async (req) => {
 
     if (!userData) {
       return new Response(
-        JSON.stringify({ error: "E-mail ou senha incorretos" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ success: false, error: "E-mail ou senha incorretos" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -135,8 +135,8 @@ serve(async (req) => {
 
     if (!isValid) {
       return new Response(
-        JSON.stringify({ error: "E-mail ou senha incorretos" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ success: false, error: "E-mail ou senha incorretos" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
