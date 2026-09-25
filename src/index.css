@@ -52,6 +52,10 @@ All colors MUST be HSL.
     --brand-navy-light: 235 80% 25%;
     --brand-blue: 215 85% 65%;
     --brand-blue-light: 215 80% 75%;
+
+    --goodstorage-orange: 31 100% 50%;
+    --goodstorage-green: 65 100% 42%;
+    --goodstorage-blue: 240 100% 71%;
   }
 
   .dark {
@@ -225,6 +229,10 @@ All colors MUST be HSL.
     --glass-highlight: 31 100% 64%;
     --glass-shadow: 240 33% 6%;
   }
+
+  .goodstorage-swatch-orange { background: hsl(var(--goodstorage-orange)); }
+  .goodstorage-swatch-green { background: hsl(var(--goodstorage-green)); }
+  .goodstorage-swatch-blue { background: hsl(var(--goodstorage-blue)); }
 
   .ariia-glass-sidebar[data-sidebar="sidebar"],
   .ariia-glass-sidebar [data-sidebar="sidebar"] {

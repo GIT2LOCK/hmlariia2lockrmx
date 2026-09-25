@@ -244,9 +244,9 @@ export function AppSidebar() {
                     <Warehouse className="h-4 w-4" />
                     <span className="flex-1">GoodStorage</span>
                     <span className="flex gap-1" aria-hidden="true">
-                      <span className="h-2.5 w-2.5 rounded-full bg-primary" />
-                      <span className="h-2.5 w-2.5 rounded-full bg-secondary" />
-                      <span className="h-2.5 w-2.5 rounded-full bg-accent" />
+                      <span className="goodstorage-swatch-orange h-2.5 w-2.5 rounded-full" />
+                      <span className="goodstorage-swatch-green h-2.5 w-2.5 rounded-full" />
+                      <span className="goodstorage-swatch-blue h-2.5 w-2.5 rounded-full" />
                     </span>
                   </DropdownMenuRadioItem>
                 </DropdownMenuRadioGroup>
