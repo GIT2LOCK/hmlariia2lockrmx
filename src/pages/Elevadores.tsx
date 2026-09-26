@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowUpDown, Search, Play, Pause, CheckCircle2, RotateCcw, LayoutGrid, Columns3, Plus } from "lucide-react";
+import * as XLSX from "xlsx";
+import { FileSpreadsheet, ArrowUpDown, Search, Play, Pause, CheckCircle2, RotateCcw, LayoutGrid, Columns3, Plus } from "lucide-react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -39,6 +40,41 @@ const CHECKLIST: { key: string; label: string; desc: string }[] = [
   { key: "manutencao", label: "Empresa de manutenção", desc: "Conservadora do elevador ciente ou acompanhando" },
   { key: "seguranca", label: "Segurança", desc: "Elevador isolado, sinalizado e EPIs em uso" },
 ];
+
+const FASES: [string, string, string, string, number, string][] = [
+  ["Levantamento e mapeamento de elevadores elegíveis", "Facilities", "2026-10-05", "2026-10-05", 0, "Concluído"],
+  ["Kickoff — alinhamento do projeto", "Facilities / WCTECH", "2026-10-05", "2026-10-11", 1, "Não iniciado"],
+  ["Alinhamento técnico com 2lock", "Facilities / Gois", "2026-10-05", "2026-10-11", 1, "Não iniciado"],
+  ["Análise técnica de rede", "2lock", "2026-10-12", "2026-10-25", 2, "Não iniciado"],
+  ["Kickoff geral do projeto", "Facilities / Crel / 2lock / WCTECH", "2026-10-26", "2026-11-01", 1, "Não iniciado"],
+  ["Especificação técnica e orçamento (CAPEX)", "Facilities / Compras", "2026-11-02", "2026-11-15", 2, "Não iniciado"],
+  ["Análise e aquisição de equipamentos", "Compras / WCTECH", "2026-11-16", "2026-12-06", 3, "Não iniciado"],
+  ["Instalação 2026 - Lote 1 (9 lojas)", "WCTECH", "2026-12-07", "2026-12-27", 3, "Não iniciado"],
+  ["Instalação 2026 - Lote 2 (9 lojas)", "WCTECH", "2026-12-28", "2027-01-17", 3, "Não iniciado"],
+  ["Instalação 2026 - Lote 3 (9 lojas)", "WCTECH", "2027-01-18", "2027-02-07", 3, "Não iniciado"],
+  ["Testes e homologação 2026 (contínuo por lote)", "Facilities / WCTECH", "2026-12-07", "2027-02-07", 9, "Não iniciado"],
+  ["Treinamento das equipes locais (2026)", "Facilities / WCTECH", "2026-12-21", "2027-01-31", 6, "Não iniciado"],
+  ["Encerramento e aceite 2026", "Facilities", "2027-02-08", "2027-02-14", 1, "Não iniciado"],
+  ["Instalação 2027 - Lote único (9 lojas)", "WCTECH", "2027-01-04", "2027-01-31", 4, "Não iniciado"],
+  ["Testes e homologação 2027", "Facilities / WCTECH", "2027-02-01", "2027-02-14", 2, "Não iniciado"],
+  ["Encerramento e aceite final 2027", "Facilities", "2027-02-15", "2027-02-21", 1, "Não iniciado"],
+];
+const dBR = (iso: string | null) => (iso ? iso.slice(0, 10).split("-").reverse().join("/") : "");
+
+type KCol = { key: string; label: string; variant: "outline" | "secondary" | "default" | "destructive" };
+const KCOLS: KCol[] = [
+  { key: "AGUARDANDO", label: "Aguardando validação", variant: "outline" },
+  { key: "VALIDANDO", label: "Em validação", variant: "outline" },
+  { key: "PRONTO", label: "Pronto p/ iniciar", variant: "secondary" },
+  { key: "EM_ANDAMENTO", label: "Em andamento", variant: "secondary" },
+  { key: "PAUSADO", label: "Pausado", variant: "destructive" },
+  { key: "INSTALADO", label: "Concluído", variant: "default" },
+];
+const kColOf = (e: { status: string; checklist?: Record<string, unknown> | null }) => {
+  if (e.status !== "PENDENTE") return e.status;
+  const n = CHECKLIST.filter((c) => e.checklist?.[c.key]).length;
+  return n === 0 ? "AGUARDANDO" : n < CHECKLIST.length ? "VALIDANDO" : "PRONTO";
+};
 
 type Acao = { id: number; to: Status; label: string };
 
@@ -159,6 +195,35 @@ export default function Elevadores() {
   ];
 
   const lojaPorId = useMemo(() => new Map(lojas.map((l) => [l.unidade_id, l])), [lojas]);
+  const exportar = () => {
+    const wb = XLSX.utils.book_new();
+    const hoje = new Date().toISOString().slice(0, 10);
+    const c = [["Cronograma de Implantação — Controle de Acesso nos Elevadores"], [],
+      ["Fase / Etapa", "Responsável", "Início", "Fim", "Duração (sem.)", "Status"],
+      ...FASES.map(([f, r, i, fi, d, st]) => [f, r, dBR(i), dBR(fi), d, st === "Concluído" || fi < hoje && st === "Concluído" ? st : st])];
+    const w1 = XLSX.utils.aoa_to_sheet(c);
+    w1["!cols"] = [{ wch: 50 }, { wch: 34 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 14 }];
+    XLSX.utils.book_append_sheet(wb, w1, "Cronograma");
+    const linhas = [...lojas].sort((a, b) => (a.data_prevista || "9").localeCompare(b.data_prevista || "9") || lojaNome(a.unidade_id).localeCompare(lojaNome(b.unidade_id)));
+    const r = [["Resumo por Loja — Elevadores, Estoque de Leitoras e Ano de Migração"], [],
+      ["Loja", "Total de elevadores", "Já instalados", "Em andamento", "Faltam instalar", "Estoque de leitoras sobrando", "Ano de migração", "Lote", "Data prevista", "Observações"],
+      ...linhas.map((l) => {
+        const es = elev.filter((e) => e.unidade_id === l.unidade_id);
+        const ok = es.filter((e) => e.status === "INSTALADO").length;
+        const and = es.filter((e) => e.status === "EM_ANDAMENTO" || e.status === "PAUSADO").length;
+        return [lojaNome(l.unidade_id), es.length, ok, and, es.length - ok, l.estoque_leitoras ?? 0, l.ano_migracao || "", l.lote || "", dBR(l.data_prevista), l.observacoes || ""];
+      })];
+    const w2 = XLSX.utils.aoa_to_sheet(r);
+    w2["!cols"] = [{ wch: 26 }, { wch: 12 }, { wch: 12 }, { wch: 13 }, { wch: 13 }, { wch: 16 }, { wch: 12 }, { wch: 8 }, { wch: 13 }, { wch: 40 }];
+    XLSX.utils.book_append_sheet(wb, w2, "Resumo por Loja");
+    const d = [["Loja", "Tipo", "Marca", "Nº série", "Status", "Validação", "Iniciado em", "Iniciado por", "Instalado em", "Instalado por"],
+      ...elev.map((e) => [lojaNome(e.unidade_id), e.tipo, e.marca || "", e.numero_serie || "", KCOLS.find((k) => k.key === kColOf(e))?.label || e.status,
+        `${CHECKLIST.filter((x) => e.checklist?.[x.key]).length}/${CHECKLIST.length}`, fmt(e.iniciado_em), e.ini?.nome || "", fmt(e.instalado_em), e.fim?.nome || ""])];
+    const w3 = XLSX.utils.aoa_to_sheet(d);
+    w3["!cols"] = d[0].map(() => ({ wch: 18 }));
+    XLSX.utils.book_append_sheet(wb, w3, "Elevadores");
+    XLSX.writeFile(wb, `relatorio-elevadores-${hoje}.xlsx`);
+  };
   const lojaNome = (id: number) => lojaPorId.get(id)?.unidades?.nome_unidade || `Loja ${id}`;
   const lojasVisiveis = useMemo(() => new Set(lista.map((x) => x.l.unidade_id)), [lista]);
   const elevKanban = elev.filter((e) => lojasVisiveis.has(e.unidade_id) && (fStatus === "todos" || e.status === fStatus));
@@ -295,6 +360,9 @@ export default function Elevadores() {
               {(Object.keys(STATUS_LABEL) as Status[]).map((s) => <SelectItem key={s} value={s}>{STATUS_LABEL[s]}</SelectItem>)}
             </SelectContent>
           </Select>
+          <Button type="button" variant="outline" size="sm" className="h-9" onClick={exportar}>
+            <FileSpreadsheet className="h-4 w-4 mr-1" />Relatório
+          </Button>
           <div className="col-span-2 sm:col-span-1 flex rounded-md border border-border overflow-hidden">
             <Button type="button" size="sm" variant={visao === "lojas" ? "default" : "ghost"} className="flex-1 rounded-none h-9" onClick={() => setVisao("lojas")}>
               <LayoutGrid className="h-4 w-4 mr-1" />Lojas
@@ -307,14 +375,14 @@ export default function Elevadores() {
       </div>
 
       {loading ? <p className="text-sm text-muted-foreground">Carregando...</p> : visao === "kanban" ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 items-start">
-          {(Object.keys(STATUS_LABEL) as Status[]).map((s) => {
-            const itens = elevKanban.filter((e) => e.status === s);
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6 gap-3 items-start">
+          {KCOLS.map((k) => {
+            const itens = elevKanban.filter((e) => kColOf(e) === k.key);
             return (
-              <section key={s} className="rounded-lg border border-border bg-muted/40 p-2 space-y-2">
+              <section key={k.key} className="rounded-lg border border-border bg-muted/40 p-2 space-y-2">
                 <header className="flex items-center justify-between px-1 pt-1">
-                  <h2 className="text-sm font-semibold text-foreground">{STATUS_LABEL[s]}</h2>
-                  <Badge variant={STATUS_VARIANT[s]}>{itens.length}</Badge>
+                  <h2 className="text-sm font-semibold text-foreground">{k.label}</h2>
+                  <Badge variant={k.variant}>{itens.length}</Badge>
                 </header>
                 <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-0.5">
                   {itens.map((e) => renderElevador(e, true))}
