@@ -200,7 +200,7 @@ export default function Elevadores() {
     const hoje = new Date().toISOString().slice(0, 10);
     const c = [["Cronograma de Implantação — Controle de Acesso nos Elevadores"], [],
       ["Fase / Etapa", "Responsável", "Início", "Fim", "Duração (sem.)", "Status"],
-      ...FASES.map(([f, r, i, fi, d, st]) => [f, r, dBR(i), dBR(fi), d, st === "Concluído" || fi < hoje && st === "Concluído" ? st : st])];
+      ...FASES.map(([f, r, i, fi, d, st]) => [f, r, dBR(i), dBR(fi), d, st])];
     const w1 = XLSX.utils.aoa_to_sheet(c);
     w1["!cols"] = [{ wch: 50 }, { wch: 34 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 14 }];
     XLSX.utils.book_append_sheet(wb, w1, "Cronograma");
