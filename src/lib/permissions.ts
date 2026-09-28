@@ -161,7 +161,6 @@ export function clientStatusLabel(status: string): string {
 /** Módulo Elevadores: somente SUPERADMIN/ADMIN ou usuários com e-mail @wctech. */
 export function canAccessElevadores(role: RoleLike, email: string | null | undefined): boolean {
   if (role === "SUPERADMIN" || role === "ADMIN") return true;
-  if (role === "CLIENTE") return false;
   const domain = (email || "").trim().toLowerCase().split("@")[1] || "";
   return domain === "wctech.com.br";
 }
