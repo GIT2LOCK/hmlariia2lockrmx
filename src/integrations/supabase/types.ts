@@ -275,6 +275,263 @@ export type Database = {
           },
         ]
       }
+      elev_cronograma_dependencias: {
+        Row: {
+          criado_em: string
+          depende_de_etapa_id: number
+          etapa_id: number
+          id: number
+          tipo: string
+        }
+        Insert: {
+          criado_em?: string
+          depende_de_etapa_id: number
+          etapa_id: number
+          id?: number
+          tipo?: string
+        }
+        Update: {
+          criado_em?: string
+          depende_de_etapa_id?: number
+          etapa_id?: number
+          id?: number
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "elev_cronograma_dependencias_depende_de_etapa_id_fkey"
+            columns: ["depende_de_etapa_id"]
+            isOneToOne: false
+            referencedRelation: "elev_cronograma_etapas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "elev_cronograma_dependencias_etapa_id_fkey"
+            columns: ["etapa_id"]
+            isOneToOne: false
+            referencedRelation: "elev_cronograma_etapas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      elev_cronograma_etapa_unidades: {
+        Row: {
+          atualizado_em: string
+          criado_em: string
+          data_fim: string | null
+          data_inicio: string | null
+          etapa_id: number
+          id: number
+          observacoes: string | null
+          progresso_manual: number | null
+          status: string
+          unidade_id: number
+        }
+        Insert: {
+          atualizado_em?: string
+          criado_em?: string
+          data_fim?: string | null
+          data_inicio?: string | null
+          etapa_id: number
+          id?: number
+          observacoes?: string | null
+          progresso_manual?: number | null
+          status?: string
+          unidade_id: number
+        }
+        Update: {
+          atualizado_em?: string
+          criado_em?: string
+          data_fim?: string | null
+          data_inicio?: string | null
+          etapa_id?: number
+          id?: number
+          observacoes?: string | null
+          progresso_manual?: number | null
+          status?: string
+          unidade_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "elev_cronograma_etapa_unidades_etapa_id_fkey"
+            columns: ["etapa_id"]
+            isOneToOne: false
+            referencedRelation: "elev_cronograma_etapas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "elev_cronograma_etapa_unidades_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      elev_cronograma_etapas: {
+        Row: {
+          atualizado_em: string
+          criado_em: string
+          criado_por: number | null
+          data_fim: string | null
+          data_inicio: string | null
+          descricao: string | null
+          id: number
+          nome: string
+          ordem: number
+          projeto_id: number
+          status: string
+        }
+        Insert: {
+          atualizado_em?: string
+          criado_em?: string
+          criado_por?: number | null
+          data_fim?: string | null
+          data_inicio?: string | null
+          descricao?: string | null
+          id?: number
+          nome: string
+          ordem?: number
+          projeto_id: number
+          status?: string
+        }
+        Update: {
+          atualizado_em?: string
+          criado_em?: string
+          criado_por?: number | null
+          data_fim?: string | null
+          data_inicio?: string | null
+          descricao?: string | null
+          id?: number
+          nome?: string
+          ordem?: number
+          projeto_id?: number
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "elev_cronograma_etapas_criado_por_fkey"
+            columns: ["criado_por"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "elev_cronograma_etapas_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "elev_cronograma_projetos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      elev_cronograma_faciais: {
+        Row: {
+          atualizado_em: string
+          atualizado_por: number | null
+          concluido_em: string | null
+          criado_em: string
+          descricao: string | null
+          etapa_unidade_id: number
+          id: number
+          nome: string
+          observacoes: string | null
+          ordem: number
+          pendencias: string | null
+          status: string
+        }
+        Insert: {
+          atualizado_em?: string
+          atualizado_por?: number | null
+          concluido_em?: string | null
+          criado_em?: string
+          descricao?: string | null
+          etapa_unidade_id: number
+          id?: number
+          nome: string
+          observacoes?: string | null
+          ordem?: number
+          pendencias?: string | null
+          status?: string
+        }
+        Update: {
+          atualizado_em?: string
+          atualizado_por?: number | null
+          concluido_em?: string | null
+          criado_em?: string
+          descricao?: string | null
+          etapa_unidade_id?: number
+          id?: number
+          nome?: string
+          observacoes?: string | null
+          ordem?: number
+          pendencias?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "elev_cronograma_faciais_atualizado_por_fkey"
+            columns: ["atualizado_por"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "elev_cronograma_faciais_etapa_unidade_id_fkey"
+            columns: ["etapa_unidade_id"]
+            isOneToOne: false
+            referencedRelation: "elev_cronograma_etapa_unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      elev_cronograma_projetos: {
+        Row: {
+          ativo: boolean
+          atualizado_em: string
+          criado_em: string
+          criado_por: number | null
+          data_fim: string | null
+          data_inicio: string | null
+          descricao: string | null
+          id: number
+          nome: string
+          status: string
+        }
+        Insert: {
+          ativo?: boolean
+          atualizado_em?: string
+          criado_em?: string
+          criado_por?: number | null
+          data_fim?: string | null
+          data_inicio?: string | null
+          descricao?: string | null
+          id?: number
+          nome: string
+          status?: string
+        }
+        Update: {
+          ativo?: boolean
+          atualizado_em?: string
+          criado_em?: string
+          criado_por?: number | null
+          data_fim?: string | null
+          data_inicio?: string | null
+          descricao?: string | null
+          id?: number
+          nome?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "elev_cronograma_projetos_criado_por_fkey"
+            columns: ["criado_por"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       elev_elevadores: {
         Row: {
           atualizado_em: string
