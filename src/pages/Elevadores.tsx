@@ -23,7 +23,6 @@ type Status = "PENDENTE" | "EM_ANDAMENTO" | "PAUSADO" | "INSTALADO";
 interface Elevador {
   id: number; unidade_id: number; tipo: string; marca: string | null; numero_serie: string | null;
   status: Status; instalado_em: string | null; iniciado_em: string | null;
-  checklist?: Record<string, { por?: string; em?: string }> | null;
   ini?: { nome: string } | null; fim?: { nome: string } | null;
 }
 interface Loja { unidade_id: number; ano_migracao: string | null; lote: string | null; data_prevista: string | null; estoque_leitoras: number; observacoes: string | null; unidades?: { nome_unidade: string } }
@@ -32,15 +31,6 @@ const STATUS_LABEL: Record<Status, string> = { PENDENTE: "Pendente", EM_ANDAMENT
 const STATUS_VARIANT: Record<Status, "outline" | "secondary" | "default" | "destructive"> = { PENDENTE: "outline", EM_ANDAMENTO: "secondary", PAUSADO: "destructive", INSTALADO: "default" };
 const db = supabase as any;
 const fmt = (d: string | null) => (d ? new Date(d).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "");
-
-const CHECKLIST: { key: string; label: string; desc: string }[] = [
-  { key: "infraestrutura", label: "Infraestrutura", desc: "Cabeamento, rede e ponto de energia prontos" },
-  { key: "equipamento", label: "Equipamento", desc: "Leitora, controladora e acessórios no local e testados" },
-  { key: "ambiente", label: "Ambiente apto", desc: "Cabine / casa de máquinas liberadas, limpas e acessíveis" },
-  { key: "autorizacao", label: "Autorização da loja", desc: "Gerência / Facilities autorizou a intervenção" },
-  { key: "manutencao", label: "Empresa de manutenção", desc: "Conservadora do elevador ciente ou acompanhando" },
-  { key: "seguranca", label: "Segurança", desc: "Elevador isolado, sinalizado e EPIs em uso" },
-];
 
 const FASES: [string, string, string, string, number, string][] = [
   ["Levantamento e mapeamento de elevadores elegíveis", "Facilities", "2026-10-05", "2026-10-05", 0, "Concluído"],
@@ -64,18 +54,11 @@ const dBR = (iso: string | null) => (iso ? iso.slice(0, 10).split("-").reverse()
 
 type KCol = { key: string; label: string; variant: "outline" | "secondary" | "default" | "destructive" };
 const KCOLS: KCol[] = [
-  { key: "AGUARDANDO", label: "Aguardando validação", variant: "outline" },
-  { key: "VALIDANDO", label: "Em validação", variant: "outline" },
-  { key: "PRONTO", label: "Pronto p/ iniciar", variant: "secondary" },
+  { key: "PENDENTE", label: "Pendente", variant: "outline" },
   { key: "EM_ANDAMENTO", label: "Em andamento", variant: "secondary" },
   { key: "PAUSADO", label: "Pausado", variant: "destructive" },
   { key: "INSTALADO", label: "Concluído", variant: "default" },
 ];
-const kColOf = (e: { status: string; checklist?: Record<string, unknown> | null }) => {
-  if (e.status !== "PENDENTE") return e.status;
-  const n = CHECKLIST.filter((c) => e.checklist?.[c.key]).length;
-  return n === 0 ? "AGUARDANDO" : n < CHECKLIST.length ? "VALIDANDO" : "PRONTO";
-};
 
 type Acao = { id: number; to: Status; label: string };
 
@@ -95,31 +78,6 @@ export default function Elevadores() {
   const [novoOpen, setNovoOpen] = useState(false);
   const [novo, setNovo] = useState({ unidade_id: "", tipo: "", marca: "", numero_serie: "", observacao: "" });
   const [salvando, setSalvando] = useState(false);
-  const [checkEl, setCheckEl] = useState<Elevador | null>(null);
-  const [checkSel, setCheckSel] = useState<Record<string, { por?: string; em?: string }>>({});
-  const [confirmarInicio, setConfirmarInicio] = useState(false);
-  const abrirChecklist = (e: Elevador) => { setCheckEl(e); setCheckSel({ ...(e.checklist || {}) }); };
-  const toggleItem = (k: string) => setCheckSel((c) => {
-    const n = { ...c };
-    if (n[k]) delete n[k]; else n[k] = { por: user?.nome || user?.email || "", em: new Date().toISOString() };
-    return n;
-  });
-  const salvarChecklist = async (iniciar: boolean) => {
-    if (!checkEl) return;
-    setSalvando(true);
-    const payload: any = { checklist: checkSel };
-    if (iniciar) payload.status = "EM_ANDAMENTO";
-    const { error } = await db.from("elev_elevadores").update(payload).eq("id", checkEl.id);
-    setSalvando(false);
-    if (error) {
-      const m = error.message.includes("transicao_nao_permitida") ? "Alguém já iniciou esse elevador." :
-        error.message.includes("checklist_incompleto") ? "Valide todos os itens antes de iniciar." :
-        error.message.includes("checklist_bloqueado") ? "A validação só pode ser alterada enquanto está Pendente." : error.message;
-      toast({ title: "Não foi possível salvar", description: m, variant: "destructive" }); return;
-    }
-    toast({ title: iniciar ? "Instalação iniciada" : "Validação salva" });
-    setCheckEl(null); load();
-  };
   const tiposExistentes = useMemo(() => Array.from(new Set(elev.map((e) => e.tipo).filter(Boolean))).sort(), [elev]);
   const marcasExistentes = useMemo(() => Array.from(new Set(elev.map((e) => e.marca).filter(Boolean) as string[])).sort(), [elev]);
 
@@ -224,9 +182,9 @@ export default function Elevadores() {
     const w2 = XLSX.utils.aoa_to_sheet(r);
     w2["!cols"] = [{ wch: 26 }, { wch: 12 }, { wch: 12 }, { wch: 13 }, { wch: 13 }, { wch: 16 }, { wch: 12 }, { wch: 8 }, { wch: 13 }, { wch: 40 }];
     XLSX.utils.book_append_sheet(wb, w2, "Resumo por Loja");
-    const d = [["Loja", "Tipo", "Marca", "Nº série", "Status", "Validação", "Iniciado em", "Iniciado por", "Instalado em", "Instalado por"],
-      ...elev.map((e) => [lojaNome(e.unidade_id), e.tipo, e.marca || "", e.numero_serie || "", KCOLS.find((k) => k.key === kColOf(e))?.label || e.status,
-        `${CHECKLIST.filter((x) => e.checklist?.[x.key]).length}/${CHECKLIST.length}`, fmt(e.iniciado_em), e.ini?.nome || "", fmt(e.instalado_em), e.fim?.nome || ""])];
+    const d = [["Loja", "Tipo", "Marca", "Nº série", "Status", "Iniciado em", "Iniciado por", "Instalado em", "Instalado por"],
+      ...elev.map((e) => [lojaNome(e.unidade_id), e.tipo, e.marca || "", e.numero_serie || "", STATUS_LABEL[e.status],
+        fmt(e.iniciado_em), e.ini?.nome || "", fmt(e.instalado_em), e.fim?.nome || ""])];
     const w3 = XLSX.utils.aoa_to_sheet(d);
     w3["!cols"] = d[0].map(() => ({ wch: 18 }));
     XLSX.utils.book_append_sheet(wb, w3, "Elevadores");
@@ -255,15 +213,6 @@ export default function Elevadores() {
         </div>
         <Badge variant={STATUS_VARIANT[e.status]}>{STATUS_LABEL[e.status]}</Badge>
       </div>
-      {e.status === "PENDENTE" && (() => {
-        const feitos = CHECKLIST.filter((c) => e.checklist?.[c.key]).length;
-        return (
-          <button type="button" onClick={() => abrirChecklist(e)} className="w-full text-left space-y-1">
-            <div className="flex justify-between text-xs text-muted-foreground"><span>Validação pré-instalação</span><span>{feitos}/{CHECKLIST.length}</span></div>
-            <Progress value={(feitos / CHECKLIST.length) * 100} className="h-1.5" />
-          </button>
-        );
-      })()}
       {(e.iniciado_em || e.instalado_em) && (
         <div className="text-xs text-muted-foreground space-y-0.5">
           {e.iniciado_em && <p>Iniciado {fmt(e.iniciado_em)}{e.ini?.nome ? ` por ${e.ini.nome}` : ""}</p>}
@@ -277,7 +226,7 @@ export default function Elevadores() {
             return (
               <Button key={a.label} size="sm" className="h-10 sm:h-9"
                 variant={a.label === "Iniciar" || a.label === "Retomar" || a.label === "Encerrar" ? "default" : "outline"}
-                disabled={busy === e.id} onClick={() => (a.label === "Iniciar" ? abrirChecklist(e) : setConfirm(a))}>
+                disabled={busy === e.id} onClick={() => setConfirm(a)}>
                 <I className="h-4 w-4 mr-1" />{a.label}
               </Button>
             );
@@ -399,7 +348,7 @@ export default function Elevadores() {
       ) : visao === "kanban" ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6 gap-3 items-start">
           {KCOLS.map((k) => {
-            const itens = elevKanban.filter((e) => kColOf(e) === k.key);
+            const itens = elevKanban.filter((e) => e.status === k.key);
             return (
               <section key={k.key} className="rounded-lg border border-border bg-muted/40 p-2 space-y-2">
                 <header className="flex items-center justify-between px-1 pt-1">
@@ -442,53 +391,6 @@ export default function Elevadores() {
           {!lista.length && <p className="text-sm text-muted-foreground">Nenhuma loja encontrada.</p>}
         </div>
       )}
-
-      <Dialog open={!!checkEl} onOpenChange={(o) => !o && setCheckEl(null)}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Validação antes de iniciar</DialogTitle></DialogHeader>
-          {checkEl && (() => {
-            const feitos = CHECKLIST.filter((c) => checkSel[c.key]).length;
-            return <p className="text-sm text-muted-foreground">{lojaNome(checkEl.unidade_id)} · {checkEl.tipo} · <span className="text-primary font-medium">{feitos}/{CHECKLIST.length} validados</span></p>;
-          })()}
-          <div className="space-y-2">
-            {CHECKLIST.map((c) => {
-              const v = checkSel[c.key];
-              return (
-                <label key={c.key} className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer ${v ? "border-primary bg-primary/5" : "border-border"}`}>
-                  <input type="checkbox" className="mt-1 h-5 w-5 accent-primary" checked={!!v} disabled={checkEl?.status !== "PENDENTE"} onChange={() => toggleItem(c.key)} />
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-foreground">{c.label}</p>
-                    <p className="text-xs text-muted-foreground">{c.desc}</p>
-                    {v?.em && <p className="text-xs text-primary mt-0.5">Validado {fmt(v.em)}{v.por ? ` por ${v.por}` : ""}</p>}
-                  </div>
-                </label>
-              );
-            })}
-          </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => salvarChecklist(false)} disabled={salvando}>Salvar validação</Button>
-            <Button onClick={() => setConfirmarInicio(true)} disabled={salvando || CHECKLIST.some((c) => !checkSel[c.key])}>
-              <Play className="h-4 w-4 mr-1" />Iniciar instalação
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <AlertDialog open={confirmarInicio} onOpenChange={(o) => !o && setConfirmarInicio(false)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Deseja mesmo iniciar a instalação?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Todos os itens de validação foram confirmados. Após o início, ninguém poderá iniciar novamente — apenas pausar ou encerrar.
-              <span className="block mt-2 font-medium text-destructive">Somente o administrador da aplicação poderá reverter essa ação.</span>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={() => { setConfirmarInicio(false); salvarChecklist(true); }}>Sim, iniciar instalação</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       <AlertDialog open={!!confirm} onOpenChange={(o) => !o && setConfirm(null)}>
         <AlertDialogContent>
