@@ -101,12 +101,11 @@ export function AppSidebar() {
   const isActive = (path: string) => currentPath === path;
   const visibleItems = (isGrafanaOnly || isBlocked)
     ? []
-    : isCliente
-      ? menuItems.filter((it) => it.url === "/dashboard/chamados")
-      : menuItems.filter((it) =>
-          (!it.permission || can(it.permission)) && allows(it.tabKey) &&
-          (it.tabKey !== "elevadores" || canAccessElevadores(user.role, user.email))
-        );
+    : menuItems.filter((it) => {
+        if (it.tabKey === "elevadores") return canAccessElevadores(user.role, user.email);
+        if (isCliente) return it.url === "/dashboard/chamados";
+        return (!it.permission || can(it.permission)) && allows(it.tabKey);
+      });
 
 
   const handleLogout = async (e: React.MouseEvent) => {
