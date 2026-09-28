@@ -42,6 +42,8 @@ const TAB_DEFS = [
   { key: "usuarios", label: "Usuários" },
   { key: "permissoes", label: "Permissões" },
   { key: "grafana", label: "Controle Grafana" },
+  { key: "linkai", label: "Linkai" },
+  { key: "elevadores", label: "Elevadores (GoodStorage)" },
 ];
 
 interface Empresa { id: number; nome_fantasia: string | null; razao_social: string | null }
@@ -231,11 +233,18 @@ export function UserEditDialog({ open, onClose, usuario, onSaved }: Props) {
       if (upErr) throw upErr;
 
       // 2) Abas
-      await supabase.from("user_tab_permissions").delete().eq("usuario_id", usuario.id);
+      const { error: deleteTabsError } = await supabase
+        .from("user_tab_permissions")
+        .delete()
+        .eq("usuario_id", usuario.id);
+      if (deleteTabsError) throw deleteTabsError;
       const tabRows = TAB_DEFS.map((t) => ({
         usuario_id: usuario.id, tab_key: t.key, allowed: allowedTabs.has(t.key),
       }));
-      await supabase.from("user_tab_permissions").insert(tabRows);
+      const { error: insertTabsError } = await supabase
+        .from("user_tab_permissions")
+        .insert(tabRows);
+      if (insertTabsError) throw insertTabsError;
 
       // 3) Grupos
       await supabase.from("grafana_access_group_members").delete().eq("usuario_id", usuario.id);
