@@ -362,6 +362,11 @@ export default function Elevadores() {
         </div>
       ) : (
         <div className="space-y-3 sm:space-y-4">
+          {admin && (
+            <div className="flex justify-end">
+              <Button onClick={() => setNovoOpen(true)}><Plus className="h-4 w-4 mr-1" />Adicionar elevador</Button>
+            </div>
+          )}
           {lista.map(({ l, es }) => {
             const all = elev.filter((e) => e.unidade_id === l.unidade_id);
             const ok = all.filter((e) => e.status === "INSTALADO").length;
