@@ -18,6 +18,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
 import CronogramaConstrutor from "@/components/elevadores/CronogramaConstrutor";
+import CronogramaKanban from "@/components/elevadores/CronogramaKanban";
 
 type Status = "PENDENTE" | "EM_ANDAMENTO" | "PAUSADO" | "INSTALADO";
 interface Elevador {
@@ -343,23 +344,7 @@ export default function Elevadores() {
       {loading ? <p className="text-sm text-muted-foreground">Carregando...</p> : visao === "cronograma" ? (
         <CronogramaConstrutor lojas={lojas} admin={admin} />
       ) : visao === "kanban" ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6 gap-3 items-start">
-          {KCOLS.map((k) => {
-            const itens = elevKanban.filter((e) => e.status === k.key);
-            return (
-              <section key={k.key} className="rounded-lg border border-border bg-muted/40 p-2 space-y-2">
-                <header className="flex items-center justify-between px-1 pt-1">
-                  <h2 className="text-sm font-semibold text-foreground">{k.label}</h2>
-                  <Badge variant={k.variant}>{itens.length}</Badge>
-                </header>
-                <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-0.5">
-                  {itens.map((e) => renderElevador(e, true))}
-                  {!itens.length && <p className="text-xs text-muted-foreground px-1 pb-2">Nenhum elevador.</p>}
-                </div>
-              </section>
-            );
-          })}
-        </div>
+        <CronogramaKanban lojas={lojas} admin={admin} />
       ) : (
         <div className="space-y-3 sm:space-y-4">
           {admin && (
