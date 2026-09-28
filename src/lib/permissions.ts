@@ -163,5 +163,5 @@ export function canAccessElevadores(role: RoleLike, email: string | null | undef
   if (role === "SUPERADMIN" || role === "ADMIN") return true;
   if (role === "CLIENTE") return false;
   const domain = (email || "").trim().toLowerCase().split("@")[1] || "";
-  return domain.startsWith("wctech.");
+  return domain === "wctech.com.br";
 }
