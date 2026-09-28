@@ -81,7 +81,7 @@ export function ProtectedRoute({
     return <Navigate to="/dashboard" replace />;
   }
 
-  if (requireElevadores && !canAccessElevadores(user.role, user.email)) {
+  if (requireElevadores && !canAccessElevadores(user.role, user.email) && !allows("elevadores")) {
     toast.error("Você não tem acesso a essa área.");
     return <Navigate to="/dashboard" replace />;
   }
