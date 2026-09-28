@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useUser, ModuleAction } from "@/contexts/UserContext";
-import { Permission, denyMessage, Role } from "@/lib/permissions";
+import { Permission, denyMessage, Role, canAccessElevadores } from "@/lib/permissions";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAllowedTabs, type TabKey } from "@/hooks/useAllowedTabs";
@@ -15,6 +15,8 @@ interface ProtectedRouteProps {
   allowGrafanaOnly?: boolean;
   /** Perfis explicitamente proibidos (ex: ['CLIENTE'] para área admin). */
   forbidRoles?: Role[];
+  /** Somente admins/superadmins e usuários @wctech. */
+  requireElevadores?: boolean;
 }
 
 export function ProtectedRoute({
@@ -24,6 +26,7 @@ export function ProtectedRoute({
   tabKey,
   allowGrafanaOnly,
   forbidRoles,
+  requireElevadores,
 }: ProtectedRouteProps) {
   const {
     isAuthenticated, isLoading, syncFromDatabase, can, canModule,
@@ -74,6 +77,11 @@ export function ProtectedRoute({
   }
 
   if (requireModule && !canModule(requireModule.key, requireModule.action || "view")) {
+    toast.error("Você não tem acesso a essa área.");
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  if (requireElevadores && !canAccessElevadores(user.role, user.email)) {
     toast.error("Você não tem acesso a essa área.");
     return <Navigate to="/dashboard" replace />;
   }
