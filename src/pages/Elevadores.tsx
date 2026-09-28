@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
-import { FileSpreadsheet, ArrowUpDown, Search, Play, Pause, CheckCircle2, RotateCcw, LayoutGrid, Columns3, Plus } from "lucide-react";
+import { FileSpreadsheet, ArrowUpDown, Search, Play, Pause, CheckCircle2, RotateCcw, LayoutGrid, Columns3, Plus, CalendarDays } from "lucide-react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
+import CronogramaConstrutor from "@/components/elevadores/CronogramaConstrutor";
 
 type Status = "PENDENTE" | "EM_ANDAMENTO" | "PAUSADO" | "INSTALADO";
 interface Elevador {
@@ -90,7 +91,7 @@ export default function Elevadores() {
   const [loading, setLoading] = useState(true);
   const [confirm, setConfirm] = useState<Acao | null>(null);
   const [busy, setBusy] = useState<number | null>(null);
-  const [visao, setVisao] = useState<"lojas" | "kanban">("lojas");
+  const [visao, setVisao] = useState<"lojas" | "kanban" | "cronograma">("lojas");
   const [novoOpen, setNovoOpen] = useState(false);
   const [novo, setNovo] = useState({ unidade_id: "", tipo: "", marca: "", numero_serie: "", observacao: "" });
   const [salvando, setSalvando] = useState(false);
@@ -195,12 +196,19 @@ export default function Elevadores() {
   ];
 
   const lojaPorId = useMemo(() => new Map(lojas.map((l) => [l.unidade_id, l])), [lojas]);
-  const exportar = () => {
+  const exportar = async () => {
     const wb = XLSX.utils.book_new();
     const hoje = new Date().toISOString().slice(0, 10);
+    const [ep, eu, ef, ed] = await Promise.all([
+      db.from("elev_cronograma_etapas").select("*").order("ordem"),
+      db.from("elev_cronograma_etapa_unidades").select("*"),
+      db.from("elev_cronograma_faciais").select("*").order("ordem"),
+      db.from("elev_cronograma_dependencias").select("*"),
+    ]);
+    const etapas = ep.data || [], participacoes = eu.data || [], faciais = ef.data || [], dependencias = ed.data || [];
     const c = [["Cronograma de Implantação — Controle de Acesso nos Elevadores"], [],
       ["Fase / Etapa", "Responsável", "Início", "Fim", "Duração (sem.)", "Status"],
-      ...FASES.map(([f, r, i, fi, d, st]) => [f, r, dBR(i), dBR(fi), d, st])];
+      ...(etapas.length ? etapas.map((e: any) => [e.nome, e.descricao || "", dBR(e.data_inicio), dBR(e.data_fim), e.data_inicio && e.data_fim ? Math.ceil((new Date(e.data_fim).getTime() - new Date(e.data_inicio).getTime() + 86400000) / 604800000) : "", e.status]) : FASES.map(([f, r, i, fi, d, st]) => [f, r, dBR(i), dBR(fi), d, st]))];
     const w1 = XLSX.utils.aoa_to_sheet(c);
     w1["!cols"] = [{ wch: 50 }, { wch: 34 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 14 }];
     XLSX.utils.book_append_sheet(wb, w1, "Cronograma");
@@ -222,6 +230,15 @@ export default function Elevadores() {
     const w3 = XLSX.utils.aoa_to_sheet(d);
     w3["!cols"] = d[0].map(() => ({ wch: 18 }));
     XLSX.utils.book_append_sheet(wb, w3, "Elevadores");
+    const w4 = XLSX.utils.json_to_sheet(participacoes.map((p: any) => ({ Etapa: etapas.find((e: any) => e.id === p.etapa_id)?.nome || "", Loja: lojaNome(p.unidade_id), Status: p.status, Progresso: p.progresso_manual ?? "", Observações: p.observacoes || "" })));
+    w4["!cols"] = [{ wch: 44 }, { wch: 28 }, { wch: 18 }, { wch: 12 }, { wch: 40 }];
+    XLSX.utils.book_append_sheet(wb, w4, "Etapas por Loja");
+    const w5 = XLSX.utils.json_to_sheet(faciais.map((f: any) => { const p = participacoes.find((x: any) => x.id === f.etapa_unidade_id); return { Etapa: etapas.find((e: any) => e.id === p?.etapa_id)?.nome || "", Loja: p ? lojaNome(p.unidade_id) : "", Facial: f.nome, Status: f.status, Descrição: f.descricao || "", Observações: f.observacoes || "", Pendências: f.pendencias || "" }; }));
+    w5["!cols"] = [{ wch: 40 }, { wch: 25 }, { wch: 22 }, { wch: 18 }, { wch: 32 }, { wch: 32 }, { wch: 32 }];
+    XLSX.utils.book_append_sheet(wb, w5, "Faciais");
+    const w6 = XLSX.utils.json_to_sheet(dependencias.map((d: any) => ({ Etapa: etapas.find((e: any) => e.id === d.etapa_id)?.nome || "", "Depende de": etapas.find((e: any) => e.id === d.depende_de_etapa_id)?.nome || "", Tipo: d.tipo })));
+    w6["!cols"] = [{ wch: 45 }, { wch: 45 }, { wch: 16 }];
+    XLSX.utils.book_append_sheet(wb, w6, "Dependências");
     XLSX.writeFile(wb, `relatorio-elevadores-${hoje}.xlsx`);
   };
   const lojaNome = (id: number) => lojaPorId.get(id)?.unidades?.nome_unidade || `Loja ${id}`;
@@ -370,11 +387,16 @@ export default function Elevadores() {
             <Button type="button" size="sm" variant={visao === "kanban" ? "default" : "ghost"} className="flex-1 rounded-none h-9" onClick={() => setVisao("kanban")}>
               <Columns3 className="h-4 w-4 mr-1" />Kanban
             </Button>
+            <Button type="button" size="sm" variant={visao === "cronograma" ? "default" : "ghost"} className="flex-1 rounded-none h-9" onClick={() => setVisao("cronograma")}>
+              <CalendarDays className="h-4 w-4 mr-1" />Cronograma
+            </Button>
           </div>
         </div>
       </div>
 
-      {loading ? <p className="text-sm text-muted-foreground">Carregando...</p> : visao === "kanban" ? (
+      {loading ? <p className="text-sm text-muted-foreground">Carregando...</p> : visao === "cronograma" ? (
+        <CronogramaConstrutor lojas={lojas} admin={admin} />
+      ) : visao === "kanban" ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6 gap-3 items-start">
           {KCOLS.map((k) => {
             const itens = elevKanban.filter((e) => kColOf(e) === k.key);
