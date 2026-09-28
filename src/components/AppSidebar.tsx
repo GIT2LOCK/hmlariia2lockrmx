@@ -47,7 +47,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-import { Permission } from "@/lib/permissions";
+import { Permission, canAccessElevadores } from "@/lib/permissions";
 import { useAllowedTabs, type TabKey } from "@/hooks/useAllowedTabs";
 import {
   DropdownMenu,
@@ -104,7 +104,8 @@ export function AppSidebar() {
     : isCliente
       ? menuItems.filter((it) => it.url === "/dashboard/chamados")
       : menuItems.filter((it) =>
-          (!it.permission || can(it.permission)) && allows(it.tabKey)
+          (!it.permission || can(it.permission)) && allows(it.tabKey) &&
+          (it.tabKey !== "elevadores" || canAccessElevadores(user.role, user.email))
         );
 
 
