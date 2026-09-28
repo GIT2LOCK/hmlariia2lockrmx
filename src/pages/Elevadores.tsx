@@ -244,9 +244,6 @@ export default function Elevadores() {
           <h1 className="text-lg sm:text-2xl font-semibold text-foreground">Implantação — Elevadores</h1>
           <p className="text-xs sm:text-sm text-muted-foreground">GoodStorage · controle de acesso por loja</p>
         </div>
-        {admin && (
-          <Button onClick={() => setNovoOpen(true)}><Plus className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline">Adicionar elevador</span></Button>
-        )}
       </header>
 
       <Dialog open={novoOpen} onOpenChange={setNovoOpen}>
