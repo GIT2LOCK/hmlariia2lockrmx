@@ -102,7 +102,7 @@ export function AppSidebar() {
   const visibleItems = (isGrafanaOnly || isBlocked)
     ? []
     : menuItems.filter((it) => {
-        if (it.tabKey === "elevadores") return canAccessElevadores(user.role, user.email);
+        if (it.tabKey === "elevadores") return canAccessElevadores(user.role, user.email) || allows("elevadores");
         if (isCliente) return it.url === "/dashboard/chamados";
         return (!it.permission || can(it.permission)) && allows(it.tabKey);
       });
