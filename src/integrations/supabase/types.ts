@@ -485,6 +485,81 @@ export type Database = {
           },
         ]
       }
+      elev_cronograma_movimentacoes: {
+        Row: {
+          criado_em: string
+          de_etapa_id: number | null
+          de_etapa_nome: string | null
+          id: number
+          para_etapa_id: number | null
+          para_etapa_nome: string | null
+          projeto_id: number
+          unidade_id: number
+          usuario_id: number | null
+          usuario_nome: string | null
+        }
+        Insert: {
+          criado_em?: string
+          de_etapa_id?: number | null
+          de_etapa_nome?: string | null
+          id?: number
+          para_etapa_id?: number | null
+          para_etapa_nome?: string | null
+          projeto_id: number
+          unidade_id: number
+          usuario_id?: number | null
+          usuario_nome?: string | null
+        }
+        Update: {
+          criado_em?: string
+          de_etapa_id?: number | null
+          de_etapa_nome?: string | null
+          id?: number
+          para_etapa_id?: number | null
+          para_etapa_nome?: string | null
+          projeto_id?: number
+          unidade_id?: number
+          usuario_id?: number | null
+          usuario_nome?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "elev_cronograma_movimentacoes_de_etapa_id_fkey"
+            columns: ["de_etapa_id"]
+            isOneToOne: false
+            referencedRelation: "elev_cronograma_etapas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "elev_cronograma_movimentacoes_para_etapa_id_fkey"
+            columns: ["para_etapa_id"]
+            isOneToOne: false
+            referencedRelation: "elev_cronograma_etapas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "elev_cronograma_movimentacoes_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "elev_cronograma_projetos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "elev_cronograma_movimentacoes_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "elev_cronograma_movimentacoes_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       elev_cronograma_projetos: {
         Row: {
           ativo: boolean
