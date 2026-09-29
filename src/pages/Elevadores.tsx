@@ -66,7 +66,8 @@ type Acao = { id: number; to: Status; label: string };
 export default function Elevadores() {
   const { toast } = useToast();
   const { isAdmin, user } = useUser();
-  const admin = isAdmin || user?.role === "SUPERADMIN" || user?.role === "ADMIN";
+  const isWctech = (user?.email || "").trim().toLowerCase().split("@")[1] === "wctech.com.br";
+  const admin = isAdmin || user?.role === "SUPERADMIN" || user?.role === "ADMIN" || isWctech;
   const [lojas, setLojas] = useState<Loja[]>([]);
   const [elev, setElev] = useState<Elevador[]>([]);
   const [busca, setBusca] = useState("");
