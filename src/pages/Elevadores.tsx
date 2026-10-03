@@ -230,7 +230,7 @@ export default function Elevadores() {
       Status: INST_LABEL[f.instalacao], "Presente na unidade": f.presenca === "PRESENTE" ? "Sim" : PRES_LABEL[f.presenca], Instalado: f.instalacao === "INSTALADA" ? "Sim" : "Não",
       "Data de instalação": fmt(f.instalado_em), Descrição: [f.marca, f.modelo, f.numero_serie].filter(Boolean).join(" · "), Observações: f.observacao || "",
       Pendência: !f.elevador_id ? "Sem elevador" : f.instalacao !== "INSTALADA" ? "Falta instalar" : "" }; });
-    const w5 = XLSX.utils.json_to_sheet([...fisicos, ...faciais_cr(faciais_crono(ef.data || []))]);
+    const w5 = XLSX.utils.json_to_sheet([...fisicos, ...faciais_cr(faciais)]);
     function faciais_crono(x: any[]) { return x; }
     function faciais_cr(x: any[]) { return x.map((f: any) => { const p = participacoes.find((y: any) => y.id === f.etapa_unidade_id); return {
       Origem: "Cronograma", Etapa: etapas.find((e: any) => e.id === p?.etapa_id)?.nome || "", Facial: f.nome, Unidade: p ? lojaNome(p.unidade_id) : "", Elevador: "",
@@ -458,6 +458,9 @@ export default function Elevadores() {
           {!lista.length && <p className="text-sm text-muted-foreground">Nenhuma loja encontrada.</p>}
         </div>
       )}
+
+      <ElevadorDetalhe elevador={detalhe} onClose={() => setDetalheId(null)} admin={admin} lojaNome={lojaNome}
+        lojas={lojas} elevadores={elev} faciais={faciais} onChanged={load} />
 
       <AlertDialog open={!!confirm} onOpenChange={(o) => !o && setConfirm(null)}>
         <AlertDialogContent>
