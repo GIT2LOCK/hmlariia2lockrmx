@@ -188,7 +188,7 @@ export default function Elevadores() {
       db.from("elev_cronograma_faciais").select("*").order("ordem"),
       db.from("elev_cronograma_dependencias").select("*"),
     ]);
-    const etapas = ep.data || [], participacoes = eu.data || [], faciais = ef.data || [], dependencias = ed.data || [];
+    const etapas = ep.data || [], participacoes = eu.data || [], dependencias = ed.data || [];
     const c = [["Cronograma de Implantação — Controle de Acesso nos Elevadores"], [],
       ["Fase / Etapa", "Responsável", "Início", "Fim", "Duração (sem.)", "Status"],
       ...(etapas.length ? etapas.map((e: any) => [e.nome, e.descricao || "", dBR(e.data_inicio), dBR(e.data_fim), e.data_inicio && e.data_fim ? Math.ceil((new Date(e.data_fim).getTime() - new Date(e.data_inicio).getTime() + 86400000) / 604800000) : "", e.status]) : FASES.map(([f, r, i, fi, d, st]) => [f, r, dBR(i), dBR(fi), d, st]))];
