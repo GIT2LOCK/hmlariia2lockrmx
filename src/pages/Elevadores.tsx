@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
-import { FileSpreadsheet, ArrowUpDown, Search, Play, Pause, CheckCircle2, RotateCcw, LayoutGrid, Columns3, Plus, CalendarDays } from "lucide-react";
+import { FileSpreadsheet, ArrowUpDown, Search, Play, Pause, CheckCircle2, RotateCcw, LayoutGrid, Columns3, Plus, CalendarDays, ClipboardList } from "lucide-react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,16 +19,14 @@ import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
 import CronogramaConstrutor from "@/components/elevadores/CronogramaConstrutor";
 import CronogramaKanban from "@/components/elevadores/CronogramaKanban";
+import CadastrosView from "@/components/elevadores/CadastrosView";
+import ElevadorDetalhe, { SituacaoBadges } from "@/components/elevadores/ElevadorDetalhe";
+import {
+  Elevador, Facial, Situacao, Status, STATUS_LABEL, SIT_LABEL, VALID_LABEL, FSIT_LABEL, INST_LABEL, PRES_LABEL, situacao, traduzErro,
+} from "@/components/elevadores/elevModel";
 
-type Status = "PENDENTE" | "EM_ANDAMENTO" | "PAUSADO" | "INSTALADO";
-interface Elevador {
-  id: number; unidade_id: number; tipo: string; marca: string | null; numero_serie: string | null;
-  status: Status; instalado_em: string | null; iniciado_em: string | null;
-  ini?: { nome: string } | null; fim?: { nome: string } | null;
-}
 interface Loja { unidade_id: number; ano_migracao: string | null; lote: string | null; data_prevista: string | null; estoque_leitoras: number; observacoes: string | null; unidades?: { nome_unidade: string } }
 
-const STATUS_LABEL: Record<Status, string> = { PENDENTE: "Pendente", EM_ANDAMENTO: "Em andamento", PAUSADO: "Pausado", INSTALADO: "Instalado" };
 const STATUS_VARIANT: Record<Status, "outline" | "secondary" | "default" | "destructive"> = { PENDENTE: "outline", EM_ANDAMENTO: "secondary", PAUSADO: "destructive", INSTALADO: "default" };
 const db = supabase as any;
 const fmt = (d: string | null) => (d ? new Date(d).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "");
@@ -73,10 +71,13 @@ export default function Elevadores() {
   const [busca, setBusca] = useState("");
   const [lote, setLote] = useState("todos");
   const [fStatus, setFStatus] = useState("todos");
+  const [fSit, setFSit] = useState("todos");
+  const [faciais, setFaciais] = useState<Facial[]>([]);
+  const [detalheId, setDetalheId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [confirm, setConfirm] = useState<Acao | null>(null);
   const [busy, setBusy] = useState<number | null>(null);
-  const [visao, setVisao] = useState<"lojas" | "kanban" | "cronograma">("lojas");
+  const [visao, setVisao] = useState<"lojas" | "cadastros" | "kanban" | "cronograma">("lojas");
   const [novoOpen, setNovoOpen] = useState(false);
   const [novo, setNovo] = useState({ unidade_id: "", tipo: "", marca: "", numero_serie: "", observacao: "" });
   const [salvando, setSalvando] = useState(false);
@@ -101,16 +102,21 @@ export default function Elevadores() {
   };
 
   const load = async () => {
-    const [l, e] = await Promise.all([
+    const [l, e, f] = await Promise.all([
       db.from("elev_lojas").select("*, unidades(nome_unidade)"),
-      db.from("elev_elevadores").select("*, ini:usuarios!elev_elevadores_iniciado_por_fkey(nome), fim:usuarios!elev_elevadores_instalado_por_fkey(nome)").order("id"),
+      db.from("elev_elevadores").select("*, ini:usuarios!elev_elevadores_iniciado_por_fkey(nome), fim:usuarios!elev_elevadores_instalado_por_fkey(nome), val:usuarios!elev_elevadores_validado_por_fkey(nome)").order("id"),
+      db.from("elev_faciais").select("*").order("codigo"),
     ]);
-    if (l.error || e.error) toast({ title: "Erro ao carregar", description: (l.error || e.error).message, variant: "destructive" });
-    setLojas(l.data || []); setElev(e.data || []); setLoading(false);
+    const err = l.error || e.error || f.error;
+    if (err) toast({ title: "Erro ao carregar", description: err.message, variant: "destructive" });
+    setLojas(l.data || []); setElev(e.data || []); setFaciais(f.data || []); setLoading(false);
   };
   useEffect(() => {
     load();
-    const ch = db.channel("elev-rt").on("postgres_changes", { event: "*", schema: "public", table: "elev_elevadores" }, () => load()).subscribe();
+    const ch = db.channel("elev-rt")
+      .on("postgres_changes", { event: "*", schema: "public", table: "elev_elevadores" }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "elev_faciais" }, () => load())
+      .subscribe();
     return () => { db.removeChannel(ch); };
   }, []);
 
@@ -119,7 +125,7 @@ export default function Elevadores() {
     const { error } = await db.from("elev_elevadores").update({ status: a.to }).eq("id", a.id);
     setBusy(null); setConfirm(null);
     if (error) {
-      const msg = error.message.includes("transicao_nao_permitida") ? "Essa ação não é permitida no estado atual (talvez alguém já tenha iniciado)." : error.message;
+      const msg = error.message.includes("transicao_nao_permitida") ? "Essa ação não é permitida no estado atual (talvez alguém já tenha iniciado)." : traduzErro(error.message);
       toast({ title: "Não foi possível atualizar", description: msg, variant: "destructive" });
     } else toast({ title: `${a.label} registrado` });
     load();
@@ -136,6 +142,11 @@ export default function Elevadores() {
   };
   const icon = (l: string) => l === "Iniciar" || l === "Retomar" ? Play : l === "Pausar" ? Pause : l === "Encerrar" ? CheckCircle2 : RotateCcw;
 
+  const facialPorElev = useMemo(() => new Map(faciais.filter((f) => f.elevador_id).map((f) => [f.elevador_id as number, f])), [faciais]);
+  const facialDe = (id: number) => facialPorElev.get(id) || null;
+  const passa = (e: Elevador) => (fStatus === "todos" || e.status === fStatus) && (fSit === "todos" || situacao(e, facialDe(e.id)) === fSit);
+  const filtroAtivo = fStatus !== "todos" || fSit !== "todos";
+
   const lotes = useMemo(() => Array.from(new Set(lojas.map((l) => l.lote || "Concluído"))).sort(), [lojas]);
   const count = (s: Status) => elev.filter((e) => e.status === s).length;
   const total = elev.length, inst = count("INSTALADO");
@@ -143,8 +154,8 @@ export default function Elevadores() {
   const lista = lojas
     .filter((l) => lote === "todos" || (l.lote || "Concluído") === lote)
     .filter((l) => !busca || (l.unidades?.nome_unidade || "").toLowerCase().includes(busca.toLowerCase()))
-    .map((l) => ({ l, es: elev.filter((e) => e.unidade_id === l.unidade_id && (fStatus === "todos" || e.status === fStatus)) }))
-    .filter((x) => fStatus === "todos" || x.es.length)
+    .map((l) => ({ l, es: elev.filter((e) => e.unidade_id === l.unidade_id && passa(e)) }))
+    .filter((x) => !filtroAtivo || x.es.length)
     .sort((a, b) => (a.l.data_prevista || "9999").localeCompare(b.l.data_prevista || "9999") || (a.l.unidades?.nome_unidade || "").localeCompare(b.l.unidades?.nome_unidade || ""));
 
   const kpis = [
@@ -153,6 +164,18 @@ export default function Elevadores() {
     { label: "Em andamento", value: count("EM_ANDAMENTO") },
     { label: "Pausados", value: count("PAUSADO") },
     { label: "Pendentes", value: count("PENDENTE") },
+  ];
+  const sits = elev.map((e) => situacao(e, facialDe(e.id)));
+  const nSit = (s: Situacao) => sits.filter((x) => x === s).length;
+  const kpis2: { label: string; value: number; sit?: Situacao }[] = [
+    { label: "Validados", value: elev.filter((e) => e.validacao_status === "VALIDADO").length },
+    { label: "Aguardando validação", value: nSit("AGUARDANDO_VALIDACAO"), sit: "AGUARDANDO_VALIDACAO" },
+    { label: "Faciais instalados", value: faciais.filter((f) => f.instalacao === "INSTALADA").length, sit: "CONCLUIDO" },
+    { label: "Faciais aguardando instalação", value: faciais.filter((f) => f.elevador_id && f.instalacao !== "INSTALADA").length, sit: "AGUARDANDO_INSTALACAO" },
+    { label: "Faciais disponíveis nas unidades", value: faciais.filter((f) => f.presenca === "PRESENTE").length },
+    { label: "Elevadores sem facial", value: nSit("SEM_FACIAL") + nSit("FACIAL_NAO_ENCONTRADO") + nSit("NECESSITA_COMPRA"), sit: "SEM_FACIAL" },
+    { label: "Faciais sem elevador", value: faciais.filter((f) => !f.elevador_id && f.presenca === "PRESENTE").length },
+    { label: "Necessidade de compra", value: nSit("NECESSITA_COMPRA"), sit: "NECESSITA_COMPRA" },
   ];
 
   const lojaPorId = useMemo(() => new Map(lojas.map((l) => [l.unidade_id, l])), [lojas]);
@@ -174,27 +197,46 @@ export default function Elevadores() {
     XLSX.utils.book_append_sheet(wb, w1, "Cronograma");
     const linhas = [...lojas].sort((a, b) => (a.data_prevista || "9").localeCompare(b.data_prevista || "9") || lojaNome(a.unidade_id).localeCompare(lojaNome(b.unidade_id)));
     const r = [["Resumo por Loja — Elevadores, Estoque de Leitoras e Ano de Migração"], [],
-      ["Loja", "Total de elevadores", "Já instalados", "Em andamento", "Faltam instalar", "Estoque de leitoras sobrando", "Ano de migração", "Lote", "Data prevista", "Observações"],
+      ["Loja", "Total de elevadores", "Já instalados", "Em andamento", "Faltam instalar", "Estoque de leitoras sobrando", "Ano de migração", "Lote", "Data prevista", "Observações",
+        "Validados", "Não validados", "Com facial", "Sem facial", "Faciais instalados", "Faciais aguardando instalação", "Faciais não encontrados", "Necessita compra", "Faciais sem elevador"],
       ...linhas.map((l) => {
         const es = elev.filter((e) => e.unidade_id === l.unidade_id);
         const ok = es.filter((e) => e.status === "INSTALADO").length;
         const and = es.filter((e) => e.status === "EM_ANDAMENTO" || e.status === "PAUSADO").length;
-        return [lojaNome(l.unidade_id), es.length, ok, and, es.length - ok, l.estoque_leitoras ?? 0, l.ano_migracao || "", l.lote || "", dBR(l.data_prevista), l.observacoes || ""];
+        const sits = es.map((e) => situacao(e, facialDe(e.id)));
+        const fu = faciais.filter((f) => f.unidade_id === l.unidade_id);
+        return [lojaNome(l.unidade_id), es.length, ok, and, es.length - ok, l.estoque_leitoras ?? 0, l.ano_migracao || "", l.lote || "", dBR(l.data_prevista), l.observacoes || "",
+          es.filter((e) => e.validacao_status === "VALIDADO").length, es.filter((e) => e.validacao_status !== "VALIDADO").length,
+          es.filter((e) => facialDe(e.id)).length, es.filter((e) => e.validacao_status === "VALIDADO" && !facialDe(e.id)).length,
+          sits.filter((s) => s === "CONCLUIDO").length, sits.filter((s) => s === "AGUARDANDO_INSTALACAO").length,
+          sits.filter((s) => s === "FACIAL_NAO_ENCONTRADO").length, sits.filter((s) => s === "NECESSITA_COMPRA").length, fu.filter((f) => !f.elevador_id).length];
       })];
     const w2 = XLSX.utils.aoa_to_sheet(r);
-    w2["!cols"] = [{ wch: 26 }, { wch: 12 }, { wch: 12 }, { wch: 13 }, { wch: 13 }, { wch: 16 }, { wch: 12 }, { wch: 8 }, { wch: 13 }, { wch: 40 }];
+    w2["!cols"] = [{ wch: 26 }, { wch: 12 }, { wch: 12 }, { wch: 13 }, { wch: 13 }, { wch: 16 }, { wch: 12 }, { wch: 8 }, { wch: 13 }, { wch: 40 }, ...Array(9).fill({ wch: 14 })];
     XLSX.utils.book_append_sheet(wb, w2, "Resumo por Loja");
-    const d = [["Loja", "Tipo", "Marca", "Nº série", "Status", "Iniciado em", "Iniciado por", "Instalado em", "Instalado por"],
-      ...elev.map((e) => [lojaNome(e.unidade_id), e.tipo, e.marca || "", e.numero_serie || "", STATUS_LABEL[e.status],
-        fmt(e.iniciado_em), e.ini?.nome || "", fmt(e.instalado_em), e.fim?.nome || ""])];
+    const d = [["Unidade", "Elevador", "Tipo", "Marca", "Nº série", "Status", "Validação", "Validado em", "Facial", "Facial encontrado", "Status da instalação", "Data de instalação", "Iniciado em", "Iniciado por", "Responsável (encerramento)", "Pendência"],
+      ...elev.map((e) => { const f = facialDe(e.id); const s = situacao(e, f); return [lojaNome(e.unidade_id), `#${e.id}`, e.tipo, e.marca || "", e.numero_serie || "", STATUS_LABEL[e.status],
+        VALID_LABEL[e.validacao_status], fmt(e.validado_em), f?.codigo || "", e.validacao_status === "VALIDADO" ? (f ? "Sim" : FSIT_LABEL[e.facial_situacao]) : "Não validado",
+        f ? INST_LABEL[f.instalacao] : "", fmt(f?.instalado_em || e.instalado_em), fmt(e.iniciado_em), e.ini?.nome || "", e.fim?.nome || "", s === "CONCLUIDO" ? "" : SIT_LABEL[s]]; })];
     const w3 = XLSX.utils.aoa_to_sheet(d);
     w3["!cols"] = d[0].map(() => ({ wch: 18 }));
     XLSX.utils.book_append_sheet(wb, w3, "Elevadores");
     const w4 = XLSX.utils.json_to_sheet(participacoes.map((p: any) => ({ Etapa: etapas.find((e: any) => e.id === p.etapa_id)?.nome || "", Loja: lojaNome(p.unidade_id), Status: p.status, Progresso: p.progresso_manual ?? "", Observações: p.observacoes || "" })));
     w4["!cols"] = [{ wch: 44 }, { wch: 28 }, { wch: 18 }, { wch: 12 }, { wch: 40 }];
     XLSX.utils.book_append_sheet(wb, w4, "Etapas por Loja");
-    const w5 = XLSX.utils.json_to_sheet(faciais.map((f: any) => { const p = participacoes.find((x: any) => x.id === f.etapa_unidade_id); return { Etapa: etapas.find((e: any) => e.id === p?.etapa_id)?.nome || "", Loja: p ? lojaNome(p.unidade_id) : "", Facial: f.nome, Status: f.status, Descrição: f.descricao || "", Observações: f.observacoes || "", Pendências: f.pendencias || "" }; }));
-    w5["!cols"] = [{ wch: 40 }, { wch: 25 }, { wch: 22 }, { wch: 18 }, { wch: 32 }, { wch: 32 }, { wch: 32 }];
+    const elevPorId = new Map(elev.map((e) => [e.id, e]));
+    const fisicos = faciais.map((f) => { const e = f.elevador_id ? elevPorId.get(f.elevador_id) : null; return {
+      Origem: "Cadastro físico", Etapa: "", Facial: f.codigo, Unidade: lojaNome(f.unidade_id), Elevador: e ? `${e.tipo} #${e.id}` : "Sem elevador",
+      Status: INST_LABEL[f.instalacao], "Presente na unidade": f.presenca === "PRESENTE" ? "Sim" : PRES_LABEL[f.presenca], Instalado: f.instalacao === "INSTALADA" ? "Sim" : "Não",
+      "Data de instalação": fmt(f.instalado_em), Descrição: [f.marca, f.modelo, f.numero_serie].filter(Boolean).join(" · "), Observações: f.observacao || "",
+      Pendência: !f.elevador_id ? "Sem elevador" : f.instalacao !== "INSTALADA" ? "Falta instalar" : "" }; });
+    const w5 = XLSX.utils.json_to_sheet([...fisicos, ...faciais_cr(faciais_crono(ef.data || []))]);
+    function faciais_crono(x: any[]) { return x; }
+    function faciais_cr(x: any[]) { return x.map((f: any) => { const p = participacoes.find((y: any) => y.id === f.etapa_unidade_id); return {
+      Origem: "Cronograma", Etapa: etapas.find((e: any) => e.id === p?.etapa_id)?.nome || "", Facial: f.nome, Unidade: p ? lojaNome(p.unidade_id) : "", Elevador: "",
+      Status: f.status, "Presente na unidade": "", Instalado: f.status === "CONCLUIDO" ? "Sim" : "Não", "Data de instalação": fmt(f.concluido_em),
+      Descrição: f.descricao || "", Observações: f.observacoes || "", Pendência: f.pendencias || "" }; }); }
+    w5["!cols"] = [{ wch: 16 }, { wch: 36 }, { wch: 26 }, { wch: 24 }, { wch: 20 }, { wch: 20 }, { wch: 16 }, { wch: 10 }, { wch: 16 }, { wch: 30 }, { wch: 30 }, { wch: 24 }];
     XLSX.utils.book_append_sheet(wb, w5, "Faciais");
     const w6 = XLSX.utils.json_to_sheet(dependencias.map((d: any) => ({ Etapa: etapas.find((e: any) => e.id === d.etapa_id)?.nome || "", "Depende de": etapas.find((e: any) => e.id === d.depende_de_etapa_id)?.nome || "", Tipo: d.tipo })));
     w6["!cols"] = [{ wch: 45 }, { wch: 45 }, { wch: 16 }];
@@ -203,18 +245,20 @@ export default function Elevadores() {
   };
   const lojaNome = (id: number) => lojaPorId.get(id)?.unidades?.nome_unidade || `Loja ${id}`;
   const lojasVisiveis = useMemo(() => new Set(lista.map((x) => x.l.unidade_id)), [lista]);
-  const elevKanban = elev.filter((e) => lojasVisiveis.has(e.unidade_id) && (fStatus === "todos" || e.status === fStatus));
+  const elevFiltrados = elev.filter((e) => lojasVisiveis.has(e.unidade_id) && passa(e));
+  const detalhe = detalheId ? elev.find((e) => e.id === detalheId) || null : null;
 
   const renderElevador = (e: Elevador, showLoja = false) => (
     <div key={e.id} className="rounded-lg border border-border bg-card p-3 space-y-2 shadow-sm">
       <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
+        <button type="button" className="min-w-0 text-left" onClick={() => setDetalheId(e.id)}>
           {showLoja && <p className="text-xs font-semibold text-primary truncate">{lojaNome(e.unidade_id)}</p>}
-          <p className="font-medium text-sm text-foreground">{e.tipo}</p>
+          <p className="font-medium text-sm text-foreground underline-offset-2 hover:underline">{e.tipo}</p>
           <p className="text-xs text-muted-foreground">{e.marca || "Marca —"} · Série {e.numero_serie || "—"}</p>
-        </div>
+        </button>
         <Badge variant={STATUS_VARIANT[e.status]}>{STATUS_LABEL[e.status]}</Badge>
       </div>
+      <SituacaoBadges e={e} f={facialDe(e.id)} />
       {(e.iniciado_em || e.instalado_em) && (
         <div className="text-xs text-muted-foreground space-y-0.5">
           {e.iniciado_em && <p>Iniciado {fmt(e.iniciado_em)}{e.ini?.nome ? ` por ${e.ini.nome}` : ""}</p>}
@@ -300,6 +344,14 @@ export default function Elevadores() {
           </CardContent></Card>
         ))}
       </section>
+      <section className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+        {kpis2.map((k) => (
+          <Card key={k.label} className="cursor-pointer" onClick={() => k.sit && (setFSit(k.sit), setVisao("cadastros"))}><CardContent className="p-2.5">
+            <p className="text-[11px] text-muted-foreground leading-tight">{k.label}</p>
+            <p className="text-lg font-semibold text-foreground">{k.value}</p>
+          </CardContent></Card>
+        ))}
+      </section>
       <Card><CardContent className="p-3 sm:p-4 space-y-2">
         <div className="flex justify-between text-sm"><span>Progresso geral</span><span>{total ? Math.round((inst / total) * 100) : 0}%</span></div>
         <Progress value={total ? (inst / total) * 100 : 0} />
@@ -325,12 +377,22 @@ export default function Elevadores() {
               {(Object.keys(STATUS_LABEL) as Status[]).map((s) => <SelectItem key={s} value={s}>{STATUS_LABEL[s]}</SelectItem>)}
             </SelectContent>
           </Select>
+          <Select value={fSit} onValueChange={setFSit}>
+            <SelectTrigger className="sm:w-[190px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todas as situações</SelectItem>
+              {(Object.keys(SIT_LABEL) as Situacao[]).map((s) => <SelectItem key={s} value={s}>{SIT_LABEL[s]}</SelectItem>)}
+            </SelectContent>
+          </Select>
           <Button type="button" variant="outline" size="sm" className="h-9" onClick={exportar}>
             <FileSpreadsheet className="h-4 w-4 mr-1" />Relatório
           </Button>
           <div className="col-span-2 sm:col-span-1 flex rounded-md border border-border overflow-hidden">
             <Button type="button" size="sm" variant={visao === "lojas" ? "default" : "ghost"} className="flex-1 rounded-none h-9" onClick={() => setVisao("lojas")}>
               <LayoutGrid className="h-4 w-4 mr-1" />Lojas
+            </Button>
+            <Button type="button" size="sm" variant={visao === "cadastros" ? "default" : "ghost"} className="flex-1 rounded-none h-9" onClick={() => setVisao("cadastros")}>
+              <ClipboardList className="h-4 w-4 mr-1" />Cadastros
             </Button>
             <Button type="button" size="sm" variant={visao === "kanban" ? "default" : "ghost"} className="flex-1 rounded-none h-9" onClick={() => setVisao("kanban")}>
               <Columns3 className="h-4 w-4 mr-1" />Kanban
@@ -346,6 +408,9 @@ export default function Elevadores() {
         <CronogramaConstrutor lojas={lojas} admin={admin} />
       ) : visao === "kanban" ? (
         <CronogramaKanban lojas={lojas} admin={admin} />
+      ) : visao === "cadastros" ? (
+        <CadastrosView elevadores={elevFiltrados} faciais={faciais.filter((f) => lojasVisiveis.has(f.unidade_id))} lojas={lojas} admin={admin} lojaNome={lojaNome}
+          onOpenElevador={(e) => setDetalheId(e.id)} onNovoElevador={() => setNovoOpen(true)} onChanged={load} />
       ) : (
         <div className="space-y-3 sm:space-y-4">
           {admin && (
@@ -356,6 +421,10 @@ export default function Elevadores() {
           {lista.map(({ l, es }) => {
             const all = elev.filter((e) => e.unidade_id === l.unidade_id);
             const ok = all.filter((e) => e.status === "INSTALADO").length;
+            const fu = faciais.filter((f) => f.unidade_id === l.unidade_id);
+            const livres = fu.filter((f) => !f.elevador_id);
+            const valid = all.filter((e) => e.validacao_status === "VALIDADO").length;
+            const semF = all.filter((e) => e.validacao_status === "VALIDADO" && !facialDe(e.id)).length;
             return (
               <Card key={l.unidade_id}>
                 <CardHeader className="p-3 sm:p-6 pb-2">
@@ -367,11 +436,21 @@ export default function Elevadores() {
                     <Badge variant="outline">{l.lote ? (/^\d$/.test(l.lote) ? `Lote ${l.lote}` : `Migração ${l.lote}`) : "Concluído"}</Badge>
                     {l.data_prevista && <Badge variant="outline">Previsto {new Date(l.data_prevista + "T12:00").toLocaleDateString("pt-BR")}</Badge>}
                     <Badge variant="outline">Leitoras: {l.estoque_leitoras}</Badge>
+                    <Badge variant="outline">Validados {valid}/{all.length}</Badge>
+                    <Badge variant="outline">Faciais {fu.length}</Badge>
+                    {semF > 0 && <Badge variant="destructive">{semF} sem facial</Badge>}
+                    {livres.length > 0 && <Badge variant="secondary">{livres.length} facial(is) sem elevador</Badge>}
                   </div>
                   {l.observacoes && <p className="text-xs text-muted-foreground">{l.observacoes}</p>}
                 </CardHeader>
                 <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0 space-y-2">
                   {es.map((e) => renderElevador(e))}
+                  {livres.length > 0 && (
+                    <div className="rounded-lg border border-dashed border-border p-3 text-xs space-y-1">
+                      <p className="font-semibold text-foreground">Faciais disponíveis na unidade (sem elevador)</p>
+                      {livres.map((f) => <p key={f.id}>{f.codigo} · {PRES_LABEL[f.presenca]}</p>)}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             );
