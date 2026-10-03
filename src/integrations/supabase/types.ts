@@ -433,6 +433,7 @@ export type Database = {
           criado_em: string
           descricao: string | null
           etapa_unidade_id: number
+          facial_id: number | null
           id: number
           nome: string
           observacoes: string | null
@@ -447,6 +448,7 @@ export type Database = {
           criado_em?: string
           descricao?: string | null
           etapa_unidade_id: number
+          facial_id?: number | null
           id?: number
           nome: string
           observacoes?: string | null
@@ -461,6 +463,7 @@ export type Database = {
           criado_em?: string
           descricao?: string | null
           etapa_unidade_id?: number
+          facial_id?: number | null
           id?: number
           nome?: string
           observacoes?: string | null
@@ -482,6 +485,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "elev_cronograma_etapa_unidades"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "elev_cronograma_faciais_facial_id_fkey"
+            columns: ["facial_id"]
+            isOneToOne: false
+            referencedRelation: "elev_faciais"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "elev_cronograma_faciais_facial_id_fkey"
+            columns: ["facial_id"]
+            isOneToOne: false
+            referencedRelation: "elev_v_elevador_situacao"
+            referencedColumns: ["facial_id"]
           },
         ]
       }
@@ -612,6 +629,7 @@ export type Database = {
           atualizado_em: string
           checklist: Json
           criado_em: string
+          facial_situacao: Database["public"]["Enums"]["elev_facial_situacao"]
           id: number
           iniciado_em: string | null
           iniciado_por: number | null
@@ -623,11 +641,16 @@ export type Database = {
           status: Database["public"]["Enums"]["elev_status"]
           tipo: string
           unidade_id: number
+          validacao_obs: string | null
+          validacao_status: Database["public"]["Enums"]["elev_validacao_status"]
+          validado_em: string | null
+          validado_por: number | null
         }
         Insert: {
           atualizado_em?: string
           checklist?: Json
           criado_em?: string
+          facial_situacao?: Database["public"]["Enums"]["elev_facial_situacao"]
           id?: number
           iniciado_em?: string | null
           iniciado_por?: number | null
@@ -639,11 +662,16 @@ export type Database = {
           status?: Database["public"]["Enums"]["elev_status"]
           tipo: string
           unidade_id: number
+          validacao_obs?: string | null
+          validacao_status?: Database["public"]["Enums"]["elev_validacao_status"]
+          validado_em?: string | null
+          validado_por?: number | null
         }
         Update: {
           atualizado_em?: string
           checklist?: Json
           criado_em?: string
+          facial_situacao?: Database["public"]["Enums"]["elev_facial_situacao"]
           id?: number
           iniciado_em?: string | null
           iniciado_por?: number | null
@@ -655,6 +683,10 @@ export type Database = {
           status?: Database["public"]["Enums"]["elev_status"]
           tipo?: string
           unidade_id?: number
+          validacao_obs?: string | null
+          validacao_status?: Database["public"]["Enums"]["elev_validacao_status"]
+          validado_em?: string | null
+          validado_por?: number | null
         }
         Relationships: [
           {
@@ -678,35 +710,144 @@ export type Database = {
             referencedRelation: "unidades"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "elev_elevadores_validado_por_fkey"
+            columns: ["validado_por"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      elev_faciais: {
+        Row: {
+          atualizado_em: string
+          codigo: string
+          criado_em: string
+          criado_por: number | null
+          elevador_id: number | null
+          id: number
+          instalacao: Database["public"]["Enums"]["elev_facial_instalacao"]
+          instalado_em: string | null
+          instalado_por: number | null
+          marca: string | null
+          modelo: string | null
+          numero_serie: string | null
+          observacao: string | null
+          presenca: Database["public"]["Enums"]["elev_facial_presenca"]
+          unidade_id: number
+        }
+        Insert: {
+          atualizado_em?: string
+          codigo: string
+          criado_em?: string
+          criado_por?: number | null
+          elevador_id?: number | null
+          id?: number
+          instalacao?: Database["public"]["Enums"]["elev_facial_instalacao"]
+          instalado_em?: string | null
+          instalado_por?: number | null
+          marca?: string | null
+          modelo?: string | null
+          numero_serie?: string | null
+          observacao?: string | null
+          presenca?: Database["public"]["Enums"]["elev_facial_presenca"]
+          unidade_id: number
+        }
+        Update: {
+          atualizado_em?: string
+          codigo?: string
+          criado_em?: string
+          criado_por?: number | null
+          elevador_id?: number | null
+          id?: number
+          instalacao?: Database["public"]["Enums"]["elev_facial_instalacao"]
+          instalado_em?: string | null
+          instalado_por?: number | null
+          marca?: string | null
+          modelo?: string | null
+          numero_serie?: string | null
+          observacao?: string | null
+          presenca?: Database["public"]["Enums"]["elev_facial_presenca"]
+          unidade_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "elev_faciais_criado_por_fkey"
+            columns: ["criado_por"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "elev_faciais_elevador_id_fkey"
+            columns: ["elevador_id"]
+            isOneToOne: false
+            referencedRelation: "elev_elevadores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "elev_faciais_elevador_id_fkey"
+            columns: ["elevador_id"]
+            isOneToOne: false
+            referencedRelation: "elev_v_elevador_situacao"
+            referencedColumns: ["elevador_id"]
+          },
+          {
+            foreignKeyName: "elev_faciais_instalado_por_fkey"
+            columns: ["instalado_por"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "elev_faciais_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
         ]
       }
       elev_historico: {
         Row: {
+          acao: string | null
           criado_em: string
-          elevador_id: number
+          elevador_id: number | null
+          facial_id: number | null
           id: number
           observacao: string | null
           status_anterior: Database["public"]["Enums"]["elev_status"] | null
           status_novo: Database["public"]["Enums"]["elev_status"] | null
           usuario_id: number | null
+          valor_anterior: string | null
+          valor_novo: string | null
         }
         Insert: {
+          acao?: string | null
           criado_em?: string
-          elevador_id: number
+          elevador_id?: number | null
+          facial_id?: number | null
           id?: number
           observacao?: string | null
           status_anterior?: Database["public"]["Enums"]["elev_status"] | null
           status_novo?: Database["public"]["Enums"]["elev_status"] | null
           usuario_id?: number | null
+          valor_anterior?: string | null
+          valor_novo?: string | null
         }
         Update: {
+          acao?: string | null
           criado_em?: string
-          elevador_id?: number
+          elevador_id?: number | null
+          facial_id?: number | null
           id?: number
           observacao?: string | null
           status_anterior?: Database["public"]["Enums"]["elev_status"] | null
           status_novo?: Database["public"]["Enums"]["elev_status"] | null
           usuario_id?: number | null
+          valor_anterior?: string | null
+          valor_novo?: string | null
         }
         Relationships: [
           {
@@ -715,6 +856,27 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "elev_elevadores"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "elev_historico_elevador_id_fkey"
+            columns: ["elevador_id"]
+            isOneToOne: false
+            referencedRelation: "elev_v_elevador_situacao"
+            referencedColumns: ["elevador_id"]
+          },
+          {
+            foreignKeyName: "elev_historico_facial_id_fkey"
+            columns: ["facial_id"]
+            isOneToOne: false
+            referencedRelation: "elev_faciais"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "elev_historico_facial_id_fkey"
+            columns: ["facial_id"]
+            isOneToOne: false
+            referencedRelation: "elev_v_elevador_situacao"
+            referencedColumns: ["facial_id"]
           },
           {
             foreignKeyName: "elev_historico_usuario_id_fkey"
@@ -2583,7 +2745,46 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      elev_v_elevador_situacao: {
+        Row: {
+          elevador_id: number | null
+          facial_codigo: string | null
+          facial_id: number | null
+          facial_instalacao: string | null
+          facial_situacao: string | null
+          situacao: string | null
+          status: string | null
+          unidade_id: number | null
+          validacao_status: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "elev_elevadores_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      elev_v_unidade_resumo: {
+        Row: {
+          com_facial: number | null
+          elevadores: number | null
+          faciais_aguardando: number | null
+          faciais_instalados: number | null
+          faciais_presentes: number | null
+          faciais_sem_elevador: number | null
+          instalados: number | null
+          nao_validados: number | null
+          necessita_compra: number | null
+          pendentes: number | null
+          sem_facial: number | null
+          unidade_id: number | null
+          validados: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       apply_domain_rule: { Args: { _usuario_id: number }; Returns: Json }
@@ -2687,6 +2888,7 @@ export type Database = {
       fn_delete_usuario_cascade_guard: { Args: never; Returns: undefined }
       fn_elev_is_admin: { Args: never; Returns: boolean }
       fn_elev_is_staff: { Args: never; Returns: boolean }
+      fn_elev_uid: { Args: never; Returns: number }
       fn_find_sla_policy: {
         Args: {
           _categoria_id: number
@@ -2785,7 +2987,15 @@ export type Database = {
         | "GRAFANA_ONLY"
         | "ARIIA_AND_GRAFANA"
         | "BLOCKED"
+      elev_facial_instalacao: "NAO_INICIADA" | "AGUARDANDO" | "INSTALADA"
+      elev_facial_presenca: "NAO_IDENTIFICADO" | "PRESENTE" | "NAO_ENCONTRADO"
+      elev_facial_situacao:
+        | "NAO_IDENTIFICADO"
+        | "ENCONTRADO"
+        | "NAO_ENCONTRADO"
+        | "NECESSITA_COMPRA"
       elev_status: "PENDENTE" | "EM_ANDAMENTO" | "INSTALADO" | "PAUSADO"
+      elev_validacao_status: "NAO_VALIDADO" | "VALIDADO"
       finalidade_link: "principal" | "backup"
       grafana_role: "None" | "Viewer" | "Editor" | "Admin"
       ip_tipo: "dinamico" | "fixo"
@@ -2954,7 +3164,16 @@ export const Constants = {
         "ARIIA_AND_GRAFANA",
         "BLOCKED",
       ],
+      elev_facial_instalacao: ["NAO_INICIADA", "AGUARDANDO", "INSTALADA"],
+      elev_facial_presenca: ["NAO_IDENTIFICADO", "PRESENTE", "NAO_ENCONTRADO"],
+      elev_facial_situacao: [
+        "NAO_IDENTIFICADO",
+        "ENCONTRADO",
+        "NAO_ENCONTRADO",
+        "NECESSITA_COMPRA",
+      ],
       elev_status: ["PENDENTE", "EM_ANDAMENTO", "INSTALADO", "PAUSADO"],
+      elev_validacao_status: ["NAO_VALIDADO", "VALIDADO"],
       finalidade_link: ["principal", "backup"],
       grafana_role: ["None", "Viewer", "Editor", "Admin"],
       ip_tipo: ["dinamico", "fixo"],
