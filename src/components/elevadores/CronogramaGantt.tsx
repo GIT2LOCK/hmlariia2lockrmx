@@ -18,7 +18,7 @@ export default function CronogramaGantt({ stages, atividades, unidadesDe }: { st
   const rows = useMemo(() => stages.map((stage) => ({ stage, activities: atividades.filter((a) => a.etapa_id === stage.id).sort((a, b) => a.ordem - b.ordem || a.id - b.id) })), [stages, atividades]);
   const dates = periodo(rows.flatMap((row) => row.activities));
   const days = useMemo(() => dates.inicio && dates.fim ? eachDayOfInterval({ start: parse(dates.inicio), end: parse(dates.fim) }) : [], [dates.inicio, dates.fim]);
-  const dayWidth = scale === "dia" ? 48 : scale === "semana" ? 18 : 7;
+  const dayWidth = Math.max(scale === "dia" ? 48 : scale === "semana" ? 18 : 7, Math.ceil(280 / Math.max(days.length, 1)));
   const months = days.reduce<{ label: string; start: number; length: number }[]>((out, day, index) => { const label = day.toLocaleDateString("pt-BR", { month: "long", year: "numeric" }); const last = out[out.length - 1]; if (last?.label === label) last.length++; else out.push({ label, start: index + 1, length: 1 }); return out; }, []);
   const timelineStyle = { gridTemplateColumns: `repeat(${Math.max(days.length, 1)}, ${dayWidth}px)` };
   const bar = (start: string | null, end: string | null, status: string, label: string, color: string | undefined, onClick?: () => void) => {
