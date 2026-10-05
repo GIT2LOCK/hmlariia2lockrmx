@@ -3,7 +3,9 @@ export type Execucao = { id: number; atividade_id: number; etapa_unidade_id: num
 export type Bloqueio = { id: number; projeto_id: number; data_inicio: string; data_fim: string; tipo: string; descricao: string | null };
 
 export const EXEC_STATUSES = [["NAO_INICIADO", "Não iniciada"], ["EM_ANDAMENTO", "Em andamento"], ["CONCLUIDO", "Concluída"], ["BLOQUEADO", "Bloqueada"]] as const;
-export const execLabel = (v: string) => EXEC_STATUSES.find(([k]) => k === v)?.[1] || v;
+export const execLabel = (v: string) => v === "ATRASADO" ? "Atraso" : EXEC_STATUSES.find(([k]) => k === v)?.[1] || v;
+/** Status exibido: passou da data de fim sem concluir = ATRASADO. */
+export const statusEfetivo = (e: Pick<Execucao, "status" | "data_fim" | "data_inicio">, hoje = iso(new Date())) => e.status !== "CONCLUIDO" && !!(e.data_fim || e.data_inicio) && (e.data_fim || e.data_inicio)! < hoje ? "ATRASADO" : e.status;
 
 export const progresso = (exes: Execucao[]) => exes.length ? Math.round(exes.filter((e) => e.status === "CONCLUIDO").length / exes.length * 1000) / 10 : 0;
 
