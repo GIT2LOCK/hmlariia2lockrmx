@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, CalendarDays, CalendarRange, ChevronDown, ChevronRight, Copy, Link2, ListChecks, MoreHorizontal, Pencil, Plus, Store, Trash2, UsersRound } from "lucide-react";
+import { ArrowDown, ArrowUp, CalendarRange, ChevronDown, ChevronRight, Copy, Link2, ListChecks, MoreHorizontal, Pencil, Plus, Store, Trash2, UsersRound } from "lucide-react";
 import CronogramaCalendario from "./CronogramaCalendario";
 import { Atividade, Bloqueio, EXEC_STATUSES, Execucao, periodo, progresso, statusDerivado } from "./cronogramaModel";
 import { supabase } from "@/integrations/supabase/client";
@@ -36,7 +36,7 @@ export default function CronogramaConstrutor({ lojas, admin }: { lojas: Shop[]; 
   const [projects, setProjects] = useState<Project[]>([]), [stages, setStages] = useState<Stage[]>([]), [parts, setParts] = useState<Part[]>([]), [facials, setFacials] = useState<Facial[]>([]), [deps, setDeps] = useState<Dep[]>([]);
   const [atvs, setAtvs] = useState<Atividade[]>([]), [exes, setExes] = useState<Execucao[]>([]), [blqs, setBlqs] = useState<Bloqueio[]>([]);
   const [editAtv, setEditAtv] = useState<{ etapa: Stage; atv?: Atividade } | null>(null), [atvForm, setAtvForm] = useState({ nome: "", descricao: "", responsavel: "" });
-  const [projectId, setProjectId] = useState<number | null>(null), [loading, setLoading] = useState(true), [mode, setMode] = useState<"estrutura" | "gantt" | "calendario">("estrutura"), [open, setOpen] = useState<Set<number>>(new Set());
+  const [projectId, setProjectId] = useState<number | null>(null), [loading, setLoading] = useState(true), [mode, setMode] = useState<"estrutura" | "calendario">("estrutura"), [open, setOpen] = useState<Set<number>>(new Set());
   const [editStage, setEditStage] = useState<Stage | "new" | null>(null), [stageForm, setStageForm] = useState(emptyStage), [unitStage, setUnitStage] = useState<Stage | null>(null), [selected, setSelected] = useState<Set<number>>(new Set()), [search, setSearch] = useState("");
   const [editFacial, setEditFacial] = useState<Facial | "new" | null>(null), [facialPart, setFacialPart] = useState<Part | null>(null), [facialForm, setFacialForm] = useState(emptyFacial), [depStage, setDepStage] = useState<Stage | null>(null), [depTarget, setDepTarget] = useState("");
   const [remove, setRemove] = useState<{ table: string; id: number; label: string } | null>(null), [saving, setSaving] = useState(false);
@@ -75,7 +75,6 @@ export default function CronogramaConstrutor({ lojas, admin }: { lojas: Shop[]; 
   const updateFacial = async (f: Facial, status: string) => { const { error } = await db.from("elev_cronograma_faciais").update({ status, concluido_em: status === "CONCLUIDO" ? new Date().toISOString() : null }).eq("id", f.id); error ? fail("Não foi possível atualizar", error) : load(); };
   const addDep = async () => { if (!depStage || !depTarget) return; const { error } = await db.from("elev_cronograma_dependencias").insert({ etapa_id: depStage.id, depende_de_etapa_id: Number(depTarget), tipo: "OPCIONAL" }); error ? fail("Não foi possível adicionar", error) : (setDepTarget(""), load()); };
   const deleteItem = async () => { if (!remove) return; const { error } = await db.from(remove.table).delete().eq("id", remove.id); error ? fail("Não foi possível excluir", error) : toast({ title: `${remove.label} excluída` }); setRemove(null); load(); };
-  const gantt = (() => { const dated = visible.map((s) => ({ s, p: stagePeriod(s) })).filter((x) => x.p.inicio && x.p.fim); if (!dated.length) return []; const t = (v: string) => new Date(`${v}T12:00`).getTime(); const start = Math.min(...dated.map((x) => t(x.p.inicio!))), end = Math.max(...dated.map((x) => t(x.p.fim!))), span = Math.max(86400000, end - start + 86400000); return dated.map(({ s, p }) => ({ s, p, left: (t(p.inicio!) - start) / span * 100, width: Math.max(2, (t(p.fim!) - t(p.inicio!) + 86400000) / span * 100) })); })();
 
   if (loading) return <p className="text-sm text-muted-foreground">Carregando cronograma...</p>;
   if (!project) return <Card><CardContent className="p-6 text-sm text-muted-foreground">Nenhum projeto disponível.</CardContent></Card>;
