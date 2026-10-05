@@ -34,7 +34,7 @@ describe("Cronograma views and creation labels", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Nova Etapa" }));
     expect(within(screen.getByRole("dialog")).getByRole("heading", { name: "Nova Etapa" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
-    fireEvent.click(screen.getByRole("button", { name: "Gantt", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Gantt" }));
     expect(screen.getByRole("region", { name: "Gantt do cronograma" })).toBeInTheDocument();
     const bar = screen.getByRole("button", { name: "Instalar leitora — Concluída" });
     expect(bar.parentElement?.style.gridColumn).toBe("1 / span 3");
