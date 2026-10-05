@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, CalendarDays, ChevronDown, ChevronRight, Copy, Link2, MoreHorizontal, Pencil, Plus, Store, Trash2, UsersRound } from "lucide-react";
+import { ArrowDown, ArrowUp, CalendarDays, CalendarRange, ChevronDown, ChevronRight, Copy, Link2, ListChecks, MoreHorizontal, Pencil, Plus, Store, Trash2, UsersRound } from "lucide-react";
+import CronogramaCalendario from "./CronogramaCalendario";
+import { Atividade, Bloqueio, EXEC_STATUSES, Execucao, periodo, progresso, statusDerivado } from "./cronogramaModel";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -32,23 +34,30 @@ const emptyFacial = { nome: "", descricao: "", status: "NAO_INICIADO", observaco
 export default function CronogramaConstrutor({ lojas, admin }: { lojas: Shop[]; admin: boolean }) {
   const { toast } = useToast();
   const [projects, setProjects] = useState<Project[]>([]), [stages, setStages] = useState<Stage[]>([]), [parts, setParts] = useState<Part[]>([]), [facials, setFacials] = useState<Facial[]>([]), [deps, setDeps] = useState<Dep[]>([]);
-  const [projectId, setProjectId] = useState<number | null>(null), [loading, setLoading] = useState(true), [mode, setMode] = useState<"estrutura" | "gantt">("estrutura"), [open, setOpen] = useState<Set<number>>(new Set());
+  const [atvs, setAtvs] = useState<Atividade[]>([]), [exes, setExes] = useState<Execucao[]>([]), [blqs, setBlqs] = useState<Bloqueio[]>([]);
+  const [editAtv, setEditAtv] = useState<{ etapa: Stage; atv?: Atividade } | null>(null), [atvForm, setAtvForm] = useState({ nome: "", descricao: "", responsavel: "" });
+  const [projectId, setProjectId] = useState<number | null>(null), [loading, setLoading] = useState(true), [mode, setMode] = useState<"estrutura" | "gantt" | "calendario">("estrutura"), [open, setOpen] = useState<Set<number>>(new Set());
   const [editStage, setEditStage] = useState<Stage | "new" | null>(null), [stageForm, setStageForm] = useState(emptyStage), [unitStage, setUnitStage] = useState<Stage | null>(null), [selected, setSelected] = useState<Set<number>>(new Set()), [search, setSearch] = useState("");
   const [editFacial, setEditFacial] = useState<Facial | "new" | null>(null), [facialPart, setFacialPart] = useState<Part | null>(null), [facialForm, setFacialForm] = useState(emptyFacial), [depStage, setDepStage] = useState<Stage | null>(null), [depTarget, setDepTarget] = useState("");
   const [remove, setRemove] = useState<{ table: string; id: number; label: string } | null>(null), [saving, setSaving] = useState(false);
 
   const load = async () => {
-    const [p, e, u, f, d] = await Promise.all([db.from("elev_cronograma_projetos").select("*").eq("ativo", true).order("id"), db.from("elev_cronograma_etapas").select("*").order("ordem"), db.from("elev_cronograma_etapa_unidades").select("*"), db.from("elev_cronograma_faciais").select("*").order("ordem"), db.from("elev_cronograma_dependencias").select("*")]);
-    const error = p.error || e.error || u.error || f.error || d.error;
+    const [p, e, u, f, d, a, x, b] = await Promise.all([db.from("elev_cronograma_projetos").select("*").eq("ativo", true).order("id"), db.from("elev_cronograma_etapas").select("*").order("ordem"), db.from("elev_cronograma_etapa_unidades").select("*"), db.from("elev_cronograma_faciais").select("*").order("ordem"), db.from("elev_cronograma_dependencias").select("*"), db.from("elev_cronograma_atividades").select("*").order("ordem"), db.from("elev_cronograma_execucoes").select("*").limit(5000), db.from("elev_cronograma_bloqueios").select("*").order("data_inicio")]);
+    const error = p.error || e.error || u.error || f.error || d.error || a.error || x.error || b.error;
     if (error) toast({ title: "Erro ao carregar cronograma", description: error.message, variant: "destructive" });
-    const ps = p.data || []; setProjects(ps); setStages(e.data || []); setParts(u.data || []); setFacials(f.data || []); setDeps(d.data || []); setProjectId((v) => v && ps.some((x: Project) => x.id === v) ? v : ps[0]?.id ?? null); setLoading(false);
+    const ps = p.data || []; setProjects(ps); setStages(e.data || []); setParts(u.data || []); setFacials(f.data || []); setDeps(d.data || []); setAtvs(a.data || []); setExes(x.data || []); setBlqs(b.data || []); setProjectId((v) => v && ps.some((x: Project) => x.id === v) ? v : ps[0]?.id ?? null); setLoading(false);
   };
-  useEffect(() => { load(); const ch = db.channel("elev-cronograma-rt").on("postgres_changes", { event: "*", schema: "public", table: "elev_cronograma_etapas" }, load).on("postgres_changes", { event: "*", schema: "public", table: "elev_cronograma_etapa_unidades" }, load).on("postgres_changes", { event: "*", schema: "public", table: "elev_cronograma_faciais" }, load).on("postgres_changes", { event: "*", schema: "public", table: "elev_cronograma_dependencias" }, load).subscribe(); return () => { db.removeChannel(ch); }; }, []);
+  useEffect(() => { load(); let ch = db.channel("elev-cronograma-rt"); ["elev_cronograma_etapas", "elev_cronograma_etapa_unidades", "elev_cronograma_faciais", "elev_cronograma_dependencias", "elev_cronograma_atividades", "elev_cronograma_execucoes", "elev_cronograma_bloqueios"].forEach((t) => { ch = ch.on("postgres_changes", { event: "*", schema: "public", table: t }, load); }); ch.subscribe(); return () => { db.removeChannel(ch); }; }, []);
   const project = projects.find((x) => x.id === projectId), visible = useMemo(() => stages.filter((x) => x.projeto_id === projectId).sort((a, b) => a.ordem - b.ordem || a.id - b.id), [stages, projectId]);
   const pStage = (id: number) => parts.filter((x) => x.etapa_id === id), fPart = (id: number) => facials.filter((x) => x.etapa_unidade_id === id), shop = (id: number) => lojas.find((x) => x.unidade_id === id)?.unidades?.nome_unidade || `LOJA ${id}`;
-  const progressPart = (p: Part) => { const fs = fPart(p.id); return fs.length ? Math.round(fs.filter((x) => x.status === "CONCLUIDO").length / fs.length * 100) : p.progresso_manual ?? (p.status === "CONCLUIDO" ? 100 : 0); };
-  const progressStage = (s: Stage) => { const ps = pStage(s.id); return ps.length ? Math.round(ps.reduce((n, p) => n + progressPart(p), 0) / ps.length) : s.status === "CONCLUIDO" ? 100 : 0; };
-  const totalProgress = visible.length ? Math.round(visible.reduce((n, s) => n + progressStage(s), 0) / visible.length) : 0;
+  const aStage = (id: number) => atvs.filter((a) => a.etapa_id === id).sort((a, b) => a.ordem - b.ordem || a.id - b.id), eAtv = (id: number) => exes.filter((e) => e.atividade_id === id);
+  const eStage = (id: number) => { const ids = new Set(aStage(id).map((a) => a.id)); return exes.filter((e) => ids.has(e.atividade_id)); };
+  const ePart = (id: number) => exes.filter((e) => e.etapa_unidade_id === id);
+  const progressPart = (p: Part) => { const es = ePart(p.id); if (es.length) return Math.round(progresso(es)); const fs = fPart(p.id); return fs.length ? Math.round(fs.filter((x) => x.status === "CONCLUIDO").length / fs.length * 100) : p.progresso_manual ?? (p.status === "CONCLUIDO" ? 100 : 0); };
+  const progressStage = (s: Stage) => progresso(eStage(s.id));
+  const stageStatus = (s: Stage) => statusDerivado(eStage(s.id));
+  const stagePeriod = (s: Stage) => { const p = periodo(eStage(s.id)); return p.inicio ? p : { inicio: s.data_inicio, fim: s.data_fim }; };
+  const projExes = visible.flatMap((s) => eStage(s.id)), totalProgress = progresso(projExes), projPeriod = periodo(projExes);
   const fail = (title: string, error: any) => toast({ title, description: error?.message, variant: "destructive" });
 
   const showStage = (s?: Stage) => { setEditStage(s || "new"); setStageForm(s ? { nome: s.nome, descricao: s.descricao || "", data_inicio: s.data_inicio || "", data_fim: s.data_fim || "", status: s.status } : emptyStage); };
