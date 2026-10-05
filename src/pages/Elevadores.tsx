@@ -224,6 +224,11 @@ export default function Elevadores() {
     const w4 = XLSX.utils.json_to_sheet(participacoes.map((p: any) => ({ Etapa: etapas.find((e: any) => e.id === p.etapa_id)?.nome || "", Loja: lojaNome(p.unidade_id), Status: p.status, Progresso: p.progresso_manual ?? "", Observações: p.observacoes || "" })));
     w4["!cols"] = [{ wch: 44 }, { wch: 28 }, { wch: 18 }, { wch: 12 }, { wch: 40 }];
     XLSX.utils.book_append_sheet(wb, w4, "Etapas por Loja");
+    const [ra, rx] = await Promise.all([db.from("elev_cronograma_atividades").select("*").order("ordem"), db.from("elev_cronograma_execucoes").select("*").limit(5000)]);
+    const atvsX = ra.data || [], EXL: Record<string, string> = { NAO_INICIADO: "Não iniciada", EM_ANDAMENTO: "Em andamento", CONCLUIDO: "Concluída", BLOQUEADO: "Bloqueada" };
+    const w4b = XLSX.utils.json_to_sheet((rx.data || []).map((x: any) => { const a = atvsX.find((y: any) => y.id === x.atividade_id), p = participacoes.find((y: any) => y.id === x.etapa_unidade_id); return { Etapa: etapas.find((e: any) => e.id === a?.etapa_id)?.nome || "", Atividade: a?.nome || "", Loja: p ? lojaNome(p.unidade_id) : "", "Início previsto": dBR(x.data_inicio), "Fim previsto": dBR(x.data_fim), Status: EXL[x.status] || x.status, Responsável: x.responsavel || a?.responsavel || "", Observações: x.observacoes || "" }; }).sort((a: any, b: any) => a.Etapa.localeCompare(b.Etapa) || a.Atividade.localeCompare(b.Atividade)));
+    w4b["!cols"] = [{ wch: 44 }, { wch: 36 }, { wch: 26 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 22 }, { wch: 40 }];
+    XLSX.utils.book_append_sheet(wb, w4b, "Atividades por Loja");
     const elevPorId = new Map(elev.map((e) => [e.id, e]));
     const fisicos = faciais.map((f) => { const e = f.elevador_id ? elevPorId.get(f.elevador_id) : null; return {
       Origem: "Cadastro físico", Etapa: "", Facial: f.codigo, Unidade: lojaNome(f.unidade_id), Elevador: e ? `${e.tipo} #${e.id}` : "Sem elevador",
