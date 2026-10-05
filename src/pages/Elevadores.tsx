@@ -77,7 +77,7 @@ export default function Elevadores() {
   const [loading, setLoading] = useState(true);
   const [confirm, setConfirm] = useState<Acao | null>(null);
   const [busy, setBusy] = useState<number | null>(null);
-  const [visao, setVisao] = useState<"lojas" | "cadastros" | "kanban" | "cronograma">("lojas");
+  const [visao, setVisao] = useState<"cadastros" | "kanban" | "cronograma">("cadastros");
   const [novoOpen, setNovoOpen] = useState(false);
   const [novo, setNovo] = useState({ unidade_id: "", tipo: "", marca: "", numero_serie: "", observacao: "" });
   const [salvando, setSalvando] = useState(false);
@@ -226,9 +226,9 @@ export default function Elevadores() {
     XLSX.utils.book_append_sheet(wb, w4, "Etapas por Loja");
     const [ra, rx] = await Promise.all([db.from("elev_cronograma_atividades").select("*").order("ordem"), db.from("elev_cronograma_execucoes").select("*").limit(5000)]);
     const atvsX = ra.data || [], EXL: Record<string, string> = { NAO_INICIADO: "Não iniciada", EM_ANDAMENTO: "Em andamento", CONCLUIDO: "Concluída", BLOQUEADO: "Bloqueada" };
-    const w4b = XLSX.utils.json_to_sheet((rx.data || []).map((x: any) => { const a = atvsX.find((y: any) => y.id === x.atividade_id), p = participacoes.find((y: any) => y.id === x.etapa_unidade_id); return { Etapa: etapas.find((e: any) => e.id === a?.etapa_id)?.nome || "", Atividade: a?.nome || "", Loja: p ? lojaNome(p.unidade_id) : "", "Início previsto": dBR(x.data_inicio), "Fim previsto": dBR(x.data_fim), Status: EXL[x.status] || x.status, Responsável: x.responsavel || a?.responsavel || "", Observações: x.observacoes || "" }; }).sort((a: any, b: any) => a.Etapa.localeCompare(b.Etapa) || a.Atividade.localeCompare(b.Atividade)));
+    const w4b = XLSX.utils.json_to_sheet(atvsX.map((a: any) => { const us = (rx.data || []).filter((x: any) => x.atividade_id === a.id).map((x: any) => { const p = participacoes.find((y: any) => y.id === x.etapa_unidade_id); return p ? lojaNome(p.unidade_id) : ""; }).filter(Boolean).sort(); return { Etapa: etapas.find((e: any) => e.id === a.etapa_id)?.nome || "", Atividade: a.nome, Início: dBR(a.data_inicio), Fim: dBR(a.data_fim), Status: EXL[a.status] || a.status, Responsável: a.responsavel || "", Unidades: us.join(", "), "Qtd. unidades": us.length, Observações: a.observacoes || "" }; }).sort((a: any, b: any) => a.Etapa.localeCompare(b.Etapa) || a.Início.split("/").reverse().join("").localeCompare(b.Início.split("/").reverse().join(""))));
     w4b["!cols"] = [{ wch: 44 }, { wch: 36 }, { wch: 26 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 22 }, { wch: 40 }];
-    XLSX.utils.book_append_sheet(wb, w4b, "Atividades por Loja");
+    XLSX.utils.book_append_sheet(wb, w4b, "Atividades");
     const elevPorId = new Map(elev.map((e) => [e.id, e]));
     const fisicos = faciais.map((f) => { const e = f.elevador_id ? elevPorId.get(f.elevador_id) : null; return {
       Origem: "Cadastro físico", Etapa: "", Facial: f.codigo, Unidade: lojaNome(f.unidade_id), Elevador: e ? `${e.tipo} #${e.id}` : "Sem elevador",
@@ -393,11 +393,8 @@ export default function Elevadores() {
             <FileSpreadsheet className="h-4 w-4 mr-1" />Relatório
           </Button>
           <div className="col-span-2 sm:col-span-1 flex rounded-md border border-border overflow-hidden">
-            <Button type="button" size="sm" variant={visao === "lojas" ? "default" : "ghost"} className="flex-1 rounded-none h-9" onClick={() => setVisao("lojas")}>
-              <LayoutGrid className="h-4 w-4 mr-1" />Lojas
-            </Button>
             <Button type="button" size="sm" variant={visao === "cadastros" ? "default" : "ghost"} className="flex-1 rounded-none h-9" onClick={() => setVisao("cadastros")}>
-              <ClipboardList className="h-4 w-4 mr-1" />Cadastros
+              <ClipboardList className="h-4 w-4 mr-1" />Cadastro
             </Button>
             <Button type="button" size="sm" variant={visao === "kanban" ? "default" : "ghost"} className="flex-1 rounded-none h-9" onClick={() => setVisao("kanban")}>
               <Columns3 className="h-4 w-4 mr-1" />Kanban
@@ -413,55 +410,9 @@ export default function Elevadores() {
         <CronogramaConstrutor lojas={lojas} admin={admin} />
       ) : visao === "kanban" ? (
         <CronogramaKanban lojas={lojas} admin={admin} />
-      ) : visao === "cadastros" ? (
-        <CadastrosView elevadores={elevFiltrados} faciais={faciais.filter((f) => lojasVisiveis.has(f.unidade_id))} lojas={lojas} admin={admin} lojaNome={lojaNome}
-          onOpenElevador={(e) => setDetalheId(e.id)} onNovoElevador={() => setNovoOpen(true)} onChanged={load} />
       ) : (
-        <div className="space-y-3 sm:space-y-4">
-          {admin && (
-            <div className="flex justify-end">
-              <Button onClick={() => setNovoOpen(true)}><Plus className="h-4 w-4 mr-1" />Adicionar elevador</Button>
-            </div>
-          )}
-          {lista.map(({ l, es }) => {
-            const all = elev.filter((e) => e.unidade_id === l.unidade_id);
-            const ok = all.filter((e) => e.status === "INSTALADO").length;
-            const fu = faciais.filter((f) => f.unidade_id === l.unidade_id);
-            const livres = fu.filter((f) => !f.elevador_id);
-            const valid = all.filter((e) => e.validacao_status === "VALIDADO").length;
-            const semF = all.filter((e) => e.validacao_status === "VALIDADO" && !facialDe(e.id)).length;
-            return (
-              <Card key={l.unidade_id}>
-                <CardHeader className="p-3 sm:p-6 pb-2">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <CardTitle className="text-base">{l.unidades?.nome_unidade}</CardTitle>
-                    <Badge variant={ok === all.length && all.length ? "default" : "secondary"}>{ok}/{all.length} instalados</Badge>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5 text-xs">
-                    <Badge variant="outline">{l.lote ? (/^\d$/.test(l.lote) ? `Lote ${l.lote}` : `Migração ${l.lote}`) : "Concluído"}</Badge>
-                    {l.data_prevista && <Badge variant="outline">Previsto {new Date(l.data_prevista + "T12:00").toLocaleDateString("pt-BR")}</Badge>}
-                    <Badge variant="outline">Leitoras: {l.estoque_leitoras}</Badge>
-                    <Badge variant="outline">Validados {valid}/{all.length}</Badge>
-                    <Badge variant="outline">Faciais {fu.length}</Badge>
-                    {semF > 0 && <Badge variant="destructive">{semF} sem facial</Badge>}
-                    {livres.length > 0 && <Badge variant="secondary">{livres.length} facial(is) sem elevador</Badge>}
-                  </div>
-                  {l.observacoes && <p className="text-xs text-muted-foreground">{l.observacoes}</p>}
-                </CardHeader>
-                <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0 space-y-2">
-                  {es.map((e) => renderElevador(e))}
-                  {livres.length > 0 && (
-                    <div className="rounded-lg border border-dashed border-border p-3 text-xs space-y-1">
-                      <p className="font-semibold text-foreground">Faciais disponíveis na unidade (sem elevador)</p>
-                      {livres.map((f) => <p key={f.id}>{f.codigo} · {PRES_LABEL[f.presenca]}</p>)}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
-          {!lista.length && <p className="text-sm text-muted-foreground">Nenhuma loja encontrada.</p>}
-        </div>
+        <CadastrosView elevadores={elevFiltrados} faciais={faciais.filter((f) => lojasVisiveis.has(f.unidade_id))} lojas={lista.map((x) => x.l)} admin={admin} lojaNome={lojaNome}
+          onOpenElevador={(e) => setDetalheId(e.id)} onChanged={load} />
       )}
 
       <ElevadorDetalhe elevador={detalhe} onClose={() => setDetalheId(null)} admin={admin} lojaNome={lojaNome}
