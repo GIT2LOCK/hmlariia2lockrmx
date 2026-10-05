@@ -278,33 +278,48 @@ export type Database = {
       elev_cronograma_atividades: {
         Row: {
           atualizado_em: string
+          concluido_em: string | null
           criado_em: string
+          data_fim: string | null
+          data_inicio: string | null
           descricao: string | null
           etapa_id: number
           id: number
           nome: string
+          observacoes: string | null
           ordem: number
           responsavel: string | null
+          status: string
         }
         Insert: {
           atualizado_em?: string
+          concluido_em?: string | null
           criado_em?: string
+          data_fim?: string | null
+          data_inicio?: string | null
           descricao?: string | null
           etapa_id: number
           id?: number
           nome: string
+          observacoes?: string | null
           ordem?: number
           responsavel?: string | null
+          status?: string
         }
         Update: {
           atualizado_em?: string
+          concluido_em?: string | null
           criado_em?: string
+          data_fim?: string | null
+          data_inicio?: string | null
           descricao?: string | null
           etapa_id?: number
           id?: number
           nome?: string
+          observacoes?: string | null
           ordem?: number
           responsavel?: string | null
+          status?: string
         }
         Relationships: [
           {
