@@ -28,6 +28,8 @@ describe("Cronograma views and creation labels", () => {
     expect(within(dialog).getByRole("heading", { name: "Nova Estrutura" })).toBeInTheDocument();
     expect(within(dialog).getByRole("textbox", { name: "Nome da estrutura" })).toBeInTheDocument();
     expect(dialog.textContent).not.toMatch(/etapa/i);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cor Rosa" }));
+    expect(within(dialog).getByRole("button", { name: "Cor Rosa" })).toHaveAttribute("aria-pressed", "true");
   });
   it("opens Nova Etapa from Etapas and restores the activity Gantt", async () => {
     render(<CronogramaConstrutor lojas={[]} admin />);
@@ -38,7 +40,13 @@ describe("Cronograma views and creation labels", () => {
     expect(screen.getByRole("region", { name: "Gantt do cronograma" })).toBeInTheDocument();
     const bar = screen.getByRole("button", { name: "Instalar leitora — Concluída" });
     expect(bar.parentElement?.style.gridColumn).toBe("1 / span 3");
-    fireEvent.click(bar);
+    expect(bar.parentElement).toHaveAttribute("data-stage-color", "azul");
+    fireEvent.click(screen.getByRole("button", { name: "Meses" }));
+    expect(screen.getByRole("button", { name: "Meses" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Recolher Instalação" }));
+    expect(screen.queryByRole("button", { name: "Instalar leitora — Concluída" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Expandir Instalação" }));
+    fireEvent.click(screen.getByRole("button", { name: "Instalar leitora — Concluída" }));
     expect(within(screen.getByRole("dialog")).getByText("13/10/2026")).toBeInTheDocument();
     expect(within(screen.getByRole("dialog")).getByText("15/10/2026")).toBeInTheDocument();
   });

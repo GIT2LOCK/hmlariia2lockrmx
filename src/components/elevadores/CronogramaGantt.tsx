@@ -8,7 +8,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Atividade, diaEspecial, execLabel, fimDeSemana, iso, parse, periodo, progresso, statusDerivado, statusEfetivo } from "./cronogramaModel";
 
 type Stage = { id: number; nome: string; ordem: number; cor?: string | null };
-const tone = (status: string) => status === "ATRASADO" || status === "BLOQUEADO" ? "bg-destructive text-destructive-foreground" : status === "CONCLUIDO" ? "bg-primary text-primary-foreground" : status === "EM_ANDAMENTO" ? "bg-secondary text-secondary-foreground" : "bg-muted text-muted-foreground";
 const br = (date: string | null) => date ? parse(date).toLocaleDateString("pt-BR") : "Sem data";
 
 export default function CronogramaGantt({ stages, atividades, unidadesDe }: { stages: Stage[]; atividades: Atividade[]; unidadesDe: (id: number) => string[] }) {
@@ -50,7 +49,6 @@ export default function CronogramaGantt({ stages, atividades, unidadesDe }: { st
         </div>; })}
       </div>
     </div>
-    <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground">{stages.map((stage) => <span key={stage.id} data-stage-color={stageColor(stage)} className="flex items-center gap-1.5"><span className="stage-swatch h-2.5 w-2.5 rounded-full" />{stage.nome}</span>)}</div>
     <Dialog open={selected !== null} onOpenChange={(open) => !open && setSelected(null)}><DialogContent className="max-w-lg">{selected && <><DialogHeader><DialogTitle>{selected.nome}</DialogTitle></DialogHeader><dl className="grid grid-cols-2 gap-3 text-sm"><div><dt className="text-xs text-muted-foreground">Etapa</dt><dd>{stages.find((s) => s.id === selected.etapa_id)?.nome}</dd></div><div><dt className="text-xs text-muted-foreground">Status</dt><dd><Badge variant={statusEfetivo(selected) === "ATRASADO" ? "destructive" : "outline"}>{execLabel(statusEfetivo(selected))}</Badge></dd></div><div><dt className="text-xs text-muted-foreground">Data de início</dt><dd>{br(selected.data_inicio)}</dd></div><div><dt className="text-xs text-muted-foreground">Data de fim</dt><dd>{br(selected.data_fim)}</dd></div><div className="col-span-2"><dt className="text-xs text-muted-foreground">Responsável</dt><dd>{selected.responsavel || "—"}</dd></div>{selected.observacoes && <div className="col-span-2"><dt className="text-xs text-muted-foreground">Observações</dt><dd>{selected.observacoes}</dd></div>}<div className="col-span-2"><dt className="text-xs text-muted-foreground">Unidades</dt><dd className="mt-1 flex max-h-48 flex-wrap gap-1 overflow-auto">{unidadesDe(selected.id).map((unit) => <Badge variant="secondary" key={unit}>{unit}</Badge>)}{!unidadesDe(selected.id).length && "Nenhuma unidade associada."}</dd></div></dl></>}</DialogContent></Dialog>
   </div>;
 }
