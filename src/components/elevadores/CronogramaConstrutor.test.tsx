@@ -44,7 +44,7 @@ describe("Cronograma views and creation labels", () => {
   });
   it("keeps creation controls restricted to administrators", async () => {
     render(<CronogramaConstrutor lojas={[]} admin={false} />);
-    await screen.findByText("Projeto teste");
+    await screen.findByRole("heading", { name: "Projeto teste" });
     expect(screen.queryByRole("button", { name: "Nova estrutura" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Nova Etapa" })).not.toBeInTheDocument();
   });
