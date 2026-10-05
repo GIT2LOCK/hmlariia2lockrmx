@@ -46,9 +46,9 @@ describe("Adicionar unidade existente em Elevadores", () => {
     fireEvent.change(screen.getByRole("combobox", { name: "Unidade" }), { target: { value: "2" } });
     fireEvent.click(screen.getByRole("button", { name: "Adicionar elevador" }));
     fireEvent.change(screen.getByPlaceholderText("Ex.: Carga, Social"), { target: { value: "Social" } });
-    fireEvent.click(screen.getByRole("button", { name: "Facial", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: /^Facial$/ }));
     fireEvent.change(screen.getByPlaceholderText("Ex.: UNIDADE - F01"), { target: { value: "NOVA - F01" } });
-    fireEvent.click(screen.getByRole("button", { name: "Facial", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: /^Facial$/ }));
     fireEvent.change(screen.getAllByPlaceholderText("Ex.: UNIDADE - F01")[1], { target: { value: "NOVA - F02" } });
     fireEvent.click(screen.getByRole("button", { name: "Adicionar unidade" }));
     await waitFor(() => expect(saved).toHaveBeenCalledOnce());
