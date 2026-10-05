@@ -1,0 +1,2 @@
+ALTER TABLE public.elev_cronograma_etapas ADD COLUMN IF NOT EXISTS cor text;
+COMMENT ON COLUMN public.elev_cronograma_etapas.cor IS 'Semantic palette key shared by Cronograma calendar and Gantt; null uses a deterministic stage default.';

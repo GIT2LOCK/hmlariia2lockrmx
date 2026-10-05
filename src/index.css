@@ -8,6 +8,15 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
+    --stage-azul: 215 76% 43%;
+    --stage-laranja: 25 88% 42%;
+    --stage-violeta: 270 57% 48%;
+    --stage-rosa: 330 72% 43%;
+    --stage-ciano: 190 85% 32%;
+    --stage-ambar: 43 91% 32%;
+    --stage-vermelho: 0 71% 44%;
+    --stage-grafite: 220 15% 43%;
+    --stage-foreground: 0 0% 100%;
     --background: 220 20% 97%;
     --foreground: 235 80% 12%;
 
@@ -194,6 +203,21 @@ All colors MUST be HSL.
 }
 
 @layer components {
+  [data-stage-color="azul"] { --stage-color: var(--stage-azul); }
+  [data-stage-color="laranja"] { --stage-color: var(--stage-laranja); }
+  [data-stage-color="violeta"] { --stage-color: var(--stage-violeta); }
+  [data-stage-color="rosa"] { --stage-color: var(--stage-rosa); }
+  [data-stage-color="ciano"] { --stage-color: var(--stage-ciano); }
+  [data-stage-color="ambar"] { --stage-color: var(--stage-ambar); }
+  [data-stage-color="vermelho"] { --stage-color: var(--stage-vermelho); }
+  [data-stage-color="grafite"] { --stage-color: var(--stage-grafite); }
+  .stage-swatch { background: hsl(var(--stage-color)); }
+  .stage-event[data-stage-color] { border-color: hsl(var(--stage-color)); background: hsl(var(--stage-color)); color: hsl(var(--stage-foreground)); }
+  .stage-event[data-stage-color]:hover { background: hsl(var(--stage-color) / .85); color: hsl(var(--stage-foreground)); }
+  .stage-bar { background: hsl(var(--stage-color)); color: hsl(var(--stage-foreground)); }
+  .stage-bar:hover { background: hsl(var(--stage-color) / .85); color: hsl(var(--stage-foreground)); }
+  .stage-summary { background: hsl(var(--stage-color) / .08); }
+  .stage-ink { color: hsl(var(--stage-color)); }
   .ariia-glass-sidebar {
     --glass-panel: 224 100% 5%;
     --glass-panel-deep: 230 100% 1%;

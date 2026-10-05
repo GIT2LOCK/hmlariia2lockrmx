@@ -7,10 +7,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Atividade, Bloqueio, EXEC_STATUSES, diaEspecial, execLabel, fimDeSemana, iso, noDia, parse, statusEfetivo } from "./cronogramaModel";
 
-type Stage = { id: number; nome: string; ordem: number };
+type Stage = { id: number; nome: string; ordem: number; cor?: string | null };
+import { stageColor } from "./cronogramaColors";
 const DIAS = ["SEG", "TER", "QUA", "QUI", "SEX", "SÁB", "DOM"];
 const MESES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-const tone = (s: string) => s === "ATRASADO" ? "border-destructive bg-destructive/15" : s === "CONCLUIDO" ? "border-primary/40 bg-primary/10" : s === "BLOQUEADO" ? "border-destructive/40 bg-destructive/10" : s === "EM_ANDAMENTO" ? "border-secondary bg-secondary/40" : "border-border bg-card";
 const br = (v?: string | null) => v ? parse(v).toLocaleDateString("pt-BR") : "—";
 
 export default function CronogramaCalendario({ stages, atividades, unidadesDe, bloqueios }: { stages: Stage[]; atividades: Atividade[]; unidadesDe: (atividadeId: number) => string[]; bloqueios: Bloqueio[] }) {
@@ -25,11 +25,11 @@ export default function CronogramaCalendario({ stages, atividades, unidadesDe, b
   const semanas = useMemo(() => { const d = new Date(mes); d.setDate(1 - ((d.getDay() + 6) % 7)); const out: string[][] = []; const last = new Date(mes.getFullYear(), mes.getMonth() + 1, 0); while (d <= last) { const w: string[] = []; for (let i = 0; i < 7; i++) { w.push(iso(d)); d.setDate(d.getDate() + 1); } out.push(w); } return out; }, [mes]);
   const bloqueio = (dia: string) => bloqueios.find((b) => b.data_inicio <= dia && b.data_fim >= dia);
 
-  const evento = (a: Atividade, d: string) => { const s = statusEfetivo(a), alerta = fimDeSemana(d) || diaEspecial(d)?.tipo.startsWith("FERIADO"); return <button key={a.id} onClick={() => setSel(a)} className={`w-full rounded border px-2 py-1 text-left text-xs hover:ring-1 hover:ring-primary ${tone(s)}`} title={`${stageName(a.etapa_id)} · ${a.nome}`}>
-    <span className="block truncate text-[10px] text-muted-foreground">{stageName(a.etapa_id)}</span>
-    <span className="flex items-center gap-1 font-medium leading-tight">{alerta && <AlertTriangle className="h-3 w-3 shrink-0 text-destructive" />}<span className="truncate">{a.nome}</span></span>
-    <span className={`block text-[10px] font-semibold uppercase ${s === "ATRASADO" ? "text-destructive" : "text-muted-foreground"}`}>{execLabel(s)}</span>
-  </button>; };
+  const evento = (a: Atividade, d: string) => { const s = statusEfetivo(a), alerta = fimDeSemana(d) || diaEspecial(d)?.tipo.startsWith("FERIADO"); return <Button variant="ghost" data-stage-color={stageColor(stages.find((stage) => stage.id === a.etapa_id))} key={a.id} onClick={() => setSel(a)} className={`stage-event block h-auto w-full space-y-1 rounded border px-2 py-1 text-left text-xs hover:ring-1 hover:ring-primary`} title={`${stageName(a.etapa_id)} · ${a.nome}`}>
+    <span className="block truncate text-[10px] opacity-90">{stageName(a.etapa_id)}</span>
+    <span className="flex items-center gap-1 font-medium leading-tight">{alerta && <AlertTriangle className="h-3 w-3 shrink-0" />}<span className="truncate">{a.nome}</span></span>
+    <span className="flex items-center gap-1 text-[10px] font-semibold uppercase">{(s === "ATRASADO" || s === "BLOQUEADO") && <AlertTriangle className="h-3 w-3" />}{execLabel(s)}</span>
+  </Button>; };
 
   const marcadores = (d: string) => { const esp = diaEspecial(d), b = bloqueio(d); return <>{esp && <Badge variant={esp.tipo === "PONTO_FACULTATIVO" ? "outline" : "destructive"} className="w-full justify-center truncate px-1 text-[10px]">{esp.tipo === "PONTO_FACULTATIVO" ? "Ponto facultativo" : esp.tipo === "FERIADO_ESTADUAL" ? "Feriado SP" : "Feriado"}: {esp.nome}</Badge>}{b && <Badge variant="secondary" className="w-full justify-center truncate px-1 text-[10px]">{b.descricao || (b.tipo === "FERIADO" ? "Feriado" : "Pausa")}</Badge>}</>; };
 
@@ -50,7 +50,6 @@ export default function CronogramaCalendario({ stages, atividades, unidadesDe, b
         <div className="rounded bg-primary p-2 text-center text-[11px] font-semibold leading-tight text-primary-foreground">{parse(w[0]).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}<br />a<br />{parse(w[6]).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}</div>
         {w.map((d, i) => { const out = parse(d).getMonth() !== mes.getMonth(), esp = diaEspecial(d), list = atvs.filter((a) => noDia(a, d)); return <Card key={d} className={`min-h-[96px] ${out ? "opacity-50" : ""} ${i > 4 || esp?.tipo.startsWith("FERIADO") ? "bg-muted" : ""}`}><CardContent className="space-y-1 p-2"><p className="text-[11px] font-semibold text-muted-foreground">{DIAS[i]} {parse(d).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}</p>{marcadores(d)}{list.map((a) => evento(a, d))}</CardContent></Card>; })}
       </div>)}
-      <div className="flex flex-wrap gap-3 pt-1 text-xs text-muted-foreground"><span className="flex items-center gap-1"><span className="h-3 w-3 rounded border bg-card" />Não iniciada</span><span className="flex items-center gap-1"><span className="h-3 w-3 rounded border bg-secondary/40" />Em andamento</span><span className="flex items-center gap-1"><span className="h-3 w-3 rounded border bg-primary/10" />Concluída</span><span className="flex items-center gap-1"><span className="h-3 w-3 rounded border border-destructive bg-destructive/15" />Atraso / bloqueada</span><span className="flex items-center gap-1"><span className="h-3 w-3 rounded bg-muted" />Fim de semana / feriado</span><span className="flex items-center gap-1"><AlertTriangle className="h-3 w-3 text-destructive" />Atividade em feriado ou fim de semana</span></div>
     </div></div>
     : <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{!diasLista.length && <p className="text-sm text-muted-foreground">Nenhuma programação neste mês.</p>}{diasLista.map((d) => <Card key={d}><CardContent className="space-y-2 p-3"><strong className="text-sm capitalize">{parse(d).toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "short" })}</strong>{marcadores(d)}{atvs.filter((a) => noDia(a, d)).map((a) => evento(a, d))}</CardContent></Card>)}</div>}
 

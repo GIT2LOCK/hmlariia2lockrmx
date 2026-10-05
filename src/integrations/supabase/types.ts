@@ -488,6 +488,7 @@ export type Database = {
       elev_cronograma_etapas: {
         Row: {
           atualizado_em: string
+          cor: string | null
           criado_em: string
           criado_por: number | null
           data_fim: string | null
@@ -501,6 +502,7 @@ export type Database = {
         }
         Insert: {
           atualizado_em?: string
+          cor?: string | null
           criado_em?: string
           criado_por?: number | null
           data_fim?: string | null
@@ -514,6 +516,7 @@ export type Database = {
         }
         Update: {
           atualizado_em?: string
+          cor?: string | null
           criado_em?: string
           criado_por?: number | null
           data_fim?: string | null
