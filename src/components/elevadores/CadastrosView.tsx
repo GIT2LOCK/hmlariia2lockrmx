@@ -1,8 +1,11 @@
 import { useMemo, useState } from "react";
+import { ChevronDown, ChevronRight } from "lucide-react";
+import CadastroLoteDialog, { ModoCadastro } from "./CadastroLoteDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Pencil } from "lucide-react";
 import { Elevador, Facial, INST_LABEL, PRES_LABEL, SIT_LABEL, SIT_VARIANT, STATUS_LABEL, VALID_LABEL, situacao } from "./elevModel";
@@ -10,13 +13,16 @@ import FacialDialog from "./FacialDialog";
 
 interface Props {
   elevadores: Elevador[]; faciais: Facial[]; lojas: any[]; admin: boolean; lojaNome: (id: number) => string;
-  onOpenElevador: (e: Elevador) => void; onNovoElevador: () => void; onChanged: () => void;
+  onOpenElevador: (e: Elevador) => void; onChanged: () => void;
 }
 
-export default function CadastrosView({ elevadores, faciais, lojas, admin, lojaNome, onOpenElevador, onNovoElevador, onChanged }: Props) {
+export default function CadastrosView({ elevadores, faciais, lojas, admin, lojaNome, onOpenElevador, onChanged }: Props) {
   const [fv, setFv] = useState("todos"), [ff, setFf] = useState("todos"), [fi, setFi] = useState("todos");
   const [fFac, setFFac] = useState("todos");
   const [edit, setEdit] = useState<Facial | null>(null), [open, setOpen] = useState(false);
+  const [unidadeIni, setUnidadeIni] = useState<number | undefined>();
+  const [modo, setModo] = useState<ModoCadastro | null>(null), [buscaU, setBuscaU] = useState(""), [aberta, setAberta] = useState<Set<number>>(new Set());
+  const facsDe = (id: number) => faciais.filter((x) => x.elevador_id === id);
   const fac = (id: number) => faciais.find((x) => x.elevador_id === id);
 
   const elevs = useMemo(() => elevadores.filter((e) => {
@@ -34,8 +40,21 @@ export default function CadastrosView({ elevadores, faciais, lojas, admin, lojaN
   const elevPorId = new Map(elevadores.map((e) => [e.id, e]));
 
   return (
-    <Tabs defaultValue="elevadores" className="space-y-3">
-      <TabsList><TabsTrigger value="elevadores">Elevadores ({elevadores.length})</TabsTrigger><TabsTrigger value="faciais">Faciais ({faciais.length})</TabsTrigger></TabsList>
+    <Tabs defaultValue="unidades" className="space-y-3">
+      <TabsList><TabsTrigger value="unidades">Unidades ({lojas.length})</TabsTrigger><TabsTrigger value="elevadores">Elevadores ({elevadores.length})</TabsTrigger><TabsTrigger value="faciais">Faciais ({faciais.length})</TabsTrigger></TabsList>
+
+      <TabsContent value="unidades" className="space-y-3">
+        <div className="flex flex-wrap items-center gap-2"><Input className="max-w-xs" placeholder="Buscar unidade..." value={buscaU} onChange={(e) => setBuscaU(e.target.value)} /><div className="flex-1" />{admin && <Button onClick={() => setModo("unidade")}><Plus className="h-4 w-4 mr-1" />Nova unidade</Button>}</div>
+        <div className="space-y-2">{[...lojas].filter((l) => lojaNome(l.unidade_id).toLowerCase().includes(buscaU.toLowerCase())).sort((a, b) => lojaNome(a.unidade_id).localeCompare(lojaNome(b.unidade_id))).map((l) => { const es = elevadores.filter((e) => e.unidade_id === l.unidade_id), fu = faciais.filter((f) => f.unidade_id === l.unidade_id), livres = fu.filter((f) => !f.elevador_id), op = aberta.has(l.unidade_id); return <div key={l.unidade_id} className="rounded-lg border border-border">
+          <button className="flex w-full items-center gap-2 p-3 text-left" onClick={() => setAberta((s) => { const n = new Set(s); n.has(l.unidade_id) ? n.delete(l.unidade_id) : n.add(l.unidade_id); return n; })}>{op ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}<span className="font-medium">{lojaNome(l.unidade_id)}</span><Badge variant="outline" className="ml-auto">{es.length} elevador(es)</Badge><Badge variant="outline">{fu.length} facial(is)</Badge></button>
+          {op && <div className="space-y-2 border-t p-3 text-sm">
+            {es.map((e) => <div key={e.id} className="rounded border p-2"><button className="font-medium underline-offset-2 hover:underline" onClick={() => onOpenElevador(e)}>{e.tipo} #{e.id}</button> <span className="text-xs text-muted-foreground">{[e.marca, e.numero_serie].filter(Boolean).join(" · ")}</span><div className="mt-1 flex flex-wrap gap-1 pl-4">{facsDe(e.id).map((f) => <Badge key={f.id} variant={f.instalacao === "INSTALADA" ? "default" : "secondary"}>{f.codigo} · {INST_LABEL[f.instalacao]}</Badge>)}{!facsDe(e.id).length && <span className="text-xs text-muted-foreground">Sem facial</span>}</div></div>)}
+            {!es.length && <p className="text-xs text-muted-foreground">Nenhum elevador cadastrado.</p>}
+            {livres.length > 0 && <div className="rounded border border-dashed p-2"><p className="text-xs font-semibold">Faciais sem elevador</p><div className="mt-1 flex flex-wrap gap-1">{livres.map((f) => <Badge key={f.id} variant="outline">{f.codigo}</Badge>)}</div></div>}
+            {admin && <div className="flex gap-2"><Button size="sm" variant="outline" onClick={() => { setUnidadeIni(l.unidade_id); setModo("elevador"); }}><Plus className="h-4 w-4 mr-1" />Elevadores</Button><Button size="sm" variant="outline" onClick={() => { setUnidadeIni(l.unidade_id); setModo("facial"); }}><Plus className="h-4 w-4 mr-1" />Faciais</Button></div>}
+          </div>}
+        </div>; })}</div>
+      </TabsContent>
 
       <TabsContent value="elevadores" className="space-y-3">
         <div className="flex flex-wrap gap-2 items-center">
@@ -47,7 +66,7 @@ export default function CadastrosView({ elevadores, faciais, lojas, admin, lojaN
           <Select value={fi} onValueChange={setFi}><SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger><SelectContent>
             <SelectItem value="todos">Instalação: todos</SelectItem>{Object.entries(INST_LABEL).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent></Select>
           <div className="flex-1" />
-          {admin && <Button onClick={onNovoElevador}><Plus className="h-4 w-4 mr-1" />Novo elevador</Button>}
+          {admin && <Button onClick={() => { setUnidadeIni(undefined); setModo("elevador"); }}><Plus className="h-4 w-4 mr-1" />Novo elevador</Button>}
         </div>
         <div className="rounded-lg border border-border overflow-x-auto">
           <Table>
@@ -59,7 +78,7 @@ export default function CadastrosView({ elevadores, faciais, lojas, admin, lojaN
                   <TableCell>{lojaNome(e.unidade_id)}</TableCell>
                   <TableCell>{STATUS_LABEL[e.status]}</TableCell>
                   <TableCell><Badge variant={e.validacao_status === "VALIDADO" ? "default" : "outline"}>{VALID_LABEL[e.validacao_status]}</Badge></TableCell>
-                  <TableCell>{f?.codigo || "—"}</TableCell>
+                  <TableCell>{facsDe(e.id).map((x) => x.codigo).join(", ") || "—"}</TableCell>
                   <TableCell>{f ? INST_LABEL[f.instalacao] : "—"}</TableCell>
                   <TableCell><Badge variant={SIT_VARIANT[s]}>{SIT_LABEL[s]}</Badge></TableCell>
                 </TableRow>); })}
@@ -76,7 +95,7 @@ export default function CadastrosView({ elevadores, faciais, lojas, admin, lojaN
             <SelectItem value="PRESENTE">Presente na unidade</SelectItem><SelectItem value="NAO_ENCONTRADO">Não encontrado</SelectItem>
             <SelectItem value="AGUARDANDO">Aguardando instalação</SelectItem><SelectItem value="INSTALADA">Instalado</SelectItem></SelectContent></Select>
           <div className="flex-1" />
-          {admin && <Button onClick={() => { setEdit(null); setOpen(true); }}><Plus className="h-4 w-4 mr-1" />Novo facial</Button>}
+          {admin && <Button onClick={() => { setUnidadeIni(undefined); setModo("facial"); }}><Plus className="h-4 w-4 mr-1" />Nova facial</Button>}
         </div>
         <div className="rounded-lg border border-border overflow-x-auto">
           <Table>
@@ -96,6 +115,7 @@ export default function CadastrosView({ elevadores, faciais, lojas, admin, lojaN
           </Table>
         </div>
       </TabsContent>
+      <CadastroLoteDialog modo={modo} onClose={() => setModo(null)} lojas={lojas} elevadores={elevadores} onSaved={onChanged} unidadeInicial={unidadeIni} />
       <FacialDialog open={open} onOpenChange={setOpen} facial={edit} lojas={lojas} elevadores={elevadores} faciais={faciais} onSaved={onChanged} />
     </Tabs>
   );
