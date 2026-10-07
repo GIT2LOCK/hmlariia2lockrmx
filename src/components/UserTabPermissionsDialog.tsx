@@ -14,6 +14,7 @@ const TAB_DEFS: { key: string; label: string }[] = [
   { key: "atendimento", label: "Dashboard Atendimento" },
   { key: "empresas", label: "Empresas" },
   { key: "unidades", label: "Unidades" },
+  { key: "inventario", label: "Inventário" },
   { key: "operadoras", label: "Operadoras" },
   { key: "pessoas", label: "Pessoas" },
   { key: "responsaveis", label: "Responsáveis" },

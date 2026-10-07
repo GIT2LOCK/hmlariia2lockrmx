@@ -1457,6 +1457,85 @@ export type Database = {
           },
         ]
       }
+      inventario_itens: {
+        Row: {
+          atualizado_em: string
+          criado_em: string
+          id: number
+          modelo: string
+          observacao: string | null
+          quantidade: number
+          tipo: string
+          unidade_id: number
+        }
+        Insert: {
+          atualizado_em?: string
+          criado_em?: string
+          id?: never
+          modelo: string
+          observacao?: string | null
+          quantidade?: number
+          tipo: string
+          unidade_id: number
+        }
+        Update: {
+          atualizado_em?: string
+          criado_em?: string
+          id?: never
+          modelo?: string
+          observacao?: string | null
+          quantidade?: number
+          tipo?: string
+          unidade_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventario_itens_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventario_unidade: {
+        Row: {
+          atualizado_em: string
+          camera_tipo: string | null
+          criado_em: string
+          observacoes: string | null
+          unidade_id: number
+          wan_problemas: boolean
+          wan_qtd_links: number | null
+        }
+        Insert: {
+          atualizado_em?: string
+          camera_tipo?: string | null
+          criado_em?: string
+          observacoes?: string | null
+          unidade_id: number
+          wan_problemas?: boolean
+          wan_qtd_links?: number | null
+        }
+        Update: {
+          atualizado_em?: string
+          camera_tipo?: string | null
+          criado_em?: string
+          observacoes?: string | null
+          unidade_id?: number
+          wan_problemas?: boolean
+          wan_qtd_links?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventario_unidade_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: true
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       links_internet: {
         Row: {
           atualizado_em: string | null

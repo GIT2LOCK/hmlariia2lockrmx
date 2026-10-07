@@ -34,6 +34,7 @@ import Permissoes from "./pages/Permissoes";
 import GrafanaKiosk from "./pages/GrafanaKiosk";
 import Linkai from "./pages/Linkai";
 import Elevadores from "./pages/Elevadores";
+import Inventario from "./pages/Inventario";
 import { UserProvider } from "./contexts/UserContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
@@ -65,6 +66,7 @@ const App = () => (
               <Route path="empresas" element={<ProtectedRoute tabKey="empresas" forbidRoles={["CLIENTE"]}><Empresas /></ProtectedRoute>} />
               <Route path="unidades" element={<ProtectedRoute tabKey="unidades" forbidRoles={["CLIENTE"]}><Unidades /></ProtectedRoute>} />
               <Route path="unidades/:id" element={<ProtectedRoute tabKey="unidades" forbidRoles={["CLIENTE"]}><UnidadeDetalhe /></ProtectedRoute>} />
+              <Route path="inventario" element={<ProtectedRoute tabKey="inventario" forbidRoles={["CLIENTE"]}><Inventario /></ProtectedRoute>} />
               <Route path="operadoras" element={<ProtectedRoute tabKey="operadoras" forbidRoles={["CLIENTE"]}><Operadoras /></ProtectedRoute>} />
               <Route path="pessoas" element={<ProtectedRoute tabKey="pessoas" forbidRoles={["CLIENTE"]}><Pessoas /></ProtectedRoute>} />
               <Route path="responsaveis" element={<ProtectedRoute tabKey="responsaveis" forbidRoles={["CLIENTE"]}><Responsaveis /></ProtectedRoute>} />
