@@ -39,11 +39,9 @@ export function statusAntenas(items: Item[]): string | null {
   if (!novas.length) return "N/E";
   return novas.length === a.length ? "TOTAL" : "PARCIAL";
 }
-export function statusWan(g?: Geral): string | null {
-  if (!g) return null;
-  if (g.wan_problemas) return "PROBLEMAS";
-  if (g.wan_qtd_links == null) return null;
-  return g.wan_qtd_links >= 2 ? "OK" : "S/R";
+export function statusWan(g: Geral | undefined, links: number): string | null {
+  if (g?.wan_problemas) return "PROBLEMAS";
+  return links >= 2 ? "OK" : "S/R";
 }
 
 const variant = (v: string | null): "default" | "secondary" | "destructive" | "outline" => {
@@ -65,6 +63,7 @@ export default function Inventario() {
   const [empresas, setEmpresas] = useState<{ id: number; nome_fantasia: string }[]>([]);
   const [itens, setItens] = useState<Item[]>([]);
   const [gerais, setGerais] = useState<Geral[]>([]);
+  const [linkCount, setLinkCount] = useState<Record<number, number>>({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [fEmp, setFEmp] = useState("ALL");
@@ -78,16 +77,20 @@ export default function Inventario() {
 
   const load = async () => {
     setLoading(true);
-    const [u, i, g, e] = await Promise.all([
+    const [u, i, g, e, l] = await Promise.all([
       supabase.from("unidades").select("id, nome_unidade, empresa_id, cidade, estado").order("nome_unidade"),
       db.from("inventario_itens").select("*"),
       db.from("inventario_unidade").select("*"),
       supabase.from("empresas").select("id, nome_fantasia").order("nome_fantasia"),
+      supabase.from("links_internet").select("unidade_id").limit(10000),
     ]);
     setUnidades((u.data as Unidade[]) || []);
     setEmpresas((e.data as any[]) || []);
     setItens(i.data || []);
     setGerais(g.data || []);
+    const lc: Record<number, number> = {};
+    ((l.data as any[]) || []).forEach((x) => { if (x.unidade_id) lc[x.unidade_id] = (lc[x.unidade_id] || 0) + 1; });
+    setLinkCount(lc);
     setLoading(false);
   };
   useEffect(() => { load(); }, []);
@@ -106,10 +109,10 @@ export default function Inventario() {
     .map((u) => {
       const it = itens.filter((x) => x.unidade_id === u.id);
       const g = gerais.find((x) => x.unidade_id === u.id);
-      return { u, sw: statusSwitch(it), an: statusAntenas(it), wan: statusWan(g), cam: g?.camera_tipo ?? null };
+      return { u, sw: statusSwitch(it), an: statusAntenas(it), wan: statusWan(g, linkCount[u.id] || 0), cam: g?.camera_tipo ?? null };
     })
     .filter((r) => match(fSw, r.sw) && match(fAn, r.an) && match(fWan, r.wan) && match(fCam, r.cam)),
-    [unidades, itens, gerais, search, fEmp, fEst, fCid, fSw, fAn, fWan, fCam]);
+    [unidades, itens, gerais, linkCount, search, fEmp, fEst, fCid, fSw, fAn, fWan, fCam]);
 
   const anyFilter = search || [fEmp, fEst, fCid, fSw, fAn, fWan, fCam].some((f) => f !== "ALL");
   const clear = () => { setSearch(""); setFEmp("ALL"); setFEst("ALL"); setFCid("ALL"); setFSw("ALL"); setFAn("ALL"); setFWan("ALL"); setFCam("ALL"); };
@@ -147,7 +150,7 @@ export default function Inventario() {
             <F label="Cidade" value={fCid} onChange={setFCid} opts={cidades.map((c) => [c, c])} />
             <F label="Switch" value={fSw} onChange={setFSw} opts={stOpts(["TOTAL", "PARCIAL", "N/E"])} />
             <F label="Antenas" value={fAn} onChange={setFAn} opts={stOpts(["TOTAL", "PARCIAL", "N/E"])} />
-            <F label="WANs" value={fWan} onChange={setFWan} opts={stOpts(["OK", "S/R", "PROBLEMAS"])} />
+            <F label="WANs" value={fWan} onChange={setFWan} opts={[["OK", "OK"], ["S/R", "S/R"], ["PROBLEMAS", "PROBLEMAS"]]} />
             <F label="Câmeras" value={fCam} onChange={setFCam} opts={stOpts(["IP", "ANALOG"])} />
           </div>
         </CardHeader>
@@ -183,6 +186,7 @@ export default function Inventario() {
           canEdit={canEdit}
           itens={itens.filter((x) => x.unidade_id === sel.id)}
           geral={gerais.find((x) => x.unidade_id === sel.id)}
+          links={linkCount[sel.id] || 0}
           onClose={() => setSel(null)}
           onSaved={() => { toast({ title: "Inventário salvo" }); setSel(null); load(); }}
           onError={(m) => toast({ title: "Erro ao salvar", description: m, variant: "destructive" })}
@@ -192,8 +196,8 @@ export default function Inventario() {
   );
 }
 
-function InventarioModal({ unidade, canEdit, itens, geral, onClose, onSaved, onError }: {
-  unidade: Unidade; canEdit: boolean; itens: Item[]; geral?: Geral;
+function InventarioModal({ unidade, canEdit, itens, geral, links, onClose, onSaved, onError }: {
+  unidade: Unidade; canEdit: boolean; itens: Item[]; geral?: Geral; links: number;
   onClose: () => void; onSaved: () => void; onError: (m: string) => void;
 }) {
   const [list, setList] = useState<Item[]>(itens.map((i) => ({ ...i })));
@@ -244,7 +248,7 @@ function InventarioModal({ unidade, canEdit, itens, geral, onClose, onSaved, onE
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle className="uppercase">{unidade.nome_unidade}</DialogTitle></DialogHeader>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {[["Switch", statusSwitch(list)], ["Antenas", statusAntenas(list)], ["WANs", statusWan(g)], ["Câmeras", g.camera_tipo]].map(([l, v]) => (
+          {[["Switch", statusSwitch(list)], ["Antenas", statusAntenas(list)], ["WANs", statusWan(g, links)], ["Câmeras", g.camera_tipo]].map(([l, v]) => (
             <div key={l as string} className="rounded-md border p-3">
               <div className="text-xs uppercase text-muted-foreground">{l}</div>
               <StatusBadge v={v as string | null} />
@@ -262,10 +266,9 @@ function InventarioModal({ unidade, canEdit, itens, geral, onClose, onSaved, onE
           <TabsContent value="antenas">{section("ANTENA", "Modelo", "Ex.: U6+, U6 Pro, UAP LR")}</TabsContent>
           <TabsContent value="wans" className="space-y-4">
             <div className="space-y-1">
-              <Label>Quantidade de links</Label>
-              <Input type="number" min={0} className="w-32" disabled={!canEdit} value={g.wan_qtd_links ?? ""}
-                onChange={(e) => setG({ ...g, wan_qtd_links: e.target.value === "" ? null : Math.max(0, Number(e.target.value)) })} />
-              <p className="text-xs text-muted-foreground">0 ou 1 link = S/R · 2 ou mais = OK</p>
+              <Label>Links de internet cadastrados</Label>
+              <p className="text-2xl font-semibold">{links}</p>
+              <p className="text-xs text-muted-foreground">Vem do cadastro de links da unidade · 0 ou 1 link = S/R · 2 ou mais = OK</p>
             </div>
             <div className="flex items-center gap-2">
               <Switch checked={g.wan_problemas} disabled={!canEdit} onCheckedChange={(v) => setG({ ...g, wan_problemas: v })} />
