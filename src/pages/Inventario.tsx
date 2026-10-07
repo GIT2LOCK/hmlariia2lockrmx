@@ -353,7 +353,7 @@ function InventarioModal({ unidade, canEdit, itens, geral, links, onClose, onSav
         </div>
       ))}
       {!list.some((x) => x.tipo === tipo) && (
-        <p className="rounded-md border border-dashed border-status-neutral-border bg-status-neutral-bg px-3 py-4 text-center text-xs text-status-neutral">
+        <p className="rounded-sm border border-border bg-muted/30 px-3 py-4 text-center text-xs text-muted-foreground">
           Nenhum {label.toLowerCase()} cadastrado.
         </p>
       )}
