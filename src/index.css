@@ -67,7 +67,7 @@ All colors MUST be HSL.
     --goodstorage-blue: 240 100% 71%;
 
     /* Inventário — situação (bom), atenção, crítico, informativo e sem dado */
-    --status-ok: 215 85% 38%;
+    --status-ok: 217 88% 27%;
     --status-ok-bg: 213 90% 96%;
     --status-ok-border: 213 75% 86%;
     --status-warn: 28 88% 36%;
@@ -76,7 +76,7 @@ All colors MUST be HSL.
     --status-critical: 0 72% 42%;
     --status-critical-bg: 0 90% 97%;
     --status-critical-border: 0 78% 87%;
-    --status-info: 222 20% 36%;
+    --status-info: 222 24% 29%;
     --status-info-bg: 220 25% 96%;
     --status-info-border: 220 22% 86%;
     --status-neutral: 220 12% 42%;
