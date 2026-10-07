@@ -65,6 +65,23 @@ All colors MUST be HSL.
     --goodstorage-orange: 31 100% 50%;
     --goodstorage-green: 65 100% 42%;
     --goodstorage-blue: 240 100% 71%;
+
+    /* Inventário — situação (bom), atenção, crítico, informativo e sem dado */
+    --status-ok: 215 85% 38%;
+    --status-ok-bg: 213 90% 96%;
+    --status-ok-border: 213 75% 86%;
+    --status-warn: 28 88% 36%;
+    --status-warn-bg: 42 95% 95%;
+    --status-warn-border: 38 88% 80%;
+    --status-critical: 0 72% 42%;
+    --status-critical-bg: 0 90% 97%;
+    --status-critical-border: 0 78% 87%;
+    --status-info: 222 20% 36%;
+    --status-info-bg: 220 25% 96%;
+    --status-info-border: 220 22% 86%;
+    --status-neutral: 220 12% 42%;
+    --status-neutral-bg: 220 18% 96%;
+    --status-neutral-border: 220 16% 84%;
   }
 
   .dark {
@@ -109,6 +126,22 @@ All colors MUST be HSL.
     --brand-navy-light: 215 70% 45%;
     --brand-blue: 215 80% 65%;
     --brand-blue-light: 215 70% 75%;
+
+    --status-ok: 215 85% 70%;
+    --status-ok-bg: 215 55% 16%;
+    --status-ok-border: 215 45% 32%;
+    --status-warn: 38 92% 66%;
+    --status-warn-bg: 32 55% 15%;
+    --status-warn-border: 35 50% 32%;
+    --status-critical: 0 85% 72%;
+    --status-critical-bg: 0 55% 17%;
+    --status-critical-border: 0 50% 35%;
+    --status-info: 220 25% 78%;
+    --status-info-bg: 220 20% 17%;
+    --status-info-border: 220 18% 33%;
+    --status-neutral: 220 12% 72%;
+    --status-neutral-bg: 220 15% 16%;
+    --status-neutral-border: 220 12% 30%;
   }
 
   .goodstorage {
