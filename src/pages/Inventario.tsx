@@ -73,7 +73,7 @@ const StatusChip = ({ v, className }: { v: string | null; className?: string }) 
   const { cls, Icon } = CHIP[chipKind(v)];
   return (
     <span className={cn(
-      "inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide whitespace-nowrap",
+      "inline-flex items-center gap-1 rounded-[3px] px-2 py-[2px] text-[11px] font-bold uppercase leading-[16px] tracking-wide whitespace-nowrap",
       cls, className,
     )}>
       <Icon className="h-3 w-3 shrink-0" aria-hidden />
