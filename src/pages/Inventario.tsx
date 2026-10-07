@@ -54,11 +54,11 @@ export function statusWan(g: Geral | undefined, links: number): string | null {
 type ChipKind = "ok" | "warn" | "critical" | "info" | "missing";
 
 const CHIP: Record<ChipKind, { cls: string; Icon: typeof Check }> = {
-  ok: { cls: "border-status-ok-border bg-status-ok-bg text-status-ok", Icon: Check },
-  warn: { cls: "border-status-warn-border bg-status-warn-bg text-status-warn", Icon: AlertTriangle },
-  critical: { cls: "border-status-critical-border bg-status-critical-bg text-status-critical", Icon: AlertOctagon },
-  info: { cls: "border-status-info-border bg-status-info-bg text-status-info", Icon: Circle },
-  missing: { cls: "border-dashed border-status-neutral-border bg-status-neutral-bg text-status-neutral", Icon: Minus },
+  ok: { cls: "bg-status-ok text-status-ok-bg", Icon: Check },
+  warn: { cls: "bg-status-warn text-status-warn-bg", Icon: AlertTriangle },
+  critical: { cls: "bg-status-critical text-status-critical-bg", Icon: AlertOctagon },
+  info: { cls: "bg-status-info text-status-info-bg", Icon: Circle },
+  missing: { cls: "bg-transparent text-status-neutral", Icon: Minus },
 };
 
 const chipKind = (v: string | null): ChipKind => {
@@ -73,7 +73,7 @@ const StatusChip = ({ v, className }: { v: string | null; className?: string }) 
   const { cls, Icon } = CHIP[chipKind(v)];
   return (
     <span className={cn(
-      "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide whitespace-nowrap",
+      "inline-flex items-center gap-1 rounded-[3px] px-2 py-[2px] text-[11px] font-bold uppercase leading-[16px] tracking-wide whitespace-nowrap",
       cls, className,
     )}>
       <Icon className="h-3 w-3 shrink-0" aria-hidden />
@@ -353,7 +353,7 @@ function InventarioModal({ unidade, canEdit, itens, geral, links, onClose, onSav
         </div>
       ))}
       {!list.some((x) => x.tipo === tipo) && (
-        <p className="rounded-md border border-dashed border-status-neutral-border bg-status-neutral-bg px-3 py-4 text-center text-xs text-status-neutral">
+        <p className="rounded-sm border border-border bg-muted/30 px-3 py-4 text-center text-xs text-muted-foreground">
           Nenhum {label.toLowerCase()} cadastrado.
         </p>
       )}
