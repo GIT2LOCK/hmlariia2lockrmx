@@ -8,3 +8,4 @@
 - Cronograma Gantt is a read-only view of existing activities with derived stage summaries; it shares cronogramaModel dates/status and never persists a separate timeline — prevents divergent scheduling data.
 - Gantt timeline rows have isolated stacking contexts below sticky labels and headers — bars must never overlap the fixed name column during scrolling.
 - Stage colors persist as semantic palette keys and resolve through shared CSS tokens in calendar and Gantt; status remains separate text — keeps stage identity consistent across views and themes.
+- Inventário: per-unit data lives in inventario_itens (tipo/modelo/quantidade rows, import-ready) and inventario_unidade (WAN/camera); SWITCH/ANTENAS/WAN statuses are derived in the page, never stored.

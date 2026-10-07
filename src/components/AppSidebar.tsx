@@ -25,6 +25,7 @@ import {
   Sun,
   Moon,
   Warehouse,
+  Boxes,
 
 } from "lucide-react";
 import { useTheme } from "next-themes";
@@ -73,6 +74,7 @@ const menuItems: MenuItem[] = [
   { title: "Dashboard Atendimento", url: "/dashboard/atendimento", icon: Gauge, permission: "dashboard.team", tabKey: "atendimento" },
   { title: "Empresas", url: "/dashboard/empresas", icon: Building2, permission: "registry.view", tabKey: "empresas" },
   { title: "Unidades", url: "/dashboard/unidades", icon: MapPin, permission: "registry.view", tabKey: "unidades" },
+  { title: "Inventário", url: "/dashboard/inventario", icon: Boxes, permission: "registry.view", tabKey: "inventario" },
   { title: "Operadoras", url: "/dashboard/operadoras", icon: Radio, permission: "registry.view", tabKey: "operadoras" },
   { title: "Pessoas", url: "/dashboard/pessoas", icon: Contact, permission: "registry.view", tabKey: "pessoas" },
   { title: "Responsáveis", url: "/dashboard/responsaveis", icon: UserCheck, permission: "registry.view", tabKey: "responsaveis" },
