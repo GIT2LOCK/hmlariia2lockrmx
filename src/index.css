@@ -186,6 +186,22 @@ All colors MUST be HSL.
     --brand-navy-light: 240 85% 76%;
     --brand-blue: 31 100% 50%;
     --brand-blue-light: 65 100% 42%;
+
+    --status-ok: 240 62% 34%;
+    --status-ok-bg: 240 100% 97%;
+    --status-ok-border: 240 80% 88%;
+    --status-warn: 26 100% 36%;
+    --status-warn-bg: 31 100% 96%;
+    --status-warn-border: 31 95% 82%;
+    --status-critical: 0 72% 40%;
+    --status-critical-bg: 0 90% 97%;
+    --status-critical-border: 0 78% 87%;
+    --status-info: 240 27% 24%;
+    --status-info-bg: 240 25% 96%;
+    --status-info-border: 240 20% 86%;
+    --status-neutral: 240 10% 42%;
+    --status-neutral-bg: 240 18% 96%;
+    --status-neutral-border: 240 16% 84%;
   }
 }
 
