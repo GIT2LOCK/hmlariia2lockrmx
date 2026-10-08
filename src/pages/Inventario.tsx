@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -109,14 +109,19 @@ export default function Inventario() {
   const [fCam, setFCam] = useState("ALL");
   const [sel, setSel] = useState<Unidade | null>(null);
   const [syncing, setSyncing] = useState(false);
-  const sync = async () => {
+  const syncingRef = useRef(false);
+  const sync = async (auto = false) => {
+    if (syncingRef.current) return;
+    syncingRef.current = true;
     setSyncing(true);
     const { data, error } = await supabase.functions.invoke("inventario-zabbix-sync", { body: {} });
+    syncingRef.current = false;
     setSyncing(false);
     if (error || data?.error) {
-      toast({ title: "Erro ao sincronizar com o Zabbix", description: data?.error || error?.message, variant: "destructive" });
+      if (!auto) toast({ title: "Erro ao sincronizar com o Zabbix", description: data?.error || error?.message, variant: "destructive" });
       return;
     }
+    if (auto) { load(true); return; }
     const sem = (data.sem_unidade || []) as { host: string }[];
     toast({
       title: "Zabbix sincronizado",
@@ -126,8 +131,8 @@ export default function Inventario() {
     load();
   };
 
-  const load = async () => {
-    setLoading(true);
+  const load = async (silent = false) => {
+    if (!silent) setLoading(true);
     const [u, i, g, e, l] = await Promise.all([
       supabase.from("unidades").select("id, nome_unidade, empresa_id, cidade, estado").order("nome_unidade"),
       db.from("inventario_itens").select("*"),
@@ -144,7 +149,14 @@ export default function Inventario() {
     setLinkCount(lc);
     setLoading(false);
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    sync(true);
+    const id = window.setInterval(() => {
+      if (document.visibilityState === "visible") sync(true);
+    }, 60_000);
+    return () => window.clearInterval(id);
+  }, []);
 
   const uniq = (a: (string | null | undefined)[]) => [...new Set(a.filter(Boolean).map((x) => x!.trim().toUpperCase()))].sort();
   const base = unidades.filter((u) => fEmp === "ALL" || String(u.empresa_id) === fEmp);
@@ -211,7 +223,7 @@ export default function Inventario() {
             {rows.length} {rows.length === 1 ? "unidade" : "unidades"}
           </span>
           {canEdit && (
-            <Button variant="outline" size="sm" onClick={sync} disabled={syncing}>
+            <Button variant="outline" size="sm" onClick={() => sync(false)} disabled={syncing}>
               <RefreshCw className={cn("mr-1 h-3.5 w-3.5", syncing && "animate-spin")} />
               {syncing ? "Sincronizando..." : "Sincronizar Zabbix"}
             </Button>
