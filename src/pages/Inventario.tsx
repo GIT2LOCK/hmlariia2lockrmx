@@ -21,26 +21,31 @@ import {
 const db = supabase as any;
 
 type Tipo = "SWITCH" | "ANTENA";
-interface Item { id?: number; unidade_id: number; tipo: Tipo; modelo: string; quantidade: number; observacao?: string | null }
+interface Item { id?: number; unidade_id: number; tipo: Tipo; modelo: string; quantidade: number; observacao?: string | null; origem?: string; host_name?: string | null; ctrl?: boolean; zabbix_hostid?: string | null }
 interface Geral { unidade_id: number; wan_qtd_links: number | null; wan_problemas: boolean; camera_tipo: "IP" | "ANALOG" | null; observacoes: string | null }
 interface Unidade { id: number; nome_unidade: string; empresa_id?: number | null; cidade?: string | null; estado?: string | null }
 
-const NOVAS_ANTENAS = ["U6+", "U6 PRO"];
+/** Únicos modelos considerados antenas NOVAS; qualquer outro é velho. */
+const NOVAS_ANTENAS = ["U7LT", "UAL6", "UAP6MP", "UAPLR6V2"];
 const norm = (s: string) => s.trim().toUpperCase().replace(/\s+/g, " ");
+const isCtrl = (i: Item) => !!i.ctrl || norm(i.modelo).includes("CTRL") || norm(i.host_name ?? "").includes("CTRL");
+const qty = (items: Item[], tipo: Tipo) => items.filter((i) => i.tipo === tipo).reduce((s, i) => s + (Number(i.quantidade) || 0), 0);
 
+/** Quantidade conta todos (inclui CTRL); status só USW normais: 2+ TOTAL, 1 PARCIAL, 0 N/E. */
 export function statusSwitch(items: Item[]): string | null {
   const s = items.filter((i) => i.tipo === "SWITCH" && i.quantidade > 0);
   if (!s.length) return null;
-  const ubi = s.filter((i) => norm(i.modelo).includes("UBIQUITI"));
-  if (!ubi.length) return "N/E";
-  return ubi.length === s.length ? "TOTAL" : "PARCIAL";
+  const normais = s.filter((i) => !isCtrl(i)).reduce((t, i) => t + i.quantidade, 0);
+  return normais >= 2 ? "TOTAL" : normais === 1 ? "PARCIAL" : "N/E";
 }
+/** 100% novas TOTAL, novas + velhas PARCIAL, nenhuma nova N/E. */
 export function statusAntenas(items: Item[]): string | null {
   const a = items.filter((i) => i.tipo === "ANTENA" && i.quantidade > 0);
   if (!a.length) return null;
-  const novas = a.filter((i) => NOVAS_ANTENAS.includes(norm(i.modelo)));
-  if (!novas.length) return "N/E";
-  return novas.length === a.length ? "TOTAL" : "PARCIAL";
+  const total = a.reduce((t, i) => t + i.quantidade, 0);
+  const novas = a.filter((i) => NOVAS_ANTENAS.includes(norm(i.modelo))).reduce((t, i) => t + i.quantidade, 0);
+  if (!novas) return "N/E";
+  return novas === total ? "TOTAL" : "PARCIAL";
 }
 export function statusWan(g: Geral | undefined, links: number): string | null {
   if (g?.wan_problemas) return "PROBLEMAS";
