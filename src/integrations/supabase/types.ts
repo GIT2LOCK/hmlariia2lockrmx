@@ -1461,32 +1461,47 @@ export type Database = {
         Row: {
           atualizado_em: string
           criado_em: string
+          ctrl: boolean
+          host_name: string | null
           id: number
           modelo: string
           observacao: string | null
+          origem: string
           quantidade: number
+          sincronizado_em: string | null
           tipo: string
           unidade_id: number
+          zabbix_hostid: string | null
         }
         Insert: {
           atualizado_em?: string
           criado_em?: string
+          ctrl?: boolean
+          host_name?: string | null
           id?: never
           modelo: string
           observacao?: string | null
+          origem?: string
           quantidade?: number
+          sincronizado_em?: string | null
           tipo: string
           unidade_id: number
+          zabbix_hostid?: string | null
         }
         Update: {
           atualizado_em?: string
           criado_em?: string
+          ctrl?: boolean
+          host_name?: string | null
           id?: never
           modelo?: string
           observacao?: string | null
+          origem?: string
           quantidade?: number
+          sincronizado_em?: string | null
           tipo?: string
           unidade_id?: number
+          zabbix_hostid?: string | null
         }
         Relationships: [
           {
