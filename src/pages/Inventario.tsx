@@ -15,7 +15,7 @@ import { useUser } from "@/contexts/UserContext";
 import { cn } from "@/lib/utils";
 import {
   AlertOctagon, AlertTriangle, Boxes, Check, ChevronRight, Circle, Minus,
-  Plus, Search, Trash2, X,
+  Plus, RefreshCw, Search, Trash2, X,
 } from "lucide-react";
 
 const db = supabase as any;
@@ -108,6 +108,23 @@ export default function Inventario() {
   const [fWan, setFWan] = useState("ALL");
   const [fCam, setFCam] = useState("ALL");
   const [sel, setSel] = useState<Unidade | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const sync = async () => {
+    setSyncing(true);
+    const { data, error } = await supabase.functions.invoke("inventario-zabbix-sync", { body: {} });
+    setSyncing(false);
+    if (error || data?.error) {
+      toast({ title: "Erro ao sincronizar com o Zabbix", description: data?.error || error?.message, variant: "destructive" });
+      return;
+    }
+    const sem = (data.sem_unidade || []) as { host: string }[];
+    toast({
+      title: "Zabbix sincronizado",
+      description: `${data.antenas} antenas e ${data.switches} switches encontrados; ${data.associados} ligados a unidades.` +
+        (sem.length ? ` ${sem.length} sem unidade correspondente: ${sem.slice(0, 5).map((s) => s.host).join(", ")}${sem.length > 5 ? "..." : ""}` : ""),
+    });
+    load();
+  };
 
   const load = async () => {
     setLoading(true);
@@ -143,7 +160,7 @@ export default function Inventario() {
     .map((u) => {
       const it = itens.filter((x) => x.unidade_id === u.id);
       const g = gerais.find((x) => x.unidade_id === u.id);
-      return { u, sw: statusSwitch(it), an: statusAntenas(it), wan: statusWan(g, linkCount[u.id] || 0), cam: g?.camera_tipo ?? null };
+      return { u, sw: statusSwitch(it), an: statusAntenas(it), swQ: qty(it, "SWITCH"), anQ: qty(it, "ANTENA"), wan: statusWan(g, linkCount[u.id] || 0), cam: g?.camera_tipo ?? null };
     })
     .filter((r) => match(fSw, r.sw) && match(fAn, r.an) && match(fWan, r.wan) && match(fCam, r.cam)),
     [unidades, itens, gerais, linkCount, search, fEmp, fEst, fCid, fSw, fAn, fWan, fCam]);
@@ -193,6 +210,12 @@ export default function Inventario() {
             <Boxes className="h-4 w-4" aria-hidden />
             {rows.length} {rows.length === 1 ? "unidade" : "unidades"}
           </span>
+          {canEdit && (
+            <Button variant="outline" size="sm" onClick={sync} disabled={syncing}>
+              <RefreshCw className={cn("mr-1 h-3.5 w-3.5", syncing && "animate-spin")} />
+              {syncing ? "Sincronizando..." : "Sincronizar Zabbix"}
+            </Button>
+          )}
           {anyFilter && (
             <Button variant="ghost" size="sm" onClick={clear} className="text-muted-foreground hover:text-foreground">
               <X className="mr-1 h-3.5 w-3.5" /> Limpar filtros
@@ -277,8 +300,8 @@ export default function Inventario() {
                       <div className="text-sm font-semibold uppercase tracking-tight">{r.u.nome_unidade}</div>
                       {local(r.u) && <div className="mt-0.5 text-xs text-muted-foreground">{local(r.u)}</div>}
                     </TableCell>
-                    <TableCell className="px-4 py-3.5 text-center"><StatusChip v={r.sw} /></TableCell>
-                    <TableCell className="px-4 py-3.5 text-center"><StatusChip v={r.an} /></TableCell>
+                    <TableCell className="px-4 py-3.5 text-center"><span className="inline-flex items-center gap-2">{r.swQ > 0 && <b className="tabular-nums text-sm">{r.swQ}</b>}<StatusChip v={r.sw} /></span></TableCell>
+                    <TableCell className="px-4 py-3.5 text-center"><span className="inline-flex items-center gap-2">{r.anQ > 0 && <b className="tabular-nums text-sm">{r.anQ}</b>}<StatusChip v={r.an} /></span></TableCell>
                     <TableCell className="px-4 py-3.5 text-center"><StatusChip v={r.wan} /></TableCell>
                     <TableCell className="px-4 py-3.5 text-center"><StatusChip v={r.cam} /></TableCell>
                     <TableCell className="pr-4 text-right">
@@ -330,9 +353,10 @@ function InventarioModal({ unidade, canEdit, itens, geral, links, onClose, onSav
   const save = async () => {
     setSaving(true);
     try {
-      const valid = list.filter((x) => x.modelo.trim());
-      const keep = valid.filter((x) => x.id).map((x) => x.id);
-      const removed = itens.filter((x) => !keep.includes(x.id)).map((x) => x.id);
+      const isZbx = (x: Item) => x.origem === "ZABBIX";
+      const valid = list.filter((x) => !isZbx(x) && x.modelo.trim());
+      const keep = list.filter((x) => x.id && (isZbx(x) || x.modelo.trim())).map((x) => x.id);
+      const removed = itens.filter((x) => !isZbx(x) && !keep.includes(x.id)).map((x) => x.id);
       if (removed.length) { const r = await db.from("inventario_itens").delete().in("id", removed); if (r.error) throw r.error; }
       for (const x of valid) {
         const row = { unidade_id: unidade.id, tipo: x.tipo, modelo: norm(x.modelo), quantidade: Math.max(0, Number(x.quantidade) || 0), observacao: x.observacao ?? null };
@@ -347,10 +371,19 @@ function InventarioModal({ unidade, canEdit, itens, geral, links, onClose, onSav
 
   const section = (tipo: Tipo, label: string, placeholder: string) => (
     <div className="space-y-2">
+      <div className="text-xs text-muted-foreground">Total: <b className="text-foreground">{qty(list, tipo)}</b>{tipo === "SWITCH" && <> · CTRL: {list.filter((x) => x.tipo === "SWITCH" && isCtrl(x)).reduce((t, x) => t + x.quantidade, 0)} (não conta no status)</>}{tipo === "ANTENA" && <> · Novas: {list.filter((x) => x.tipo === "ANTENA" && NOVAS_ANTENAS.includes(norm(x.modelo))).reduce((t, x) => t + x.quantidade, 0)}</>}</div>
       <div className="grid grid-cols-[1fr_120px_40px] gap-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
         <span>{label}</span><span>Quantidade</span><span />
       </div>
-      {list.map((x, idx) => x.tipo !== tipo ? null : (
+      {list.map((x, idx) => x.tipo !== tipo ? null : x.origem === "ZABBIX" ? (
+        <div key={idx} className="grid grid-cols-[1fr_120px_40px] items-center gap-2 rounded-sm border bg-muted/30 px-3 py-2 text-sm">
+          <div>
+            <div className="font-semibold">{x.host_name}</div>
+            <div className="text-xs text-muted-foreground">Modelo: {x.modelo}{x.ctrl ? " · CTRL" : ""} · via Zabbix</div>
+          </div>
+          <span className="tabular-nums">{x.quantidade}</span><span />
+        </div>
+      ) : (
         <div key={idx} className="grid grid-cols-[1fr_120px_40px] gap-2">
           <Input value={x.modelo} placeholder={placeholder} disabled={!canEdit} onChange={(e) => upd(idx, { modelo: e.target.value })} />
           <Input type="number" min={0} value={x.quantidade} disabled={!canEdit} onChange={(e) => upd(idx, { quantidade: Number(e.target.value) })} />
