@@ -15,8 +15,10 @@ import { useUser } from "@/contexts/UserContext";
 import { cn } from "@/lib/utils";
 import {
   AlertOctagon, AlertTriangle, Boxes, Check, ChevronRight, Circle, Minus,
-  Plus, RefreshCw, Search, Trash2, X,
+  FileSpreadsheet, Plus, RefreshCw, Search, Trash2, X,
 } from "lucide-react";
+
+import { exportarRelatorio } from "./inventarioRelatorio";
 
 const db = supabase as any;
 
@@ -222,6 +224,20 @@ export default function Inventario() {
             <Boxes className="h-4 w-4" aria-hidden />
             {rows.length} {rows.length === 1 ? "unidade" : "unidades"}
           </span>
+          <Button variant="outline" size="sm" disabled={loading || !rows.length} onClick={() => {
+            const lbl = (v: string) => v === "ALL" ? "Todos" : v === "NONE" ? "Não informado" : v;
+            exportarRelatorio({
+              rows, itens, linkCount, empresas,
+              filtros: [
+                ["Busca", search || "—"],
+                ["Empresa", fEmp === "ALL" ? "Todas" : empresas.find((e: any) => String(e.id) === fEmp)?.nome_fantasia ?? fEmp],
+                ["Estado", lbl(fEst)], ["Cidade", lbl(fCid)], ["Switch", lbl(fSw)], ["Antenas", lbl(fAn)], ["WANs", lbl(fWan)], ["Câmeras", lbl(fCam)],
+              ],
+            });
+          }}>
+            <FileSpreadsheet className="mr-1 h-3.5 w-3.5" />
+            Relatório
+          </Button>
           {canEdit && (
             <Button variant="outline" size="sm" onClick={() => sync(false)} disabled={syncing}>
               <RefreshCw className={cn("mr-1 h-3.5 w-3.5", syncing && "animate-spin")} />
