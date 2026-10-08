@@ -41,3 +41,6 @@ verify_jwt = false
 
 [functions.update-ticket]
 verify_jwt = false
+
+[functions.inventario-zabbix-sync]
+verify_jwt = false
