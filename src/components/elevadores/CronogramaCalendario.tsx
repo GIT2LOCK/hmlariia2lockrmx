@@ -47,7 +47,7 @@ export default function CronogramaCalendario({ stages, atividades, unidadesDe, b
         <div className="flex flex-col justify-center rounded bg-primary p-1 text-center text-[10px] font-semibold leading-tight text-primary-foreground">{parse(w[0]).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}<br />a<br />{parse(w[6]).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}</div>
         {w.map((d, i) => { const out = parse(d).getMonth() !== mes.getMonth(), esp = diaEspecial(d), list = atvs.filter((a) => noDia(a, d)); return <Card key={d} className={`flex min-h-0 flex-col overflow-hidden ${out ? "opacity-50" : ""} ${i > 4 || esp?.tipo.startsWith("FERIADO") ? "bg-muted" : ""}`}><CardContent className="min-h-0 flex-1 space-y-0.5 overflow-y-auto p-1"><p className="text-[10px] font-semibold text-muted-foreground">{DIAS[i]} {parse(d).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}</p>{marcadores(d)}{list.map((a) => evento(a, d))}</CardContent></Card>; })}
       </div>)}
-    </div></div>
+    </div>
     : <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{!diasLista.length && <p className="text-sm text-muted-foreground">Nenhuma programação neste mês.</p>}{diasLista.map((d) => <Card key={d}><CardContent className="space-y-2 p-3"><strong className="text-sm capitalize">{parse(d).toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "short" })}</strong>{marcadores(d)}{atvs.filter((a) => noDia(a, d)).map((a) => evento(a, d))}</CardContent></Card>)}</div>}
 
     <Dialog open={!!sel} onOpenChange={(v) => !v && setSel(null)}><DialogContent className="max-w-lg">{sel && <>
