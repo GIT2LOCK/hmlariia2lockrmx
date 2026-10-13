@@ -911,6 +911,9 @@ export type Database = {
           modelo: string | null
           numero_serie: string | null
           observacao: string | null
+          origem_descricao: string | null
+          origem_tipo: string | null
+          origem_unidade_id: number | null
           presenca: Database["public"]["Enums"]["elev_facial_presenca"]
           unidade_id: number
         }
@@ -928,6 +931,9 @@ export type Database = {
           modelo?: string | null
           numero_serie?: string | null
           observacao?: string | null
+          origem_descricao?: string | null
+          origem_tipo?: string | null
+          origem_unidade_id?: number | null
           presenca?: Database["public"]["Enums"]["elev_facial_presenca"]
           unidade_id: number
         }
@@ -945,6 +951,9 @@ export type Database = {
           modelo?: string | null
           numero_serie?: string | null
           observacao?: string | null
+          origem_descricao?: string | null
+          origem_tipo?: string | null
+          origem_unidade_id?: number | null
           presenca?: Database["public"]["Enums"]["elev_facial_presenca"]
           unidade_id?: number
         }
@@ -975,6 +984,13 @@ export type Database = {
             columns: ["instalado_por"]
             isOneToOne: false
             referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "elev_faciais_origem_unidade_id_fkey"
+            columns: ["origem_unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
             referencedColumns: ["id"]
           },
           {
