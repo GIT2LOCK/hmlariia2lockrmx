@@ -19,7 +19,7 @@ interface Props {
 
 export default function FacialDialog({ open, onOpenChange, facial, unidadeId, elevadorId, lojas, elevadores, faciais, onSaved }: Props) {
   const { toast } = useToast();
-  const [f, setF] = useState({ unidade_id: "", elevador_id: "none", codigo: "", marca: "", modelo: "", numero_serie: "", presenca: "PRESENTE" as Presenca, instalacao: "NAO_INICIADA" as Instalacao, observacao: "" });
+  const [f, setF] = useState({ unidade_id: "", elevador_id: "none", codigo: "", marca: "", modelo: "", numero_serie: "", presenca: "PRESENTE" as Presenca, instalacao: "NAO_INICIADA" as Instalacao, observacao: "", origem_tipo: "NOVA", origem_texto: "" });
   const [saving, setSaving] = useState(false);
   useEffect(() => {
     if (!open) return;
@@ -27,6 +27,8 @@ export default function FacialDialog({ open, onOpenChange, facial, unidadeId, el
       unidade_id: String(facial?.unidade_id ?? unidadeId ?? ""), elevador_id: String(facial?.elevador_id ?? elevadorId ?? "none"),
       codigo: facial?.codigo || "", marca: facial?.marca || "", modelo: facial?.modelo || "", numero_serie: facial?.numero_serie || "",
       presenca: facial?.presenca || "PRESENTE", instalacao: facial?.instalacao || "NAO_INICIADA", observacao: facial?.observacao || "",
+      origem_tipo: facial?.origem_tipo || "NOVA",
+      origem_texto: facial?.origem_descricao || lojas.find((l) => l.unidade_id === facial?.origem_unidade_id)?.unidades?.nome_unidade || "",
     });
   }, [open, facial, unidadeId, elevadorId]);
 
@@ -38,7 +40,11 @@ export default function FacialDialog({ open, onOpenChange, facial, unidadeId, el
     const eid = f.elevador_id === "none" ? null : Number(f.elevador_id);
     if (eid && ocupado(eid)) { toast({ title: "Este elevador já possui outro facial associado.", variant: "destructive" }); return; }
     const row = { unidade_id: Number(f.unidade_id), elevador_id: eid, codigo: f.codigo.trim(), marca: f.marca.trim() || null, modelo: f.modelo.trim() || null,
-      numero_serie: f.numero_serie.trim() || null, presenca: f.presenca, instalacao: f.instalacao, observacao: f.observacao.trim() || null };
+      numero_serie: f.numero_serie.trim() || null, presenca: f.presenca, instalacao: f.instalacao, observacao: f.observacao.trim() || null,
+      origem_tipo: f.origem_tipo,
+      origem_unidade_id: f.origem_tipo === "NOVA" ? null : (lojas.find((l) => (l.unidades?.nome_unidade || "").toUpperCase() === f.origem_texto.trim().toUpperCase())?.unidade_id ?? null),
+      origem_descricao: f.origem_tipo === "NOVA" ? null : (f.origem_texto.trim() || null) };
+    if (f.origem_tipo !== "NOVA" && !f.origem_texto.trim()) { toast({ title: "Informe a origem ou selecione uma unidade", variant: "destructive" }); return; }
     setSaving(true);
     const { error } = facial ? await db.from("elev_faciais").update(row).eq("id", facial.id) : await db.from("elev_faciais").insert(row);
     setSaving(false);
@@ -92,6 +98,29 @@ export default function FacialDialog({ open, onOpenChange, facial, unidadeId, el
                 <SelectContent>{(Object.keys(INST_LABEL) as Instalacao[]).map((k) => <SelectItem key={k} value={k} disabled={k !== "NAO_INICIADA" && f.elevador_id === "none"}>{INST_LABEL[k]}</SelectItem>)}</SelectContent>
               </Select>
             </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label>Procedência</Label>
+              <Select value={f.origem_tipo} onValueChange={(v) => setF({ ...f, origem_tipo: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ORIGEM">Origem</SelectItem>
+                  <SelectItem value="NOVA">Nova</SelectItem>
+                  <SelectItem value="REMANEJADA">Remanejada</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {f.origem_tipo !== "NOVA" && (
+              <div className="space-y-1">
+                <Label>{f.origem_tipo === "REMANEJADA" ? "Remanejada de" : "Origem"}</Label>
+                <Input list="facial-origem-unidades" value={f.origem_texto} onChange={(e) => setF({ ...f, origem_texto: e.target.value })} placeholder="Digite ou escolha uma unidade" />
+                <datalist id="facial-origem-unidades">
+                  {[...lojas].sort((a, b) => (a.unidades?.nome_unidade || "").localeCompare(b.unidades?.nome_unidade || "")).map((l) => (
+                    <option key={l.unidade_id} value={l.unidades?.nome_unidade} />))}
+                </datalist>
+              </div>
+            )}
           </div>
           <div className="space-y-1"><Label>Observação</Label><Textarea rows={2} value={f.observacao} onChange={(e) => setF({ ...f, observacao: e.target.value })} /></div>
         </div>

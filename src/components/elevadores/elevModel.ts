@@ -13,7 +13,7 @@ export interface Elevador {
 }
 export interface Facial {
   id: number; unidade_id: number; elevador_id: number | null; codigo: string; marca: string | null; modelo: string | null;
-  numero_serie: string | null; presenca: Presenca; instalacao: Instalacao; instalado_em: string | null; observacao: string | null;
+  numero_serie: string | null; presenca: Presenca; instalacao: Instalacao; instalado_em: string | null; observacao: string | null; origem_tipo?: string | null; origem_unidade_id?: number | null; origem_descricao?: string | null;
 }
 
 export const STATUS_LABEL: Record<Status, string> = { PENDENTE: "Pendente", EM_ANDAMENTO: "Em andamento", PAUSADO: "Pausado", INSTALADO: "Instalado" };
