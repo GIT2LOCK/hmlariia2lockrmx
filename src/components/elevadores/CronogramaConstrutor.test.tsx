@@ -23,6 +23,7 @@ afterEach(cleanup);
 describe("Cronograma views and creation labels", () => {
   it("uses estrutura throughout the Nova Estrutura dialog", async () => {
     render(<CronogramaConstrutor lojas={[]} admin />);
+    fireEvent.click(await screen.findByRole("button", { name: "Etapas" }));
     fireEvent.click(await screen.findByRole("button", { name: "Nova estrutura" }));
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByRole("heading", { name: "Nova Estrutura" })).toBeInTheDocument();
@@ -33,6 +34,7 @@ describe("Cronograma views and creation labels", () => {
   });
   it("opens Nova Etapa from Etapas and restores the activity Gantt", async () => {
     render(<CronogramaConstrutor lojas={[]} admin />);
+    fireEvent.click(await screen.findByRole("button", { name: "Etapas" }));
     fireEvent.click(await screen.findByRole("button", { name: "Nova Etapa" }));
     expect(within(screen.getByRole("dialog")).getByRole("heading", { name: "Nova Etapa" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
