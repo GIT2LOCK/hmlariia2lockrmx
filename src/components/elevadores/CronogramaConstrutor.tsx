@@ -34,7 +34,7 @@ export default function CronogramaConstrutor({ lojas, admin }: { lojas: Shop[]; 
   const [projects, setProjects] = useState<Project[]>([]), [stages, setStages] = useState<Stage[]>([]), [parts, setParts] = useState<Part[]>([]), [deps, setDeps] = useState<Dep[]>([]);
   const [atvs, setAtvs] = useState<Atividade[]>([]), [exes, setExes] = useState<Execucao[]>([]), [blqs, setBlqs] = useState<Bloqueio[]>([]);
   const [editAtv, setEditAtv] = useState<{ etapa: Stage; atv?: Atividade } | null>(null), [atvForm, setAtvForm] = useState(emptyAtv), [selected, setSelected] = useState<Set<number>>(new Set()), [search, setSearch] = useState("");
-  const [projectId, setProjectId] = useState<number | null>(null), [loading, setLoading] = useState(true), [mode, setMode] = useState<"estrutura" | "calendario" | "gantt">("estrutura"), [open, setOpen] = useState<Set<number>>(new Set());
+  const [projectId, setProjectId] = useState<number | null>(null), [loading, setLoading] = useState(true), [mode, setMode] = useState<"estrutura" | "calendario" | "gantt">("calendario"), [open, setOpen] = useState<Set<number>>(new Set());
   const [editStage, setEditStage] = useState<Stage | "new" | null>(null), [stageForm, setStageForm] = useState({ nome: "", descricao: "", cor: "azul" });
   const [stageDialogKind, setStageDialogKind] = useState<"estrutura" | "etapa">("estrutura");
   const [depStage, setDepStage] = useState<Stage | null>(null), [depTarget, setDepTarget] = useState("");

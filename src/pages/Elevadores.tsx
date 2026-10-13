@@ -77,7 +77,7 @@ export default function Elevadores() {
   const [loading, setLoading] = useState(true);
   const [confirm, setConfirm] = useState<Acao | null>(null);
   const [busy, setBusy] = useState<number | null>(null);
-  const [visao, setVisao] = useState<"cadastros" | "kanban" | "cronograma">("cadastros");
+  const [visao, setVisao] = useState<"cadastros" | "kanban" | "cronograma">("cronograma");
   const [novoOpen, setNovoOpen] = useState(false);
   const [novo, setNovo] = useState({ unidade_id: "", tipo: "", marca: "", numero_serie: "", observacao: "" });
   const [salvando, setSalvando] = useState(false);
