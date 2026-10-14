@@ -393,14 +393,14 @@ export default function Elevadores() {
             <FileSpreadsheet className="h-4 w-4 mr-1" />Relatório
           </Button>
           <div className="col-span-2 sm:col-span-1 flex rounded-md border border-border overflow-hidden">
-            <Button type="button" size="sm" variant={visao === "cadastros" ? "default" : "ghost"} className="flex-1 rounded-none h-9" onClick={() => setVisao("cadastros")}>
-              <ClipboardList className="h-4 w-4 mr-1" />Cadastro
+            <Button type="button" size="sm" variant={visao === "cronograma" ? "default" : "ghost"} className="flex-1 rounded-none h-9" onClick={() => setVisao("cronograma")}>
+              <CalendarDays className="h-4 w-4 mr-1" />Cronograma
             </Button>
             <Button type="button" size="sm" variant={visao === "kanban" ? "default" : "ghost"} className="flex-1 rounded-none h-9" onClick={() => setVisao("kanban")}>
               <Columns3 className="h-4 w-4 mr-1" />Kanban
             </Button>
-            <Button type="button" size="sm" variant={visao === "cronograma" ? "default" : "ghost"} className="flex-1 rounded-none h-9" onClick={() => setVisao("cronograma")}>
-              <CalendarDays className="h-4 w-4 mr-1" />Cronograma
+            <Button type="button" size="sm" variant={visao === "cadastros" ? "default" : "ghost"} className="flex-1 rounded-none h-9" onClick={() => setVisao("cadastros")}>
+              <ClipboardList className="h-4 w-4 mr-1" />Cadastro
             </Button>
           </div>
         </div>
