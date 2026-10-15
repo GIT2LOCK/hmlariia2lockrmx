@@ -1,0 +1,1 @@
+ALTER TABLE public.tickets ADD COLUMN IF NOT EXISTS solicitante_emails_extra text[] NOT NULL DEFAULT '{}';

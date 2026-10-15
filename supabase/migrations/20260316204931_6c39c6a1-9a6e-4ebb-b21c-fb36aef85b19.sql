@@ -1,0 +1,1 @@
+ALTER TABLE public.unidades ADD COLUMN hostname VARCHAR(100) DEFAULT NULL;

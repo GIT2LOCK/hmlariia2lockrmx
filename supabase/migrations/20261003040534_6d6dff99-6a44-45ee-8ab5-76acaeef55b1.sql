@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.fn_elev_uid() FROM PUBLIC, anon, authenticated;

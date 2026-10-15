@@ -1,0 +1,1 @@
+ALTER TABLE public.elev_faciais ADD COLUMN IF NOT EXISTS origem_tipo text, ADD COLUMN IF NOT EXISTS origem_unidade_id integer REFERENCES public.unidades(id) ON DELETE SET NULL, ADD COLUMN IF NOT EXISTS origem_descricao text;

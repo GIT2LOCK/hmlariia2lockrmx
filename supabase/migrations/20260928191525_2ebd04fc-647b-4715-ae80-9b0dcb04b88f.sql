@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.fn_elev_mov_before_insert() FROM PUBLIC, anon, authenticated;

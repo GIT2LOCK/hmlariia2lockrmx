@@ -1,0 +1,1 @@
+ALTER TABLE public.dados_abertura_chamado ADD COLUMN IF NOT EXISTS designacao character varying DEFAULT NULL;
