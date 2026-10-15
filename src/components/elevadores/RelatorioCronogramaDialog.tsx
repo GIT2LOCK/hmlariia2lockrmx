@@ -66,7 +66,7 @@ export default function RelatorioCronogramaDialog({ open, onOpenChange, lojaNome
     ...(de ? [["De", de.split("-").reverse().join("/")] as [string, string]] : []),
     ...(ate ? [["Até", ate.split("-").reverse().join("/")] as [string, string]] : []),
   ];
-  const seg = inicioSemana(), fimProx = new Date(seg); fimProx.setDate(seg.getDate() + 13);
+  const seg = inicioSemana(), fimProx = new Date(seg); fimProx.setDate(seg.getDate() + 11);
 
   const gerar = async () => {
     if (!gantt && !semanal && !excel) { toast({ title: "Escolha pelo menos um formato", variant: "destructive" }); return; }
@@ -94,7 +94,7 @@ export default function RelatorioCronogramaDialog({ open, onOpenChange, lojaNome
       <div className="flex items-center justify-between text-sm"><span className="text-muted-foreground"><strong className="text-foreground">{filtradas.length}</strong> de {atvs.length} atividades</span><Button variant="ghost" size="sm" onClick={limpar}>Limpar filtros</Button></div>
       <div className="space-y-2 rounded-md border p-3">
         <label className="flex items-start gap-2 text-sm"><Checkbox checked={gantt} onCheckedChange={(v) => setGantt(!!v)} /><span><strong>PDF — Gantt</strong><br /><span className="text-muted-foreground">Todas as etapas e atividades em página grande (A3 deitada).</span></span></label>
-        <label className="flex items-start gap-2 text-sm"><Checkbox checked={semanal} onCheckedChange={(v) => setSemanal(!!v)} /><span><strong>PDF — Calendário semanal</strong><br /><span className="text-muted-foreground">Semana atual e próxima: {br(seg)} a {br(fimProx)}. Muda sozinho conforme a data em que o relatório é gerado.</span></span></label>
+        <label className="flex items-start gap-2 text-sm"><Checkbox checked={semanal} onCheckedChange={(v) => setSemanal(!!v)} /><span><strong>PDF — Calendário semanal</strong><br /><span className="text-muted-foreground">Dias úteis (segunda a sexta) da semana atual e da próxima: {br(seg)} a {br(fimProx)}. Muda sozinho conforme a data em que o relatório é gerado.</span></span></label>
         <label className="flex items-start gap-2 text-sm"><Checkbox checked={excel} onCheckedChange={(v) => setExcel(!!v)} /><span><strong>Planilha Excel</strong><br /><span className="text-muted-foreground">Planilha completa; a aba Atividades segue os filtros.</span></span></label>
       </div>
       <DialogFooter><Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button><Button onClick={gerar} disabled={busy}><FileDown className="mr-1 h-4 w-4" />{busy ? "Gerando..." : "Gerar relatório"}</Button></DialogFooter>
