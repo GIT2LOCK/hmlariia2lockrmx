@@ -49,7 +49,7 @@ export default function RelatorioCronogramaDialog({ open, onOpenChange, lojaNome
 
   const filtradas = useMemo(() => atvs.filter((a) => {
     if (fEtapa !== T && a.etapa_id !== Number(fEtapa)) return false;
-    if (fStatus !== T && statusEfetivo(a) !== fStatus) return false;
+    if (fStatus !== T && statusEfetivo(a) !== fStatus && a.status !== fStatus) return false;
     if (fUnid !== T && !(links.get(a.id) || []).includes(Number(fUnid))) return false;
     if (fResp !== T && a.responsavel !== fResp) return false;
     const fim = a.data_fim || a.data_inicio;
