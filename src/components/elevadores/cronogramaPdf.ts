@@ -125,11 +125,11 @@ function gantt(doc: jsPDF, o: Opts) {
 const pending: { l: any; y: number }[] = [];
 
 function semanal(doc: jsPDF, o: Opts) {
-  const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();
   const seg = inicioSemana();
   [0, 1].forEach((sem) => {
     if (doc.getNumberOfPages() > 1 || (doc as any).__used) doc.addPage("a4", "landscape");
     (doc as any).__used = true;
+    const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();
     const ini = addDays(seg, sem * 7), fim = addDays(ini, 6);
     const dias = Array.from({ length: 7 }, (_, i) => addDays(ini, i));
     const top = cabecalho(doc, o.titulo, `${sem === 0 ? "Semana atual" : "Próxima semana"} · ${ini.toLocaleDateString("pt-BR")} a ${fim.toLocaleDateString("pt-BR")}`, o.filtros);
