@@ -38,9 +38,15 @@ function gantt(doc: jsPDF, o: Opts) {
   const rows = o.stages.map((s) => ({ s, acts: o.atividades.filter((a) => a.etapa_id === s.id).sort((a, b) => (a.data_inicio || "9").localeCompare(b.data_inicio || "9") || a.ordem - b.ordem) })).filter((r) => r.acts.length);
   const per = periodo(o.atividades);
   if (!per.inicio || !per.fim) { const y = cabecalho(doc, o.titulo, "Gantt do cronograma", o.filtros); doc.text("Nenhuma atividade com data para os filtros escolhidos.", 10, y + 8); return; }
-  const start = parse(per.inicio), days = eachDayOfInterval({ start, end: parse(per.fim) });
+  const start = parse(per.inicio), days = eachDayOfInterval({ start, end: parse(per.fim) }).filter((d) => d.getDay() !== 0 && d.getDay() !== 6);
+  const keys = days.map(iso);
+  if (!days.length) { const y = cabecalho(doc, o.titulo, "Gantt do cronograma", o.filtros); doc.text("Nenhuma atividade em dias úteis para os filtros escolhidos.", 10, y + 8); return; }
   const LABEL = 120, X0 = 10 + LABEL, TW = W - X0 - 10, dw = TW / days.length, RH = 7;
-  const xOf = (d: string) => X0 + differenceInCalendarDays(parse(d), start) * dw;
+  // Só dias úteis: início vai para o próximo dia útil, fim para o anterior.
+  const idxIni = (d: string) => { const i = keys.findIndex((k) => k >= d); return i < 0 ? keys.length - 1 : i; };
+  const idxFim = (d: string) => { let i = -1; keys.forEach((k, j) => { if (k <= d) i = j; }); return Math.max(0, i); };
+  const xOf = (d: string) => X0 + idxIni(d) * dw;
+  const xEnd = (d: string) => X0 + (idxFim(d) + 1) * dw;
   const hoje = iso(new Date());
 
   const header = () => {
@@ -57,7 +63,7 @@ function gantt(doc: jsPDF, o: Opts) {
     // dias / semanas
     doc.setFont("helvetica", "normal"); doc.setFontSize(dw >= 4 ? 6 : 5.5); doc.setTextColor(80, 80, 80);
     days.forEach((d, k) => {
-      const show = dw >= 4 || d.getDay() === 1;
+      const show = dw >= 3.5 || d.getDay() === 1;
       if (show) doc.text(String(d.getDate()), X0 + k * dw + (dw >= 4 ? dw / 2 : 0.3), top + 10, { align: dw >= 4 ? "center" : "left" });
     });
     doc.setFillColor(...NAVY); doc.rect(10, top, LABEL, 12, "F");
@@ -71,14 +77,14 @@ function gantt(doc: jsPDF, o: Opts) {
   const grid = (y0: number, y1: number) => {
     days.forEach((d, k) => {
       const s = iso(d);
-      if (fimDeSemana(s) || diaEspecial(s)) { doc.setFillColor(243, 244, 247); doc.rect(X0 + k * dw, y0, dw, y1 - y0, "F"); }
+      if (diaEspecial(s)) { doc.setFillColor(243, 244, 247); doc.rect(X0 + k * dw, y0, dw, y1 - y0, "F"); }
       if (d.getDay() === 1) { doc.setDrawColor(215, 218, 226); doc.setLineWidth(0.15); doc.line(X0 + k * dw, y0, X0 + k * dw, y1); }
     });
   };
   const fechaPagina = (y1: number) => {
-    if (hoje >= per.inicio! && hoje <= per.fim!) { const x = xOf(hoje) + dw / 2; doc.setDrawColor(220, 38, 38); doc.setLineWidth(0.5); doc.line(x, yBody - 12, x, y1); doc.setFontSize(6); doc.setTextColor(220, 38, 38); doc.text("HOJE", x + 0.8, yBody - 12.8); }
+    if (keys.includes(hoje)) { const x = xOf(hoje) + dw / 2; doc.setDrawColor(220, 38, 38); doc.setLineWidth(0.5); doc.line(x, yBody - 12, x, y1); doc.setFontSize(6); doc.setTextColor(220, 38, 38); doc.text("HOJE", x + 0.8, yBody - 12.8); }
     doc.setFontSize(7); doc.setTextColor(120, 120, 120); doc.text(`Página ${doc.getNumberOfPages()}`, W - 10, H - 5, { align: "right" });
-    doc.text("Barra cheia = etapa (período derivado) · barra fina = atividade · contorno vermelho = atraso · faixas cinza = fim de semana/feriado", 10, H - 5);
+    doc.text("Barra cheia = etapa (período derivado) · barra fina = atividade · contorno vermelho = atraso · somente dias úteis · faixas cinza = feriado", 10, H - 5);
   };
   const linhas: { tipo: "s" | "a"; s: PdfStage; a?: Atividade; acts: Atividade[] }[] = [];
   rows.forEach((r) => { linhas.push({ tipo: "s", s: r.s, acts: r.acts }); r.acts.forEach((a) => linhas.push({ tipo: "a", s: r.s, a, acts: r.acts })); });
@@ -102,7 +108,7 @@ function gantt(doc: jsPDF, o: Opts) {
         doc.text(doc.splitTextToSize(`${l.s.ordem}. ${l.s.nome}`, LABEL - 48)[0], 14, ry + 4.7);
         doc.setFont("helvetica", "normal"); doc.setFontSize(7); doc.setTextColor(70, 70, 70);
         doc.text(`${br(p.inicio)} – ${br(p.fim)} · ${progresso(l.acts)}%`, 10 + LABEL - 2, ry + 4.7, { align: "right" });
-        if (p.inicio) { const x = xOf(p.inicio), w = Math.max(dw, xOf(p.fim || p.inicio) + dw - x); doc.setFillColor(c[0], c[1], c[2]); doc.roundedRect(x, ry + 1.2, w, RH - 2.4, 0.8, 0.8, "F"); if (w > 30) { doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(6.5); doc.text(doc.splitTextToSize(`${l.s.nome} · ${execLabel(statusDerivado(l.acts))}`, w - 3)[0], x + 1.5, ry + 4.6); } }
+        if (p.inicio) { const x = xOf(p.inicio), w = Math.max(dw, xEnd(p.fim || p.inicio) - x); doc.setFillColor(c[0], c[1], c[2]); doc.roundedRect(x, ry + 1.2, w, RH - 2.4, 0.8, 0.8, "F"); if (w > 30) { doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(6.5); doc.text(doc.splitTextToSize(`${l.s.nome} · ${execLabel(statusDerivado(l.acts))}`, w - 3)[0], x + 1.5, ry + 4.6); } }
       } else {
         const a = l.a!, st = statusEfetivo(a);
         doc.setFont("helvetica", "normal"); doc.setFontSize(7); doc.setTextColor(30, 30, 30);
@@ -110,7 +116,7 @@ function gantt(doc: jsPDF, o: Opts) {
         doc.setTextColor(st === "ATRASADO" || st === "BLOQUEADO" ? 200 : 90, st === "ATRASADO" || st === "BLOQUEADO" ? 30 : 90, st === "ATRASADO" || st === "BLOQUEADO" ? 30 : 90);
         doc.text(`${br(a.data_inicio)} – ${br(a.data_fim || a.data_inicio)} · ${execLabel(st)}`, 10 + LABEL - 2, ry + 4.6, { align: "right" });
         if (a.data_inicio) {
-          const x = xOf(a.data_inicio), w = Math.max(dw, xOf(a.data_fim || a.data_inicio) + dw - x);
+          const x = xOf(a.data_inicio), w = Math.max(dw, xEnd(a.data_fim || a.data_inicio) - x);
           const done = a.status === "CONCLUIDO";
           doc.setFillColor(done ? Math.round(c[0] * 0.6 + 100) : c[0], done ? Math.round(c[1] * 0.6 + 100) : c[1], done ? Math.round(c[2] * 0.6 + 100) : c[2]);
           doc.roundedRect(x, ry + 1.8, w, RH - 3.6, 0.6, 0.6, "F");
@@ -130,12 +136,12 @@ function semanal(doc: jsPDF, o: Opts) {
     if (doc.getNumberOfPages() > 1 || (doc as any).__used) doc.addPage("a4", "landscape");
     (doc as any).__used = true;
     const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();
-    const ini = addDays(seg, sem * 7), fim = addDays(ini, 6);
-    const dias = Array.from({ length: 7 }, (_, i) => addDays(ini, i));
+    const ini = addDays(seg, sem * 7), fim = addDays(ini, 4);
+    const dias = Array.from({ length: 5 }, (_, i) => addDays(ini, i));
     const top = cabecalho(doc, o.titulo, `${sem === 0 ? "Semana atual" : "Próxima semana"} · ${ini.toLocaleDateString("pt-BR")} a ${fim.toLocaleDateString("pt-BR")}`, o.filtros);
-    const colW = (W - 20) / 7, y0 = top + 1, yMax = H - 10;
+    const colW = (W - 20) / 5, y0 = top + 1, yMax = H - 10;
     dias.forEach((d, i) => {
-      const s = iso(d), x = 10 + i * colW, esp = diaEspecial(s), we = fimDeSemana(s);
+      const s = iso(d), x = 10 + i * colW, esp = diaEspecial(s), we = false;
       doc.setFillColor(...(s === iso(new Date()) ? [26, 104, 193] as RGB : NAVY)); doc.rect(x, y0, colW - 1, 9, "F");
       doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(9);
       doc.text(`${d.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", "").toUpperCase()} ${d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}`, x + 2, y0 + 6);
