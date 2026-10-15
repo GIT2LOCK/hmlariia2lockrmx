@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTheme } from "next-themes";
 import { FileDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -17,6 +18,7 @@ const br = (d: Date) => d.toLocaleDateString("pt-BR");
 
 export default function RelatorioCronogramaDialog({ open, onOpenChange, lojaNome, onExcel }: { open: boolean; onOpenChange: (v: boolean) => void; lojaNome: (id: number) => string; onExcel: (atividadeIds: Set<number>) => Promise<void> }) {
   const { toast } = useToast();
+  const { theme } = useTheme();
   const [stages, setStages] = useState<PdfStage[]>([]);
   const [atvs, setAtvs] = useState<Atividade[]>([]);
   const [links, setLinks] = useState<Map<number, number[]>>(new Map());
@@ -72,7 +74,18 @@ export default function RelatorioCronogramaDialog({ open, onOpenChange, lojaNome
     if (!gantt && !semanal && !excel) { toast({ title: "Escolha pelo menos um formato", variant: "destructive" }); return; }
     setBusy(true);
     try {
-      if (gantt || semanal) gerarPdfCronograma({ titulo: "Cronograma — Controle de Acesso nos Elevadores", filtros, stages, atividades: filtradas, unidadesDe, gantt, semanal });
+      if (gantt || semanal) {
+        gerarPdfCronograma({
+          titulo: "Cronograma — Controle de Acesso nos Elevadores",
+          filtros,
+          stages,
+          atividades: filtradas,
+          unidadesDe,
+          gantt,
+          semanal,
+          tema: theme === "dark" || theme === "goodstorage" ? theme : "light",
+        });
+      }
       if (excel) await onExcel(new Set(filtradas.map((a) => a.id)));
       onOpenChange(false);
     } catch (e: any) { toast({ title: "Não foi possível gerar o relatório", description: e?.message, variant: "destructive" }); }

@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
 import { ensureSupabaseSessionFromAriiaToken, getStoredUser, syncUserFromDatabase } from "@/services/authService";
 import { can as permCan, Permission, Role } from "@/lib/permissions";
+import { useTheme } from "next-themes";
 
 export type UserRole = Role;
 
@@ -89,6 +90,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User>(defaultUser);
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { setTheme } = useTheme();
   const [accessScope, setAccessScope] = useState<AccessScope>("ARIIA_AND_GRAFANA");
   const [modulePerms, setModulePerms] = useState<Record<string, ModulePerm>>({});
   const [grafanaPerms, setGrafanaPerms] = useState<GrafanaPerms>({ is_grafana_admin: false, orgs: [] });
@@ -166,6 +168,34 @@ export function UserProvider({ children }: { children: ReactNode }) {
           setSyncStatus(ctx.sync_status || null);
         }
       } catch {}
+
+      // Carrega o tema salvo para esta conta antes de liberar a tela.
+      let accountTheme: "light" | "dark" | "goodstorage" = "light";
+
+      try {
+        const { supabase } = await import("@/integrations/supabase/client");
+
+        const { data: themeRow, error: themeError } = await supabase
+          .from("usuarios")
+          .select("tema")
+          .eq("id", storedUser.id)
+          .maybeSingle();
+
+        if (
+          !themeError &&
+          themeRow &&
+          ["light", "dark", "goodstorage"].includes(themeRow.tema)
+        ) {
+          accountTheme = themeRow.tema as "light" | "dark" | "goodstorage";
+        } else if (themeError) {
+          console.error("[AccountTheme] Erro ao consultar tema:", themeError);
+        }
+      } catch (error) {
+        console.error("[AccountTheme] Erro ao carregar tema:", error);
+      }
+
+      setTheme(accountTheme);
+
       setUser({
         id: storedUser.id, nome, sobrenome,
         email: storedUser.email || "", cargo: role, role, avatar: avatarUrl,
@@ -174,6 +204,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       setIsAuthenticated(true);
       refreshContext();
     } else {
+      setTheme("light");
       setUser(defaultUser);
       setIsAuthenticated(false);
     }
