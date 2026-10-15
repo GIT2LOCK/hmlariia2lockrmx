@@ -1,7 +1,7 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { differenceInCalendarDays, eachDayOfInterval } from "date-fns";
-import { Atividade, diaEspecial, execLabel, fimDeSemana, iso, noDia, parse, periodo, progresso, statusDerivado, statusEfetivo } from "./cronogramaModel";
+import { eachDayOfInterval } from "date-fns";
+import { Atividade, diaEspecial, execLabel, iso, noDia, parse, periodo, progresso, statusDerivado, statusEfetivo } from "./cronogramaModel";
 import { stageColor } from "./cronogramaColors";
 
 export type PdfStage = { id: number; nome: string; ordem: number; cor?: string | null };
