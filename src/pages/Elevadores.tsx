@@ -19,6 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
 import CronogramaConstrutor from "@/components/elevadores/CronogramaConstrutor";
 import CronogramaKanban from "@/components/elevadores/CronogramaKanban";
+import RelatorioCronogramaDialog from "@/components/elevadores/RelatorioCronogramaDialog";
 import CadastrosView from "@/components/elevadores/CadastrosView";
 import ElevadorDetalhe, { SituacaoBadges } from "@/components/elevadores/ElevadorDetalhe";
 import {
@@ -79,6 +80,7 @@ export default function Elevadores() {
   const [busy, setBusy] = useState<number | null>(null);
   const [visao, setVisao] = useState<"cadastros" | "kanban" | "cronograma">("cronograma");
   const [novoOpen, setNovoOpen] = useState(false);
+  const [relOpen, setRelOpen] = useState(false);
   const [novo, setNovo] = useState({ unidade_id: "", tipo: "", marca: "", numero_serie: "", observacao: "" });
   const [salvando, setSalvando] = useState(false);
   const tiposExistentes = useMemo(() => Array.from(new Set(elev.map((e) => e.tipo).filter(Boolean))).sort(), [elev]);
@@ -179,7 +181,7 @@ export default function Elevadores() {
   ];
 
   const lojaPorId = useMemo(() => new Map(lojas.map((l) => [l.unidade_id, l])), [lojas]);
-  const exportar = async () => {
+  const exportar = async (filtroAtv?: Set<number>) => {
     const wb = XLSX.utils.book_new();
     const hoje = new Date().toISOString().slice(0, 10);
     const [ep, eu, ef, ed] = await Promise.all([
@@ -225,7 +227,7 @@ export default function Elevadores() {
     w4["!cols"] = [{ wch: 44 }, { wch: 28 }, { wch: 18 }, { wch: 12 }, { wch: 40 }];
     XLSX.utils.book_append_sheet(wb, w4, "Etapas por Loja");
     const [ra, rx] = await Promise.all([db.from("elev_cronograma_atividades").select("*").order("ordem"), db.from("elev_cronograma_execucoes").select("*").limit(5000)]);
-    const atvsX = ra.data || [], EXL: Record<string, string> = { NAO_INICIADO: "Não iniciada", EM_ANDAMENTO: "Em andamento", CONCLUIDO: "Concluída", BLOQUEADO: "Bloqueada" };
+    const atvsX = (ra.data || []).filter((a: any) => !filtroAtv || filtroAtv.has(a.id)), EXL: Record<string, string> = { NAO_INICIADO: "Não iniciada", EM_ANDAMENTO: "Em andamento", CONCLUIDO: "Concluída", BLOQUEADO: "Bloqueada" };
     const w4b = XLSX.utils.json_to_sheet(atvsX.map((a: any) => { const us = (rx.data || []).filter((x: any) => x.atividade_id === a.id).map((x: any) => { const p = participacoes.find((y: any) => y.id === x.etapa_unidade_id); return p ? lojaNome(p.unidade_id) : ""; }).filter(Boolean).sort(); return { Etapa: etapas.find((e: any) => e.id === a.etapa_id)?.nome || "", Atividade: a.nome, Início: dBR(a.data_inicio), Fim: dBR(a.data_fim), Status: EXL[a.status] || a.status, Responsável: a.responsavel || "", Unidades: us.join(", "), "Qtd. unidades": us.length, Observações: a.observacoes || "" }; }).sort((a: any, b: any) => a.Etapa.localeCompare(b.Etapa) || a.Início.split("/").reverse().join("").localeCompare(b.Início.split("/").reverse().join(""))));
     w4b["!cols"] = [{ wch: 44 }, { wch: 36 }, { wch: 26 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 22 }, { wch: 40 }];
     XLSX.utils.book_append_sheet(wb, w4b, "Atividades");
@@ -389,9 +391,10 @@ export default function Elevadores() {
               {(Object.keys(SIT_LABEL) as Situacao[]).map((s) => <SelectItem key={s} value={s}>{SIT_LABEL[s]}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Button type="button" variant="outline" size="sm" className="h-9" onClick={exportar}>
+          <Button type="button" variant="outline" size="sm" className="h-9" onClick={() => setRelOpen(true)}>
             <FileSpreadsheet className="h-4 w-4 mr-1" />Relatório
           </Button>
+          <RelatorioCronogramaDialog open={relOpen} onOpenChange={setRelOpen} lojaNome={lojaNome} onExcel={exportar} />
           <div className="col-span-2 sm:col-span-1 flex rounded-md border border-border overflow-hidden">
             <Button type="button" size="sm" variant={visao === "cronograma" ? "default" : "ghost"} className="flex-1 rounded-none h-9" onClick={() => setVisao("cronograma")}>
               <CalendarDays className="h-4 w-4 mr-1" />Cronograma
