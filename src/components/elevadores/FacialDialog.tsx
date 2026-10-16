@@ -124,9 +124,21 @@ export default function FacialDialog({ open, onOpenChange, facial, unidadeId, el
           </div>
           <div className="space-y-1"><Label>Observação</Label><Textarea rows={2} value={f.observacao} onChange={(e) => setF({ ...f, observacao: e.target.value })} /></div>
         </div>
-        <DialogFooter>
+        <DialogFooter className="gap-2 sm:justify-between">
+          {facial ? <Button variant="destructive" disabled={saving} onClick={async () => {
+            if (!window.confirm(`Apagar a facial ${facial.codigo}? Essa ação não pode ser desfeita.`)) return;
+            setSaving(true);
+            await db.from("elev_cronograma_faciais").delete().eq("facial_id", facial.id);
+            await db.from("elev_historico").update({ facial_id: null }).eq("facial_id", facial.id);
+            const { error } = await db.from("elev_faciais").delete().eq("id", facial.id);
+            setSaving(false);
+            if (error) { toast({ title: "Não foi possível apagar", description: traduzErro(error.message), variant: "destructive" }); return; }
+            toast({ title: "Facial apagada" }); onOpenChange(false); onSaved?.();
+          }}>Apagar</Button> : <span />}
+          <div className="flex gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
           <Button onClick={salvar} disabled={saving}>{saving ? "Salvando..." : "Salvar"}</Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
