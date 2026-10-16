@@ -2850,6 +2850,24 @@ export type Database = {
           },
         ]
       }
+      user_preferences: {
+        Row: {
+          theme: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          theme?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          theme?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_sync_status: {
         Row: {
           last_grafana_sync_at: string | null
