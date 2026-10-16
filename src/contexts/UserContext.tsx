@@ -184,9 +184,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
         if (
           !themeError &&
           themeRow &&
-          ["light", "dark", "goodstorage"].includes(themeRow.tema)
+          ["light", "dark", "goodstorage"].includes((themeRow as any).tema)
         ) {
-          accountTheme = themeRow.tema as "light" | "dark" | "goodstorage";
+          accountTheme = (themeRow as any).tema as "light" | "dark" | "goodstorage";
         } else if (themeError) {
           console.error("[AccountTheme] Erro ao consultar tema:", themeError);
         }
