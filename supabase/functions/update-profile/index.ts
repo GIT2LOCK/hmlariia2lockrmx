@@ -22,6 +22,23 @@ serve(async (req) => {
     const body = await req.json();
     const { action } = body;
 
+    if (action === "get-theme" || action === "set-theme") {
+      if (action === "set-theme") {
+        if (!["light", "dark", "goodstorage"].includes(body.tema)) {
+          return new Response(JSON.stringify({ error: "Tema inválido" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+        const { error } = await supabase.from("usuarios")
+          .update({ tema: body.tema }).eq("id", userId);
+        if (error) throw error;
+      }
+      const { data, error } = await supabase.from("usuarios")
+        .select("tema").eq("id", userId).single();
+      if (error) throw error;
+      return new Response(JSON.stringify({ success: true, tema: data.tema }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     if (action === "update-info") {
       const { nome, email, telefone, avatar_url, assinatura_email_url } = body;
       const updates: Record<string, any> = {};

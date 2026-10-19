@@ -1,4 +1,5 @@
 # Architecture rules
+- Account appearance uses usuarios.tema through authenticated update-profile actions; UserContext loads it on login and applies explicit saves and Realtime updates, never persisting a global theme effect — prevents device storage and account switches from overwriting another account's preference.
 
 
 - Elevadores cronograma: Project → Stages → Activities → Units; dates/status/responsible live on the activity, units are only linked (elev_cronograma_execucoes is the activity↔unit link reusing etapa_unidades, which the Kanban depends on); stage period/status are always derived from activities — keeps one source of truth.

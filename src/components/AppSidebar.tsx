@@ -33,6 +33,7 @@ import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useUser } from "@/contexts/UserContext";
 import { logout } from "@/services/authService";
+import { toast } from "sonner";
 
 import {
   Sidebar,
@@ -95,9 +96,9 @@ export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const currentPath = location.pathname;
-  const { user, refreshUser, canManageUsers, can, isGrafanaOnly, isBlocked } = useUser();
+  const { user, refreshUser, canManageUsers, can, isGrafanaOnly, isBlocked, saveAccountTheme, isSavingTheme } = useUser();
   const { allows } = useAllowedTabs();
-  const { theme = "light", setTheme } = useTheme();
+  const { theme = "light" } = useTheme();
 
   const isCliente = user.role === "CLIENTE";
   const isActive = (path: string) => currentPath === path;
@@ -235,14 +236,16 @@ export function AppSidebar() {
               </DropdownMenuTrigger>
               <DropdownMenuContent side="right" align="end" className="w-52">
                 <DropdownMenuLabel>Aparência</DropdownMenuLabel>
-                <DropdownMenuRadioGroup value={theme} onValueChange={setTheme}>
-                  <DropdownMenuRadioItem value="light" className="gap-2">
+                <DropdownMenuRadioGroup value={theme} onValueChange={(value) => {
+                  saveAccountTheme(value).catch(() => toast.error("Não foi possível salvar o tema. Tente novamente."));
+                }}>
+                  <DropdownMenuRadioItem value="light" disabled={isSavingTheme} className="gap-2">
                     <Sun className="h-4 w-4" /> Claro
                   </DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="dark" className="gap-2">
+                  <DropdownMenuRadioItem value="dark" disabled={isSavingTheme} className="gap-2">
                     <Moon className="h-4 w-4" /> Escuro
                   </DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="goodstorage" className="gap-2">
+                  <DropdownMenuRadioItem value="goodstorage" disabled={isSavingTheme} className="gap-2">
                     <Warehouse className="h-4 w-4" />
                     <span className="flex-1">GoodStorage</span>
                     <span className="flex gap-1" aria-hidden="true">
