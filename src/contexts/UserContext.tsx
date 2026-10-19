@@ -1,7 +1,8 @@
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from "react";
 import { ensureSupabaseSessionFromAriiaToken, getStoredUser, syncUserFromDatabase } from "@/services/authService";
 import { can as permCan, Permission, Role } from "@/lib/permissions";
 import { useTheme } from "next-themes";
+import { isAccountTheme, loadAccountTheme, persistAccountTheme } from "@/services/accountTheme";
 
 export type UserRole = Role;
 
@@ -47,6 +48,8 @@ interface UserContextType {
   syncFromDatabase: () => Promise<void>;
   refreshContext: () => Promise<void>;
   updateAvatar: (newAvatarUrl: string) => void;
+  saveAccountTheme: (theme: string) => Promise<void>;
+  isSavingTheme: boolean;
   canEdit: boolean;
   canManageUsers: boolean;
   canManageAdmins: boolean;
@@ -91,6 +94,23 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const { setTheme } = useTheme();
+  const [isSavingTheme, setIsSavingTheme] = useState(false);
+  const savingThemeRef = useRef(false);
+  const loadVersion = useRef(0);
+
+  const saveAccountTheme = async (nextTheme: string) => {
+    if (!isAccountTheme(nextTheme) || !isAuthenticated || savingThemeRef.current) return;
+    const accountId = user.id;
+    savingThemeRef.current = true;
+    setIsSavingTheme(true);
+    try {
+      const savedTheme = await persistAccountTheme(nextTheme);
+      if (getStoredUser()?.id === accountId) setTheme(savedTheme);
+    } finally {
+      savingThemeRef.current = false;
+      setIsSavingTheme(false);
+    }
+  };
   const [accessScope, setAccessScope] = useState<AccessScope>("ARIIA_AND_GRAFANA");
   const [modulePerms, setModulePerms] = useState<Record<string, ModulePerm>>({});
   const [grafanaPerms, setGrafanaPerms] = useState<GrafanaPerms>({ is_grafana_admin: false, orgs: [] });
@@ -127,6 +147,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const loadUser = async () => {
+    const version = ++loadVersion.current;
     const storedUser = getStoredUser();
     if (storedUser) {
       const { nome, sobrenome } = splitName(storedUser.nome);
@@ -171,29 +192,14 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
       // Carrega o tema salvo para esta conta antes de liberar a tela.
       let accountTheme: "light" | "dark" | "goodstorage" = "light";
-
       try {
-        const { supabase } = await import("@/integrations/supabase/client");
-
-        const { data: themeRow, error: themeError } = await supabase
-          .from("usuarios")
-          .select("tema")
-          .eq("id", storedUser.id)
-          .maybeSingle();
-
-        if (
-          !themeError &&
-          themeRow &&
-          ["light", "dark", "goodstorage"].includes((themeRow as any).tema)
-        ) {
-          accountTheme = (themeRow as any).tema as "light" | "dark" | "goodstorage";
-        } else if (themeError) {
-          console.error("[AccountTheme] Erro ao consultar tema:", themeError);
-        }
+        if (getStoredUser()?.id !== storedUser.id || version !== loadVersion.current) return;
+        accountTheme = await loadAccountTheme();
       } catch (error) {
         console.error("[AccountTheme] Erro ao carregar tema:", error);
       }
 
+      if (getStoredUser()?.id !== storedUser.id || version !== loadVersion.current) return;
       setTheme(accountTheme);
 
       setUser({
@@ -248,6 +254,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
           (payload: any) => {
             const newData = payload.new;
             if (newData) {
+              if (getStoredUser()?.id !== user.id) return;
+              if (isAccountTheme(newData.tema) && !savingThemeRef.current) setTheme(newData.tema);
               const newRole = (newData.permissao as UserRole) || "VIEWER";
               const { nome, sobrenome } = splitName(newData.nome || "");
               setUser(prev => ({
@@ -285,7 +293,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         supabase.removeChannel(ch);
       });
     };
-  }, [isAuthenticated, user.id, refreshContext]);
+  }, [isAuthenticated, user.id, refreshContext, setTheme]);
 
   const refreshUser = () => loadUser();
   const isAdmin = user.role === "SUPERADMIN" || user.role === "ADMIN";
@@ -315,7 +323,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   return (
     <UserContext.Provider value={{
       user, isLoading, isAuthenticated, refreshUser, syncFromDatabase, refreshContext,
-      updateAvatar, canEdit, canManageUsers, canManageAdmins, hasFullAccess,
+      updateAvatar, saveAccountTheme, isSavingTheme, canEdit, canManageUsers, canManageAdmins, hasFullAccess,
       isViewer, isTvView, isCliente, isAdmin, can,
       accessScope, modulePerms, grafanaPerms, grafanaGroups, syncStatus,
       canAccessAriia, canAccessGrafana, isBlocked, isGrafanaOnly,
@@ -333,6 +341,7 @@ export function useUser(): UserContextType {
       user: defaultUser, isLoading: true, isAuthenticated: false,
       refreshUser: async () => {}, syncFromDatabase: async () => {}, refreshContext: async () => {},
       updateAvatar: () => {},
+      saveAccountTheme: async () => {}, isSavingTheme: false,
       canEdit: false, canManageUsers: false, canManageAdmins: false, hasFullAccess: false,
       isViewer: true, isTvView: false, isCliente: false, isAdmin: false,
       can: () => false,

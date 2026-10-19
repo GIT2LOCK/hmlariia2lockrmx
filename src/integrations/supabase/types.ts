@@ -2956,6 +2956,7 @@ export type Database = {
           permissao_manual: boolean
           senha_hash: string | null
           telefone: string | null
+          tema: string
           totp_enabled: boolean | null
           totp_secret: string | null
           zabbix_token_z1: string | null
@@ -2978,6 +2979,7 @@ export type Database = {
           permissao_manual?: boolean
           senha_hash?: string | null
           telefone?: string | null
+          tema?: string
           totp_enabled?: boolean | null
           totp_secret?: string | null
           zabbix_token_z1?: string | null
@@ -3000,6 +3002,7 @@ export type Database = {
           permissao_manual?: boolean
           senha_hash?: string | null
           telefone?: string | null
+          tema?: string
           totp_enabled?: boolean | null
           totp_secret?: string | null
           zabbix_token_z1?: string | null
