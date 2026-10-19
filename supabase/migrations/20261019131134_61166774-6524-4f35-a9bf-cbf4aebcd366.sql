@@ -1,0 +1,1 @@
+ALTER TABLE public.usuarios ADD COLUMN tema text NOT NULL DEFAULT 'light' CONSTRAINT usuarios_tema_check CHECK (tema IN ('light', 'dark', 'goodstorage'));
