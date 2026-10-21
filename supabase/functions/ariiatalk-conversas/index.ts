@@ -447,7 +447,8 @@ serve(async (req) => {
         return jsonResponse({ success: true });
       }
 
-      return jsonResponse({ error: "unknown_action" }, 400);
+      console.warn("[ariiatalk-conversas] Ação desconhecida:", String(body.action));
+      return jsonResponse({ error: "unknown_action", action: String(body.action ?? "") }, 400);
     }
 
     const { data: conversations, error } = await db
