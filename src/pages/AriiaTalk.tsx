@@ -976,7 +976,7 @@ export default function AriiaTalk() {
   }
 
   return (
-    <div className="-m-4 flex h-[calc(100%+2rem)] min-h-[560px] flex-col overflow-hidden bg-background md:-m-6 md:h-[calc(100%+3rem)]">
+    <div className="-m-4 flex h-[calc(100dvh-3.5rem)] min-h-[560px] flex-col overflow-hidden bg-background md:-m-6 md:h-[100dvh]">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4">
         <div>
           <h1 className="text-xl font-semibold">AriiaTalk</h1>
