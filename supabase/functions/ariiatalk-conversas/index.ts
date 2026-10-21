@@ -33,7 +33,7 @@ serve(async (req) => {
   }
 
   try {
-    // Reutiliza a autenticaÃ§Ã£o personalizada do Ariia.
+    // Reutiliza a autenticação personalizada do Ariia.
     const caller = await requireAriiaTalkAccess(req);
 
     const db = serviceClient();
@@ -54,7 +54,7 @@ serve(async (req) => {
     );
 
     if (tabsError) {
-      console.error("[ariiatalk-conversas] Falha ao verificar permissÃµes");
+      console.error("[ariiatalk-conversas] Falha ao verificar permissões");
       return jsonResponse({ error: "permission_check_failed" }, 500);
     }
 
