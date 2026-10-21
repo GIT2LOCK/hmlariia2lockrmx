@@ -1284,6 +1284,7 @@ export default function AriiaTalk() {
                     >
                       {selectedConversation.status === "closed" ? <><Unlock className="h-3.5 w-3.5" /> Reabrir</> : <><Lock className="h-3.5 w-3.5" /> Encerrar</>}
                     </button>
+                  </div>
                 </header>
                 <div ref={messagesContainerRef} className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto bg-muted/20 p-4">
                   {loadingMessages ? (
