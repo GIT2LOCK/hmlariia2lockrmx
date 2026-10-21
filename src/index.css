@@ -426,3 +426,9 @@ html[data-sidebar-hidden] .group\/sidebar-wrapper {
   --sidebar-width: 0px !important;
   --sidebar-width-icon: 0px !important;
 }
+
+@layer components {
+  .tag-chip { display:inline-flex; align-items:center; border-radius:3px; padding:0 6px; font-size:10.5px; line-height:17px; font-weight:600; background: hsl(var(--stage-color) / .12); color: hsl(var(--stage-color)); border:1px solid hsl(var(--stage-color) / .28); white-space:nowrap; }
+  .dark .tag-chip { background: hsl(var(--stage-color) / .25); color: hsl(var(--foreground)); border-color: hsl(var(--stage-color) / .5); }
+  .tag-chip-unit { display:inline-flex; align-items:center; border-radius:3px; padding:0 6px; font-size:10.5px; line-height:17px; font-weight:500; background: hsl(var(--muted)); color: hsl(var(--muted-foreground)); border:1px dashed hsl(var(--border)); white-space:nowrap; }
+}
