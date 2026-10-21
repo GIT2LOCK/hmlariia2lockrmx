@@ -14,6 +14,88 @@ export type Database = {
   }
   public: {
     Tables: {
+      ariiatalk_contato_notas: {
+        Row: {
+          contato_id: number
+          criado_em: string
+          id: string
+          texto: string
+          usuario_id: number | null
+        }
+        Insert: {
+          contato_id: number
+          criado_em?: string
+          id?: string
+          texto: string
+          usuario_id?: number | null
+        }
+        Update: {
+          contato_id?: number
+          criado_em?: string
+          id?: string
+          texto?: string
+          usuario_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ariiatalk_contato_notas_contato_id_fkey"
+            columns: ["contato_id"]
+            isOneToOne: false
+            referencedRelation: "contatos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ariiatalk_contato_notas_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ariiatalk_conversa_pastas: {
+        Row: {
+          adicionado_em: string
+          adicionado_por: number | null
+          conversa_id: string
+          pasta_id: string
+        }
+        Insert: {
+          adicionado_em?: string
+          adicionado_por?: number | null
+          conversa_id: string
+          pasta_id: string
+        }
+        Update: {
+          adicionado_em?: string
+          adicionado_por?: number | null
+          conversa_id?: string
+          pasta_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ariiatalk_conversa_pastas_adicionado_por_fkey"
+            columns: ["adicionado_por"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ariiatalk_conversa_pastas_conversa_id_fkey"
+            columns: ["conversa_id"]
+            isOneToOne: false
+            referencedRelation: "ariiatalk_conversas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ariiatalk_conversa_pastas_pasta_id_fkey"
+            columns: ["pasta_id"]
+            isOneToOne: false
+            referencedRelation: "ariiatalk_pastas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ariiatalk_conversas: {
         Row: {
           atribuido_em: string | null
@@ -227,6 +309,38 @@ export type Database = {
           {
             foreignKeyName: "ariiatalk_mensagens_enviado_por_fkey"
             columns: ["enviado_por"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ariiatalk_pastas: {
+        Row: {
+          cor: string | null
+          criado_em: string
+          criado_por: number | null
+          id: string
+          nome: string
+        }
+        Insert: {
+          cor?: string | null
+          criado_em?: string
+          criado_por?: number | null
+          id?: string
+          nome: string
+        }
+        Update: {
+          cor?: string | null
+          criado_em?: string
+          criado_por?: number | null
+          id?: string
+          nome?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ariiatalk_pastas_criado_por_fkey"
+            columns: ["criado_por"]
             isOneToOne: false
             referencedRelation: "usuarios"
             referencedColumns: ["id"]
