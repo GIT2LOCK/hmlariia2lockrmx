@@ -14,6 +14,166 @@ export type Database = {
   }
   public: {
     Tables: {
+      ariiatalk_conversas: {
+        Row: {
+          atualizado_em: string
+          contato_id: number | null
+          criado_em: string
+          foto_url: string | null
+          id: string
+          instancia_id: string
+          nao_lidas: number
+          nome_contato: string | null
+          remote_jid: string
+          responsavel_id: number | null
+          status: string
+          ultima_mensagem: string | null
+          ultima_mensagem_em: string | null
+        }
+        Insert: {
+          atualizado_em?: string
+          contato_id?: number | null
+          criado_em?: string
+          foto_url?: string | null
+          id?: string
+          instancia_id: string
+          nao_lidas?: number
+          nome_contato?: string | null
+          remote_jid: string
+          responsavel_id?: number | null
+          status?: string
+          ultima_mensagem?: string | null
+          ultima_mensagem_em?: string | null
+        }
+        Update: {
+          atualizado_em?: string
+          contato_id?: number | null
+          criado_em?: string
+          foto_url?: string | null
+          id?: string
+          instancia_id?: string
+          nao_lidas?: number
+          nome_contato?: string | null
+          remote_jid?: string
+          responsavel_id?: number | null
+          status?: string
+          ultima_mensagem?: string | null
+          ultima_mensagem_em?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ariiatalk_conversas_contato_id_fkey"
+            columns: ["contato_id"]
+            isOneToOne: false
+            referencedRelation: "contatos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ariiatalk_conversas_instancia_id_fkey"
+            columns: ["instancia_id"]
+            isOneToOne: false
+            referencedRelation: "ariiatalk_instancias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ariiatalk_conversas_responsavel_id_fkey"
+            columns: ["responsavel_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ariiatalk_instancias: {
+        Row: {
+          atualizado_em: string
+          criado_em: string
+          evolution_instance_name: string
+          id: string
+          nome: string
+          status: string
+          telefone: string | null
+        }
+        Insert: {
+          atualizado_em?: string
+          criado_em?: string
+          evolution_instance_name: string
+          id?: string
+          nome: string
+          status?: string
+          telefone?: string | null
+        }
+        Update: {
+          atualizado_em?: string
+          criado_em?: string
+          evolution_instance_name?: string
+          id?: string
+          nome?: string
+          status?: string
+          telefone?: string | null
+        }
+        Relationships: []
+      }
+      ariiatalk_mensagens: {
+        Row: {
+          conteudo: string | null
+          conversa_id: string
+          criado_em: string
+          direcao: string
+          enviada_em: string | null
+          enviado_por: number | null
+          evolution_message_id: string | null
+          id: string
+          media_url: string | null
+          payload: Json | null
+          status: string
+          tipo: string
+        }
+        Insert: {
+          conteudo?: string | null
+          conversa_id: string
+          criado_em?: string
+          direcao: string
+          enviada_em?: string | null
+          enviado_por?: number | null
+          evolution_message_id?: string | null
+          id?: string
+          media_url?: string | null
+          payload?: Json | null
+          status?: string
+          tipo?: string
+        }
+        Update: {
+          conteudo?: string | null
+          conversa_id?: string
+          criado_em?: string
+          direcao?: string
+          enviada_em?: string | null
+          enviado_por?: number | null
+          evolution_message_id?: string | null
+          id?: string
+          media_url?: string | null
+          payload?: Json | null
+          status?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ariiatalk_mensagens_conversa_id_fkey"
+            columns: ["conversa_id"]
+            isOneToOne: false
+            referencedRelation: "ariiatalk_conversas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ariiatalk_mensagens_enviado_por_fkey"
+            columns: ["enviado_por"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chamados: {
         Row: {
           aberto_por: string | null
