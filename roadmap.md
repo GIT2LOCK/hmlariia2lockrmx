@@ -1,4 +1,10 @@
 # Cronograma
+## AriiaTalk: responsável e assinatura
+- [ ] Destacar responsável na conversa e na lista.
+- [ ] Configurar assinatura individual e enviá-la somente no WhatsApp.
+- [ ] Preservar texto limpo e identificar autor em cada mensagem interna.
+- [ ] Verificar testes e fluxo disponível; registrar limitações de autenticação.
+
 - [x] Restaurar Gantt com datas e status das atividades.
 - [x] Ajustar o modal Nova Estrutura e incluir Nova Etapa na aba Etapas.
 - [x] Verificar os controles e os testes.
