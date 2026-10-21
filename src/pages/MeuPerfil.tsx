@@ -16,6 +16,8 @@ import {
   User, Shield, Monitor, Pencil, Camera, Save, X, Loader2,
   Smartphone, Globe, Clock, Trash2, Lock, Eye, EyeOff, Copy, Check, Mail,
 } from "lucide-react";
+import { WhatsAppSignatureCard } from "@/components/ariiatalk/WhatsAppSignatureCard";
+
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -507,7 +509,8 @@ const MeuPerfil = () => {
             </CardContent>
           </Card>
 
-          {profile.permissao !== "CLIENTE" && (
+          {profile.permissao !== "CLIENTE" && (<>
+
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><Mail className="h-5 w-5" /> Assinatura de E-mail</CardTitle>
@@ -543,7 +546,9 @@ const MeuPerfil = () => {
                 </div>
               </CardContent>
             </Card>
-          )}
+            <WhatsAppSignatureCard />
+          </>)}
+
         </TabsContent>
 
         {/* TAB: Segurança */}
