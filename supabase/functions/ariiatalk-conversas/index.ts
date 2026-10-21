@@ -376,6 +376,77 @@ serve(async (req) => {
         return jsonResponse({ conversation_id: created.id, created: true });
       }
 
+      if (body.action === "list_notes") {
+        const contactId = Number(body.contact_id);
+        if (!Number.isInteger(contactId) || contactId <= 0) return jsonResponse({ error: "invalid_contact_id" }, 400);
+        const { data, error: notesError } = await db.from("ariiatalk_contato_notas")
+          .select("id, texto, criado_em, usuario_id, usuarios(nome)")
+          .eq("contato_id", contactId).order("criado_em", { ascending: false }).limit(200);
+        if (notesError) return jsonResponse({ error: "notes_query_failed" }, 500);
+        return jsonResponse({ notes: data ?? [] });
+      }
+
+      if (body.action === "add_note") {
+        const contactId = Number(body.contact_id);
+        const texto = String(body.texto ?? "").trim();
+        if (!Number.isInteger(contactId) || contactId <= 0) return jsonResponse({ error: "invalid_contact_id" }, 400);
+        if (!texto || texto.length > 2000) return jsonResponse({ error: "invalid_note" }, 400);
+        const { data: ct } = await db.from("contatos").select("id").eq("id", contactId).maybeSingle();
+        if (!ct) return jsonResponse({ error: "contact_not_found" }, 404);
+        const { data, error: insErr } = await db.from("ariiatalk_contato_notas")
+          .insert({ contato_id: contactId, usuario_id: caller.id, texto })
+          .select("id, texto, criado_em, usuario_id, usuarios(nome)").single();
+        if (insErr) return jsonResponse({ error: "note_save_failed" }, 500);
+        return jsonResponse({ note: data });
+      }
+
+      if (body.action === "delete_note") {
+        const noteId = String(body.note_id ?? "");
+        const { data: note } = await db.from("ariiatalk_contato_notas").select("id, usuario_id").eq("id", noteId).maybeSingle();
+        if (!note) return jsonResponse({ error: "note_not_found" }, 404);
+        const isAdmin = ["ADMIN", "SUPERADMIN"].includes(String(caller.permissao ?? "").toUpperCase());
+        if (note.usuario_id !== caller.id && !isAdmin) return jsonResponse({ error: "forbidden" }, 403);
+        await db.from("ariiatalk_contato_notas").delete().eq("id", noteId);
+        return jsonResponse({ success: true });
+      }
+
+      if (body.action === "list_folders") {
+        const { data, error: fErr } = await db.from("ariiatalk_pastas").select("id, nome, cor").order("nome");
+        if (fErr) return jsonResponse({ error: "folders_query_failed" }, 500);
+        return jsonResponse({ folders: data ?? [] });
+      }
+
+      if (body.action === "create_folder") {
+        const nome = String(body.nome ?? "").trim().replace(/\s+/g, " ");
+        const cor = typeof body.cor === "string" ? body.cor.slice(0, 20) : null;
+        if (nome.length < 1 || nome.length > 60) return jsonResponse({ error: "invalid_name" }, 400);
+        const { data, error: cErr } = await db.from("ariiatalk_pastas")
+          .insert({ nome, cor, criado_por: caller.id }).select("id, nome, cor").single();
+        if (cErr) return jsonResponse({ error: cErr.code === "23505" ? "folder_exists" : "folder_create_failed" }, cErr.code === "23505" ? 409 : 500);
+        return jsonResponse({ folder: data });
+      }
+
+      if (body.action === "delete_folder") {
+        const folderId = String(body.folder_id ?? "");
+        const { error: dErr } = await db.from("ariiatalk_pastas").delete().eq("id", folderId);
+        if (dErr) return jsonResponse({ error: "folder_delete_failed" }, 500);
+        return jsonResponse({ success: true });
+      }
+
+      if (body.action === "toggle_folder") {
+        const conversationId = String(body.conversation_id ?? "").trim();
+        const folderId = String(body.folder_id ?? "").trim();
+        if (!conversationId || !folderId) return jsonResponse({ error: "invalid_request" }, 400);
+        if (body.add === true) {
+          const { error: aErr } = await db.from("ariiatalk_conversa_pastas")
+            .upsert({ conversa_id: conversationId, pasta_id: folderId, adicionado_por: caller.id }, { onConflict: "conversa_id,pasta_id" });
+          if (aErr) return jsonResponse({ error: "folder_link_failed" }, 500);
+        } else {
+          await db.from("ariiatalk_conversa_pastas").delete().eq("conversa_id", conversationId).eq("pasta_id", folderId);
+        }
+        return jsonResponse({ success: true });
+      }
+
       return jsonResponse({ error: "unknown_action" }, 400);
     }
 
@@ -414,11 +485,14 @@ serve(async (req) => {
     }
 
     const rows = conversations ?? [];
-    const [{ data: unread }, staffRes, contactsRes] = await Promise.all([
+    const [{ data: unread }, staffRes, contactsRes, foldersRes] = await Promise.all([
       db.rpc("fn_ariiatalk_nao_lidas", { _usuario_id: caller.id }),
       db.from("usuarios").select("id, nome").in("id", [...new Set(rows.map((r: any) => r.responsavel_id).filter(Boolean))]),
       db.from("contatos").select(CONTACT_SELECT).in("id", [...new Set(rows.map((r: any) => r.contato_id).filter(Boolean))]),
+      db.from("ariiatalk_conversa_pastas").select("conversa_id, pasta_id").in("conversa_id", rows.map((r: any) => r.id)),
     ]);
+    const folderMap = new Map<string, string[]>();
+    (foldersRes.data ?? []).forEach((f: any) => folderMap.set(f.conversa_id, [...(folderMap.get(f.conversa_id) ?? []), f.pasta_id]));
     const unreadMap = new Map<string, number>((unread ?? []).map((u: any) => [u.conversa_id, Number(u.nao_lidas)]));
     const staffMap = new Map<number, string>((staffRes.data ?? []).map((u: any) => [u.id, u.nome]));
     const contactMap = new Map<number, any>((contactsRes.data ?? []).map((c: any) => [c.id, c]));
@@ -429,6 +503,7 @@ serve(async (req) => {
         nao_lidas: unreadMap.get(r.id) ?? 0,
         responsavel_nome: r.responsavel_id ? staffMap.get(r.responsavel_id) ?? null : null,
         contato: r.contato_id ? contactMap.get(r.contato_id) ?? null : null,
+        pasta_ids: folderMap.get(r.id) ?? [],
       })),
     });
   } catch (error) {
