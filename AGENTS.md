@@ -1,4 +1,5 @@
 # Architecture rules
+- AriiaTalk signatures are per authenticated usuarios.id via ariiatalk-mensagens; outgoing rows snapshot the sender profile and store clean conteudo separately from texto_whatsapp, and webhook echoes reconcile pending rows — preserves authorship independently of reassignment and prevents signed text leaking into the internal chat.
 - Account appearance uses usuarios.tema through authenticated update-profile actions; UserContext loads it on login and applies explicit saves and Realtime updates, never persisting a global theme effect — prevents device storage and account switches from overwriting another account's preference.
 
 

@@ -1,0 +1,1 @@
+CREATE POLICY ariiatalk_assinaturas_service_only ON public.ariiatalk_assinaturas FOR ALL TO service_role USING (true) WITH CHECK (true);

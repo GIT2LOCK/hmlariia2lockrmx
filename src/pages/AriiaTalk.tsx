@@ -28,6 +28,7 @@ import {
 import { empresaTagColor, categoriaTagColor, contactCategoria, CATEGORIAS_SUGERIDAS } from "@/lib/ariiatalkTags";
 import { supabase } from "@/integrations/supabase/client";
 import { useUser } from "@/contexts/UserContext";
+import { SignatureSettings } from "@/components/ariiatalk/SignatureSettings";
 
 type Instance = {
   id: string;
@@ -120,6 +121,7 @@ type ChatMessage = {
   media_url: string | null;
   status: string;
   enviado_por: number | null;
+  autor_nome?: string | null;
   enviada_em: string | null;
   criado_em: string;
 };
@@ -599,7 +601,8 @@ export default function AriiaTalk() {
       conteudo: text,
       media_url: null,
       status: "enviando",
-      enviado_por: null,
+      enviado_por: user?.id ?? null,
+      autor_nome: [user?.nome, user?.sobrenome].filter(Boolean).join(" "),
       enviada_em: now,
       criado_em: now,
     };
@@ -662,7 +665,7 @@ export default function AriiaTalk() {
     } finally {
       setSendingMessage(false);
     }
-  }, [messageText, selectedId, sendingMessage, loadMessages]);
+  }, [messageText, selectedId, sendingMessage, loadMessages, user]);
 
   const loadInstances = useCallback(async () => {
     setLoadingInstances(true);
@@ -985,6 +988,7 @@ export default function AriiaTalk() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <SignatureSettings key={user?.id} />
           <button
             type="button"
             onClick={() => {
@@ -1411,12 +1415,12 @@ export default function AriiaTalk() {
                           ))}
                         </span>
                       )}
-                      {(listMode === "inbox" || conversationTab === "todos") && (
-                        <span className="mt-1 flex flex-wrap items-center gap-1 text-[10.5px] text-muted-foreground">
+                      <span className="mt-1.5 flex flex-wrap items-center gap-1 text-[11px]">
                           {conversation.status === "closed" && <span className="rounded-[3px] bg-muted px-1.5 font-semibold">Encerrada</span>}
-                          <span>{conversation.responsavel_nome ? `Resp.: ${conversation.responsavel_nome}` : "Sem responsável"}</span>
+                          <span className={`inline-flex max-w-full items-center gap-1 rounded px-1.5 py-0.5 font-semibold ${conversation.responsavel_id ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>
+                            <UserRound className="h-3 w-3 shrink-0" /><span className="truncate">{conversation.responsavel_nome || "Sem responsável"}{conversation.responsavel_id === user?.id ? " (você)" : ""}</span>
+                          </span>
                         </span>
-                      )}
                     </span>
                   </button>
                 ))
@@ -1427,7 +1431,7 @@ export default function AriiaTalk() {
           <section className="flex min-h-0 min-w-0 flex-col">
             {selectedConversation ? (
               <>
-                <header className="flex items-center gap-3 border-b px-4 py-3">
+                <header className="flex flex-wrap items-center gap-3 border-b px-4 py-3">
                   <UserRound className="h-8 w-8 text-muted-foreground" />
                   <div className="min-w-0">
                     <h2 className="truncate text-sm font-semibold">{selectedConversation.contato?.nome || selectedConversation.nome_contato || phoneLabel(selectedConversation.remote_jid)}</h2>
@@ -1435,19 +1439,24 @@ export default function AriiaTalk() {
                     <ContactTags contact={selectedConversation.contato} />
                   </div>
                   <div className="ml-auto flex flex-wrap items-center gap-2">
-                    <label className="sr-only" htmlFor="ariiatalk-responsavel">Responsável</label>
+                    <div className="flex min-w-0 items-center gap-2 rounded-md border border-primary/20 bg-primary/5 px-2 py-1.5">
+                    <UserRound className="h-5 w-5 shrink-0 text-primary" />
+                    <div className="min-w-0">
+                    <label className="block text-[10px] font-semibold uppercase text-muted-foreground" htmlFor="ariiatalk-responsavel">Técnico responsável</label>
                     <select
                       id="ariiatalk-responsavel"
                       value={selectedConversation.responsavel_id?.toString() ?? ""}
                       disabled={assigning}
                       onChange={(e) => void assignTo(e.target.value ? Number(e.target.value) : null)}
-                      className="h-8 max-w-[180px] rounded-md border bg-background px-2 text-xs"
+                      className="h-7 max-w-[180px] rounded bg-background px-1 text-sm font-semibold text-primary"
                       title="Responsável (visível só para a equipe)"
                     >
                       <option value="">Sem responsável</option>
                       {user?.id && !staff.some((s) => s.id === user.id) && <option value={user.id}>Eu</option>}
                       {staff.map((s) => <option key={s.id} value={s.id}>{s.id === user?.id ? `${s.nome} (eu)` : s.nome}</option>)}
                     </select>
+                    </div>
+                    </div>
                     {selectedConversation.responsavel_id !== user?.id && user?.id && (
                       <button type="button" disabled={assigning} onClick={() => void assignTo(user.id)} className="h-8 rounded-md border px-2 text-xs font-medium hover:bg-muted">Atribuir a mim</button>
                     )}
@@ -1519,6 +1528,12 @@ export default function AriiaTalk() {
                             ? "rounded-br-sm bg-primary text-primary-foreground"
                             : "rounded-bl-sm border bg-background"
                         }`}>
+                          {message.direcao === "saida" && (
+                            <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold">
+                              <UserRound className="h-3.5 w-3.5 shrink-0" />
+                              <span className="break-words">{message.autor_nome || staff.find((s) => s.id === message.enviado_por)?.nome || (message.enviado_por ? "Técnico" : "WhatsApp / dispositivo")}{message.enviado_por === user?.id ? " (você)" : ""}</span>
+                            </div>
+                          )}
                           {message.conteudo && (
                             <p className="whitespace-pre-wrap break-words text-sm">{message.conteudo}</p>
                           )}

@@ -1,5 +1,6 @@
 ﻿import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { serviceClient } from "../_shared/grafana.ts";
+import { matchesOutboundEcho } from "../_shared/ariiatalkSignature.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -250,6 +251,30 @@ serve(async (req) => {
       }
 
       let conversationId: string;
+
+      // SEND_MESSAGE may arrive before sendText returns its ID. Attach the
+      // echo to the pending row, preserving its clean text and real author.
+      if (fromMe && conversation && messageId && extracted.content) {
+        const { data: pending, error: pendingError } = await db.from("ariiatalk_mensagens")
+          .select("id, texto_whatsapp, direcao, enviado_por")
+          .eq("conversa_id", conversation.id)
+          .eq("direcao", "saida")
+          .not("enviado_por", "is", null)
+          .is("evolution_message_id", null)
+          .eq("status", "enviando")
+          .eq("texto_whatsapp", extracted.content)
+          .gte("criado_em", new Date(Date.now() - 120000).toISOString())
+          .order("criado_em", { ascending: true }).limit(1).maybeSingle();
+        if (pendingError) return respond({ error: "pending_echo_query_failed" }, 500);
+        if (pending && matchesOutboundEcho(pending, extracted.content)) {
+          const { error } = await db.from("ariiatalk_mensagens")
+            .update({ evolution_message_id: messageId, enviada_em: messageDate })
+            .eq("id", pending.id);
+          if (error) return respond({ error: "pending_echo_update_failed" }, 500);
+          processed++;
+          continue;
+        }
+      }
 
       if (conversation) {
         conversationId = conversation.id;
