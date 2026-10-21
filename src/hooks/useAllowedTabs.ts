@@ -13,7 +13,7 @@ const ALL_TABS: TabKey[] = [
   "equipes","zabbix","pessoas","responsaveis","linkai","elevadores","inventario","ariiatalk",
 ];
 
-/** Hook que retorna as abas que o usuÃ¡rio atual pode acessar.
+/** Hook que retorna as abas que o usuário atual pode acessar.
  *  SUPERADMIN/ADMIN sempre veem tudo.
  *  CLIENTE/USER/VIEWER respeitam user_tab_permissions; sem registros usa default por cargo. */
 export function useAllowedTabs() {
