@@ -211,8 +211,14 @@ export default function AriiaTalk() {
         method: "GET",
       });
 
+    if (invokeError && (invokeError as any).context?.status === 401) {
+      setError("Sua sessão expirou. Saia e entre novamente para continuar.");
+      setLoading(false);
+      return;
+    }
+
     if (invokeError) {
-      console.error("[AriiaTalk] Erro ao carregar conversas:", invokeError);
+      console.warn("[AriiaTalk] Erro ao carregar conversas:", invokeError);
       setError("Não foi possível carregar as conversas. Verifique sua sessão e a função publicada.");
       setLoading(false);
       return;
@@ -242,7 +248,7 @@ export default function AriiaTalk() {
       );
 
       if (invokeError || data?.error) {
-        console.error("[AriiaTalk] Erro ao carregar contatos:", invokeError ?? data?.error);
+        console.warn("[AriiaTalk] Erro ao carregar contatos:", invokeError ?? data?.error);
         setNotice("Não foi possível carregar os contatos cadastrados.");
         return;
       }
@@ -257,6 +263,7 @@ export default function AriiaTalk() {
   }, []);
 
   useEffect(() => {
+    if (!user?.id) return;
     void loadContacts();
     void (async () => {
       const [st, eu] = await Promise.all([
@@ -266,8 +273,8 @@ export default function AriiaTalk() {
       if (Array.isArray(st.data?.staff)) setStaff(st.data.staff);
       if (Array.isArray(eu.data?.empresas)) setEmpresasOpt(eu.data.empresas);
       if (Array.isArray(eu.data?.unidades)) setUnidadesOpt(eu.data.unidades);
-    })();
-  }, [loadContacts]);
+    })().catch(() => undefined);
+  }, [loadContacts, user?.id]);
 
   // Pesquisa global no servidor (contatos + conversas), independente da subaba.
   useEffect(() => {
@@ -586,7 +593,7 @@ export default function AriiaTalk() {
       });
 
     if (invokeError) {
-      console.error("[AriiaTalk] Erro ao carregar instâncias:", invokeError);
+      console.warn("[AriiaTalk] Erro ao carregar instâncias:", invokeError);
       setInstanceError("Não foi possível carregar as instâncias. Confira a sessão e os logs da Edge Function.");
       setLoadingInstances(false);
       return;
