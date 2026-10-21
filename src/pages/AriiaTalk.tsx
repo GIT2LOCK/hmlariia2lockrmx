@@ -28,7 +28,6 @@ import {
 import { empresaTagColor, categoriaTagColor, contactCategoria, CATEGORIAS_SUGERIDAS } from "@/lib/ariiatalkTags";
 import { supabase } from "@/integrations/supabase/client";
 import { useUser } from "@/contexts/UserContext";
-import { SignatureSettings } from "@/components/ariiatalk/SignatureSettings";
 
 type Instance = {
   id: string;
@@ -988,8 +987,8 @@ export default function AriiaTalk() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <SignatureSettings key={user?.id} />
           <button
+
             type="button"
             onClick={() => {
               setView("conversas");
