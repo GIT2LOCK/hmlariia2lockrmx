@@ -9,6 +9,7 @@ export function SignatureSettings() {
   const [open, setOpen] = useState(false);
   const [signature, setSignature] = useState("");
   const [busy, setBusy] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function request(action: string, assinatura?: string) {
@@ -27,13 +28,15 @@ export function SignatureSettings() {
     setOpen(true);
     setError(null);
     setSignature("");
+    setLoaded(false);
     setBusy(true);
-    try { const data = await request("get_signature"); setSignature(data.assinatura); }
+    try { const data = await request("get_signature"); setSignature(data.assinatura); setLoaded(true); }
     catch (err) { setError(err instanceof Error ? err.message : "Falha ao carregar assinatura."); }
     finally { setBusy(false); }
   }
 
   async function save() {
+    if (!loaded) return;
     setError(null);
     setBusy(true);
     try { await request("save_signature", signature); setOpen(false); }
@@ -63,7 +66,7 @@ export function SignatureSettings() {
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" disabled={busy} onClick={() => setSignature("")}>Remover assinatura</Button>
-            <Button type="submit" disabled={busy}>{busy ? <LoaderCircle className="animate-spin" /> : <Save />}Salvar</Button>
+            <Button type="submit" disabled={busy || !loaded}>{busy ? <LoaderCircle className="animate-spin" /> : <Save />}Salvar</Button>
           </div>
         </form>
       </DialogContent>
