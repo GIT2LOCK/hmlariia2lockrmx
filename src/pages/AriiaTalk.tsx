@@ -21,6 +21,9 @@ import {
   UserPlus,
   Lock,
   Unlock,
+  Filter,
+  Folder,
+  StickyNote,
 } from "lucide-react";
 import { empresaTagColor, categoriaTagColor, contactCategoria, CATEGORIAS_SUGERIDAS } from "@/lib/ariiatalkTags";
 import { supabase } from "@/integrations/supabase/client";
@@ -50,6 +53,7 @@ type Conversation = {
   responsavel_id: number | null;
   responsavel_nome?: string | null;
   contato?: AriiaContact | null;
+  pasta_ids?: string[];
   ariiatalk_instancias?: {
     id: string;
     nome: string;
@@ -73,6 +77,9 @@ type AriiaContact = {
 
 type EmpresaRef = { nome_fantasia: string; cor?: string | null };
 type Staff = { id: number; nome: string };
+type Pasta = { id: string; nome: string; cor: string | null };
+type Nota = { id: string; texto: string; criado_em: string; usuario_id: number | null; usuarios?: { nome: string } | { nome: string }[] | null };
+const EMPTY_FILTERS = { status: "", responsavel: "", instancia: "", empresa: "", categoria: "", pasta: "", naoLidas: false };
 type EmpresaOpt = { id: number; nome_fantasia: string; cor: string | null };
 type UnidadeOpt = { id: number; nome_unidade: string; empresa_id: number | null };
 type SearchConversation = { id: string; contato_id: number | null; nome_contato: string | null; remote_jid: string; status: string; responsavel_id: number | null };
@@ -202,6 +209,14 @@ export default function AriiaTalk() {
   const [cDuplicate, setCDuplicate] = useState<AriiaContact | null>(null);
   const [cSaving, setCSaving] = useState(false);
   const [assigning, setAssigning] = useState(false);
+  const [filters, setFilters] = useState(EMPTY_FILTERS);
+  const [showFilters, setShowFilters] = useState(false);
+  const [folders, setFolders] = useState<Pasta[]>([]);
+  const [newFolder, setNewFolder] = useState("");
+  const [folderMenu, setFolderMenu] = useState(false);
+  const [notes, setNotes] = useState<Nota[]>([]);
+  const [noteText, setNoteText] = useState("");
+  const [savingNote, setSavingNote] = useState(false);
 
   const loadConversations = useCallback(async () => {
     setError(null);
@@ -273,6 +288,8 @@ export default function AriiaTalk() {
       if (Array.isArray(st.data?.staff)) setStaff(st.data.staff);
       if (Array.isArray(eu.data?.empresas)) setEmpresasOpt(eu.data.empresas);
       if (Array.isArray(eu.data?.unidades)) setUnidadesOpt(eu.data.unidades);
+      const fo = await supabase.functions.invoke("ariiatalk-conversas", { method: "POST", body: { action: "list_folders" } });
+      if (Array.isArray(fo.data?.folders)) setFolders(fo.data.folders);
     })().catch(() => undefined);
   }, [loadContacts, user?.id]);
 
@@ -363,6 +380,70 @@ export default function AriiaTalk() {
     setNotice(status === "closed" ? "Conversa encerrada." : "Conversa reaberta.");
     void loadConversations();
   }, [selectedId, loadConversations]);
+
+  const callTalk = useCallback(async (body: Record<string, unknown>) => {
+    const { data, error: err } = await supabase.functions.invoke("ariiatalk-conversas", { method: "POST", body });
+    let payload = data;
+    if (err && (err as any).context?.json) {
+      try { payload = await (err as any).context.json(); } catch { /* ignore */ }
+    }
+    return { ok: !err && !payload?.error, data: payload };
+  }, []);
+
+  const createFolder = useCallback(async () => {
+    const nome = newFolder.trim();
+    if (!nome) return;
+    const r = await callTalk({ action: "create_folder", nome });
+    if (!r.ok) return setNotice(r.data?.error === "folder_exists" ? "Já existe uma pasta com esse nome." : "Não foi possível criar a pasta.");
+    setFolders((cur) => [...cur, r.data.folder].sort((a, b) => a.nome.localeCompare(b.nome)));
+    setNewFolder("");
+  }, [newFolder, callTalk]);
+
+  const deleteFolder = useCallback(async (folder: Pasta) => {
+    if (!window.confirm(`Excluir a pasta "${folder.nome}"? As conversas não serão apagadas.`)) return;
+    const r = await callTalk({ action: "delete_folder", folder_id: folder.id });
+    if (!r.ok) return setNotice("Não foi possível excluir a pasta.");
+    setFolders((cur) => cur.filter((f) => f.id !== folder.id));
+    setConversations((cur) => cur.map((c) => ({ ...c, pasta_ids: (c.pasta_ids ?? []).filter((id) => id !== folder.id) })));
+    setFilters((f) => (f.pasta === folder.id ? { ...f, pasta: "" } : f));
+  }, [callTalk]);
+
+  const toggleFolder = useCallback(async (folderId: string, add: boolean) => {
+    if (!selectedId) return;
+    const r = await callTalk({ action: "toggle_folder", conversation_id: selectedId, folder_id: folderId, add });
+    if (!r.ok) return setNotice("Não foi possível alterar a pasta da conversa.");
+    setConversations((cur) => cur.map((c) => c.id === selectedId
+      ? { ...c, pasta_ids: add ? [...new Set([...(c.pasta_ids ?? []), folderId])] : (c.pasta_ids ?? []).filter((id) => id !== folderId) }
+      : c));
+  }, [selectedId, callTalk]);
+
+  const selectedContactId = conversations.find((c) => c.id === selectedId)?.contato_id ?? null;
+  useEffect(() => {
+    setNotes([]);
+    setNoteText("");
+    if (!selectedContactId) return;
+    void callTalk({ action: "list_notes", contact_id: selectedContactId }).then((r) => {
+      if (r.ok && Array.isArray(r.data?.notes)) setNotes(r.data.notes);
+    });
+  }, [selectedContactId, callTalk]);
+
+  const addNote = useCallback(async () => {
+    const texto = noteText.trim();
+    if (!texto || !selectedContactId) return;
+    setSavingNote(true);
+    const r = await callTalk({ action: "add_note", contact_id: selectedContactId, texto });
+    setSavingNote(false);
+    if (!r.ok) return setNotice("Não foi possível salvar a observação.");
+    setNotes((cur) => [r.data.note, ...cur]);
+    setNoteText("");
+  }, [noteText, selectedContactId, callTalk]);
+
+  const deleteNote = useCallback(async (note: Nota) => {
+    if (!window.confirm("Apagar esta observação?")) return;
+    const r = await callTalk({ action: "delete_note", note_id: note.id });
+    if (!r.ok) return setNotice(r.data?.error === "forbidden" ? "Só quem escreveu (ou um administrador) pode apagar." : "Não foi possível apagar a observação.");
+    setNotes((cur) => cur.filter((n) => n.id !== note.id));
+  }, [callTalk]);
 
   const saveContact = useCallback(async (event: React.FormEvent) => {
     event.preventDefault();
@@ -728,6 +809,15 @@ export default function AriiaTalk() {
       return false;
     }
 
+    if (filters.status && conversation.status !== filters.status) return false;
+    if (filters.responsavel === "none" && conversation.responsavel_id !== null) return false;
+    if (filters.responsavel && filters.responsavel !== "none" && String(conversation.responsavel_id) !== filters.responsavel) return false;
+    if (filters.instancia && conversation.instancia_id !== filters.instancia) return false;
+    if (filters.empresa && String(conversation.contato?.empresa_id ?? "") !== filters.empresa) return false;
+    if (filters.categoria && (contactCategoria(conversation.contato ?? {}) ?? "") !== filters.categoria) return false;
+    if (filters.pasta && !(conversation.pasta_ids ?? []).includes(filters.pasta)) return false;
+    if (filters.naoLidas && conversation.nao_lidas === 0) return false;
+
     if (!term || term.length >= 2) return true;
 
     return [
@@ -739,7 +829,17 @@ export default function AriiaTalk() {
       String(value).toLocaleLowerCase("pt-BR").includes(term)
     );
   });
-}, [conversations, search, conversationTab, user?.id]);
+}, [conversations, search, conversationTab, user?.id, filters]);
+
+  const activeFilterCount = Object.entries(filters).filter(([, v]) => Boolean(v)).length;
+  const categoriasDisponiveis = useMemo(
+    () => [...new Set(conversations.map((c) => contactCategoria(c.contato ?? {})).filter(Boolean) as string[])].sort(),
+    [conversations],
+  );
+  const empresasDisponiveis = useMemo(() => {
+    const ids = new Set(conversations.map((c) => c.contato?.empresa_id).filter(Boolean));
+    return empresasOpt.filter((e) => ids.has(e.id));
+  }, [conversations, empresasOpt]);
 
   const inboxConversations = useMemo(
     () => conversations
@@ -1086,6 +1186,16 @@ export default function AriiaTalk() {
                 </div>
                 <button
                   type="button"
+                  onClick={() => { setShowFilters((v) => !v); setListMode("conversas"); }}
+                  aria-pressed={showFilters}
+                  className={`relative inline-flex h-9 shrink-0 items-center rounded-md border px-2 text-xs hover:bg-muted ${activeFilterCount ? "border-primary text-primary" : ""}`}
+                  title="Filtros"
+                >
+                  <Filter className="h-4 w-4" />
+                  {activeFilterCount > 0 && <span className="absolute -right-1.5 -top-1.5 rounded-full bg-primary px-1 text-[10px] text-primary-foreground">{activeFilterCount}</span>}
+                </button>
+                <button
+                  type="button"
                   onClick={() => { setCError(null); setCDuplicate(null); setContactDialog(true); }}
                   className="inline-flex h-9 shrink-0 items-center gap-1 rounded-md border px-2 text-xs font-medium hover:bg-muted"
                   title="Adicionar contato"
@@ -1114,6 +1224,56 @@ export default function AriiaTalk() {
                 </button>
               </div>
             </div>
+
+            {showFilters && listMode === "conversas" && !searchResults && (
+              <div className="space-y-2 border-b bg-muted/30 p-3 text-xs">
+                <div className="grid grid-cols-2 gap-2">
+                  <select aria-label="Status" value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })} className="h-8 rounded-md border bg-background px-1.5">
+                    <option value="">Todos os status</option><option value="open">Abertas</option><option value="closed">Encerradas</option>
+                  </select>
+                  <select aria-label="Responsável" value={filters.responsavel} onChange={(e) => setFilters({ ...filters, responsavel: e.target.value })} className="h-8 rounded-md border bg-background px-1.5">
+                    <option value="">Qualquer responsável</option><option value="none">Sem responsável</option>
+                    {staff.map((st) => <option key={st.id} value={st.id}>{st.nome}</option>)}
+                  </select>
+                  <select aria-label="Instância" value={filters.instancia} onChange={(e) => setFilters({ ...filters, instancia: e.target.value })} className="h-8 rounded-md border bg-background px-1.5">
+                    <option value="">Todas as instâncias</option>
+                    {[...new Map(conversations.filter((c) => c.ariiatalk_instancias).map((c) => [c.instancia_id, c.ariiatalk_instancias!.nome])).entries()].map(([id, nome]) => <option key={id} value={id}>{nome}</option>)}
+                  </select>
+                  <select aria-label="Empresa" value={filters.empresa} onChange={(e) => setFilters({ ...filters, empresa: e.target.value })} className="h-8 rounded-md border bg-background px-1.5">
+                    <option value="">Todas as empresas</option>
+                    {empresasDisponiveis.map((em) => <option key={em.id} value={em.id}>{em.nome_fantasia}</option>)}
+                  </select>
+                  <select aria-label="Categoria" value={filters.categoria} onChange={(e) => setFilters({ ...filters, categoria: e.target.value })} className="h-8 rounded-md border bg-background px-1.5">
+                    <option value="">Todas as categorias</option>
+                    {categoriasDisponiveis.map((c) => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                  <select aria-label="Pasta" value={filters.pasta} onChange={(e) => setFilters({ ...filters, pasta: e.target.value })} className="h-8 rounded-md border bg-background px-1.5">
+                    <option value="">Todas as pastas</option>
+                    {folders.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}
+                  </select>
+                </div>
+                <div className="flex items-center justify-between">
+                  <label className="inline-flex items-center gap-1.5"><input type="checkbox" checked={filters.naoLidas} onChange={(e) => setFilters({ ...filters, naoLidas: e.target.checked })} /> Só com não lidas</label>
+                  {activeFilterCount > 0 && <button type="button" onClick={() => setFilters(EMPTY_FILTERS)} className="font-medium text-primary hover:underline">Limpar filtros</button>}
+                </div>
+                <div className="border-t pt-2">
+                  <p className="mb-1 font-semibold text-muted-foreground">Pastas</p>
+                  <div className="flex flex-wrap gap-1">
+                    {folders.length === 0 && <span className="text-muted-foreground">Nenhuma pasta criada.</span>}
+                    {folders.map((f) => (
+                      <span key={f.id} className={`inline-flex items-center gap-1 rounded-[3px] border px-1.5 py-0.5 ${filters.pasta === f.id ? "border-primary bg-primary/10" : "bg-background"}`}>
+                        <button type="button" onClick={() => setFilters({ ...filters, pasta: filters.pasta === f.id ? "" : f.id })} className="inline-flex items-center gap-1"><Folder className="h-3 w-3" />{f.nome} <span className="text-muted-foreground">({conversations.filter((c) => (c.pasta_ids ?? []).includes(f.id)).length})</span></button>
+                        <button type="button" onClick={() => void deleteFolder(f)} aria-label={`Excluir pasta ${f.nome}`}><X className="h-3 w-3 text-muted-foreground" /></button>
+                      </span>
+                    ))}
+                  </div>
+                  <form onSubmit={(e) => { e.preventDefault(); void createFolder(); }} className="mt-2 flex gap-1">
+                    <input value={newFolder} onChange={(e) => setNewFolder(e.target.value)} maxLength={60} placeholder="Nova pasta..." className="h-8 min-w-0 flex-1 rounded-md border bg-background px-2" />
+                    <button type="submit" disabled={!newFolder.trim()} className="rounded-md bg-primary px-2 text-primary-foreground disabled:opacity-50"><Plus className="h-3.5 w-3.5" /></button>
+                  </form>
+                </div>
+              </div>
+            )}
 
             {listMode === "conversas" && !searchResults && (
             <div
@@ -1244,6 +1404,13 @@ export default function AriiaTalk() {
                         )}
                       </span>
                       <ContactTags contact={conversation.contato} />
+                      {(conversation.pasta_ids ?? []).length > 0 && (
+                        <span className="mt-1 flex flex-wrap gap-1">
+                          {folders.filter((f) => conversation.pasta_ids!.includes(f.id)).map((f) => (
+                            <span key={f.id} className="inline-flex items-center gap-0.5 text-[10.5px] text-muted-foreground"><Folder className="h-3 w-3" />{f.nome}</span>
+                          ))}
+                        </span>
+                      )}
                       {(listMode === "inbox" || conversationTab === "todos") && (
                         <span className="mt-1 flex flex-wrap items-center gap-1 text-[10.5px] text-muted-foreground">
                           {conversation.status === "closed" && <span className="rounded-[3px] bg-muted px-1.5 font-semibold">Encerrada</span>}
@@ -1284,6 +1451,28 @@ export default function AriiaTalk() {
                     {selectedConversation.responsavel_id !== user?.id && user?.id && (
                       <button type="button" disabled={assigning} onClick={() => void assignTo(user.id)} className="h-8 rounded-md border px-2 text-xs font-medium hover:bg-muted">Atribuir a mim</button>
                     )}
+                    <div className="relative">
+                      <button type="button" onClick={() => setFolderMenu((v) => !v)} className="inline-flex h-8 items-center gap-1 rounded-md border px-2 text-xs font-medium hover:bg-muted" aria-expanded={folderMenu}>
+                        <Folder className="h-3.5 w-3.5" /> Pastas{(selectedConversation.pasta_ids ?? []).length ? ` (${selectedConversation.pasta_ids!.length})` : ""}
+                      </button>
+                      {folderMenu && (
+                        <div className="absolute right-0 z-20 mt-1 w-56 rounded-md border bg-popover p-2 text-xs shadow-lg">
+                          {folders.length === 0 && <p className="p-1 text-muted-foreground">Crie pastas em Filtros.</p>}
+                          {folders.map((f) => {
+                            const on = (selectedConversation.pasta_ids ?? []).includes(f.id);
+                            return (
+                              <label key={f.id} className="flex cursor-pointer items-center gap-2 rounded p-1 hover:bg-muted">
+                                <input type="checkbox" checked={on} onChange={() => void toggleFolder(f.id, !on)} /> {f.nome}
+                              </label>
+                            );
+                          })}
+                          <form onSubmit={(e) => { e.preventDefault(); void createFolder(); }} className="mt-1 flex gap-1 border-t pt-2">
+                            <input value={newFolder} onChange={(e) => setNewFolder(e.target.value)} maxLength={60} placeholder="Nova pasta..." className="h-7 min-w-0 flex-1 rounded border bg-background px-1.5" />
+                            <button type="submit" disabled={!newFolder.trim()} className="rounded bg-primary px-1.5 text-primary-foreground disabled:opacity-50"><Plus className="h-3 w-3" /></button>
+                          </form>
+                        </div>
+                      )}
+                    </div>
                     <button
                       type="button"
                       onClick={() => void setConversationStatus(selectedConversation.status === "closed" ? "open" : "closed")}
@@ -1378,6 +1567,12 @@ export default function AriiaTalk() {
               </div>
             )}
 
+            {selectedConversation?.status === "closed" && (
+              <div className="flex items-center justify-between gap-2 border-t bg-muted/50 px-4 py-2 text-xs">
+                <span className="text-muted-foreground">Esta conversa está encerrada. Ela reabre sozinha se o contato mandar nova mensagem.</span>
+                <button type="button" onClick={() => void setConversationStatus("open")} className="inline-flex shrink-0 items-center gap-1 rounded-md bg-primary px-2.5 py-1.5 font-medium text-primary-foreground"><Unlock className="h-3.5 w-3.5" /> Reabrir conversa</button>
+              </div>
+            )}
             <form
               onSubmit={(event) => {
                 event.preventDefault();
@@ -1417,7 +1612,7 @@ export default function AriiaTalk() {
             </form>
           </section>
 
-          <aside className="hidden border-l p-4 xl:block">
+          <aside className="hidden min-h-0 overflow-y-auto border-l p-4 xl:block">
             <h2 className="text-sm font-semibold">Dados do contato</h2>
             {selectedConversation ? (
               <div className="mt-4 space-y-3 text-sm">
@@ -1466,6 +1661,30 @@ export default function AriiaTalk() {
                     <p className="text-xs text-muted-foreground">
                       Nenhum contato cadastrado foi encontrado.
                     </p>
+                  )}
+                </div>
+                <div className="space-y-2 border-t pt-3">
+                  <p className="flex items-center gap-1.5 text-xs font-semibold"><StickyNote className="h-3.5 w-3.5" /> Observações do contato</p>
+                  {!selectedConversation.contato_id ? (
+                    <p className="text-xs text-muted-foreground">Vincule um contato cadastrado para adicionar observações.</p>
+                  ) : (
+                    <>
+                      <textarea value={noteText} onChange={(e) => setNoteText(e.target.value)} maxLength={2000} rows={3} placeholder="Escreva uma observação interna..." className="w-full rounded-md border bg-background px-2 py-1.5 text-xs" />
+                      <button type="button" disabled={!noteText.trim() || savingNote} onClick={() => void addNote()} className="w-full rounded-md bg-primary px-2 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50">{savingNote ? "Salvando..." : "Adicionar observação"}</button>
+                      <p className="text-[10.5px] text-muted-foreground">Visível só para a equipe. Não é enviada ao contato.</p>
+                      <div className="max-h-64 space-y-2 overflow-y-auto">
+                        {notes.length === 0 && <p className="text-xs text-muted-foreground">Nenhuma observação ainda.</p>}
+                        {notes.map((n) => (
+                          <div key={n.id} className="rounded-md border bg-muted/30 p-2 text-xs">
+                            <p className="whitespace-pre-wrap break-words">{n.texto}</p>
+                            <div className="mt-1 flex items-center justify-between text-[10.5px] text-muted-foreground">
+                              <span>{one(n.usuarios)?.nome ?? "Equipe"} · {new Date(n.criado_em).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>
+                              <button type="button" onClick={() => void deleteNote(n)} aria-label="Apagar observação"><Trash2 className="h-3 w-3" /></button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
                   )}
                 </div>
               </div>
