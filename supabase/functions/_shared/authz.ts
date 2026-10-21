@@ -41,6 +41,22 @@ export async function requireCallerOrInternal(req: Request) {
   return await getCallerUsuario(req);
 }
 
+// Restricts AriiaTalk to active internal 2LOCK staff.
+export async function requireAriiaTalkAccess(req: Request) {
+  const u = await getCallerUsuario(req);
+  const email = String(u.email ?? "").trim().toLowerCase();
+
+  if (!u.ativo || !email.endsWith("@2lock.com.br")) {
+    throw new Error("forbidden");
+  }
+
+  if (String(u.permissao ?? "").toUpperCase() === "CLIENTE") {
+    throw new Error("forbidden");
+  }
+
+  return u;
+}
+
 /** Only staff (everyone except CLIENTE). */
 export async function requireStaff(req: Request) {
   const u = await getCallerUsuario(req);

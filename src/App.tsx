@@ -1,4 +1,4 @@
-import { Toaster } from "@/components/ui/toaster";
+﻿import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -25,6 +25,7 @@ import RelatorioChamados from "./pages/RelatorioChamados";
 import Chamados from "./pages/Chamados";
 import ChamadosKanban from "./pages/ChamadosKanban";
 import DashboardAtendimento from "./pages/DashboardAtendimento";
+import AriiaTalk from "./pages/AriiaTalk";
 import ChamadoDetalhe from "./pages/ChamadoDetalhe";
 import Equipes from "./pages/Equipes";
 import OAuthConsent from "./pages/OAuthConsent";
@@ -78,6 +79,7 @@ const App = () => (
               <Route path="chamados" element={<ProtectedRoute tabKey="chamados"><Chamados /></ProtectedRoute>} />
               <Route path="chamados-kanban" element={<ProtectedRoute tabKey="chamados" forbidRoles={["CLIENTE"]}><ChamadosKanban /></ProtectedRoute>} />
               <Route path="atendimento" element={<ProtectedRoute tabKey="atendimento" forbidRoles={["CLIENTE"]}><DashboardAtendimento /></ProtectedRoute>} />
+              <Route path="ariiatalk" element={<ProtectedRoute tabKey="ariiatalk" forbidRoles={["CLIENTE"]}><AriiaTalk /></ProtectedRoute>} />
               <Route path="chamados/:id" element={<ProtectedRoute tabKey="chamados"><ChamadoDetalhe /></ProtectedRoute>} />
               <Route path="equipes" element={<ProtectedRoute tabKey="equipes" forbidRoles={["CLIENTE"]}><Equipes /></ProtectedRoute>} />
               <Route path="zabbix" element={<ProtectedRoute tabKey="zabbix" forbidRoles={["CLIENTE"]}><DashboardZabbix /></ProtectedRoute>} />
@@ -98,3 +100,4 @@ const App = () => (
 );
 
 export default App;
+

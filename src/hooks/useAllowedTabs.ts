@@ -1,19 +1,19 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useUser } from "@/contexts/UserContext";
 
 export type TabKey =
   | "dashboard" | "chamados" | "atendimento" | "usuarios" | "empresas"
   | "unidades" | "operadoras" | "grafana" | "permissoes" | "base_conhecimento"
-  | "relatorios" | "equipes" | "zabbix" | "pessoas" | "responsaveis" | "linkai" | "elevadores" | "inventario";
+  | "relatorios" | "equipes" | "zabbix" | "pessoas" | "responsaveis" | "linkai" | "elevadores" | "inventario" | "ariiatalk";
 
 const ALL_TABS: TabKey[] = [
   "dashboard","chamados","atendimento","usuarios","empresas","unidades",
   "operadoras","grafana","permissoes","base_conhecimento","relatorios",
-  "equipes","zabbix","pessoas","responsaveis","linkai","elevadores","inventario",
+  "equipes","zabbix","pessoas","responsaveis","linkai","elevadores","inventario","ariiatalk",
 ];
 
-/** Hook que retorna as abas que o usuário atual pode acessar.
+/** Hook que retorna as abas que o usuÃ¡rio atual pode acessar.
  *  SUPERADMIN/ADMIN sempre veem tudo.
  *  CLIENTE/USER/VIEWER respeitam user_tab_permissions; sem registros usa default por cargo. */
 export function useAllowedTabs() {
@@ -53,3 +53,4 @@ export function useAllowedTabs() {
 
   return { tabs: tabs || [], allows, loading, allTabs: ALL_TABS };
 }
+

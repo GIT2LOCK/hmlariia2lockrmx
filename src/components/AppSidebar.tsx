@@ -1,4 +1,4 @@
-import { 
+﻿import { 
   LayoutDashboard, 
   LogOut,
   PanelLeftClose,
@@ -26,6 +26,7 @@ import {
   Moon,
   Warehouse,
   Boxes,
+  MessageCircle,
 
 } from "lucide-react";
 import { useTheme } from "next-themes";
@@ -73,16 +74,17 @@ const menuItems: MenuItem[] = [
   { title: "Chamados", url: "/dashboard/chamados", icon: Ticket, permission: "tickets.view_own", tabKey: "chamados" },
   { title: "Kanban", url: "/dashboard/chamados-kanban", icon: Trello, permission: "tickets.view_own", tabKey: "chamados" },
   { title: "Dashboard Atendimento", url: "/dashboard/atendimento", icon: Gauge, permission: "dashboard.team", tabKey: "atendimento" },
+  { title: "AriiaTalk", url: "/dashboard/ariiatalk", icon: MessageCircle, tabKey: "ariiatalk" },
   { title: "Empresas", url: "/dashboard/empresas", icon: Building2, permission: "registry.view", tabKey: "empresas" },
   { title: "Unidades", url: "/dashboard/unidades", icon: MapPin, permission: "registry.view", tabKey: "unidades" },
-  { title: "Inventário", url: "/dashboard/inventario", icon: Boxes, permission: "registry.view", tabKey: "inventario" },
+  { title: "InventÃ¡rio", url: "/dashboard/inventario", icon: Boxes, permission: "registry.view", tabKey: "inventario" },
   { title: "Operadoras", url: "/dashboard/operadoras", icon: Radio, permission: "registry.view", tabKey: "operadoras" },
   { title: "Pessoas", url: "/dashboard/pessoas", icon: Contact, permission: "registry.view", tabKey: "pessoas" },
-  { title: "Responsáveis", url: "/dashboard/responsaveis", icon: UserCheck, permission: "registry.view", tabKey: "responsaveis" },
+  { title: "ResponsÃ¡veis", url: "/dashboard/responsaveis", icon: UserCheck, permission: "registry.view", tabKey: "responsaveis" },
   { title: "Base de Conhecimento", url: "/dashboard/base-conhecimento", icon: BookOpen, tabKey: "base_conhecimento" },
   { title: "Equipes", url: "/dashboard/equipes", icon: Users, permission: "team.view", tabKey: "equipes" },
-  { title: "Relatório de Chamados", url: "/dashboard/relatorios/chamados", icon: BarChart3, permission: "registry.view", tabKey: "relatorios" },
-  { title: "Relatórios Zabbix", url: "/dashboard/zabbix/relatorio-alertas", icon: AlertTriangle, permission: "registry.view", tabKey: "zabbix" },
+  { title: "RelatÃ³rio de Chamados", url: "/dashboard/relatorios/chamados", icon: BarChart3, permission: "registry.view", tabKey: "relatorios" },
+  { title: "RelatÃ³rios Zabbix", url: "/dashboard/zabbix/relatorio-alertas", icon: AlertTriangle, permission: "registry.view", tabKey: "zabbix" },
   { title: "Monitoramento", url: "/dashboard/zabbix", icon: Activity, permission: "registry.view", tabKey: "zabbix" },
   { title: "Linkai", url: "/dashboard/linkai", icon: Link2, tabKey: "linkai" },
   { title: "Elevadores", url: "/dashboard/elevadores", icon: ArrowUpDown, permission: "registry.view", tabKey: "elevadores" },
@@ -180,12 +182,12 @@ export function AppSidebar() {
                   <SidebarMenuButton
                     asChild
                     isActive={isActive("/dashboard/usuarios")}
-                    tooltip="Usuários"
+                    tooltip="UsuÃ¡rios"
                     className={glassMenuButtonClassName}
                   >
                     <NavLink to="/dashboard/usuarios" className="flex items-center gap-3">
                       <Users className="h-5 w-5" />
-                      <span>Usuários</span>
+                      <span>UsuÃ¡rios</span>
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -235,9 +237,9 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent side="right" align="end" className="w-52">
-                <DropdownMenuLabel>Aparência</DropdownMenuLabel>
+                <DropdownMenuLabel>AparÃªncia</DropdownMenuLabel>
                 <DropdownMenuRadioGroup value={theme} onValueChange={(value) => {
-                  saveAccountTheme(value).catch(() => toast.error("Não foi possível salvar o tema. Tente novamente."));
+                  saveAccountTheme(value).catch(() => toast.error("NÃ£o foi possÃ­vel salvar o tema. Tente novamente."));
                 }}>
                   <DropdownMenuRadioItem value="light" disabled={isSavingTheme} className="gap-2">
                     <Sun className="h-4 w-4" /> Claro
@@ -283,3 +285,4 @@ export function AppSidebar() {
     </Sidebar>
   );
 }
+
