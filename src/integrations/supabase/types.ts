@@ -14,6 +14,35 @@ export type Database = {
   }
   public: {
     Tables: {
+      ariiatalk_assinaturas: {
+        Row: {
+          assinatura: string
+          atualizado_em: string
+          criado_em: string
+          usuario_id: number
+        }
+        Insert: {
+          assinatura?: string
+          atualizado_em?: string
+          criado_em?: string
+          usuario_id: number
+        }
+        Update: {
+          assinatura?: string
+          atualizado_em?: string
+          criado_em?: string
+          usuario_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ariiatalk_assinaturas_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: true
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ariiatalk_contato_notas: {
         Row: {
           contato_id: number
@@ -257,6 +286,8 @@ export type Database = {
       }
       ariiatalk_mensagens: {
         Row: {
+          assinatura: string | null
+          autor_nome: string | null
           conteudo: string | null
           conversa_id: string
           criado_em: string
@@ -268,9 +299,12 @@ export type Database = {
           media_url: string | null
           payload: Json | null
           status: string
+          texto_whatsapp: string | null
           tipo: string
         }
         Insert: {
+          assinatura?: string | null
+          autor_nome?: string | null
           conteudo?: string | null
           conversa_id: string
           criado_em?: string
@@ -282,9 +316,12 @@ export type Database = {
           media_url?: string | null
           payload?: Json | null
           status?: string
+          texto_whatsapp?: string | null
           tipo?: string
         }
         Update: {
+          assinatura?: string | null
+          autor_nome?: string | null
           conteudo?: string | null
           conversa_id?: string
           criado_em?: string
@@ -296,6 +333,7 @@ export type Database = {
           media_url?: string | null
           payload?: Json | null
           status?: string
+          texto_whatsapp?: string | null
           tipo?: string
         }
         Relationships: [
