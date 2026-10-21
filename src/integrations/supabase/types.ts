@@ -16,9 +16,13 @@ export type Database = {
     Tables: {
       ariiatalk_conversas: {
         Row: {
+          atribuido_em: string | null
+          atribuido_por: number | null
           atualizado_em: string
           contato_id: number | null
           criado_em: string
+          encerrado_em: string | null
+          encerrado_por: number | null
           foto_url: string | null
           id: string
           instancia_id: string
@@ -31,9 +35,13 @@ export type Database = {
           ultima_mensagem_em: string | null
         }
         Insert: {
+          atribuido_em?: string | null
+          atribuido_por?: number | null
           atualizado_em?: string
           contato_id?: number | null
           criado_em?: string
+          encerrado_em?: string | null
+          encerrado_por?: number | null
           foto_url?: string | null
           id?: string
           instancia_id: string
@@ -46,9 +54,13 @@ export type Database = {
           ultima_mensagem_em?: string | null
         }
         Update: {
+          atribuido_em?: string | null
+          atribuido_por?: number | null
           atualizado_em?: string
           contato_id?: number | null
           criado_em?: string
+          encerrado_em?: string | null
+          encerrado_por?: number | null
           foto_url?: string | null
           id?: string
           instancia_id?: string
@@ -62,10 +74,24 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "ariiatalk_conversas_atribuido_por_fkey"
+            columns: ["atribuido_por"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "ariiatalk_conversas_contato_id_fkey"
             columns: ["contato_id"]
             isOneToOne: false
             referencedRelation: "contatos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ariiatalk_conversas_encerrado_por_fkey"
+            columns: ["encerrado_por"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
             referencedColumns: ["id"]
           },
           {
@@ -113,6 +139,39 @@ export type Database = {
           telefone?: string | null
         }
         Relationships: []
+      }
+      ariiatalk_leituras: {
+        Row: {
+          conversa_id: string
+          lido_em: string
+          usuario_id: number
+        }
+        Insert: {
+          conversa_id: string
+          lido_em?: string
+          usuario_id: number
+        }
+        Update: {
+          conversa_id?: string
+          lido_em?: string
+          usuario_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ariiatalk_leituras_conversa_id_fkey"
+            columns: ["conversa_id"]
+            isOneToOne: false
+            referencedRelation: "ariiatalk_conversas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ariiatalk_leituras_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ariiatalk_mensagens: {
         Row: {
@@ -293,6 +352,7 @@ export type Database = {
       contatos: {
         Row: {
           atualizado_em: string | null
+          categoria: string | null
           cobre_empresa_inteira: boolean
           criado_em: string | null
           email: string | null
@@ -305,6 +365,7 @@ export type Database = {
         }
         Insert: {
           atualizado_em?: string | null
+          categoria?: string | null
           cobre_empresa_inteira?: boolean
           criado_em?: string | null
           email?: string | null
@@ -317,6 +378,7 @@ export type Database = {
         }
         Update: {
           atualizado_em?: string | null
+          categoria?: string | null
           cobre_empresa_inteira?: boolean
           criado_em?: string | null
           email?: string | null
@@ -1285,6 +1347,7 @@ export type Database = {
         Row: {
           atualizado_em: string | null
           cnpj: string | null
+          cor: string | null
           criado_em: string | null
           grafana_organization_id: number | null
           id: number
@@ -1295,6 +1358,7 @@ export type Database = {
         Insert: {
           atualizado_em?: string | null
           cnpj?: string | null
+          cor?: string | null
           criado_em?: string | null
           grafana_organization_id?: number | null
           id?: number
@@ -1305,6 +1369,7 @@ export type Database = {
         Update: {
           atualizado_em?: string | null
           cnpj?: string | null
+          cor?: string | null
           criado_em?: string | null
           grafana_organization_id?: number | null
           id?: number
@@ -3267,6 +3332,13 @@ export type Database = {
           zabbix_token_z2: string
         }[]
       }
+      fn_ariiatalk_nao_lidas: {
+        Args: { _usuario_id: number }
+        Returns: {
+          conversa_id: string
+          nao_lidas: number
+        }[]
+      }
       fn_can_view_ticket: { Args: { _ticket_id: number }; Returns: boolean }
       fn_cliente_encerrar_ticket: {
         Args: { _ticket_id: number }
@@ -3491,7 +3563,7 @@ export type Database = {
         | "RESOLVIDO"
         | "FECHADO"
         | "CANCELADO"
-      tipo_contato: "pessoa" | "responsavel"
+      tipo_contato: "pessoa" | "responsavel" | "contato"
       tipo_link:
         | "banda_larga"
         | "link_dedicado"
@@ -3671,7 +3743,7 @@ export const Constants = {
         "FECHADO",
         "CANCELADO",
       ],
-      tipo_contato: ["pessoa", "responsavel"],
+      tipo_contato: ["pessoa", "responsavel", "contato"],
       tipo_link: [
         "banda_larga",
         "link_dedicado",
