@@ -11,3 +11,5 @@
 - Stage colors persist as semantic palette keys and resolve through shared CSS tokens in calendar and Gantt; status remains separate text — keeps stage identity consistent across views and themes.
 - Inventário: per-unit data lives in inventario_itens (tipo/modelo/quantidade rows, import-ready) and inventario_unidade (WAN/camera); SWITCH/ANTENAS/WAN statuses are derived in the page, never stored.
 - Inventário: SWITCH/ANTENAS come from Zabbix via the inventario-zabbix-sync edge function into inventario_itens rows (origem=ZABBIX, unique zabbix_hostid); hosts must contain GS plus UAP/USW in the hostname and match units by codigo_unidade/nome — idempotent sync, token never in frontend.
+- AriiaTalk: unread is per technician (ariiatalk_leituras + fn_ariiatalk_nao_lidas, read via ariiatalk-mensagens history); all AriiaTalk data goes through ariiatalk-* Edge Functions with service role, never direct client queries — one technician reading must not clear others' unread, and access stays restricted to @2lock staff.
+- AriiaTalk tag colors come only from src/lib/ariiatalkTags.ts (empresas.cor palette key with stable fallback) — keeps company colors consistent.
