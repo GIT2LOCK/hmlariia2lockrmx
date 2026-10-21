@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { serviceClient } from "../_shared/grafana.ts";
 import { requireAriiaTalkAccess, authErrorResponse } from "../_shared/authz.ts";
+import { normalizeSignature, outgoingText } from "../_shared/ariiatalkSignature.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,6 +12,15 @@ const corsHeaders = {
 
 function respond(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: corsHeaders });
+}
+
+async function withAuthors(db: ReturnType<typeof serviceClient>, messages: any[]) {
+  const ids = [...new Set(messages.map((m) => m.enviado_por).filter((id) => id != null))];
+  if (!ids.length) return messages;
+  const { data: authors, error } = await db.from("usuarios").select("id, nome").in("id", ids);
+  if (error) throw error;
+  const names = new Map((authors ?? []).map((author: any) => [author.id, author.nome]));
+  return messages.map((m) => ({ ...m, autor_nome: m.autor_nome || names.get(m.enviado_por) || null }));
 }
 
 serve(async (req) => {
@@ -28,7 +38,7 @@ serve(async (req) => {
 
     const { data: user, error: userError } = await db
       .from("usuarios")
-      .select("id, ativo")
+      .select("id, ativo, nome")
       .eq("id", caller.id)
       .maybeSingle();
 
@@ -82,7 +92,7 @@ serve(async (req) => {
 
       const { data: messages, error: messagesError } = await db
         .from("ariiatalk_mensagens")
-        .select("id, conversa_id, evolution_message_id, direcao, tipo, conteudo, media_url, status, enviado_por, enviada_em, criado_em")
+        .select("id, conversa_id, evolution_message_id, direcao, tipo, conteudo, media_url, status, enviado_por, autor_nome, enviada_em, criado_em")
         .eq("conversa_id", conversationId)
         .order("criado_em", { ascending: true })
         .limit(500);
@@ -97,13 +107,27 @@ serve(async (req) => {
         .update({ nao_lidas: 0, atualizado_em: new Date().toISOString() })
         .eq("id", conversationId);
 
-      return respond({ messages: messages ?? [] });
+      return respond({ messages: await withAuthors(db, messages ?? []) });
     }
 
     const body = await req.json().catch(() => ({}));
     const action = String(body.action ?? "");
     const conversationId = String(body.conversa_id ?? "").trim();
     const messageText = String(body.texto ?? "").trim();
+
+    if (action === "get_signature" || action === "save_signature") {
+      if (action === "save_signature") {
+        let signature: string;
+        try { signature = normalizeSignature(body.assinatura); }
+        catch { return respond({ error: "invalid_signature" }, 400); }
+        const { error } = await db.from("ariiatalk_assinaturas").upsert({ usuario_id: caller.id, assinatura: signature });
+        if (error) return respond({ error: "signature_save_failed" }, 500);
+        return respond({ assinatura: signature });
+      }
+      const { data, error } = await db.from("ariiatalk_assinaturas").select("assinatura").eq("usuario_id", caller.id).maybeSingle();
+      if (error) return respond({ error: "signature_query_failed" }, 500);
+      return respond({ assinatura: data?.assinatura ?? "" });
+    }
 
     if (action === "history") {
       if (!conversationId) {
@@ -127,7 +151,7 @@ serve(async (req) => {
 
       const { data: messages, error: messagesError } = await db
         .from("ariiatalk_mensagens")
-        .select("id, conversa_id, evolution_message_id, direcao, tipo, conteudo, media_url, status, enviado_por, enviada_em, criado_em")
+        .select("id, conversa_id, evolution_message_id, direcao, tipo, conteudo, media_url, status, enviado_por, autor_nome, enviada_em, criado_em")
         .eq("conversa_id", conversationId)
         .order("criado_em", { ascending: true })
         .limit(500);
@@ -153,7 +177,7 @@ serve(async (req) => {
       );
       if (readError) console.error("Read receipt update failed:", readError);
 
-      return respond({ messages: messages ?? [] });
+      return respond({ messages: await withAuthors(db, messages ?? []) });
     }
 
     if (action !== "send") {
@@ -204,6 +228,12 @@ serve(async (req) => {
     const instanceName = encodeURIComponent(instance.evolution_instance_name);
     const number = String(conversation.remote_jid).replace(/@s\.whatsapp\.net$/i, "");
 
+    const { data: signatureData, error: signatureError } = await db.from("ariiatalk_assinaturas")
+      .select("assinatura").eq("usuario_id", caller.id).maybeSingle();
+    if (signatureError) return respond({ error: "signature_query_failed" }, 500);
+    const signature = signatureData?.assinatura ?? "";
+    const whatsappText = outgoingText(messageText, signature);
+
     const { data: pendingMessage, error: pendingError } = await db
       .from("ariiatalk_mensagens")
       .insert({
@@ -213,6 +243,9 @@ serve(async (req) => {
         conteudo: messageText,
         status: "enviando",
         enviado_por: caller.id,
+        autor_nome: user.nome,
+        assinatura: signature,
+        texto_whatsapp: whatsappText,
       })
       .select("id")
       .single();
@@ -233,7 +266,7 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             number,
-            text: messageText,
+            text: whatsappText,
           }),
         },
       );
@@ -309,6 +342,7 @@ serve(async (req) => {
           conteudo: messageText,
           status: "enviada",
           enviado_por: caller.id,
+          autor_nome: user.nome,
           enviada_em: sentAt,
           criado_em: sentAt,
         },
