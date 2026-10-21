@@ -509,7 +509,8 @@ const MeuPerfil = () => {
             </CardContent>
           </Card>
 
-          {profile.permissao !== "CLIENTE" && (
+          {profile.permissao !== "CLIENTE" && (<>
+
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><Mail className="h-5 w-5" /> Assinatura de E-mail</CardTitle>
@@ -546,7 +547,7 @@ const MeuPerfil = () => {
               </CardContent>
             </Card>
             <WhatsAppSignatureCard />
-          )}
+          </>)}
 
         </TabsContent>
 
