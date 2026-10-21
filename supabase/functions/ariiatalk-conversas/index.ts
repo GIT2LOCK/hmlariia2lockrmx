@@ -1,4 +1,4 @@
-﻿
+
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import {
   serviceClient,
@@ -22,6 +22,31 @@ function jsonResponse(data: unknown, status = 200) {
     headers: corsHeaders,
   });
 }
+
+function onlyDigits(v: unknown) {
+  return String(v ?? "").replace(/\D/g, "");
+}
+
+/** Normaliza para o formato do WhatsApp (DDI + DDD + número). */
+export function normalizePhone(v: unknown): string | null {
+  let d = onlyDigits(v).replace(/^0+/, "");
+  if (d.length === 10 || d.length === 11) d = `55${d}`;
+  if (d.length < 12 || d.length > 15) return null;
+  return d;
+}
+
+function phoneVariants(d: string) {
+  const set = new Set<string>([d]);
+  if (d.startsWith("55") && d.length >= 12) set.add(d.slice(2));
+  return [...set];
+}
+
+function safeTerm(v: unknown) {
+  return String(v ?? "").replace(/[,()*%\\]/g, " ").trim().slice(0, 80);
+}
+
+const CONTACT_SELECT =
+  "id, nome, telefone, email, tipo, categoria, empresa_id, unidade_id, empresas(nome_fantasia, cor), unidades(nome_unidade)";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -67,7 +92,7 @@ serve(async (req) => {
 
 
     if (req.method === "POST") {
-      let body: { action?: string; conversation_id?: string; contact_id?: number | null };
+      let body: Record<string, any>;
 
       try {
         body = await req.json();
@@ -78,8 +103,8 @@ serve(async (req) => {
       if (body.action === "list_contacts") {
         const { data: contacts, error: contactsError } = await db
           .from("contatos")
-          .select("id, nome, telefone, email, tipo, empresa_id, unidade_id, empresas(nome_fantasia)")
-          .in("tipo", ["responsavel", "pessoa"])
+          .select(CONTACT_SELECT)
+          .in("tipo", ["responsavel", "pessoa", "contato"])
           .order("nome", { ascending: true })
           .limit(1000);
 
@@ -145,41 +170,210 @@ serve(async (req) => {
 
       if (body.action === "assign_conversation") {
         const conversationId = String(body.conversation_id ?? "").trim();
-        const assignToMe = body.assign_to_me;
+        if (!conversationId) return jsonResponse({ error: "conversation_id_required" }, 400);
 
-        if (!conversationId) {
-          return jsonResponse({ error: "conversation_id_required" }, 400);
+        let targetId: number | null;
+        if (typeof body.assign_to_me === "boolean") {
+          targetId = body.assign_to_me ? caller.id : null;
+        } else if (body.responsavel_id === null) {
+          targetId = null;
+        } else if (Number.isInteger(body.responsavel_id) && body.responsavel_id > 0) {
+          targetId = body.responsavel_id;
+        } else {
+          return jsonResponse({ error: "responsavel_required" }, 400);
         }
 
-        if (typeof assignToMe !== "boolean") {
-          return jsonResponse({ error: "assign_to_me_required" }, 400);
+        if (targetId !== null && targetId !== caller.id) {
+          const { data: target } = await db
+            .from("usuarios")
+            .select("id, ativo, email, permissao")
+            .eq("id", targetId)
+            .maybeSingle();
+          const email = String(target?.email ?? "").toLowerCase();
+          if (!target || !target.ativo || !email.endsWith("@2lock.com.br") ||
+              String(target.permissao ?? "").toUpperCase() === "CLIENTE") {
+            return jsonResponse({ error: "invalid_responsavel" }, 400);
+          }
         }
 
-        const { data: conversation, error: conversationError } = await db
-          .from("ariiatalk_conversas")
-          .select("id")
-          .eq("id", conversationId)
-          .maybeSingle();
+        const { data: conversation } = await db
+          .from("ariiatalk_conversas").select("id, responsavel_id").eq("id", conversationId).maybeSingle();
+        if (!conversation) return jsonResponse({ error: "conversation_not_found" }, 404);
 
-        if (conversationError || !conversation) {
-          return jsonResponse({ error: "conversation_not_found" }, 404);
-        }
-
+        const now = new Date().toISOString();
+        // Atribuição é interna: nada é enviado ao contato do WhatsApp.
         const { error: updateError } = await db
           .from("ariiatalk_conversas")
-          .update({ responsavel_id: assignToMe ? caller.id : null })
+          .update({ responsavel_id: targetId, atribuido_por: caller.id, atribuido_em: now, atualizado_em: now })
           .eq("id", conversationId);
-
         if (updateError) {
           console.error("[ariiatalk-conversas] Erro ao atribuir conversa:", updateError.message);
           return jsonResponse({ error: "conversation_assignment_failed" }, 500);
         }
 
-        return jsonResponse({
-          success: true,
-          conversation_id: conversationId,
-          responsavel_id: assignToMe ? caller.id : null,
+        await db.from("user_audit_log").insert({
+          usuario_id: targetId ?? conversation.responsavel_id ?? caller.id,
+          actor_usuario_id: caller.id,
+          acao: targetId ? "ariiatalk_atribuir_conversa" : "ariiatalk_remover_atribuicao",
+          detalhe: { conversa_id: conversationId, anterior: conversation.responsavel_id, novo: targetId },
         });
+
+        return jsonResponse({ success: true, conversation_id: conversationId, responsavel_id: targetId });
+      }
+
+      if (body.action === "set_status") {
+        const conversationId = String(body.conversation_id ?? "").trim();
+        const status = body.status;
+        if (!conversationId || !["open", "closed"].includes(status)) {
+          return jsonResponse({ error: "invalid_status" }, 400);
+        }
+        const now = new Date().toISOString();
+        const { error: updateError } = await db
+          .from("ariiatalk_conversas")
+          .update({
+            status,
+            encerrado_em: status === "closed" ? now : null,
+            encerrado_por: status === "closed" ? caller.id : null,
+            atualizado_em: now,
+          })
+          .eq("id", conversationId);
+        if (updateError) return jsonResponse({ error: "status_update_failed" }, 500);
+        return jsonResponse({ success: true });
+      }
+
+      if (body.action === "list_staff") {
+        const { data: staff, error: staffError } = await db
+          .from("usuarios")
+          .select("id, nome, email, permissao")
+          .eq("ativo", true)
+          .ilike("email", "%@2lock.com.br")
+          .order("nome");
+        if (staffError) return jsonResponse({ error: "staff_query_failed" }, 500);
+        return jsonResponse({
+          staff: (staff ?? [])
+            .filter((u) => String(u.permissao ?? "").toUpperCase() !== "CLIENTE")
+            .map((u) => ({ id: u.id, nome: u.nome })),
+        });
+      }
+
+      if (body.action === "list_empresas_unidades") {
+        const [{ data: empresas }, { data: unidades }] = await Promise.all([
+          db.from("empresas").select("id, nome_fantasia, cor").order("nome_fantasia"),
+          db.from("unidades").select("id, nome_unidade, empresa_id").order("nome_unidade").limit(5000),
+        ]);
+        return jsonResponse({ empresas: empresas ?? [], unidades: unidades ?? [] });
+      }
+
+      if (body.action === "search") {
+        const term = safeTerm(body.term);
+        if (term.length < 2) return jsonResponse({ contacts: [], conversations: [] });
+        const digits = onlyDigits(term);
+        const variants = digits.length >= 4 ? phoneVariants(digits.replace(/^0+/, "")) : [];
+
+        const contactOr = [`nome.ilike.%${term}%`, ...variants.map((v) => `telefone.ilike.%${v}%`)].join(",");
+        const convOr = [`nome_contato.ilike.%${term}%`, ...variants.map((v) => `remote_jid.ilike.%${v}%`)].join(",");
+
+        const [contactsRes, convRes] = await Promise.all([
+          db.from("contatos").select(CONTACT_SELECT).or(contactOr).order("nome").limit(20),
+          db.from("ariiatalk_conversas")
+            .select("id, contato_id, nome_contato, remote_jid, status, responsavel_id, ultima_mensagem_em")
+            .or(convOr).order("ultima_mensagem_em", { ascending: false, nullsFirst: false }).limit(20),
+        ]);
+        if (contactsRes.error || convRes.error) {
+          console.error("[ariiatalk-conversas] Erro na pesquisa:", contactsRes.error ?? convRes.error);
+          return jsonResponse({ error: "search_failed" }, 500);
+        }
+
+        // Também traz conversas dos contatos encontrados (vinculadas por contato_id).
+        const contactIds = (contactsRes.data ?? []).map((c: any) => c.id);
+        let linked: any[] = [];
+        if (contactIds.length) {
+          const { data } = await db.from("ariiatalk_conversas")
+            .select("id, contato_id, nome_contato, remote_jid, status, responsavel_id, ultima_mensagem_em")
+            .in("contato_id", contactIds);
+          linked = data ?? [];
+        }
+        const convMap = new Map<string, any>();
+        [...(convRes.data ?? []), ...linked].forEach((c) => convMap.set(c.id, c));
+        return jsonResponse({ contacts: contactsRes.data ?? [], conversations: [...convMap.values()] });
+      }
+
+      if (body.action === "create_contact") {
+        const nome = String(body.nome ?? "").trim().replace(/\s+/g, " ");
+        const telefone = normalizePhone(body.telefone);
+        const empresaId = body.empresa_id ? Number(body.empresa_id) : null;
+        const unidadeId = body.unidade_id ? Number(body.unidade_id) : null;
+        const categoria = String(body.categoria ?? "").trim().slice(0, 40) || null;
+
+        if (nome.length < 2 || nome.length > 120) return jsonResponse({ error: "invalid_name" }, 400);
+        if (!telefone) return jsonResponse({ error: "invalid_phone" }, 400);
+        if ((empresaId !== null && !Number.isInteger(empresaId)) || (unidadeId !== null && !Number.isInteger(unidadeId))) {
+          return jsonResponse({ error: "invalid_reference" }, 400);
+        }
+
+        let finalEmpresa = empresaId;
+        if (unidadeId !== null) {
+          const { data: un } = await db.from("unidades").select("id, empresa_id").eq("id", unidadeId).maybeSingle();
+          if (!un) return jsonResponse({ error: "unidade_not_found" }, 400);
+          if (empresaId !== null && un.empresa_id !== empresaId) return jsonResponse({ error: "unidade_outside_empresa" }, 400);
+          finalEmpresa = un.empresa_id;
+        }
+        if (finalEmpresa !== null) {
+          const { data: em } = await db.from("empresas").select("id").eq("id", finalEmpresa).maybeSingle();
+          if (!em) return jsonResponse({ error: "empresa_not_found" }, 400);
+        }
+
+        const { data: dup } = await db.from("contatos").select(CONTACT_SELECT)
+          .in("telefone", phoneVariants(telefone)).limit(1);
+        if (dup && dup.length) return jsonResponse({ error: "duplicate_phone", contact: dup[0] }, 409);
+
+        const { data: created, error: insertError } = await db.from("contatos")
+          .insert({ nome, telefone, empresa_id: finalEmpresa, unidade_id: unidadeId, categoria, tipo: "contato" })
+          .select(CONTACT_SELECT).single();
+        if (insertError) {
+          console.error("[ariiatalk-conversas] Erro ao criar contato:", insertError.message);
+          return jsonResponse({ error: "contact_create_failed" }, 500);
+        }
+        return jsonResponse({ contact: created });
+      }
+
+      if (body.action === "start_conversation") {
+        const contactId = Number(body.contact_id);
+        if (!Number.isInteger(contactId) || contactId <= 0) return jsonResponse({ error: "invalid_contact_id" }, 400);
+        const { data: contact } = await db.from("contatos").select("id, nome, telefone").eq("id", contactId).maybeSingle();
+        if (!contact) return jsonResponse({ error: "contact_not_found" }, 404);
+        const phone = normalizePhone(contact.telefone);
+        if (!phone) return jsonResponse({ error: "contact_without_valid_phone" }, 400);
+
+        let instanceId = String(body.instancia_id ?? "").trim();
+        if (!instanceId) {
+          const { data: inst } = await db.from("ariiatalk_instancias").select("id, status")
+            .order("criado_em").limit(20);
+          const chosen = (inst ?? []).find((i) => i.status === "connected") ?? (inst ?? [])[0];
+          if (!chosen) return jsonResponse({ error: "no_instance" }, 400);
+          instanceId = chosen.id;
+        }
+
+        const jid = `${phone}@s.whatsapp.net`;
+        // Evita duplicar: reutiliza conversa do mesmo número/instância ou vinculada ao contato.
+        const { data: existing } = await db.from("ariiatalk_conversas").select("id, contato_id")
+          .eq("instancia_id", instanceId).in("remote_jid", phoneVariants(phone).map((p) => `${p}@s.whatsapp.net`))
+          .limit(1);
+        if (existing && existing.length) {
+          if (!existing[0].contato_id) {
+            await db.from("ariiatalk_conversas").update({ contato_id: contactId }).eq("id", existing[0].id);
+          }
+          return jsonResponse({ conversation_id: existing[0].id, created: false });
+        }
+
+        const { data: created, error: createError } = await db.from("ariiatalk_conversas")
+          .insert({ instancia_id: instanceId, remote_jid: jid, contato_id: contactId, nome_contato: contact.nome, status: "open", nao_lidas: 0 })
+          .select("id").single();
+        if (createError) {
+          console.error("[ariiatalk-conversas] Erro ao iniciar conversa:", createError.message);
+          return jsonResponse({ error: "conversation_create_failed" }, 500);
+        }
+        return jsonResponse({ conversation_id: created.id, created: true });
       }
 
       return jsonResponse({ error: "unknown_action" }, 400);
@@ -199,6 +393,7 @@ serve(async (req) => {
         nao_lidas,
         status,
         responsavel_id,
+        atribuido_em,
         criado_em,
         ariiatalk_instancias (
           id,
@@ -211,14 +406,31 @@ serve(async (req) => {
         ascending: false,
         nullsFirst: false,
       })
-      .limit(100);
+      .limit(300);
 
     if (error) {
       console.error("[ariiatalk-conversas] Erro ao consultar conversas:", error.message);
       return jsonResponse({ error: "conversation_query_failed" }, 500);
     }
 
-    return jsonResponse({ conversations: conversations ?? [] });
+    const rows = conversations ?? [];
+    const [{ data: unread }, staffRes, contactsRes] = await Promise.all([
+      db.rpc("fn_ariiatalk_nao_lidas", { _usuario_id: caller.id }),
+      db.from("usuarios").select("id, nome").in("id", [...new Set(rows.map((r: any) => r.responsavel_id).filter(Boolean))]),
+      db.from("contatos").select(CONTACT_SELECT).in("id", [...new Set(rows.map((r: any) => r.contato_id).filter(Boolean))]),
+    ]);
+    const unreadMap = new Map<string, number>((unread ?? []).map((u: any) => [u.conversa_id, Number(u.nao_lidas)]));
+    const staffMap = new Map<number, string>((staffRes.data ?? []).map((u: any) => [u.id, u.nome]));
+    const contactMap = new Map<number, any>((contactsRes.data ?? []).map((c: any) => [c.id, c]));
+
+    return jsonResponse({
+      conversations: rows.map((r: any) => ({
+        ...r,
+        nao_lidas: unreadMap.get(r.id) ?? 0,
+        responsavel_nome: r.responsavel_id ? staffMap.get(r.responsavel_id) ?? null : null,
+        contato: r.contato_id ? contactMap.get(r.contato_id) ?? null : null,
+      })),
+    });
   } catch (error) {
     return authErrorResponse(error, corsHeaders);
   }

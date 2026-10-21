@@ -1,4 +1,4 @@
-﻿import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { serviceClient } from "../_shared/grafana.ts";
 import { requireAriiaTalkAccess, authErrorResponse } from "../_shared/authz.ts";
 
@@ -145,6 +145,13 @@ serve(async (req) => {
       if (unreadError) {
         console.error("Unread counter update failed:", unreadError);
       }
+
+      // Leitura individual: marca como visualizado apenas para o técnico atual.
+      const { error: readError } = await db.from("ariiatalk_leituras").upsert(
+        { conversa_id: conversationId, usuario_id: caller.id, lido_em: new Date().toISOString() },
+        { onConflict: "conversa_id,usuario_id" },
+      );
+      if (readError) console.error("Read receipt update failed:", readError);
 
       return respond({ messages: messages ?? [] });
     }
