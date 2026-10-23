@@ -4,15 +4,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
+import { maskPhoneInput, phoneDigits } from "@/lib/ariiatalkPhoneMask";
 import type { ContactRecord } from "@/lib/ariiatalkContacts";
 
 export default function EditContactDialog<T extends ContactRecord>({ contact, onClose, onSaved }: { contact: T; onClose: () => void; onSaved: (contact: T) => void }) {
-  const [form, setForm] = useState({ nome: contact.nome, telefone: contact.telefone ?? "", email: contact.email ?? "", categoria: contact.categoria ?? "" });
+  const [form, setForm] = useState({ nome: contact.nome, telefone: maskPhoneInput(contact.telefone ?? ""), email: contact.email ?? "", categoria: contact.categoria ?? "" });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   async function save(e: React.FormEvent) {
     e.preventDefault();
     setError(null); setSaving(true);
+    const digits = phoneDigits(form.telefone);
+    if (digits && (digits.length < 10 || digits.length > 15)) {
+      setError("Informe um telefone válido com DDD, com 10 a 15 dígitos.");
+      setSaving(false);
+      return;
+    }
     try {
       const result = await supabase.functions.invoke("ariiatalk-conversas", { body: { action: "edit_contact", contact_id: contact.id, ...form } });
       let data = result.data;
@@ -32,7 +39,7 @@ export default function EditContactDialog<T extends ContactRecord>({ contact, on
     <DialogHeader><DialogTitle>Editar contato</DialogTitle></DialogHeader>
     <form onSubmit={save} className="space-y-4">
       <label className="block space-y-1.5 text-sm font-medium">Nome<Input autoFocus required minLength={2} maxLength={120} value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} disabled={saving} /></label>
-      <div className="grid gap-4 sm:grid-cols-2"><label className="block space-y-1.5 text-sm font-medium">Telefone<Input inputMode="tel" maxLength={30} value={form.telefone} onChange={e => setForm({ ...form, telefone: e.target.value })} disabled={saving} /></label><label className="block space-y-1.5 text-sm font-medium">E-mail<Input type="email" maxLength={254} value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} disabled={saving} /></label></div>
+      <div className="grid gap-4 sm:grid-cols-2"><label className="block space-y-1.5 text-sm font-medium">Telefone<Input inputMode="tel" maxLength={19} placeholder="(11) 91234-5678 ou +55 11 91234-5678" value={form.telefone} onChange={e => setForm({ ...form, telefone: maskPhoneInput(e.target.value) })} disabled={saving} /></label><label className="block space-y-1.5 text-sm font-medium">E-mail<Input type="email" maxLength={254} value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} disabled={saving} /></label></div>
       <label className="block space-y-1.5 text-sm font-medium">Categoria<Input maxLength={40} value={form.categoria} onChange={e => setForm({ ...form, categoria: e.target.value })} disabled={saving} /></label>
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       <DialogFooter><Button type="button" variant="outline" disabled={saving} onClick={onClose}>Cancelar</Button><Button type="submit" disabled={saving}>{saving ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}Salvar alterações</Button></DialogFooter>

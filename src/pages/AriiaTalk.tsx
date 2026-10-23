@@ -38,6 +38,7 @@ import ConversationFilters from "@/components/ariiatalk/ConversationFilters";
 import ContactAvatar from "@/components/ariiatalk/ContactAvatar";
 import { isListedConversation } from "@/lib/ariiatalkContacts";
 import { findMessageMatches } from "@/lib/ariiatalkMessageSearch";
+import { maskPhoneInput } from "@/lib/ariiatalkPhoneMask";
 import MessageActions from "@/components/ariiatalk/MessageActions";
 import { canEditMessage, quoteSnapshot } from "../../supabase/functions/_shared/ariiatalkMessageActions";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -1374,7 +1375,7 @@ export default function AriiaTalk() {
                   ) : searchResults && searchResults.contacts.length === 0 && searchResults.conversations.length === 0 ? (
                     <div className="p-5 text-center text-sm">
                       <p className="font-medium">Nenhum resultado</p>
-                      <button type="button" onClick={() => { setCForm((f) => ({ ...f, nome: /\d/.test(search) ? "" : search.trim(), telefone: /\d/.test(search) ? search.trim() : "" })); setContactDialog(true); }} className="mt-2 text-xs font-medium text-primary hover:underline">Cadastrar novo contato</button>
+                      <button type="button" onClick={() => { setCForm((f) => ({ ...f, nome: /\d/.test(search) ? "" : search.trim(), telefone: /\d/.test(search) ? maskPhoneInput(search.trim()) : "" })); setContactDialog(true); }} className="mt-2 text-xs font-medium text-primary hover:underline">Cadastrar novo contato</button>
                     </div>
                   ) : searchResults && (
                     <>
@@ -1867,7 +1868,7 @@ export default function AriiaTalk() {
               <input required maxLength={120} value={cForm.nome} onChange={(e) => setCForm({ ...cForm, nome: e.target.value })} className="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm" />
             </label>
             <label className="block text-xs font-medium">Telefone (WhatsApp) *
-              <input required inputMode="tel" placeholder="(11) 91234-5678" value={cForm.telefone} onChange={(e) => setCForm({ ...cForm, telefone: e.target.value })} className="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm" />
+              <input required inputMode="tel" maxLength={19} placeholder="(11) 91234-5678 ou +55 11 91234-5678" value={cForm.telefone} onChange={(e) => setCForm({ ...cForm, telefone: maskPhoneInput(e.target.value) })} className="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm" />
               <span className="mt-0.5 block font-normal text-muted-foreground">Com DDD. O código do Brasil (55) é adicionado automaticamente.</span>
             </label>
             <label className="block text-xs font-medium">Empresa
