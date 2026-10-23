@@ -43,6 +43,8 @@ import { isListedConversation } from "@/lib/ariiatalkContacts";
 import { findMessageMatches } from "@/lib/ariiatalkMessageSearch";
 import { maskPhoneInput } from "@/lib/ariiatalkPhoneMask";
 import MessageActions from "@/components/ariiatalk/MessageActions";
+import OpenTicketDialog from "@/components/ariiatalk/OpenTicketDialog";
+import { Ticket } from "lucide-react";
 import { canEditMessage, quoteSnapshot } from "../../supabase/functions/_shared/ariiatalkMessageActions";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -231,6 +233,7 @@ export default function AriiaTalk() {
   const [savingContact, setSavingContact] = useState(false);
   const [listMode, setListMode] = useState<ListMode>("inbox");
   const [staff, setStaff] = useState<Staff[]>([]);
+  const [ticketOpen, setTicketOpen] = useState(false);
   const [searchResults, setSearchResults] = useState<{ contacts: AriiaContact[]; conversations: SearchConversation[] } | null>(null);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -1561,6 +1564,13 @@ export default function AriiaTalk() {
                     </div>
                     <button
                       type="button"
+                      onClick={() => setTicketOpen(true)}
+                      className="inline-flex h-8 items-center gap-1 rounded-md border px-2 text-xs font-medium hover:bg-muted"
+                    >
+                      <Ticket className="h-3.5 w-3.5" /> Abrir chamado
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => void setConversationStatus(selectedConversation.status === "closed" ? "open" : "closed")}
                       className="inline-flex h-8 items-center gap-1 rounded-md border px-2 text-xs font-medium hover:bg-muted"
                     >
@@ -1977,6 +1987,21 @@ export default function AriiaTalk() {
           </div>
         </div>
       )}
+      <OpenTicketDialog
+        open={ticketOpen}
+        onOpenChange={setTicketOpen}
+        prefill={selectedConversation ? {
+          nome: selectedConversation.contato?.nome || selectedConversation.nome_contato || "",
+          email: selectedConversation.contato?.email || "",
+          telefone: selectedConversation.is_grupo ? "" : (selectedConversation.contato?.telefone || selectedConversation.remote_jid.split("@")[0] || ""),
+          empresa_id: selectedConversation.contato?.empresa_id ?? null,
+          unidade_id: selectedConversation.contato?.unidade_id ?? null,
+          conversa: selectedConversation.nome_contato || selectedConversation.remote_jid,
+        } : null}
+        empresas={empresasOpt}
+        unidades={unidadesOpt}
+        staff={staff}
+      />
     </div>
   );
 
