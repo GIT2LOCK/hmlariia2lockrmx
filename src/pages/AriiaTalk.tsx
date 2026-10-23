@@ -33,6 +33,7 @@ import { useUser } from "@/contexts/UserContext";
 import { Button } from "@/components/ui/button";
 import ContactsView from "@/components/ariiatalk/ContactsView";
 import EditContactDialog from "@/components/ariiatalk/EditContactDialog";
+import DeleteContactDialog from "@/components/ariiatalk/DeleteContactDialog";
 import ConversationFilters from "@/components/ariiatalk/ConversationFilters";
 import ContactAvatar from "@/components/ariiatalk/ContactAvatar";
 import { isListedConversation } from "@/lib/ariiatalkContacts";
@@ -217,6 +218,7 @@ export default function AriiaTalk() {
   const [messageError, setMessageError] = useState<string | null>(null);
   const [contacts, setContacts] = useState<AriiaContact[]>([]);
   const [editingContact, setEditingContact] = useState<AriiaContact | null>(null);
+  const [deletingContact, setDeletingContact] = useState<AriiaContact | null>(null);
   const [loadingContacts, setLoadingContacts] = useState(false);
   const [contactsError, setContactsError] = useState<string | null>(null);
   const [savingContact, setSavingContact] = useState(false);
@@ -1141,7 +1143,13 @@ export default function AriiaTalk() {
 
       {view === "contatos" ? (
         <>
-        <ContactsView contacts={contacts} loading={loadingContacts} error={contactsError} startingId={startingContact} empresas={empresasOpt} unidades={unidadesOpt} onStart={c => void startConversation(c)} onCreate={() => { setCError(null); setCDuplicate(null); setContactDialog(true); }} onRetry={() => void loadContacts()} onEdit={setEditingContact} />
+        <ContactsView contacts={contacts} loading={loadingContacts} error={contactsError} startingId={startingContact} empresas={empresasOpt} unidades={unidadesOpt} onStart={c => void startConversation(c)} onCreate={() => { setCError(null); setCDuplicate(null); setContactDialog(true); }} onRetry={() => void loadContacts()} onEdit={setEditingContact} onDelete={setDeletingContact} />
+        {deletingContact && <DeleteContactDialog key={deletingContact.id} contact={deletingContact} onClose={() => setDeletingContact(null)} onDeleted={id => {
+          setContacts(current => current.filter(c => c.id !== id));
+          setConversations(current => current.map(c => c.contato_id === id ? { ...c, contato_id: null, contato: null } : c));
+          setSearchResults(current => current ? { ...current, contacts: current.contacts.filter(c => c.id !== id) } : null);
+          setNotice("Contato excluído.");
+        }} />}
         {editingContact && <EditContactDialog key={editingContact.id} contact={editingContact} onClose={() => setEditingContact(null)} onSaved={updated => {
           setContacts(current => current.map(c => c.id === updated.id ? updated : c).sort((a, b) => a.nome.localeCompare(b.nome)));
           setConversations(current => current.map(c => c.contato_id === updated.id ? { ...c, contato: updated } : c));
