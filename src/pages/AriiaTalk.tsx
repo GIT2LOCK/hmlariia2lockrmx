@@ -1156,6 +1156,7 @@ export default function AriiaTalk() {
           setConversations(current => current.map(c => c.contato_id === updated.id ? { ...c, contato: updated } : c));
           setSearchResults(current => current ? { ...current, contacts: current.contacts.map(c => c.id === updated.id ? updated : c) } : null);
           setNotice("Contato atualizado.");
+          void loadContacts();
         }} />}
         </>
       ) : view === "instancias" ? (
