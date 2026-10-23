@@ -57,6 +57,8 @@ const App = () => (
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/redefinir-senha" element={<ResetPassword />} />
             <Route path="/oauth/consent" element={<OAuthConsent />} />
+            <Route path="/assignee-preview" element={<AssigneePreview />} />
+
             <Route
               path="/dashboard"
               element={
@@ -92,7 +94,6 @@ const App = () => (
               <Route path="elevadores" element={<ProtectedRoute requireElevadores><Elevadores /></ProtectedRoute>} />
               <Route path="grafana-kiosk" element={<ProtectedRoute allowGrafanaOnly><GrafanaKiosk /></ProtectedRoute>} />
               <Route path="perfil" element={<ProtectedRoute allowGrafanaOnly><MeuPerfil /></ProtectedRoute>} />
-              <Route path="assignee-preview" element={<AssigneePreview />} />
 
             </Route>
             <Route path="*" element={<NotFound />} />
