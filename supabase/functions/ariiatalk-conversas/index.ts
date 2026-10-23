@@ -50,7 +50,7 @@ function safeTerm(v: unknown) {
 }
 
 const CONTACT_SELECT =
-  "id, nome, telefone, email, tipo, categoria, empresa_id, unidade_id, foto_whatsapp_url, empresas(nome_fantasia, cor), unidades(nome_unidade)";
+  "id, nome, telefone, email, tipo, categoria, empresa_id, unidade_id, foto_whatsapp_url, whatsapp_grupo_jid, empresas(nome_fantasia, cor), unidades(nome_unidade)";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -465,8 +465,20 @@ serve(async (req) => {
       if (body.action === "start_conversation") {
         const contactId = Number(body.contact_id);
         if (!Number.isInteger(contactId) || contactId <= 0) return jsonResponse({ error: "invalid_contact_id" }, 400);
-        const { data: contact } = await db.from("contatos").select("id, nome, telefone").eq("id", contactId).maybeSingle();
+        const { data: contact } = await db.from("contatos").select("id, nome, telefone, whatsapp_grupo_jid").eq("id", contactId).maybeSingle();
         if (!contact) return jsonResponse({ error: "contact_not_found" }, 404);
+        if (contact.whatsapp_grupo_jid) {
+          // Grupo: reabre a conversa existente pelo JID do grupo, preservando o histórico.
+          const { data: groupConv, error: groupConvError } = await db.from("ariiatalk_conversas")
+            .select("id, contato_id").eq("remote_jid", contact.whatsapp_grupo_jid)
+            .order("ultima_mensagem_em", { ascending: false, nullsFirst: false }).limit(1);
+          if (groupConvError) return jsonResponse({ error: "conversation_query_failed" }, 500);
+          if (groupConv?.length) {
+            await db.from("ariiatalk_conversas").update({ status: "open", ...(groupConv[0].contato_id ? {} : { contato_id: contactId }) }).eq("id", groupConv[0].id);
+            return jsonResponse({ conversation_id: groupConv[0].id, created: false });
+          }
+          return jsonResponse({ error: "group_conversation_not_found" }, 404);
+        }
         const phone = normalizePhone(contact.telefone);
         if (!phone) return jsonResponse({ error: "contact_without_valid_phone" }, 400);
 

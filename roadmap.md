@@ -49,3 +49,4 @@
 - [x] Aplicar as mesmas cores no calendário e no Gantt, preservando status e atraso.
 - [x] Melhorar Gantt com escala ajustável, nomes e datas legíveis e etapas recolhíveis.
 - [x] Verificar testes e apresentação do Gantt com dados de teste; sessão autenticada indisponível.- [x] Redesenhar a aba Inventário (painel em grade, chips de status com cor/ícone, filtros destacados, footer de contagem)
+- [x] AriiaTalk: grupos registrados automaticamente como contatos (etiqueta Grupo, sem telefone) e reabertos pela lista de contatos

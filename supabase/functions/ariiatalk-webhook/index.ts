@@ -348,6 +348,23 @@ serve(async (req) => {
         conversationId = newConversation.id;
       }
 
+      // Grupos ficam registrados como contato (sem telefone) para reabrir depois de encerrados.
+      if (isGroup) {
+        const { data: groupContact } = await db.from("contatos").select("id").eq("whatsapp_grupo_jid", remoteJid).maybeSingle();
+        let groupContactId = groupContact?.id ?? null;
+        if (!groupContactId) {
+          const { data: conv } = await db.from("ariiatalk_conversas").select("nome_contato").eq("id", conversationId).maybeSingle();
+          const { data: created, error: groupError } = await db.from("contatos")
+            .insert({ nome: String(conv?.nome_contato ?? "").trim() || "Grupo", tipo: "contato", categoria: "Grupo", whatsapp_grupo_jid: remoteJid })
+            .select("id").single();
+          if (groupError) console.warn("Group contact creation failed:", groupError.message);
+          groupContactId = created?.id ?? null;
+        }
+        if (groupContactId) {
+          await db.from("ariiatalk_conversas").update({ contato_id: groupContactId }).eq("id", conversationId).is("contato_id", null);
+        }
+      }
+
       const quote = quotedContext(item?.message);
       let quoteId = null;
       let snapshot: any = quote?.snapshot ?? null;

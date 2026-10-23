@@ -399,6 +399,7 @@ export default function AriiaTalk() {
       const map: Record<string, string> = {
         no_instance: "Nenhuma instância do WhatsApp configurada.",
         contact_without_valid_phone: "Este contato não tem um telefone válido para WhatsApp.",
+        group_conversation_not_found: "Ainda não há conversa registrada para este grupo.",
       };
       setNotice(map[data?.error] ?? "Não foi possível iniciar a conversa.");
       return;

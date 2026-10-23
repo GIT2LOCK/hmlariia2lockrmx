@@ -592,6 +592,7 @@ export type Database = {
           telefone: string | null
           tipo: Database["public"]["Enums"]["tipo_contato"]
           unidade_id: number | null
+          whatsapp_grupo_jid: string | null
         }
         Insert: {
           atualizado_em?: string | null
@@ -607,6 +608,7 @@ export type Database = {
           telefone?: string | null
           tipo: Database["public"]["Enums"]["tipo_contato"]
           unidade_id?: number | null
+          whatsapp_grupo_jid?: string | null
         }
         Update: {
           atualizado_em?: string | null
@@ -622,6 +624,7 @@ export type Database = {
           telefone?: string | null
           tipo?: Database["public"]["Enums"]["tipo_contato"]
           unidade_id?: number | null
+          whatsapp_grupo_jid?: string | null
         }
         Relationships: [
           {
