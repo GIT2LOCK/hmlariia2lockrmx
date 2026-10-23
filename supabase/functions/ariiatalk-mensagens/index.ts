@@ -3,19 +3,22 @@ import { serviceClient } from "../_shared/grafana.ts";
 import { requireAriiaTalkAccess, authErrorResponse } from "../_shared/authz.ts";
 import { normalizeSignature, outgoingText } from "../_shared/ariiatalkSignature.ts";
 import { sentConversationUpdate } from "../_shared/ariiatalkLifecycle.ts";
+import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { z } from "npm:zod@3.25.76";
+import { buildQuoted, quoteSnapshot } from "../_shared/ariiatalkMessageActions.ts";
+import { annotateMessage, editMessage } from "./messageActions.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-ariia-token",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Content-Type": "application/json",
-};
+const historyFields = "id, conversa_id, evolution_message_id, direcao, tipo, conteudo, media_url, status, enviado_por, autor_nome, enviada_em, criado_em, resposta_mensagem_id, resposta_snapshot, editada_em";
 
 function respond(data: unknown, status = 200) {
-  return new Response(JSON.stringify(data), { status, headers: corsHeaders });
+  return new Response(JSON.stringify(data), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
 async function withAuthors(db: ReturnType<typeof serviceClient>, messages: any[]) {
+  if (!messages.length) return messages;
+  const { data: annotations, error: annotationsError } = await db.from("ariiatalk_mensagem_anotacoes").select("*, usuarios(nome)").in("mensagem_id", messages.map(m => m.id));
+  if (annotationsError) throw annotationsError;
+  messages = messages.map(m => ({ ...m, anotacoes: (annotations ?? []).filter(a => a.mensagem_id === m.id) }));
   const ids = [...new Set(messages.map((m) => m.enviado_por).filter((id) => id != null))];
   if (!ids.length) return messages;
   const { data: authors, error } = await db.from("usuarios").select("id, nome").in("id", ids);
@@ -93,7 +96,7 @@ serve(async (req) => {
 
       const { data: messages, error: messagesError } = await db
         .from("ariiatalk_mensagens")
-        .select("id, conversa_id, evolution_message_id, direcao, tipo, conteudo, media_url, status, enviado_por, autor_nome, enviada_em, criado_em")
+        .select(historyFields)
         .eq("conversa_id", conversationId)
         .order("criado_em", { ascending: true })
         .limit(500);
@@ -115,6 +118,10 @@ serve(async (req) => {
     const action = String(body.action ?? "");
     const conversationId = String(body.conversa_id ?? "").trim();
     const messageText = String(body.texto ?? "").trim();
+    if (action === "annotate" || action === "edit") {
+      const result = action === "annotate" ? await annotateMessage(db, body, caller.id) : await editMessage(db, body, caller.id);
+      return respond(result.data, result.status);
+    }
 
     if (action === "get_signature" || action === "save_signature") {
       if (action === "save_signature") {
@@ -152,7 +159,7 @@ serve(async (req) => {
 
       const { data: messages, error: messagesError } = await db
         .from("ariiatalk_mensagens")
-        .select("id, conversa_id, evolution_message_id, direcao, tipo, conteudo, media_url, status, enviado_por, autor_nome, enviada_em, criado_em")
+        .select(historyFields)
         .eq("conversa_id", conversationId)
         .order("criado_em", { ascending: true })
         .limit(500);
@@ -184,6 +191,9 @@ serve(async (req) => {
     if (action !== "send") {
       return respond({ error: "unknown_action" }, 400);
     }
+
+    const validSend = z.object({ conversa_id: z.string().uuid(), texto: z.string().trim().min(1).max(4000), resposta_mensagem_id: z.string().uuid().nullish() }).safeParse(body);
+    if (!validSend.success) return respond({ error: "invalid_message" }, 400);
 
     if (!conversationId) {
       return respond({ error: "conversation_id_required" }, 400);
@@ -234,6 +244,15 @@ serve(async (req) => {
     if (signatureError) return respond({ error: "signature_query_failed" }, 500);
     const signature = signatureData?.assinatura ?? "";
     const whatsappText = outgoingText(messageText, signature);
+    let quoted;
+    let snapshot = null;
+    if (validSend.data.resposta_mensagem_id) {
+      const { data: target, error: replyError } = await db.from("ariiatalk_mensagens").select("*").eq("id", validSend.data.resposta_mensagem_id).eq("conversa_id", conversation.id).maybeSingle();
+      if (replyError) return respond({ error: "reply_query_failed" }, 500);
+      if (!target?.evolution_message_id) return respond({ error: "invalid_reply_target" }, 400);
+      quoted = buildQuoted(target, conversation.id, conversation.remote_jid);
+      snapshot = quoteSnapshot(target);
+    }
 
     const { data: pendingMessage, error: pendingError } = await db
       .from("ariiatalk_mensagens")
@@ -247,6 +266,8 @@ serve(async (req) => {
         autor_nome: user.nome,
         assinatura: signature,
         texto_whatsapp: whatsappText,
+        resposta_mensagem_id: validSend.data.resposta_mensagem_id ?? null,
+        resposta_snapshot: snapshot,
       })
       .select("id")
       .single();
@@ -268,6 +289,7 @@ serve(async (req) => {
           body: JSON.stringify({
             number,
             text: whatsappText,
+            ...(quoted ? { quoted } : {}),
           }),
         },
       );
