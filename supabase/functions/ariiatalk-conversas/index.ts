@@ -606,6 +606,7 @@ serve(async (req) => {
         ultima_mensagem_em,
         nao_lidas,
         status,
+        is_grupo,
         responsavel_id,
         atribuido_em,
         criado_em,

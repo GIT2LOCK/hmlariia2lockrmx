@@ -202,8 +202,7 @@ serve(async (req) => {
         key.remoteJid ?? item?.remoteJid ?? item?.data?.remoteJid
       );
 
-      // Não registrar grupos ou payloads sem identificação do contato.
-      if (!remoteJid || remoteJid.endsWith("@g.us")) {
+      if (!remoteJid || remoteJid === "status@broadcast") {
         ignored++;
         continue;
       }
@@ -247,8 +246,10 @@ serve(async (req) => {
 
       const fromMe = key.fromMe === true || item?.key?.fromMe === true;
       const direction = fromMe ? "saida" : "entrada";
-      const pushName = textValue(item.pushName ?? item?.data?.pushName)
-        ?? remoteJid.split("@")[0];
+      const isGroup = remoteJid.endsWith("@g.us");
+      const participantJid = isGroup ? textValue(key.participant ?? item?.participant ?? item?.data?.participant) : null;
+      const senderName = textValue(item.pushName ?? item?.data?.pushName) ?? (participantJid ? participantJid.split("@")[0] : null);
+      const pushName = isGroup ? null : (senderName ?? remoteJid.split("@")[0]);
 
       const extracted = extractMessage(item);
       const messageDate = getMessageDate(item);
@@ -299,11 +300,11 @@ serve(async (req) => {
         const incomingName = String(pushName ?? "").trim();
 
         const updates: Record<string, any> = {
-          ...( !currentName || currentName === fallbackName
+          ...(isGroup ? (!currentName || currentName === fallbackName ? { nome_contato: (await groupSubject(instanceName, remoteJid)) ?? (currentName || "Grupo") } : {}) : !currentName || currentName === fallbackName
             ? { nome_contato: incomingName || fallbackName }
             : {}
           ),
-          ultima_mensagem: extracted.content,
+          ultima_mensagem: isGroup && direction === "entrada" && senderName && extracted.content ? `${senderName}: ${extracted.content}` : extracted.content,
           ultima_mensagem_em: messageDate,
           status: "open",
           atualizado_em: new Date().toISOString(),
@@ -329,8 +330,9 @@ serve(async (req) => {
           .insert({
             instancia_id: instance.id,
             remote_jid: remoteJid,
-            nome_contato: pushName,
-            ultima_mensagem: extracted.content,
+            nome_contato: isGroup ? ((await groupSubject(instanceName, remoteJid)) ?? "Grupo") : pushName,
+            is_grupo: isGroup,
+            ultima_mensagem: isGroup && direction === "entrada" && senderName && extracted.content ? `${senderName}: ${extracted.content}` : extracted.content,
             ultima_mensagem_em: messageDate,
             nao_lidas: direction === "entrada" ? 1 : 0,
             status: "open",
@@ -353,7 +355,7 @@ serve(async (req) => {
         const { data: quoted } = await db.from("ariiatalk_mensagens").select("id, conteudo, autor_nome, direcao, tipo").eq("conversa_id", conversationId).eq("evolution_message_id", quote.evolutionId).maybeSingle();
         if (quoted) {
           quoteId = quoted.id;
-          snapshot = { id: quoted.id, autor_nome: quoted.autor_nome || (quoted.direcao === "entrada" ? pushName : "WhatsApp / dispositivo"), conteudo: quoted.conteudo || `[${quoted.tipo}]` };
+          snapshot = { id: quoted.id, autor_nome: quoted.autor_nome || (quoted.direcao === "entrada" ? (pushName ?? senderName) : "WhatsApp / dispositivo"), conteudo: quoted.conteudo || `[${quoted.tipo}]` };
         }
       }
       const { error: insertError } = await db
@@ -370,6 +372,8 @@ serve(async (req) => {
           payload: item,
           resposta_mensagem_id: quoteId,
           resposta_snapshot: snapshot,
+          remetente_nome: isGroup && direction === "entrada" ? senderName : null,
+          remetente_jid: isGroup && direction === "entrada" ? participantJid : null,
         });
 
       if (insertError) {
@@ -387,3 +391,15 @@ serve(async (req) => {
   }
 });
 
+
+async function groupSubject(instanceName: string | null | undefined, groupJid: string): Promise<string | null> {
+  const base = Deno.env.get("EVOLUTION_API_URL"); const apikey = Deno.env.get("EVOLUTION_API_KEY");
+  if (!base || !apikey || !instanceName) return null;
+  try {
+    const res = await fetch(`${base.replace(/\/$/, "")}/group/findGroupInfos/${encodeURIComponent(instanceName)}?groupJid=${encodeURIComponent(groupJid)}`, { headers: { apikey }, signal: AbortSignal.timeout(5000) });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const subject = String((Array.isArray(data) ? data[0] : data)?.subject ?? "").trim();
+    return subject ? subject.slice(0, 120) : null;
+  } catch { return null; }
+}

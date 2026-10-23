@@ -17,7 +17,7 @@ export function profilePictureUrl(value: unknown): string | null {
 
 export function whatsappNumber(value: string | null | undefined): string | null {
   if (value?.includes("@")) {
-    return /^\d{6,20}@(s\.whatsapp\.net|lid)$/.test(value) ? value : null;
+    return /^\d{6,20}@(s\.whatsapp\.net|lid)$|^\d{6,40}(-\d+)?@g\.us$/.test(value) ? value : null;
   }
   let digits = (value ?? "").replace(/\D/g, "").replace(/^0+/, "");
   if (digits.length === 10 || digits.length === 11) digits = `55${digits}`;

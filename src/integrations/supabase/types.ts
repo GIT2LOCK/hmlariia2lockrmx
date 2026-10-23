@@ -138,6 +138,7 @@ export type Database = {
           foto_url: string | null
           id: string
           instancia_id: string
+          is_grupo: boolean
           nao_lidas: number
           nome_contato: string | null
           remote_jid: string
@@ -158,6 +159,7 @@ export type Database = {
           foto_url?: string | null
           id?: string
           instancia_id: string
+          is_grupo?: boolean
           nao_lidas?: number
           nome_contato?: string | null
           remote_jid: string
@@ -178,6 +180,7 @@ export type Database = {
           foto_url?: string | null
           id?: string
           instancia_id?: string
+          is_grupo?: boolean
           nao_lidas?: number
           nome_contato?: string | null
           remote_jid?: string
@@ -350,6 +353,8 @@ export type Database = {
           id: string
           media_url: string | null
           payload: Json | null
+          remetente_jid: string | null
+          remetente_nome: string | null
           resposta_mensagem_id: string | null
           resposta_snapshot: Json | null
           status: string
@@ -370,6 +375,8 @@ export type Database = {
           id?: string
           media_url?: string | null
           payload?: Json | null
+          remetente_jid?: string | null
+          remetente_nome?: string | null
           resposta_mensagem_id?: string | null
           resposta_snapshot?: Json | null
           status?: string
@@ -390,6 +397,8 @@ export type Database = {
           id?: string
           media_url?: string | null
           payload?: Json | null
+          remetente_jid?: string | null
+          remetente_nome?: string | null
           resposta_mensagem_id?: string | null
           resposta_snapshot?: Json | null
           status?: string

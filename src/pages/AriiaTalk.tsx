@@ -26,6 +26,7 @@ import {
   Reply,
   Flag,
   Pencil,
+  Users,
 } from "lucide-react";
 import { empresaTagColor, categoriaTagColor, contactCategoria, CATEGORIAS_SUGERIDAS, normalizeKey } from "@/lib/ariiatalkTags";
 import { supabase } from "@/integrations/supabase/client";
@@ -68,6 +69,7 @@ type Conversation = {
   ultima_mensagem_em: string | null;
   nao_lidas: number;
   status: "open" | "closed";
+  is_grupo?: boolean;
   responsavel_id: number | null;
   responsavel_nome?: string | null;
   contato?: AriiaContact | null;
@@ -145,6 +147,8 @@ type ChatMessage = {
   resposta_mensagem_id?: string | null;
   resposta_snapshot?: { id?: string; autor_nome: string; conteudo: string } | null;
   editada_em?: string | null;
+  remetente_nome?: string | null;
+  remetente_jid?: string | null;
   anotacoes?: MessageAnnotation[];
 };
 
@@ -1465,7 +1469,7 @@ export default function AriiaTalk() {
                     <ContactAvatar name={conversation.contato?.nome || conversation.nome_contato || phoneLabel(conversation.remote_jid)} conversationId={conversation.id} contactId={conversation.contato_id} photoUrl={conversation.foto_url} />
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center justify-between gap-2">
-                        <span className={`truncate text-sm ${conversation.nao_lidas > 0 ? "font-bold" : "font-medium"}`}>{conversation.contato?.nome || conversation.nome_contato || phoneLabel(conversation.remote_jid)}</span>
+                        <span className={`flex min-w-0 items-center gap-1 text-sm ${conversation.nao_lidas > 0 ? "font-bold" : "font-medium"}`}>{conversation.is_grupo && <Users className="h-3.5 w-3.5 shrink-0 text-primary" aria-label="Grupo" />}<span className="truncate">{conversation.contato?.nome || conversation.nome_contato || phoneLabel(conversation.remote_jid)}</span></span>
                         <span className={`shrink-0 text-xs ${conversation.nao_lidas > 0 ? "font-semibold text-primary" : "text-muted-foreground"}`}>{formatDate(conversation.ultima_mensagem_em)}</span>
                       </span>
                       {(conversation.contato?.nome || conversation.nome_contato) && (
@@ -1506,7 +1510,7 @@ export default function AriiaTalk() {
                 <header className="flex flex-wrap items-center gap-3 border-b px-4 py-3">
                   <ContactAvatar name={selectedConversation.contato?.nome || selectedConversation.nome_contato || phoneLabel(selectedConversation.remote_jid)} conversationId={selectedConversation.id} contactId={selectedConversation.contato_id} photoUrl={selectedConversation.foto_url} />
                   <div className="min-w-0">
-                    <h2 className="truncate text-sm font-semibold">{selectedConversation.contato?.nome || selectedConversation.nome_contato || phoneLabel(selectedConversation.remote_jid)}</h2>
+                    <h2 className="flex items-center gap-1.5 truncate text-sm font-semibold">{selectedConversation.is_grupo && <Users className="h-4 w-4 shrink-0 text-primary" aria-label="Grupo" />}<span className="truncate">{selectedConversation.contato?.nome || selectedConversation.nome_contato || phoneLabel(selectedConversation.remote_jid)}</span></h2>
                     <p className="text-xs text-muted-foreground">{phoneLabel(selectedConversation.remote_jid)} · {selectedConversation.ariiatalk_instancias?.nome || "Instância WhatsApp"}{selectedConversation.status === "closed" ? " · Encerrada" : ""}</p>
                     <ContactTags contact={selectedConversation.contato} />
                   </div>
@@ -1618,6 +1622,9 @@ export default function AriiaTalk() {
                               <UserRound className="h-3.5 w-3.5 shrink-0" />
                               <span className="break-words">{message.autor_nome || staff.find((s) => s.id === message.enviado_por)?.nome || (message.enviado_por ? "Técnico" : "WhatsApp / dispositivo")}{message.enviado_por === user?.id ? " (você)" : ""}</span>
                             </div>
+                          )}
+                          {message.direcao === "entrada" && selectedConversation?.is_grupo && (
+                            <div className="mb-1 text-xs font-semibold text-primary break-words">{message.remetente_nome || (message.remetente_jid ? phoneLabel(message.remetente_jid) : "Participante")}</div>
                           )}
                           {message.conteudo && (
                             <p className="whitespace-pre-wrap break-words text-sm">{message.conteudo}</p>
