@@ -1,4 +1,8 @@
 # Cronograma
+## AriiaTalk: pastas pessoais e filtros
+- [ ] Restringir listagem, exclusão e associações de pastas ao criador.
+- [ ] Reorganizar filtros em painel amplo com campos identificados e pastas pessoais.
+- [ ] Verificar testes e implantação; fluxo entre contas depende de sessões autenticadas disponíveis.
 ## AriiaTalk: fotos do WhatsApp
 - [x] Consultar fotos pela Evolution com cache e fallback sem foto.
 - [x] Exibir ao lado do nome em contatos, conversas ativas e cabeçalho.
