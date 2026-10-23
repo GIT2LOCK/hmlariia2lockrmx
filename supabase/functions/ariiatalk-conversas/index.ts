@@ -1,5 +1,7 @@
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { corsHeaders as sdkCorsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { isPhotoFresh, profilePictureUrl, whatsappNumber } from "./profilePicture.ts";
 import {
   serviceClient,
 } from "../_shared/grafana.ts";
@@ -9,7 +11,7 @@ import {
 } from "../_shared/authz.ts";
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  ...sdkCorsHeaders,
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-ariia-token",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
@@ -46,7 +48,7 @@ function safeTerm(v: unknown) {
 }
 
 const CONTACT_SELECT =
-  "id, nome, telefone, email, tipo, categoria, empresa_id, unidade_id, empresas(nome_fantasia, cor), unidades(nome_unidade)";
+  "id, nome, telefone, email, tipo, categoria, empresa_id, unidade_id, foto_whatsapp_url, empresas(nome_fantasia, cor), unidades(nome_unidade)";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -98,6 +100,89 @@ serve(async (req) => {
         body = await req.json();
       } catch {
         return jsonResponse({ error: "invalid_json" }, 400);
+      }
+
+      if (!body || typeof body !== "object" || Array.isArray(body)) {
+        return jsonResponse({ error: "invalid_request" }, 400);
+      }
+
+      if (body.action === "get_profile_picture") {
+        const conversationId = body.conversation_id;
+        const contactId = body.contact_id;
+        if (conversationId !== undefined && (typeof conversationId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(conversationId))) {
+          return jsonResponse({ error: "invalid_conversation_id" }, 400);
+        }
+        if (!conversationId && (!Number.isInteger(contactId) || contactId <= 0)) {
+          return jsonResponse({ error: "invalid_contact_id" }, 400);
+        }
+        const conversationResult = conversationId ? await db.from("ariiatalk_conversas")
+          .select("id, contato_id, remote_jid, instancia_id, foto_url, foto_consultada_em")
+          .eq("id", conversationId).maybeSingle() : null;
+        if (conversationResult?.error) return jsonResponse({ error: "photo_query_failed" }, 500);
+        const conversation = conversationResult?.data;
+        if (conversationId && !conversation) return jsonResponse({ error: "conversation_not_found" }, 404);
+        const resolvedContactId = conversation ? conversation.contato_id : contactId;
+        const contactResult = resolvedContactId ? await db.from("contatos")
+          .select("id, telefone, foto_whatsapp_url, foto_whatsapp_consultada_em")
+          .eq("id", resolvedContactId).maybeSingle() : null;
+        if (contactResult?.error) return jsonResponse({ error: "photo_query_failed" }, 500);
+        const contact = contactResult?.data;
+        if (!conversation && !contact) return jsonResponse({ error: "contact_not_found" }, 404);
+
+        if (conversation && isPhotoFresh(conversation.foto_consultada_em)) {
+          return jsonResponse({ photo_url: profilePictureUrl(conversation.foto_url) });
+        }
+        if (contact && isPhotoFresh(contact.foto_whatsapp_consultada_em)) {
+          return jsonResponse({ photo_url: profilePictureUrl(contact.foto_whatsapp_url) });
+        }
+        const number = whatsappNumber(conversation?.remote_jid ?? contact?.telefone);
+        if (!number) return jsonResponse({ photo_url: null });
+        // Use the conversation's actual instance; contacts without conversations
+        // use a connected instance. Never accept an arbitrary URL or number.
+        let instanceId = conversation?.instancia_id;
+        if (!instanceId && contact) {
+          const { data: linked } = await db.from("ariiatalk_conversas")
+            .select("instancia_id").eq("contato_id", contact.id)
+            .order("ultima_mensagem_em", { ascending: false, nullsFirst: false }).limit(1);
+          instanceId = linked?.[0]?.instancia_id;
+        }
+        const instanceQuery = db.from("ariiatalk_instancias").select("id, evolution_instance_name, status");
+        const { data: instances, error: instanceError } = instanceId
+          ? await instanceQuery.eq("id", instanceId).limit(1)
+          : await instanceQuery.eq("status", "connected").order("criado_em").limit(1);
+        const instance = instances?.[0];
+        if (instanceError || !instance || instance.status !== "connected") {
+          return jsonResponse({ error: "photo_instance_unavailable" }, 503);
+        }
+        const apiUrl = Deno.env.get("EVOLUTION_API_URL")?.replace(/\/+$/, "");
+        const apiKey = Deno.env.get("EVOLUTION_API_KEY");
+        if (!apiUrl || !apiKey) return jsonResponse({ error: "evolution_secrets_not_configured" }, 503);
+        let photoUrl: string | null;
+        try {
+          const result = await fetch(`${apiUrl}/chat/fetchProfilePictureUrl/${encodeURIComponent(instance.evolution_instance_name)}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", apikey: apiKey },
+            body: JSON.stringify({ number }),
+            signal: AbortSignal.timeout(8000),
+          });
+          if (!result.ok) {
+            console.warn("[ariiatalk-conversas] Profile picture API status:", result.status);
+            return jsonResponse({ error: "profile_picture_fetch_failed" }, 502);
+          }
+          const picture = await result.json();
+          photoUrl = profilePictureUrl(picture?.profilePictureUrl);
+        } catch {
+          return jsonResponse({ error: "profile_picture_fetch_failed" }, 502);
+        }
+        // Successful no-photo results are cached too; failures never erase a photo.
+        const checkedAt = new Date().toISOString();
+        const writes = [];
+        if (contact) writes.push(db.from("contatos").update({ foto_whatsapp_url: photoUrl, foto_whatsapp_consultada_em: checkedAt }).eq("id", contact.id));
+        writes.push(db.from("ariiatalk_conversas").update({ foto_url: photoUrl, foto_consultada_em: checkedAt })
+          .eq("instancia_id", instance.id).eq("remote_jid", number.includes("@") ? number : `${number}@s.whatsapp.net`));
+        const results = await Promise.all(writes);
+        if (results.some(result => result.error)) console.warn("[ariiatalk-conversas] Profile picture cache update failed");
+        return jsonResponse({ photo_url: photoUrl });
       }
 
       if (body.action === "list_contacts") {
