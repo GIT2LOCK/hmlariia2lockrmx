@@ -1,4 +1,5 @@
 # Architecture rules
+- AriiaTalk contact edits update only central contact identity fields via authenticated Edge actions, leaving company/unit scope, conversation IDs and WhatsApp JIDs untouched — preserves shared registry relationships and historical recipients.
 - AriiaTalk folders and conversation-folder links are private to the folder creator; every Edge read/write scopes ownership to authenticated caller.id, with direct client access denied and names unique per owner — prevents folder metadata and assignments leaking between technicians.
 - AriiaTalk profile pictures are fetched lazily through authenticated ariiatalk-conversas actions, cached on existing contacts/conversations, and rendered through a shared avatar with initials fallback — keeps Evolution credentials server-side and avoids blocking conversation loading.
 - AriiaTalk contacts reuse the central contatos registry; closing only updates conversation status, default lists show open rows, and successful sends reopen the same conversation ID — preserves history without parallel contact or archive storage.

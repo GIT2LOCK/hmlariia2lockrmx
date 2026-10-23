@@ -29,6 +29,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useUser } from "@/contexts/UserContext";
 import { Button } from "@/components/ui/button";
 import ContactsView from "@/components/ariiatalk/ContactsView";
+import EditContactDialog from "@/components/ariiatalk/EditContactDialog";
 import ConversationFilters from "@/components/ariiatalk/ConversationFilters";
 import ContactAvatar from "@/components/ariiatalk/ContactAvatar";
 import { isListedConversation } from "@/lib/ariiatalkContacts";
@@ -201,6 +202,7 @@ export default function AriiaTalk() {
   const [messageText, setMessageText] = useState("");
   const [messageError, setMessageError] = useState<string | null>(null);
   const [contacts, setContacts] = useState<AriiaContact[]>([]);
+  const [editingContact, setEditingContact] = useState<AriiaContact | null>(null);
   const [loadingContacts, setLoadingContacts] = useState(false);
   const [contactsError, setContactsError] = useState<string | null>(null);
   const [savingContact, setSavingContact] = useState(false);
@@ -1071,7 +1073,15 @@ export default function AriiaTalk() {
       )}
 
       {view === "contatos" ? (
-        <ContactsView contacts={contacts} loading={loadingContacts} error={contactsError} startingId={startingContact} empresas={empresasOpt} unidades={unidadesOpt} onStart={c => void startConversation(c)} onCreate={() => { setCError(null); setCDuplicate(null); setContactDialog(true); }} onRetry={() => void loadContacts()} />
+        <>
+        <ContactsView contacts={contacts} loading={loadingContacts} error={contactsError} startingId={startingContact} empresas={empresasOpt} unidades={unidadesOpt} onStart={c => void startConversation(c)} onCreate={() => { setCError(null); setCDuplicate(null); setContactDialog(true); }} onRetry={() => void loadContacts()} onEdit={setEditingContact} />
+        {editingContact && <EditContactDialog key={editingContact.id} contact={editingContact} onClose={() => setEditingContact(null)} onSaved={updated => {
+          setContacts(current => current.map(c => c.id === updated.id ? updated : c).sort((a, b) => a.nome.localeCompare(b.nome)));
+          setConversations(current => current.map(c => c.contato_id === updated.id ? { ...c, contato: updated } : c));
+          setSearchResults(current => current ? { ...current, contacts: current.contacts.map(c => c.id === updated.id ? updated : c) } : null);
+          setNotice("Contato atualizado.");
+        }} />}
+        </>
       ) : view === "instancias" ? (
         <main className="min-h-0 flex-1 overflow-y-auto p-5">
           <div className="mx-auto max-w-5xl space-y-6">

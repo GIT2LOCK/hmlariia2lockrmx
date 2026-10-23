@@ -1,4 +1,9 @@
 # Cronograma
+## AriiaTalk: edição de contatos
+- [x] Adicionar edição de nome, telefone, e-mail e categoria na lista.
+- [x] Preservar vínculos e histórico e validar telefone sem máscara.
+- [x] Testar e implantar: 3 testes de edição e 5 de regressão passaram; formulário conferido com resposta simulada.
+- [ ] Validar edição real com retorno na lista: bloqueado por ausência de sessão autenticada no Supabase externo.
 ## AriiaTalk: pastas pessoais e filtros
 - [x] Restringir listagem, exclusão e associações de pastas ao criador.
 - [x] Reorganizar filtros em painel amplo com campos identificados e pastas pessoais.
