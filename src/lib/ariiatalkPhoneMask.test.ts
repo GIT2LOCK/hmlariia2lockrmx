@@ -12,7 +12,7 @@ describe("maskPhoneInput", () => {
 
   it("bloqueia letras e símbolos", () => {
     expect(maskPhoneInput("abc1191234-5678x")).toBe("(11) 91234-5678");
-    expect(maskPhoneInput("(11) 9a8b7c6-5d432")).toBe("(11) 98765-4321");
+    expect(maskPhoneInput("(11) 9a8b7c6-5d4321x")).toBe("(11) 98765-4321");
   });
 
   it("mantém prefixo internacional", () => {
