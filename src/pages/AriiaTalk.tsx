@@ -1569,12 +1569,12 @@ export default function AriiaTalk() {
                         data-message-id={message.id}
                         className={`flex ${message.direcao === "saida" ? "justify-end" : "justify-start"}`}
                       >
-                        <div className={`min-w-0 max-w-[85%] rounded-lg px-3 py-2 shadow-sm sm:max-w-[75%] ${
+                        <div className={`group relative min-w-0 max-w-[85%] rounded-lg px-3 py-2 shadow-sm sm:max-w-[75%] ${
                           message.direcao === "saida"
                             ? "rounded-br-sm bg-primary text-primary-foreground"
                             : "rounded-bl-sm border bg-background"
                         }${message.id === highlightMessageId ? " ring-2 ring-primary ring-offset-2 ring-offset-background" : ""}`}>
-                          <div className="flex items-center justify-end gap-2">
+                          <div className="absolute right-1 top-1 z-10 flex items-center gap-1">
                             {message.anotacoes?.some(a => a.sinalizada) && <Flag className="h-3.5 w-3.5" aria-label="Sinalizada internamente" />}
                             <MessageActions canReply={Boolean(message.evolution_message_id)} canEdit={canEditMessage(message, user?.id)} flagged={myAnnotation(message)?.sinalizada ?? false} disabled={actionBusy || sendingMessage || message.id.startsWith("optimistic-")}
                               onReply={() => { setReplyTo(message); document.querySelector<HTMLInputElement>('input[aria-label="Mensagem"]')?.focus(); }}
