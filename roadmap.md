@@ -3,6 +3,7 @@
 - [x] Responder com citação e editar o próprio texto enviado pela Evolution, preservando autoria e assinatura.
 - [x] Copiar e adicionar sinalizações, notas e marcações internas por técnico; nenhuma anotação vai ao WhatsApp.
 - [x] 11 testes passaram; funções implantadas e fluxo visual conferido com respostas simuladas (responder, editar, notas/sinalização e copiar).
+- [x] Pontinhos de ação só aparecem no hover, em ícone vertical no canto superior direito do balão (conferido em tela: invisível sem mouse, 4px das bordas ao passar o mouse).
 - [ ] Validar resposta/edição real no WhatsApp: bloqueado por ausência de sessão autenticada no Supabase externo.
 ## AriiaTalk: pesquisa na conversa
 - [x] Campo "Pesquisar na conversa" no painel do contato, abaixo das observações, com resultados acento-insensíveis.
