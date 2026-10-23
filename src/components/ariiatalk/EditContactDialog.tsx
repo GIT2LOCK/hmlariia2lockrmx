@@ -20,7 +20,7 @@ export default function EditContactDialog<T extends ContactRecord>({ contact, on
         try { data = await (result.error as any).context.json(); } catch { /* fallback below */ }
       }
       if (result.error || data?.error || !data?.contact) {
-        setError(data?.error === "duplicate_phone" ? "Este telefone já pertence a outro contato." : data?.error === "invalid_contact" ? "Confira o nome, telefone e e-mail informados." : "Não foi possível salvar o contato. Tente novamente.");
+        setError(data?.error === "unknown_action" ? "A edição ainda não está disponível nesta conexão. Seus dados foram mantidos; tente salvar novamente." : data?.error === "duplicate_phone" ? "Este telefone já pertence a outro contato." : data?.error === "invalid_contact" ? "Confira o nome, telefone e e-mail informados." : "Não foi possível salvar o contato. Tente novamente.");
         return;
       }
       onSaved(data.contact as T);
