@@ -1,4 +1,9 @@
 # Cronograma
+## AriiaTalk: pesquisa na conversa
+- [x] Campo "Pesquisar na conversa" no painel do contato, abaixo das observações, com resultados acento-insensíveis.
+- [x] Clique no resultado rola até a mensagem no chat e a destaca temporariamente.
+- [x] Testes: 3 testes de pesquisa (acento, sem correspondência, mensagens sem texto) passaram; build OK.
+- [ ] Validar busca com conversa real: bloqueado por ausência de sessão autenticada no Supabase externo.
 ## AriiaTalk: edição de contatos
 - [x] Adicionar edição de nome, telefone, e-mail e categoria na lista.
 - [x] Preservar vínculos e histórico e validar telefone sem máscara.
