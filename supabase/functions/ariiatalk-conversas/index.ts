@@ -50,7 +50,7 @@ function safeTerm(v: unknown) {
 }
 
 const CONTACT_SELECT =
-  "id, nome, telefone, email, tipo, categoria, empresa_id, unidade_id, foto_whatsapp_url, empresas(nome_fantasia, cor), unidades(nome_unidade)";
+  "id, nome, telefone, email, tipo, categoria, empresa_id, unidade_id, foto_whatsapp_url, whatsapp_grupo_jid, empresas(nome_fantasia, cor), unidades(nome_unidade)";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -465,7 +465,7 @@ serve(async (req) => {
       if (body.action === "start_conversation") {
         const contactId = Number(body.contact_id);
         if (!Number.isInteger(contactId) || contactId <= 0) return jsonResponse({ error: "invalid_contact_id" }, 400);
-        const { data: contact } = await db.from("contatos").select("id, nome, telefone").eq("id", contactId).maybeSingle();
+        const { data: contact } = await db.from("contatos").select("id, nome, telefone, whatsapp_grupo_jid").eq("id", contactId).maybeSingle();
         if (!contact) return jsonResponse({ error: "contact_not_found" }, 404);
         const phone = normalizePhone(contact.telefone);
         if (!phone) return jsonResponse({ error: "contact_without_valid_phone" }, 400);
