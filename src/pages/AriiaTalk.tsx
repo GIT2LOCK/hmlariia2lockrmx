@@ -33,6 +33,7 @@ import EditContactDialog from "@/components/ariiatalk/EditContactDialog";
 import ConversationFilters from "@/components/ariiatalk/ConversationFilters";
 import ContactAvatar from "@/components/ariiatalk/ContactAvatar";
 import { isListedConversation } from "@/lib/ariiatalkContacts";
+import { findMessageMatches } from "@/lib/ariiatalkMessageSearch";
 
 type Instance = {
   id: string;
@@ -114,21 +115,6 @@ function phoneLabel(jid: string | null | undefined) {
   if (d.length === 13) return `+${d.slice(0, 2)} (${d.slice(2, 4)}) ${d.slice(4, 9)}-${d.slice(9)}`;
   if (d.length === 12) return `+${d.slice(0, 2)} (${d.slice(2, 4)}) ${d.slice(4, 8)}-${d.slice(8)}`;
   return d || String(jid ?? "");
-}
-
-// Lowercase, accent-free text with a char map back to the original string,
-// so search matches can be highlighted at their exact original position.
-function buildNorm(text: string): { norm: string; map: number[] } {
-  const chars: string[] = [];
-  const map: number[] = [];
-  for (let i = 0; i < text.length; i++) {
-    const normalized = text[i].normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-    for (const ch of normalized) {
-      chars.push(ch);
-      map.push(i);
-    }
-  }
-  return { norm: chars.join(""), map };
 }
 
 type ChatMessage = {
@@ -808,22 +794,7 @@ export default function AriiaTalk() {
     setHighlightMessageId(null);
   }, [selectedId]);
 
-  type MessageMatch = { message: ChatMessage; start: number; end: number };
-  const messageMatches = useMemo<MessageMatch[]>(() => {
-    const term = buildNorm(messageSearch.trim()).norm;
-    if (!term) return [];
-    const matches: MessageMatch[] = [];
-    for (const message of messages) {
-      if (!message.conteudo) continue;
-      const { norm, map } = buildNorm(message.conteudo);
-      const idx = norm.indexOf(term);
-      if (idx === -1) continue;
-      const start = map[idx];
-      const end = (map[idx + term.length - 1] ?? map[map.length - 1] ?? start) + 1;
-      matches.push({ message, start, end });
-    }
-    return matches;
-  }, [messages, messageSearch]);
+  const messageMatches = useMemo(() => findMessageMatches(messages, messageSearch), [messages, messageSearch]);
 
   function jumpToMessage(id: string) {
     setHighlightMessageId(id);
