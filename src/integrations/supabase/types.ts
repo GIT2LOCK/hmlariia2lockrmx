@@ -134,6 +134,7 @@ export type Database = {
           criado_em: string
           encerrado_em: string | null
           encerrado_por: number | null
+          foto_consultada_em: string | null
           foto_url: string | null
           id: string
           instancia_id: string
@@ -153,6 +154,7 @@ export type Database = {
           criado_em?: string
           encerrado_em?: string | null
           encerrado_por?: number | null
+          foto_consultada_em?: string | null
           foto_url?: string | null
           id?: string
           instancia_id: string
@@ -172,6 +174,7 @@ export type Database = {
           criado_em?: string
           encerrado_em?: string | null
           encerrado_por?: number | null
+          foto_consultada_em?: string | null
           foto_url?: string | null
           id?: string
           instancia_id?: string
@@ -509,6 +512,8 @@ export type Database = {
           criado_em: string | null
           email: string | null
           empresa_id: number | null
+          foto_whatsapp_consultada_em: string | null
+          foto_whatsapp_url: string | null
           id: number
           nome: string
           telefone: string | null
@@ -522,6 +527,8 @@ export type Database = {
           criado_em?: string | null
           email?: string | null
           empresa_id?: number | null
+          foto_whatsapp_consultada_em?: string | null
+          foto_whatsapp_url?: string | null
           id?: number
           nome: string
           telefone?: string | null
@@ -535,6 +542,8 @@ export type Database = {
           criado_em?: string | null
           email?: string | null
           empresa_id?: number | null
+          foto_whatsapp_consultada_em?: string | null
+          foto_whatsapp_url?: string | null
           id?: number
           nome?: string
           telefone?: string | null

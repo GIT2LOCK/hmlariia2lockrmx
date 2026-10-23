@@ -1,0 +1,2 @@
+ALTER TABLE public.contatos ADD COLUMN IF NOT EXISTS foto_whatsapp_url text, ADD COLUMN IF NOT EXISTS foto_whatsapp_consultada_em timestamptz;
+ALTER TABLE public.ariiatalk_conversas ADD COLUMN IF NOT EXISTS foto_consultada_em timestamptz;
