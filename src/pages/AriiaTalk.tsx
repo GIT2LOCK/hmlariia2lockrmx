@@ -30,6 +30,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useUser } from "@/contexts/UserContext";
 import { Button } from "@/components/ui/button";
 import ContactsView from "@/components/ariiatalk/ContactsView";
+import ContactAvatar from "@/components/ariiatalk/ContactAvatar";
 import { isListedConversation } from "@/lib/ariiatalkContacts";
 
 type Instance = {
@@ -74,6 +75,7 @@ type AriiaContact = {
   empresa_id: number | null;
   unidade_id: number | null;
   categoria?: string | null;
+  foto_whatsapp_url?: string | null;
   empresas?: EmpresaRef | EmpresaRef[] | null;
   unidades?: { nome_unidade: string } | { nome_unidade: string }[] | null;
 };
@@ -1351,7 +1353,7 @@ export default function AriiaTalk() {
                         const contact = contacts.find((x) => x.id === c.contato_id) ?? searchResults.contacts.find((x) => x.id === c.contato_id);
                         return (
                           <button key={c.id} type="button" onClick={() => openConversation(c.id)} className="flex w-full items-start gap-2 rounded-md p-2 text-left hover:bg-muted">
-                            <MessageCircle className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                            <ContactAvatar name={contact?.nome || c.nome_contato || phoneLabel(c.remote_jid)} conversationId={c.id} contactId={c.contato_id} />
                             <span className="min-w-0 flex-1">
                               <span className="block truncate text-sm font-medium">{contact?.nome || c.nome_contato || phoneLabel(c.remote_jid)}</span>
                               <span className="block text-xs text-muted-foreground">{phoneLabel(c.remote_jid)} · {c.status === "closed" ? "Encerrada" : "Aberta"}</span>
@@ -1368,7 +1370,7 @@ export default function AriiaTalk() {
                             <p className="px-2 pb-1 pt-3 text-[11px] font-semibold uppercase text-muted-foreground">Contatos sem conversa</p>
                             {free.map((ct) => (
                               <div key={ct.id} className="flex items-start gap-2 rounded-md p-2 hover:bg-muted">
-                                <UserRound className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                                <ContactAvatar name={ct.nome} contactId={ct.telefone ? ct.id : null} photoUrl={ct.foto_whatsapp_url} />
                                 <span className="min-w-0 flex-1">
                                   <span className="block truncate text-sm font-medium">{ct.nome}</span>
                                   <span className="block text-xs text-muted-foreground">{ct.telefone ? phoneLabel(ct.telefone) : "Sem telefone"}</span>
@@ -1411,13 +1413,7 @@ export default function AriiaTalk() {
                     onClick={() => setSelectedId(conversation.id)}
                     className={`flex w-full items-start gap-3 border-b p-3 text-left transition-colors hover:bg-muted/60 ${selectedId === conversation.id ? "bg-muted" : ""}`}
                   >
-                    {conversation.foto_url ? (
-                      <img src={conversation.foto_url} alt="" className="h-10 w-10 rounded-full object-cover" />
-                    ) : (
-                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted">
-                        <UserRound className="h-5 w-5 text-muted-foreground" />
-                      </span>
-                    )}
+                    <ContactAvatar name={conversation.contato?.nome || conversation.nome_contato || phoneLabel(conversation.remote_jid)} conversationId={conversation.id} contactId={conversation.contato_id} photoUrl={conversation.foto_url} />
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center justify-between gap-2">
                         <span className={`truncate text-sm ${conversation.nao_lidas > 0 ? "font-bold" : "font-medium"}`}>{conversation.contato?.nome || conversation.nome_contato || phoneLabel(conversation.remote_jid)}</span>
@@ -1459,7 +1455,7 @@ export default function AriiaTalk() {
             {selectedConversation ? (
               <>
                 <header className="flex flex-wrap items-center gap-3 border-b px-4 py-3">
-                  <UserRound className="h-8 w-8 text-muted-foreground" />
+                  <ContactAvatar name={selectedConversation.contato?.nome || selectedConversation.nome_contato || phoneLabel(selectedConversation.remote_jid)} conversationId={selectedConversation.id} contactId={selectedConversation.contato_id} photoUrl={selectedConversation.foto_url} />
                   <div className="min-w-0">
                     <h2 className="truncate text-sm font-semibold">{selectedConversation.contato?.nome || selectedConversation.nome_contato || phoneLabel(selectedConversation.remote_jid)}</h2>
                     <p className="text-xs text-muted-foreground">{phoneLabel(selectedConversation.remote_jid)} · {selectedConversation.ariiatalk_instancias?.nome || "Instância WhatsApp"}{selectedConversation.status === "closed" ? " · Encerrada" : ""}</p>

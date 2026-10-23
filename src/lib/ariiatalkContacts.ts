@@ -4,6 +4,7 @@ export type ContactRecord = {
   id: number; nome: string; telefone: string | null; email: string | null;
   tipo: string; empresa_id: number | null; unidade_id: number | null;
   categoria?: string | null;
+  foto_whatsapp_url?: string | null;
 };
 export const EMPTY_CONTACT_FILTERS = { search: "", empresa: "", unidade: "", categoria: "", tipo: "", telefone: "" };
 export function filterContacts<T extends ContactRecord>(contacts: T[], filters: typeof EMPTY_CONTACT_FILTERS): T[] {
