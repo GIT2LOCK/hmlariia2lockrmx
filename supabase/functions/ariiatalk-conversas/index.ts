@@ -101,19 +101,24 @@ serve(async (req) => {
       }
 
       if (body.action === "list_contacts") {
-        const { data: contacts, error: contactsError } = await db
+        const contacts: unknown[] = [];
+        for (let offset = 0; ; offset += 1000) {
+        const { data: page, error: contactsError } = await db
           .from("contatos")
           .select(CONTACT_SELECT)
           .in("tipo", ["responsavel", "pessoa", "contato"])
-          .order("nome", { ascending: true })
-          .limit(1000);
+          .order("nome", { ascending: true }).order("id")
+          .range(offset, offset + 999);
 
         if (contactsError) {
           console.error("[ariiatalk-conversas] Erro ao consultar contatos:", contactsError.message);
           return jsonResponse({ error: "contact_query_failed" }, 500);
         }
 
-        return jsonResponse({ contacts: contacts ?? [] });
+        contacts.push(...(page ?? []));
+        if (!page || page.length < 1000) break;
+        }
+        return jsonResponse({ contacts });
       }
 
       if (body.action === "link_contact") {
@@ -451,9 +456,11 @@ serve(async (req) => {
       return jsonResponse({ error: "unknown_action", action: String(body.action ?? "") }, 400);
     }
 
-    const { data: conversations, error } = await db
-      .from("ariiatalk_conversas")
-      .select(`
+    const selectedId = new URL(req.url).searchParams.get("conversation_id");
+    if (selectedId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(selectedId)) {
+      return jsonResponse({ error: "invalid_conversation_id" }, 400);
+    }
+    const selection = `
         id,
         instancia_id,
         remote_jid,
@@ -473,7 +480,10 @@ serve(async (req) => {
           telefone,
           status
         )
-      `)
+      `;
+    const { data: conversations, error } = await db
+      .from("ariiatalk_conversas")
+      .select(selection)
       .order("ultima_mensagem_em", {
         ascending: false,
         nullsFirst: false,
@@ -486,6 +496,11 @@ serve(async (req) => {
     }
 
     const rows = conversations ?? [];
+    if (selectedId && !rows.some(r => r.id === selectedId)) {
+      const { data: selected, error: selectedError } = await db.from("ariiatalk_conversas").select(selection).eq("id", selectedId).maybeSingle();
+      if (selectedError) return jsonResponse({ error: "conversation_query_failed" }, 500);
+      if (selected) rows.push(selected);
+    }
     const [{ data: unread }, staffRes, contactsRes, foldersRes] = await Promise.all([
       db.rpc("fn_ariiatalk_nao_lidas", { _usuario_id: caller.id }),
       db.from("usuarios").select("id, nome").in("id", [...new Set(rows.map((r: any) => r.responsavel_id).filter(Boolean))]),

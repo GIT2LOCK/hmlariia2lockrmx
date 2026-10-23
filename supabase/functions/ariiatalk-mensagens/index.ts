@@ -324,6 +324,9 @@ serve(async (req) => {
           ultima_mensagem: messageText,
           ultima_mensagem_em: sentAt,
           atualizado_em: sentAt,
+          status: "open",
+          encerrado_em: null,
+          encerrado_por: null,
         })
         .eq("id", conversation.id);
 

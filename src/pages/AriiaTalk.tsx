@@ -28,6 +28,9 @@ import {
 import { empresaTagColor, categoriaTagColor, contactCategoria, CATEGORIAS_SUGERIDAS } from "@/lib/ariiatalkTags";
 import { supabase } from "@/integrations/supabase/client";
 import { useUser } from "@/contexts/UserContext";
+import { Button } from "@/components/ui/button";
+import ContactsView from "@/components/ariiatalk/ContactsView";
+import { isListedConversation } from "@/lib/ariiatalkContacts";
 
 type Instance = {
   id: string;
@@ -125,7 +128,7 @@ type ChatMessage = {
   criado_em: string;
 };
 
-type View = "conversas" | "instancias";
+type View = "conversas" | "contatos" | "instancias";
 type ListMode = "inbox" | "conversas";
 type ConversationTab = "minhas" | "nao_atribuidas" | "todos";
 
@@ -175,6 +178,8 @@ export default function AriiaTalk() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [instances, setInstances] = useState<Instance[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selectedIdRef = useRef<string | null>(null);
+  selectedIdRef.current = selectedId;
   const [search, setSearch] = useState("");
   const [conversationTab, setConversationTab] = useState<ConversationTab>("todos");
   const [loading, setLoading] = useState(true);
@@ -195,6 +200,7 @@ export default function AriiaTalk() {
   const [messageError, setMessageError] = useState<string | null>(null);
   const [contacts, setContacts] = useState<AriiaContact[]>([]);
   const [loadingContacts, setLoadingContacts] = useState(false);
+  const [contactsError, setContactsError] = useState<string | null>(null);
   const [savingContact, setSavingContact] = useState(false);
   const [listMode, setListMode] = useState<ListMode>("inbox");
   const [staff, setStaff] = useState<Staff[]>([]);
@@ -223,7 +229,7 @@ export default function AriiaTalk() {
     setError(null);
 
     const { data, error: invokeError } =
-      await supabase.functions.invoke("ariiatalk-conversas", {
+      await supabase.functions.invoke(selectedIdRef.current ? `ariiatalk-conversas?conversation_id=${encodeURIComponent(selectedIdRef.current)}` : "ariiatalk-conversas", {
         method: "GET",
       });
 
@@ -253,6 +259,7 @@ export default function AriiaTalk() {
 
   const loadContacts = useCallback(async () => {
     setLoadingContacts(true);
+    setContactsError(null);
 
     try {
       const { data, error: invokeError } = await supabase.functions.invoke(
@@ -265,14 +272,14 @@ export default function AriiaTalk() {
 
       if (invokeError || data?.error) {
         console.warn("[AriiaTalk] Erro ao carregar contatos:", invokeError ?? data?.error);
-        setNotice("Não foi possível carregar os contatos cadastrados.");
+        setContactsError("Não foi possível carregar os contatos cadastrados.");
         return;
       }
 
       setContacts(Array.isArray(data?.contacts) ? data.contacts as AriiaContact[] : []);
     } catch (err) {
       console.error("[AriiaTalk] Erro ao carregar contatos:", err);
-      setNotice("Não foi possível carregar os contatos cadastrados.");
+      setContactsError("Não foi possível carregar os contatos cadastrados.");
     } finally {
       setLoadingContacts(false);
     }
@@ -321,9 +328,13 @@ export default function AriiaTalk() {
   }, [search]);
 
   const openConversation = useCallback((id: string) => {
+    selectedIdRef.current = id;
     setSelectedId(id);
     setView("conversas");
     setSearch("");
+    setMessages([]);
+    setLoadingMessages(true);
+    setMessageText("");
   }, []);
 
   const startConversation = useCallback(async (contact: AriiaContact) => {
@@ -341,6 +352,7 @@ export default function AriiaTalk() {
       setNotice(map[data?.error] ?? "Não foi possível iniciar a conversa.");
       return;
     }
+    selectedIdRef.current = data.conversation_id;
     await loadConversations();
     setListMode("conversas");
     setConversationTab("todos");
@@ -378,6 +390,14 @@ export default function AriiaTalk() {
       return;
     }
     setConversations((cur) => cur.map((c) => c.id === selectedId ? { ...c, status } : c));
+    if (status === "closed") {
+      selectedIdRef.current = null;
+      setSelectedId(null);
+      setMessages([]);
+      setMessageText("");
+      setSearch("");
+      setFilters(f => ({ ...f, status: "" }));
+    }
     setNotice(status === "closed" ? "Conversa encerrada." : "Conversa reaberta.");
     void loadConversations();
   }, [selectedId, loadConversations]);
@@ -648,6 +668,7 @@ export default function AriiaTalk() {
         return;
       }
 
+      setConversations(cur => cur.map(c => c.id === conversationId ? { ...c, status: "open" } : c));
       void loadMessages(conversationId, true);
     } catch (error) {
       console.error("[AriiaTalk] Erro ao enviar mensagem:", error);
@@ -797,6 +818,7 @@ export default function AriiaTalk() {
   const term = search.trim().toLocaleLowerCase("pt-BR");
 
   return conversations.filter((conversation) => {
+    if (!isListedConversation(conversation.status, filters.status)) return false;
     if (
       conversationTab === "minhas" &&
       !(conversation.status === "open" && conversation.responsavel_id === user?.id)
@@ -845,7 +867,7 @@ export default function AriiaTalk() {
 
   const inboxConversations = useMemo(
     () => conversations
-      .filter((c) => c.nao_lidas > 0)
+      .filter((c) => c.status === "open" && c.nao_lidas > 0)
       .sort((a, b) => String(b.ultima_mensagem_em ?? "").localeCompare(String(a.ultima_mensagem_em ?? ""))),
     [conversations],
   );
@@ -1002,6 +1024,9 @@ export default function AriiaTalk() {
               <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-[11px] font-semibold text-destructive-foreground">{totalUnread}</span>
             )}
           </button>
+          <Button variant={view === "contatos" ? "default" : "outline"} onClick={() => { setView("contatos"); setNotice(null); void loadContacts(); }}>
+            <UserRound />Contatos
+          </Button>
           <button
             type="button"
             onClick={() => {
@@ -1018,6 +1043,7 @@ export default function AriiaTalk() {
             type="button"
             onClick={() => {
               if (view === "instancias") void loadInstances();
+              else if (view === "contatos") void loadContacts();
               else void loadConversations();
             }}
             disabled={loading || loadingInstances}
@@ -1047,7 +1073,9 @@ export default function AriiaTalk() {
         </div>
       )}
 
-      {view === "instancias" ? (
+      {view === "contatos" ? (
+        <ContactsView contacts={contacts} loading={loadingContacts} error={contactsError} startingId={startingContact} empresas={empresasOpt} unidades={unidadesOpt} onStart={c => void startConversation(c)} onCreate={() => { setCError(null); setCDuplicate(null); setContactDialog(true); }} onRetry={() => void loadContacts()} />
+      ) : view === "instancias" ? (
         <main className="min-h-0 flex-1 overflow-y-auto p-5">
           <div className="mx-auto max-w-5xl space-y-6">
             <div>
@@ -1232,7 +1260,7 @@ export default function AriiaTalk() {
               <div className="space-y-2 border-b bg-muted/30 p-3 text-xs">
                 <div className="grid grid-cols-2 gap-2">
                   <select aria-label="Status" value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })} className="h-8 rounded-md border bg-background px-1.5">
-                    <option value="">Todos os status</option><option value="open">Abertas</option><option value="closed">Encerradas</option>
+                    <option value="">Abertas</option><option value="closed">Encerradas</option>
                   </select>
                   <select aria-label="Responsável" value={filters.responsavel} onChange={(e) => setFilters({ ...filters, responsavel: e.target.value })} className="h-8 rounded-md border bg-background px-1.5">
                     <option value="">Qualquer responsável</option><option value="none">Sem responsável</option>
@@ -1240,7 +1268,7 @@ export default function AriiaTalk() {
                   </select>
                   <select aria-label="Instância" value={filters.instancia} onChange={(e) => setFilters({ ...filters, instancia: e.target.value })} className="h-8 rounded-md border bg-background px-1.5">
                     <option value="">Todas as instâncias</option>
-                    {[...new Map(conversations.filter((c) => c.ariiatalk_instancias).map((c) => [c.instancia_id, c.ariiatalk_instancias!.nome])).entries()].map(([id, nome]) => <option key={id} value={id}>{nome}</option>)}
+                    {[...new Map(conversations.flatMap((c) => c.ariiatalk_instancias ? [[c.instancia_id, c.ariiatalk_instancias.nome] as const] : [])).entries()].map(([id, nome]) => <option key={id} value={id}>{nome}</option>)}
                   </select>
                   <select aria-label="Empresa" value={filters.empresa} onChange={(e) => setFilters({ ...filters, empresa: e.target.value })} className="h-8 rounded-md border bg-background px-1.5">
                     <option value="">Todas as empresas</option>
@@ -1409,7 +1437,7 @@ export default function AriiaTalk() {
                       <ContactTags contact={conversation.contato} />
                       {(conversation.pasta_ids ?? []).length > 0 && (
                         <span className="mt-1 flex flex-wrap gap-1">
-                          {folders.filter((f) => conversation.pasta_ids!.includes(f.id)).map((f) => (
+                          {folders.filter((f) => (conversation.pasta_ids ?? []).includes(f.id)).map((f) => (
                             <span key={f.id} className="inline-flex items-center gap-0.5 text-[10.5px] text-muted-foreground"><Folder className="h-3 w-3" />{f.nome}</span>
                           ))}
                         </span>
@@ -1461,7 +1489,7 @@ export default function AriiaTalk() {
                     )}
                     <div className="relative">
                       <button type="button" onClick={() => setFolderMenu((v) => !v)} className="inline-flex h-8 items-center gap-1 rounded-md border px-2 text-xs font-medium hover:bg-muted" aria-expanded={folderMenu}>
-                        <Folder className="h-3.5 w-3.5" /> Pastas{(selectedConversation.pasta_ids ?? []).length ? ` (${selectedConversation.pasta_ids!.length})` : ""}
+                        <Folder className="h-3.5 w-3.5" /> Pastas{(selectedConversation.pasta_ids ?? []).length ? ` (${selectedConversation.pasta_ids?.length})` : ""}
                       </button>
                       {folderMenu && (
                         <div className="absolute right-0 z-20 mt-1 w-56 rounded-md border bg-popover p-2 text-xs shadow-lg">
@@ -1583,7 +1611,7 @@ export default function AriiaTalk() {
 
             {selectedConversation?.status === "closed" && (
               <div className="flex items-center justify-between gap-2 border-t bg-muted/50 px-4 py-2 text-xs">
-                <span className="text-muted-foreground">Esta conversa está encerrada. Ela reabre sozinha se o contato mandar nova mensagem.</span>
+                <span className="text-muted-foreground">Conversa encerrada. Uma nova mensagem enviada ou recebida reabre este histórico.</span>
                 <button type="button" onClick={() => void setConversationStatus("open")} className="inline-flex shrink-0 items-center gap-1 rounded-md bg-primary px-2.5 py-1.5 font-medium text-primary-foreground"><Unlock className="h-3.5 w-3.5" /> Reabrir conversa</button>
               </div>
             )}
