@@ -23,6 +23,9 @@ import {
   Unlock,
   Folder,
   StickyNote,
+  Reply,
+  Flag,
+  Pencil,
 } from "lucide-react";
 import { empresaTagColor, categoriaTagColor, contactCategoria, CATEGORIAS_SUGERIDAS, normalizeKey } from "@/lib/ariiatalkTags";
 import { supabase } from "@/integrations/supabase/client";
@@ -34,6 +37,11 @@ import ConversationFilters from "@/components/ariiatalk/ConversationFilters";
 import ContactAvatar from "@/components/ariiatalk/ContactAvatar";
 import { isListedConversation } from "@/lib/ariiatalkContacts";
 import { findMessageMatches } from "@/lib/ariiatalkMessageSearch";
+import MessageActions from "@/components/ariiatalk/MessageActions";
+import { canEditMessage, quoteSnapshot } from "../../supabase/functions/_shared/ariiatalkMessageActions";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 type Instance = {
   id: string;
@@ -130,8 +138,13 @@ type ChatMessage = {
   autor_nome?: string | null;
   enviada_em: string | null;
   criado_em: string;
+  resposta_mensagem_id?: string | null;
+  resposta_snapshot?: { id?: string; autor_nome: string; conteudo: string } | null;
+  editada_em?: string | null;
+  anotacoes?: MessageAnnotation[];
 };
 
+type MessageAnnotation = { usuario_id: number; sinalizada: boolean; nota: string; marcacao: string; usuarios?: { nome: string } | null };
 type View = "conversas" | "contatos" | "instancias";
 type ListMode = "inbox" | "conversas";
 type ConversationTab = "minhas" | "nao_atribuidas" | "todos";
@@ -231,6 +244,14 @@ export default function AriiaTalk() {
   const [savingNote, setSavingNote] = useState(false);
   const [messageSearch, setMessageSearch] = useState("");
   const [highlightMessageId, setHighlightMessageId] = useState<string | null>(null);
+  const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
+  const [editTarget, setEditTarget] = useState<ChatMessage | null>(null);
+  const [editText, setEditText] = useState("");
+  const [annotationTarget, setAnnotationTarget] = useState<ChatMessage | null>(null);
+  const [annotationForm, setAnnotationForm] = useState({ sinalizada: false, nota: "", marcacao: "" });
+  const [actionBusy, setActionBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  useEffect(() => { setReplyTo(null); setEditTarget(null); setAnnotationTarget(null); setActionError(null); }, [selectedId]);
 
   const loadConversations = useCallback(async () => {
     setError(null);
@@ -597,6 +618,7 @@ export default function AriiaTalk() {
       ? container.scrollHeight - container.scrollTop - container.clientHeight < 100
       : true;
 
+    if (selectedIdRef.current !== conversationId) return;
     setMessages(Array.isArray(data?.messages) ? data.messages : []);
 
     requestAnimationFrame(() => {
@@ -609,6 +631,30 @@ export default function AriiaTalk() {
     if (!silent) setLoadingMessages(false);
     void loadConversations();
   }, [loadConversations]);
+
+  async function messageAction(action: "edit" | "annotate", target: ChatMessage, values: Record<string, unknown>) {
+    if (actionBusy) return;
+    setActionBusy(true);
+    setActionError(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("ariiatalk-mensagens", { body: { action, conversa_id: target.conversa_id, mensagem_id: target.id, ...values } });
+      if (error || data?.error || !data?.success) {
+        setActionError(action === "edit" ? "Não foi possível editar no WhatsApp. A mensagem pode estar fora do prazo ou a conexão não permitir edição; o texto original foi mantido." : "Não foi possível salvar a anotação. Tente novamente.");
+        return;
+      }
+      setEditTarget(null);
+      setAnnotationTarget(null);
+      await loadMessages(target.conversa_id, true);
+    } catch { setActionError("Falha de conexão. Suas alterações não foram descartadas; tente novamente."); }
+    finally { setActionBusy(false); }
+  }
+
+  function myAnnotation(message: ChatMessage) { return message.anotacoes?.find(a => a.usuario_id === user?.id); }
+  function openAnnotation(message: ChatMessage) {
+    const mine = myAnnotation(message);
+    setAnnotationForm({ sinalizada: mine?.sinalizada ?? false, nota: mine?.nota ?? "", marcacao: mine?.marcacao ?? "" });
+    setAnnotationTarget(message); setActionError(null);
+  }
 
   const sendMessage = useCallback(async () => {
     const text = messageText.trim();
@@ -631,6 +677,8 @@ export default function AriiaTalk() {
       autor_nome: [user?.nome, user?.sobrenome].filter(Boolean).join(" "),
       enviada_em: now,
       criado_em: now,
+      resposta_mensagem_id: replyTo?.id ?? null,
+      resposta_snapshot: replyTo ? quoteSnapshot(replyTo) : null,
     };
 
     setMessages((current) => [...current, optimisticMessage]);
@@ -651,6 +699,7 @@ export default function AriiaTalk() {
             action: "send",
             conversa_id: conversationId,
             texto: text,
+            resposta_mensagem_id: replyTo?.id ?? null,
           },
         });
 
@@ -676,6 +725,7 @@ export default function AriiaTalk() {
       }
 
       setConversations(cur => cur.map(c => c.id === conversationId ? { ...c, status: "open" } : c));
+      setReplyTo(null);
       void loadMessages(conversationId, true);
     } catch (error) {
       console.error("[AriiaTalk] Erro ao enviar mensagem:", error);
@@ -692,7 +742,7 @@ export default function AriiaTalk() {
     } finally {
       setSendingMessage(false);
     }
-  }, [messageText, selectedId, sendingMessage, loadMessages, user]);
+  }, [messageText, selectedId, sendingMessage, loadMessages, user, replyTo]);
 
   const loadInstances = useCallback(async () => {
     setLoadingInstances(true);
@@ -1519,11 +1569,23 @@ export default function AriiaTalk() {
                         data-message-id={message.id}
                         className={`flex ${message.direcao === "saida" ? "justify-end" : "justify-start"}`}
                       >
-                        <div className={`max-w-[85%] rounded-2xl px-3 py-2 shadow-sm sm:max-w-[75%] ${
+                        <div className={`min-w-0 max-w-[85%] rounded-lg px-3 py-2 shadow-sm sm:max-w-[75%] ${
                           message.direcao === "saida"
                             ? "rounded-br-sm bg-primary text-primary-foreground"
                             : "rounded-bl-sm border bg-background"
                         }${message.id === highlightMessageId ? " ring-2 ring-primary ring-offset-2 ring-offset-background" : ""}`}>
+                          <div className="flex items-center justify-end gap-2">
+                            {message.anotacoes?.some(a => a.sinalizada) && <Flag className="h-3.5 w-3.5" aria-label="Sinalizada internamente" />}
+                            <MessageActions canReply={Boolean(message.evolution_message_id)} canEdit={canEditMessage(message, user?.id)} flagged={myAnnotation(message)?.sinalizada ?? false} disabled={actionBusy || sendingMessage || message.id.startsWith("optimistic-")}
+                              onReply={() => { setReplyTo(message); document.querySelector<HTMLInputElement>('input[aria-label="Mensagem"]')?.focus(); }}
+                              onEdit={() => { setEditTarget(message); setEditText(message.conteudo ?? ""); setActionError(null); }}
+                              onCopy={() => { void navigator.clipboard.writeText(message.conteudo || message.media_url || "").then(() => setNotice("Mensagem copiada."), () => setNotice("Não foi possível copiar. Verifique a permissão do navegador.")); }}
+                              onFlag={() => { const mine = myAnnotation(message); void messageAction("annotate", message, { sinalizada: !mine?.sinalizada, nota: mine?.nota ?? "", marcacao: mine?.marcacao ?? "" }); }}
+                              onNote={() => openAnnotation(message)} />
+                          </div>
+                          {message.resposta_snapshot && <Button type="button" variant="ghost" className="mb-2 h-auto w-full justify-start rounded-sm border-l-2 border-current bg-background/10 px-2 py-1.5 text-left text-current" onClick={() => { if (message.resposta_mensagem_id) jumpToMessage(message.resposta_mensagem_id); }}>
+                            <span className="min-w-0"><span className="block text-xs font-semibold">{message.resposta_snapshot.autor_nome}</span><span className="block max-w-full whitespace-pre-wrap break-words text-xs opacity-80">{message.resposta_snapshot.conteudo.slice(0, 200)}</span></span>
+                          </Button>}
                           {message.direcao === "saida" && (
                             <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold">
                               <UserRound className="h-3.5 w-3.5 shrink-0" />
@@ -1546,7 +1608,13 @@ export default function AriiaTalk() {
                           {!message.conteudo && !message.media_url && (
                             <p className="text-sm italic opacity-80">Mensagem do tipo {message.tipo}</p>
                           )}
+                          {message.anotacoes?.filter(a => a.sinalizada || a.nota || a.marcacao).map(a => <div key={a.usuario_id} className="mt-2 border-t border-current/20 pt-1.5 text-xs">
+                            <span className="flex items-center gap-1 font-semibold"><StickyNote className="h-3 w-3" />Interno · {a.usuarios?.nome || "Técnico"}{a.sinalizada ? " · Sinalizada" : ""}</span>
+                            {a.marcacao && <span className="mt-1 block font-medium">#{a.marcacao}</span>}
+                            {a.nota && <p className="mt-1 whitespace-pre-wrap break-words">{a.nota}</p>}
+                          </div>)}
                           <div className="mt-1 flex items-center justify-end gap-1 text-[10px] opacity-70">
+                            {message.editada_em && <span>Editada ·</span>}
                             <span>
                               {new Date(message.enviada_em || message.criado_em).toLocaleTimeString("pt-BR", {
                                 hour: "2-digit",
@@ -1584,6 +1652,28 @@ export default function AriiaTalk() {
                 <button type="button" onClick={() => void setConversationStatus("open")} className="inline-flex shrink-0 items-center gap-1 rounded-md bg-primary px-2.5 py-1.5 font-medium text-primary-foreground"><Unlock className="h-3.5 w-3.5" /> Reabrir conversa</button>
               </div>
             )}
+            {replyTo && <div className="flex items-center gap-2 border-t bg-accent/40 px-4 py-2">
+              <Reply className="h-4 w-4 shrink-0 text-primary" /><div className="min-w-0 flex-1 border-l-2 border-primary pl-2"><p className="text-xs font-semibold text-primary">Respondendo a {replyTo.autor_nome || selectedConversation?.nome_contato || "Contato"}</p><p className="truncate text-xs text-muted-foreground">{replyTo.conteudo || `[${replyTo.tipo}]`}</p></div>
+              <Button variant="ghost" size="icon" disabled={sendingMessage} aria-label="Cancelar resposta" onClick={() => setReplyTo(null)}><X className="h-4 w-4" /></Button>
+            </div>}
+            {actionError && !editTarget && !annotationTarget && <p role="alert" className="px-4 py-2 text-xs text-destructive">{actionError}</p>}
+            <Dialog open={Boolean(editTarget)} onOpenChange={open => { if (!open && !actionBusy) setEditTarget(null); }}>
+              <DialogContent><DialogHeader><DialogTitle className="flex items-center gap-2"><Pencil className="h-4 w-4" />Editar mensagem</DialogTitle></DialogHeader>
+                <Textarea aria-label="Texto da mensagem editada" value={editText} maxLength={4000} rows={5} onChange={e => setEditText(e.target.value)} disabled={actionBusy} />
+                {actionError && <p role="alert" className="text-sm text-destructive">{actionError}</p>}
+                <DialogFooter><Button variant="outline" disabled={actionBusy} onClick={() => setEditTarget(null)}>Cancelar</Button><Button disabled={actionBusy || !editText.trim() || editText.trim() === editTarget?.conteudo} onClick={() => { if (editTarget) void messageAction("edit", editTarget, { texto: editText.trim() }); }}>{actionBusy ? "Salvando..." : "Salvar no WhatsApp"}</Button></DialogFooter>
+              </DialogContent>
+            </Dialog>
+            <Dialog open={Boolean(annotationTarget)} onOpenChange={open => { if (!open && !actionBusy) setAnnotationTarget(null); }}>
+              <DialogContent><DialogHeader><DialogTitle>Nota / marcação interna</DialogTitle></DialogHeader>
+                <p className="border-l-2 border-primary pl-3 text-sm text-muted-foreground">{annotationTarget?.conteudo?.slice(0, 200)}</p>
+                <label className="text-sm font-medium" htmlFor="message-mark">Marcação</label><Input id="message-mark" maxLength={60} placeholder="Ex.: Acompanhar retorno" value={annotationForm.marcacao} disabled={actionBusy} onChange={e => setAnnotationForm(f => ({ ...f, marcacao: e.target.value }))} />
+                <label className="text-sm font-medium" htmlFor="message-note">Minha nota interna</label><Textarea id="message-note" maxLength={2000} rows={4} value={annotationForm.nota} disabled={actionBusy} onChange={e => setAnnotationForm(f => ({ ...f, nota: e.target.value }))} />
+                <label className="flex items-center gap-2 text-sm"><input type="checkbox" disabled={actionBusy} checked={annotationForm.sinalizada} onChange={e => setAnnotationForm(f => ({ ...f, sinalizada: e.target.checked }))} /><Flag className="h-4 w-4" />Sinalizada</label>
+                {actionError && <p role="alert" className="text-sm text-destructive">{actionError}</p>}
+                <DialogFooter><Button variant="outline" disabled={actionBusy} onClick={() => setAnnotationTarget(null)}>Cancelar</Button><Button disabled={actionBusy} onClick={() => { if (annotationTarget) void messageAction("annotate", annotationTarget, annotationForm); }}>{actionBusy ? "Salvando..." : "Salvar anotação"}</Button></DialogFooter>
+              </DialogContent>
+            </Dialog>
             <form
               onSubmit={(event) => {
                 event.preventDefault();
