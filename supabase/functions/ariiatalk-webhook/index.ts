@@ -1,6 +1,7 @@
 ﻿import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { serviceClient } from "../_shared/grafana.ts";
 import { matchesOutboundEcho } from "../_shared/ariiatalkSignature.ts";
+import { quotedContext, editedContent, cleanEditedText } from "../_shared/ariiatalkWebhookActions.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -211,6 +212,20 @@ serve(async (req) => {
         key.id ?? item?.messageId ?? item?.data?.key?.id
       );
 
+      const edit = editedContent(item?.message);
+      if (edit) {
+        const { data: editConversation } = await db.from("ariiatalk_conversas").select("id").eq("instancia_id", instance.id).eq("remote_jid", remoteJid).maybeSingle();
+        if (editConversation) {
+          const { data: original } = await db.from("ariiatalk_mensagens").select("id, assinatura").eq("conversa_id", editConversation.id).eq("evolution_message_id", edit.evolutionId).maybeSingle();
+          if (original) {
+            const { error } = await db.from("ariiatalk_mensagens").update({ conteudo: cleanEditedText(edit.text, original.assinatura), texto_whatsapp: edit.text, editada_em: new Date().toISOString() }).eq("id", original.id);
+            if (error) return respond({ error: "message_edit_update_failed" }, 500);
+          }
+        }
+        processed++;
+        continue;
+      }
+
       // Verifica duplicação ANTES de alterar a conversa.
       if (messageId) {
         const { data: existingMessage, error } = await db
@@ -331,6 +346,16 @@ serve(async (req) => {
         conversationId = newConversation.id;
       }
 
+      const quote = quotedContext(item?.message);
+      let quoteId = null;
+      let snapshot: any = quote?.snapshot ?? null;
+      if (quote) {
+        const { data: quoted } = await db.from("ariiatalk_mensagens").select("id, conteudo, autor_nome, direcao, tipo").eq("conversa_id", conversationId).eq("evolution_message_id", quote.evolutionId).maybeSingle();
+        if (quoted) {
+          quoteId = quoted.id;
+          snapshot = { id: quoted.id, autor_nome: quoted.autor_nome || (quoted.direcao === "entrada" ? pushName : "WhatsApp / dispositivo"), conteudo: quoted.conteudo || `[${quoted.tipo}]` };
+        }
+      }
       const { error: insertError } = await db
         .from("ariiatalk_mensagens")
         .insert({
@@ -343,6 +368,8 @@ serve(async (req) => {
           status: direction === "entrada" ? "recebida" : "enviada",
           enviada_em: messageDate,
           payload: item,
+          resposta_mensagem_id: quoteId,
+          resposta_snapshot: snapshot,
         });
 
       if (insertError) {
