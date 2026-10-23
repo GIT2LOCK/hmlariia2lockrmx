@@ -1,4 +1,8 @@
 # Cronograma
+## AriiaTalk: fotos do WhatsApp
+- [ ] Consultar fotos pela Evolution com cache e fallback sem foto.
+- [ ] Exibir ao lado do nome em contatos, conversas ativas e cabeçalho.
+- [ ] Implantar e verificar testes; consulta real depende de sessão autenticada disponível.
 ## AriiaTalk: contatos e reabertura
 - [x] Criar aba de contatos com filtros adicionais.
 - [x] Ocultar encerradas da lista ativa e preservar histórico ao enviar novamente.

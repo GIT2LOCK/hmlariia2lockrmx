@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { LoaderCircle, MessageCircle, Search, UserPlus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import ContactAvatar from "./ContactAvatar";
 import { contactCategoria } from "@/lib/ariiatalkTags";
 import { EMPTY_CONTACT_FILTERS, filterContacts, type ContactRecord } from "@/lib/ariiatalkContacts";
 
@@ -36,7 +37,7 @@ export default function ContactsView<T extends ContactRecord>({ contacts, loadin
         : error ? <div className="p-8 text-center"><p className="text-destructive">{error}</p><Button variant="outline" className="mt-3" onClick={onRetry}>Tentar novamente</Button></div>
         : rows.length === 0 ? <p className="p-8 text-center text-muted-foreground">Nenhum contato encontrado.</p>
         : <table className="w-full text-left text-sm"><thead className="sticky top-0 z-10 bg-background"><tr className="border-b">{["Nome", "Telefone / E-mail", "Empresa / Unidade", "Categoria", ""].map((label, i) => <th key={i} className="px-4 py-3 font-medium text-muted-foreground">{label}</th>)}</tr></thead><tbody>{rows.map(c => <tr key={c.id} className="border-b hover:bg-muted/30">
-          <td className="px-4 py-3 font-medium">{c.nome}</td><td className="px-4 py-3"><span className="block whitespace-nowrap">{c.telefone || "Sem telefone"}</span><span className="break-all text-xs text-muted-foreground">{c.email}</span></td>
+          <td className="px-4 py-3 font-medium"><span className="flex items-center gap-3"><ContactAvatar name={c.nome} contactId={c.telefone ? c.id : null} photoUrl={c.foto_whatsapp_url} /><span className="min-w-0 break-words">{c.nome}</span></span></td><td className="px-4 py-3"><span className="block whitespace-nowrap">{c.telefone || "Sem telefone"}</span><span className="break-all text-xs text-muted-foreground">{c.email}</span></td>
           <td className="px-4 py-3"><span className="block">{empresas.find(e => e.id === c.empresa_id)?.nome_fantasia || "—"}</span><span className="text-xs text-muted-foreground">{unidades.find(u => u.id === c.unidade_id)?.nome_unidade}</span></td>
           <td className="px-4 py-3">{contactCategoria(c) || "—"}</td><td className="px-4 py-3"><Button variant="outline" size="sm" disabled={startingId !== null || !c.telefone} onClick={() => onStart(c)}>{startingId === c.id ? <LoaderCircle className="animate-spin" /> : <MessageCircle />}Abrir conversa</Button></td>
         </tr>)}</tbody></table>}
