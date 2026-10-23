@@ -58,7 +58,7 @@ export default function ConversationAssignee({
           className={cn(
             "h-7 w-auto min-w-[8rem] gap-1.5 border-0 bg-transparent px-1 py-0 text-sm shadow-none",
             "focus:ring-0 focus-visible:ring-0",
-            "[&>span]:line-clamp-1",
+            "[&>span]:line-clamp-none",
           )}
         >
           <span className="flex items-center gap-1.5">
