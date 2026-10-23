@@ -21,7 +21,6 @@ import {
   UserPlus,
   Lock,
   Unlock,
-  Filter,
   Folder,
   StickyNote,
 } from "lucide-react";
@@ -30,6 +29,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useUser } from "@/contexts/UserContext";
 import { Button } from "@/components/ui/button";
 import ContactsView from "@/components/ariiatalk/ContactsView";
+import ConversationFilters from "@/components/ariiatalk/ConversationFilters";
 import ContactAvatar from "@/components/ariiatalk/ContactAvatar";
 import { isListedConversation } from "@/lib/ariiatalkContacts";
 
@@ -857,7 +857,6 @@ export default function AriiaTalk() {
   });
 }, [conversations, search, conversationTab, user?.id, filters]);
 
-  const activeFilterCount = Object.entries(filters).filter(([, v]) => Boolean(v)).length;
   const categoriasDisponiveis = useMemo(
     () => [...new Set(conversations.map((c) => contactCategoria(c.contato ?? {})).filter(Boolean) as string[])].sort(),
     [conversations],
@@ -1213,16 +1212,16 @@ export default function AriiaTalk() {
                     <button type="button" onClick={() => setSearch("")} aria-label="Limpar busca"><X className="h-3.5 w-3.5 text-muted-foreground" /></button>
                   )}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => { setShowFilters((v) => !v); setListMode("conversas"); }}
-                  aria-pressed={showFilters}
-                  className={`relative inline-flex h-9 shrink-0 items-center rounded-md border px-2 text-xs hover:bg-muted ${activeFilterCount ? "border-primary text-primary" : ""}`}
-                  title="Filtros"
-                >
-                  <Filter className="h-4 w-4" />
-                  {activeFilterCount > 0 && <span className="absolute -right-1.5 -top-1.5 rounded-full bg-primary px-1 text-[10px] text-primary-foreground">{activeFilterCount}</span>}
-                </button>
+                <ConversationFilters
+                  open={showFilters}
+                  onOpenChange={open => { setShowFilters(open); if (open) setListMode("conversas"); }}
+                  filters={filters} onChange={setFilters} onReset={() => setFilters(EMPTY_FILTERS)}
+                  staff={staff} empresas={empresasOpt} categorias={categoriasDisponiveis}
+                  instances={[...new Map(conversations.flatMap(c => c.ariiatalk_instancias ? [[c.instancia_id, { id: c.instancia_id, nome: c.ariiatalk_instancias.nome }] as const] : [])).values()]}
+                  folders={folders} folderCounts={Object.fromEntries(folders.map(f => [f.id, conversations.filter(c => (c.pasta_ids ?? []).includes(f.id)).length]))}
+                  newFolder={newFolder} onNewFolder={setNewFolder} onCreate={() => void createFolder()}
+                  onDelete={folder => { const found = folders.find(f => f.id === folder.id); if (found) void deleteFolder(found); }}
+                />
                 <button
                   type="button"
                   onClick={() => { setCError(null); setCDuplicate(null); setContactDialog(true); }}
@@ -1253,56 +1252,6 @@ export default function AriiaTalk() {
                 </button>
               </div>
             </div>
-
-            {showFilters && listMode === "conversas" && !searchResults && (
-              <div className="space-y-2 border-b bg-muted/30 p-3 text-xs">
-                <div className="grid grid-cols-2 gap-2">
-                  <select aria-label="Status" value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })} className="h-8 rounded-md border bg-background px-1.5">
-                    <option value="">Abertas</option><option value="closed">Encerradas</option>
-                  </select>
-                  <select aria-label="Responsável" value={filters.responsavel} onChange={(e) => setFilters({ ...filters, responsavel: e.target.value })} className="h-8 rounded-md border bg-background px-1.5">
-                    <option value="">Qualquer responsável</option><option value="none">Sem responsável</option>
-                    {staff.map((st) => <option key={st.id} value={st.id}>{st.nome}</option>)}
-                  </select>
-                  <select aria-label="Instância" value={filters.instancia} onChange={(e) => setFilters({ ...filters, instancia: e.target.value })} className="h-8 rounded-md border bg-background px-1.5">
-                    <option value="">Todas as instâncias</option>
-                    {[...new Map(conversations.flatMap((c) => c.ariiatalk_instancias ? [[c.instancia_id, c.ariiatalk_instancias.nome] as const] : [])).entries()].map(([id, nome]) => <option key={id} value={id}>{nome}</option>)}
-                  </select>
-                  <select aria-label="Empresa" value={filters.empresa} onChange={(e) => setFilters({ ...filters, empresa: e.target.value })} className="h-8 rounded-md border bg-background px-1.5">
-                    <option value="">Todas as empresas</option>
-                    {empresasOpt.map((em) => <option key={em.id} value={em.id}>{em.nome_fantasia}</option>)}
-                  </select>
-                  <select aria-label="Categoria" value={filters.categoria} onChange={(e) => setFilters({ ...filters, categoria: e.target.value })} className="h-8 rounded-md border bg-background px-1.5">
-                    <option value="">Todas as categorias</option>
-                    {categoriasDisponiveis.map((c) => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                  <select aria-label="Pasta" value={filters.pasta} onChange={(e) => setFilters({ ...filters, pasta: e.target.value })} className="h-8 rounded-md border bg-background px-1.5">
-                    <option value="">Todas as pastas</option>
-                    {folders.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}
-                  </select>
-                </div>
-                <div className="flex items-center justify-between">
-                  <label className="inline-flex items-center gap-1.5"><input type="checkbox" checked={filters.naoLidas} onChange={(e) => setFilters({ ...filters, naoLidas: e.target.checked })} /> Só com não lidas</label>
-                  {activeFilterCount > 0 && <button type="button" onClick={() => setFilters(EMPTY_FILTERS)} className="font-medium text-primary hover:underline">Limpar filtros</button>}
-                </div>
-                <div className="border-t pt-2">
-                  <p className="mb-1 font-semibold text-muted-foreground">Pastas</p>
-                  <div className="flex flex-wrap gap-1">
-                    {folders.length === 0 && <span className="text-muted-foreground">Nenhuma pasta criada.</span>}
-                    {folders.map((f) => (
-                      <span key={f.id} className={`inline-flex items-center gap-1 rounded-[3px] border px-1.5 py-0.5 ${filters.pasta === f.id ? "border-primary bg-primary/10" : "bg-background"}`}>
-                        <button type="button" onClick={() => setFilters({ ...filters, pasta: filters.pasta === f.id ? "" : f.id })} className="inline-flex items-center gap-1"><Folder className="h-3 w-3" />{f.nome} <span className="text-muted-foreground">({conversations.filter((c) => (c.pasta_ids ?? []).includes(f.id)).length})</span></button>
-                        <button type="button" onClick={() => void deleteFolder(f)} aria-label={`Excluir pasta ${f.nome}`}><X className="h-3 w-3 text-muted-foreground" /></button>
-                      </span>
-                    ))}
-                  </div>
-                  <form onSubmit={(e) => { e.preventDefault(); void createFolder(); }} className="mt-2 flex gap-1">
-                    <input value={newFolder} onChange={(e) => setNewFolder(e.target.value)} maxLength={60} placeholder="Nova pasta..." className="h-8 min-w-0 flex-1 rounded-md border bg-background px-2" />
-                    <button type="submit" disabled={!newFolder.trim()} className="rounded-md bg-primary px-2 text-primary-foreground disabled:opacity-50"><Plus className="h-3.5 w-3.5" /></button>
-                  </form>
-                </div>
-              </div>
-            )}
 
             {listMode === "conversas" && !searchResults && (
             <div
@@ -1481,7 +1430,7 @@ export default function AriiaTalk() {
                     )}
                     <div className="relative">
                       <button type="button" onClick={() => setFolderMenu((v) => !v)} className="inline-flex h-8 items-center gap-1 rounded-md border px-2 text-xs font-medium hover:bg-muted" aria-expanded={folderMenu}>
-                        <Folder className="h-3.5 w-3.5" /> Pastas{(selectedConversation.pasta_ids ?? []).length ? ` (${selectedConversation.pasta_ids?.length})` : ""}
+                        <Folder className="h-3.5 w-3.5" /> Minhas pastas{(selectedConversation.pasta_ids ?? []).length ? ` (${selectedConversation.pasta_ids?.length})` : ""}
                       </button>
                       {folderMenu && (
                         <div className="absolute right-0 z-20 mt-1 w-56 rounded-md border bg-popover p-2 text-xs shadow-lg">

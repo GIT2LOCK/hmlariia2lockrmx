@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { corsHeaders as sdkCorsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { isPhotoFresh, profilePictureUrl, whatsappNumber } from "./profilePicture.ts";
+import { ownsFolder } from "./folders.ts";
 import {
   serviceClient,
 } from "../_shared/grafana.ts";
@@ -507,7 +508,7 @@ serve(async (req) => {
       }
 
       if (body.action === "list_folders") {
-        const { data, error: fErr } = await db.from("ariiatalk_pastas").select("id, nome, cor").order("nome");
+        const { data, error: fErr } = await db.from("ariiatalk_pastas").select("id, nome, cor").eq("criado_por", caller.id).order("nome");
         if (fErr) return jsonResponse({ error: "folders_query_failed" }, 500);
         return jsonResponse({ folders: data ?? [] });
       }
@@ -524,7 +525,10 @@ serve(async (req) => {
 
       if (body.action === "delete_folder") {
         const folderId = String(body.folder_id ?? "");
-        const { error: dErr } = await db.from("ariiatalk_pastas").delete().eq("id", folderId);
+        const { data: folder, error: folderError } = await db.from("ariiatalk_pastas").select("criado_por").eq("id", folderId).eq("criado_por", caller.id).maybeSingle();
+        if (folderError) return jsonResponse({ error: "folders_query_failed" }, 500);
+        if (!ownsFolder(folder, caller.id)) return jsonResponse({ error: "folder_not_found" }, 404);
+        const { error: dErr } = await db.from("ariiatalk_pastas").delete().eq("id", folderId).eq("criado_por", caller.id);
         if (dErr) return jsonResponse({ error: "folder_delete_failed" }, 500);
         return jsonResponse({ success: true });
       }
@@ -532,13 +536,19 @@ serve(async (req) => {
       if (body.action === "toggle_folder") {
         const conversationId = String(body.conversation_id ?? "").trim();
         const folderId = String(body.folder_id ?? "").trim();
-        if (!conversationId || !folderId) return jsonResponse({ error: "invalid_request" }, 400);
+        if (!conversationId || !folderId || typeof body.add !== "boolean") return jsonResponse({ error: "invalid_request" }, 400);
+        const { data: folder, error: folderError } = await db.from("ariiatalk_pastas").select("criado_por").eq("id", folderId).eq("criado_por", caller.id).maybeSingle();
+        if (folderError) return jsonResponse({ error: "folders_query_failed" }, 500);
+        if (!ownsFolder(folder, caller.id)) return jsonResponse({ error: "folder_not_found" }, 404);
+        const { data: conversation, error: conversationError } = await db.from("ariiatalk_conversas").select("id").eq("id", conversationId).maybeSingle();
+        if (conversationError || !conversation) return jsonResponse({ error: "conversation_not_found" }, 404);
         if (body.add === true) {
           const { error: aErr } = await db.from("ariiatalk_conversa_pastas")
             .upsert({ conversa_id: conversationId, pasta_id: folderId, adicionado_por: caller.id }, { onConflict: "conversa_id,pasta_id" });
           if (aErr) return jsonResponse({ error: "folder_link_failed" }, 500);
         } else {
-          await db.from("ariiatalk_conversa_pastas").delete().eq("conversa_id", conversationId).eq("pasta_id", folderId);
+          const { error: removeError } = await db.from("ariiatalk_conversa_pastas").delete().eq("conversa_id", conversationId).eq("pasta_id", folderId);
+          if (removeError) return jsonResponse({ error: "folder_link_failed" }, 500);
         }
         return jsonResponse({ success: true });
       }
@@ -596,7 +606,7 @@ serve(async (req) => {
       db.rpc("fn_ariiatalk_nao_lidas", { _usuario_id: caller.id }),
       db.from("usuarios").select("id, nome").in("id", [...new Set(rows.map((r: any) => r.responsavel_id).filter(Boolean))]),
       db.from("contatos").select(CONTACT_SELECT).in("id", [...new Set(rows.map((r: any) => r.contato_id).filter(Boolean))]),
-      db.from("ariiatalk_conversa_pastas").select("conversa_id, pasta_id").in("conversa_id", rows.map((r: any) => r.id)),
+      db.from("ariiatalk_conversa_pastas").select("conversa_id, pasta_id, ariiatalk_pastas!inner(criado_por)").eq("ariiatalk_pastas.criado_por", caller.id).in("conversa_id", rows.map((r: any) => r.id)),
     ]);
     const folderMap = new Map<string, string[]>();
     (foldersRes.data ?? []).forEach((f: any) => folderMap.set(f.conversa_id, [...(folderMap.get(f.conversa_id) ?? []), f.pasta_id]));

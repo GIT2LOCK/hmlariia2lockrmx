@@ -1,4 +1,9 @@
 # Cronograma
+## AriiaTalk: pastas pessoais e filtros
+- [x] Restringir listagem, exclusão e associações de pastas ao criador.
+- [x] Reorganizar filtros em painel amplo com campos identificados e pastas pessoais.
+- [x] Verificar testes e implantação: 7 testes passaram; painel conferido com dados de teste, seleção GoodStorage e sem excesso de largura.
+- [ ] Validar isolamento entre contas reais: bloqueado por ausência de sessões autenticadas no Supabase externo.
 ## AriiaTalk: fotos do WhatsApp
 - [x] Consultar fotos pela Evolution com cache e fallback sem foto.
 - [x] Exibir ao lado do nome em contatos, conversas ativas e cabeçalho.
