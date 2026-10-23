@@ -20,7 +20,7 @@ function formatNational(digits: string): string {
   if (digits.length <= 2) return `(${digits}`;
   const area = digits.slice(0, 2);
   const rest = digits.slice(2, 11);
-  if (rest.length <= 4) return `(${area}) ${rest}`;
+  if (rest.length <= 5) return `(${area}) ${rest}`;
   return `(${area}) ${rest.slice(0, rest.length - 4)}-${rest.slice(-4)}`;
 }
 
