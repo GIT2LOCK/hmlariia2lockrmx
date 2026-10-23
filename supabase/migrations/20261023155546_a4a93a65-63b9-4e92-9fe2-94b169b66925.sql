@@ -1,0 +1,6 @@
+ALTER TABLE public.ariiatalk_mensagens ADD COLUMN IF NOT EXISTS resposta_mensagem_id uuid REFERENCES public.ariiatalk_mensagens(id) ON DELETE SET NULL, ADD COLUMN IF NOT EXISTS resposta_snapshot jsonb, ADD COLUMN IF NOT EXISTS editada_em timestamptz;
+CREATE TABLE public.ariiatalk_mensagem_anotacoes (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), mensagem_id uuid NOT NULL REFERENCES public.ariiatalk_mensagens(id) ON DELETE CASCADE, usuario_id integer NOT NULL REFERENCES public.usuarios(id) ON DELETE CASCADE, sinalizada boolean NOT NULL DEFAULT false, nota text NOT NULL DEFAULT '', marcacao text NOT NULL DEFAULT '', criado_em timestamptz NOT NULL DEFAULT now(), atualizado_em timestamptz NOT NULL DEFAULT now(), UNIQUE(mensagem_id, usuario_id));
+GRANT ALL ON public.ariiatalk_mensagem_anotacoes TO service_role;
+ALTER TABLE public.ariiatalk_mensagem_anotacoes ENABLE ROW LEVEL SECURITY;
+CREATE POLICY ariiatalk_message_annotations_service_only ON public.ariiatalk_mensagem_anotacoes FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE TRIGGER ariiatalk_message_annotations_touch BEFORE UPDATE ON public.ariiatalk_mensagem_anotacoes FOR EACH ROW EXECUTE FUNCTION public.atualizar_timestamp();

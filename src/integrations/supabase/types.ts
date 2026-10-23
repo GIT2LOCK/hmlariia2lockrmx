@@ -287,6 +287,54 @@ export type Database = {
           },
         ]
       }
+      ariiatalk_mensagem_anotacoes: {
+        Row: {
+          atualizado_em: string
+          criado_em: string
+          id: string
+          marcacao: string
+          mensagem_id: string
+          nota: string
+          sinalizada: boolean
+          usuario_id: number
+        }
+        Insert: {
+          atualizado_em?: string
+          criado_em?: string
+          id?: string
+          marcacao?: string
+          mensagem_id: string
+          nota?: string
+          sinalizada?: boolean
+          usuario_id: number
+        }
+        Update: {
+          atualizado_em?: string
+          criado_em?: string
+          id?: string
+          marcacao?: string
+          mensagem_id?: string
+          nota?: string
+          sinalizada?: boolean
+          usuario_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ariiatalk_mensagem_anotacoes_mensagem_id_fkey"
+            columns: ["mensagem_id"]
+            isOneToOne: false
+            referencedRelation: "ariiatalk_mensagens"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ariiatalk_mensagem_anotacoes_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ariiatalk_mensagens: {
         Row: {
           assinatura: string | null
@@ -295,12 +343,15 @@ export type Database = {
           conversa_id: string
           criado_em: string
           direcao: string
+          editada_em: string | null
           enviada_em: string | null
           enviado_por: number | null
           evolution_message_id: string | null
           id: string
           media_url: string | null
           payload: Json | null
+          resposta_mensagem_id: string | null
+          resposta_snapshot: Json | null
           status: string
           texto_whatsapp: string | null
           tipo: string
@@ -312,12 +363,15 @@ export type Database = {
           conversa_id: string
           criado_em?: string
           direcao: string
+          editada_em?: string | null
           enviada_em?: string | null
           enviado_por?: number | null
           evolution_message_id?: string | null
           id?: string
           media_url?: string | null
           payload?: Json | null
+          resposta_mensagem_id?: string | null
+          resposta_snapshot?: Json | null
           status?: string
           texto_whatsapp?: string | null
           tipo?: string
@@ -329,12 +383,15 @@ export type Database = {
           conversa_id?: string
           criado_em?: string
           direcao?: string
+          editada_em?: string | null
           enviada_em?: string | null
           enviado_por?: number | null
           evolution_message_id?: string | null
           id?: string
           media_url?: string | null
           payload?: Json | null
+          resposta_mensagem_id?: string | null
+          resposta_snapshot?: Json | null
           status?: string
           texto_whatsapp?: string | null
           tipo?: string
@@ -352,6 +409,13 @@ export type Database = {
             columns: ["enviado_por"]
             isOneToOne: false
             referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ariiatalk_mensagens_resposta_mensagem_id_fkey"
+            columns: ["resposta_mensagem_id"]
+            isOneToOne: false
+            referencedRelation: "ariiatalk_mensagens"
             referencedColumns: ["id"]
           },
         ]
