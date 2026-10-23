@@ -24,7 +24,7 @@ import {
   Folder,
   StickyNote,
 } from "lucide-react";
-import { empresaTagColor, categoriaTagColor, contactCategoria, CATEGORIAS_SUGERIDAS } from "@/lib/ariiatalkTags";
+import { empresaTagColor, categoriaTagColor, contactCategoria, CATEGORIAS_SUGERIDAS, normalizeKey } from "@/lib/ariiatalkTags";
 import { supabase } from "@/integrations/supabase/client";
 import { useUser } from "@/contexts/UserContext";
 import { Button } from "@/components/ui/button";
@@ -114,6 +114,21 @@ function phoneLabel(jid: string | null | undefined) {
   if (d.length === 13) return `+${d.slice(0, 2)} (${d.slice(2, 4)}) ${d.slice(4, 9)}-${d.slice(9)}`;
   if (d.length === 12) return `+${d.slice(0, 2)} (${d.slice(2, 4)}) ${d.slice(4, 8)}-${d.slice(8)}`;
   return d || String(jid ?? "");
+}
+
+// Lowercase, accent-free text with a char map back to the original string,
+// so search matches can be highlighted at their exact original position.
+function buildNorm(text: string): { norm: string; map: number[] } {
+  const chars: string[] = [];
+  const map: number[] = [];
+  for (let i = 0; i < text.length; i++) {
+    const normalized = text[i].normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    for (const ch of normalized) {
+      chars.push(ch);
+      map.push(i);
+    }
+  }
+  return { norm: chars.join(""), map };
 }
 
 type ChatMessage = {
@@ -228,6 +243,8 @@ export default function AriiaTalk() {
   const [notes, setNotes] = useState<Nota[]>([]);
   const [noteText, setNoteText] = useState("");
   const [savingNote, setSavingNote] = useState(false);
+  const [messageSearch, setMessageSearch] = useState("");
+  const [highlightMessageId, setHighlightMessageId] = useState<string | null>(null);
 
   const loadConversations = useCallback(async () => {
     setError(null);
@@ -785,6 +802,35 @@ export default function AriiaTalk() {
       setMessageError(null);
     }
   }, [selectedId, view, loadMessages]);
+
+  useEffect(() => {
+    setMessageSearch("");
+    setHighlightMessageId(null);
+  }, [selectedId]);
+
+  type MessageMatch = { message: ChatMessage; start: number; end: number };
+  const messageMatches = useMemo<MessageMatch[]>(() => {
+    const term = buildNorm(messageSearch.trim()).norm;
+    if (!term) return [];
+    const matches: MessageMatch[] = [];
+    for (const message of messages) {
+      if (!message.conteudo) continue;
+      const { norm, map } = buildNorm(message.conteudo);
+      const idx = norm.indexOf(term);
+      if (idx === -1) continue;
+      const start = map[idx];
+      const end = (map[idx + term.length - 1] ?? map[map.length - 1] ?? start) + 1;
+      matches.push({ message, start, end });
+    }
+    return matches;
+  }, [messages, messageSearch]);
+
+  function jumpToMessage(id: string) {
+    setHighlightMessageId(id);
+    const el = messagesContainerRef.current?.querySelector(`[data-message-id="${CSS.escape(id)}"]`);
+    el?.scrollIntoView({ block: "center", behavior: "smooth" });
+    window.setTimeout(() => setHighlightMessageId((cur) => (cur === id ? null : cur)), 2500);
+  }
 
   useEffect(() => {
     const container = messagesContainerRef.current;
@@ -1499,13 +1545,14 @@ export default function AriiaTalk() {
                     messages.map((message) => (
                       <div
                         key={message.id}
+                        data-message-id={message.id}
                         className={`flex ${message.direcao === "saida" ? "justify-end" : "justify-start"}`}
                       >
                         <div className={`max-w-[85%] rounded-2xl px-3 py-2 shadow-sm sm:max-w-[75%] ${
                           message.direcao === "saida"
                             ? "rounded-br-sm bg-primary text-primary-foreground"
                             : "rounded-bl-sm border bg-background"
-                        }`}>
+                        }${message.id === highlightMessageId ? " ring-2 ring-primary ring-offset-2 ring-offset-background" : ""}`}>
                           {message.direcao === "saida" && (
                             <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold">
                               <UserRound className="h-3.5 w-3.5 shrink-0" />
