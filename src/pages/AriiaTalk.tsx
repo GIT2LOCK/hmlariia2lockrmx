@@ -26,6 +26,7 @@ import {
   Reply,
   Flag,
   Pencil,
+  Users,
 } from "lucide-react";
 import { empresaTagColor, categoriaTagColor, contactCategoria, CATEGORIAS_SUGERIDAS, normalizeKey } from "@/lib/ariiatalkTags";
 import { supabase } from "@/integrations/supabase/client";
