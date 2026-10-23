@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { serviceClient } from "../_shared/grafana.ts";
 import { requireAriiaTalkAccess, authErrorResponse } from "../_shared/authz.ts";
 import { normalizeSignature, outgoingText } from "../_shared/ariiatalkSignature.ts";
+import { sentConversationUpdate } from "../_shared/ariiatalkLifecycle.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -320,11 +321,7 @@ serve(async (req) => {
 
       const { error: updateConversationError } = await db
         .from("ariiatalk_conversas")
-        .update({
-          ultima_mensagem: messageText,
-          ultima_mensagem_em: sentAt,
-          atualizado_em: sentAt,
-        })
+        .update(sentConversationUpdate(messageText, sentAt))
         .eq("id", conversation.id);
 
       if (updateConversationError) {
