@@ -8,7 +8,7 @@ import { z } from "npm:zod@3.25.76";
 import { buildQuoted, quoteSnapshot } from "../_shared/ariiatalkMessageActions.ts";
 import { annotateMessage, editMessage } from "./messageActions.ts";
 
-const historyFields = "id, conversa_id, evolution_message_id, direcao, tipo, conteudo, media_url, status, enviado_por, autor_nome, enviada_em, criado_em, resposta_mensagem_id, resposta_snapshot, editada_em";
+const historyFields = "id, conversa_id, evolution_message_id, direcao, tipo, conteudo, media_url, status, enviado_por, autor_nome, enviada_em, criado_em, resposta_mensagem_id, resposta_snapshot, editada_em, remetente_nome, remetente_jid";
 
 function respond(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
