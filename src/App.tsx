@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
+
 import { DashboardLayout } from "./components/DashboardLayout";
 import Dashboard from "./pages/Dashboard";
 import Empresas from "./pages/Empresas";
@@ -55,6 +56,7 @@ const App = () => (
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/redefinir-senha" element={<ResetPassword />} />
             <Route path="/oauth/consent" element={<OAuthConsent />} />
+
             <Route
               path="/dashboard"
               element={
@@ -90,6 +92,7 @@ const App = () => (
               <Route path="elevadores" element={<ProtectedRoute requireElevadores><Elevadores /></ProtectedRoute>} />
               <Route path="grafana-kiosk" element={<ProtectedRoute allowGrafanaOnly><GrafanaKiosk /></ProtectedRoute>} />
               <Route path="perfil" element={<ProtectedRoute allowGrafanaOnly><MeuPerfil /></ProtectedRoute>} />
+
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

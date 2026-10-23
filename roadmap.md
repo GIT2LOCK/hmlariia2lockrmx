@@ -50,3 +50,8 @@
 - [x] Melhorar Gantt com escala ajustável, nomes e datas legíveis e etapas recolhíveis.
 - [x] Verificar testes e apresentação do Gantt com dados de teste; sessão autenticada indisponível.- [x] Redesenhar a aba Inventário (painel em grade, chips de status com cor/ícone, filtros destacados, footer de contagem)
 - [x] AriiaTalk: grupos registrados automaticamente como contatos (etiqueta Grupo, sem telefone) e reabertos pela lista de contatos
+## AriiaTalk: visual do técnico responsável
+- [x] Trocar a caixa com rótulo em maiúsculas e select nativo por pílula compacta com avatar de iniciais, nome, chevron e botão "Mim".
+- [x] Dropdown com iniciais por técnico, marcação "(você)", item "Eu" quando fora da lista e separador acima de "Sem responsável".
+- [x] Conferir em tela: 3 estados (sem responsável, outro técnico, você) com conteúdo centralizado dentro da pílula e mesma altura dos botões vizinhos; prévia temporária removida.
+- [ ] Validar com conversa real: bloqueado por ausência de sessão autenticada no Supabase externo.

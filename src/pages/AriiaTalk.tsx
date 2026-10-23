@@ -44,6 +44,8 @@ import { findMessageMatches } from "@/lib/ariiatalkMessageSearch";
 import { maskPhoneInput } from "@/lib/ariiatalkPhoneMask";
 import MessageActions from "@/components/ariiatalk/MessageActions";
 import OpenTicketDialog from "@/components/ariiatalk/OpenTicketDialog";
+import ConversationAssignee from "@/components/ariiatalk/ConversationAssignee";
+
 import { Ticket } from "lucide-react";
 import { canEditMessage, quoteSnapshot } from "../../supabase/functions/_shared/ariiatalkMessageActions";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -1519,27 +1521,15 @@ export default function AriiaTalk() {
                     <ContactTags contact={selectedConversation.contato} />
                   </div>
                   <div className="ml-auto flex flex-wrap items-center gap-2">
-                    <div className="flex min-w-0 items-center gap-2 rounded-md border border-primary/20 bg-primary/5 px-2 py-1.5">
-                    <UserRound className="h-5 w-5 shrink-0 text-primary" />
-                    <div className="min-w-0">
-                    <label className="block text-[10px] font-semibold uppercase text-muted-foreground" htmlFor="ariiatalk-responsavel">Técnico responsável</label>
-                    <select
-                      id="ariiatalk-responsavel"
-                      value={selectedConversation.responsavel_id?.toString() ?? ""}
+                    <ConversationAssignee
+                      staff={staff}
+                      value={selectedConversation.responsavel_id}
+                      valueName={selectedConversation.responsavel_nome}
+                      userId={user?.id}
                       disabled={assigning}
-                      onChange={(e) => void assignTo(e.target.value ? Number(e.target.value) : null)}
-                      className="h-7 max-w-[180px] rounded bg-background px-1 text-sm font-semibold text-primary"
-                      title="Responsável (visível só para a equipe)"
-                    >
-                      <option value="">Sem responsável</option>
-                      {user?.id && !staff.some((s) => s.id === user.id) && <option value={user.id}>Eu</option>}
-                      {staff.map((s) => <option key={s.id} value={s.id}>{s.id === user?.id ? `${s.nome} (eu)` : s.nome}</option>)}
-                    </select>
-                    </div>
-                    </div>
-                    {selectedConversation.responsavel_id !== user?.id && user?.id && (
-                      <button type="button" disabled={assigning} onClick={() => void assignTo(user.id)} className="h-8 rounded-md border px-2 text-xs font-medium hover:bg-muted">Atribuir a mim</button>
-                    )}
+                      onChange={(id) => void assignTo(id)}
+                    />
+
                     <div className="relative">
                       <button type="button" onClick={() => setFolderMenu((v) => !v)} className="inline-flex h-8 items-center gap-1 rounded-md border px-2 text-xs font-medium hover:bg-muted" aria-expanded={folderMenu}>
                         <Folder className="h-3.5 w-3.5" /> Minhas pastas{(selectedConversation.pasta_ids ?? []).length ? ` (${selectedConversation.pasta_ids?.length})` : ""}
