@@ -1,4 +1,8 @@
 # Cronograma
+## AriiaTalk: ações nas mensagens
+- [ ] Responder com citação e editar mensagens enviadas no WhatsApp.
+- [ ] Copiar e adicionar sinalizações, notas e marcações internas para técnicos.
+- [ ] Verificar testes, implantação e fluxo disponível; envio real depende de sessão autenticada externa.
 ## AriiaTalk: pesquisa na conversa
 - [x] Campo "Pesquisar na conversa" no painel do contato, abaixo das observações, com resultados acento-insensíveis.
 - [x] Clique no resultado rola até a mensagem no chat e a destaca temporariamente.
