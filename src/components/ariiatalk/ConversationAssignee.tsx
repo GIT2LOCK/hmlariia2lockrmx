@@ -88,9 +88,9 @@ export default function ConversationAssignee({
           {userNotInStaff && (
             <SelectItem value={String(userId)} className="font-medium">
               <span className="flex items-center gap-2">
-                <AvatarFallback className="h-5 w-5 bg-primary/15 text-[9px] font-bold text-primary">
-                  {initials("Eu")}
-                </AvatarFallback>
+                <Avatar className="h-5 w-5">
+                  <AvatarFallback className="bg-primary/15 text-[9px] font-bold text-primary">EU</AvatarFallback>
+                </Avatar>
                 Eu
               </span>
             </SelectItem>
@@ -98,19 +98,22 @@ export default function ConversationAssignee({
           {staff.map((s) => (
             <SelectItem key={s.id} value={String(s.id)} className="font-medium">
               <span className="flex items-center gap-2">
-                <AvatarFallback
-                  className={cn(
-                    "h-5 w-5 text-[9px] font-bold",
-                    s.id === userId ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground",
-                  )}
-                >
-                  {initials(s.nome)}
-                </AvatarFallback>
+                <Avatar className="h-5 w-5">
+                  <AvatarFallback
+                    className={cn(
+                      "text-[9px] font-bold",
+                      s.id === userId ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground",
+                    )}
+                  >
+                    {initials(s.nome)}
+                  </AvatarFallback>
+                </Avatar>
                 {s.nome}
                 {s.id === userId ? " (você)" : ""}
               </span>
             </SelectItem>
           ))}
+
         </SelectContent>
       </Select>
 
