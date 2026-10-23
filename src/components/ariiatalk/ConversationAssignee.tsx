@@ -37,6 +37,8 @@ export default function ConversationAssignee({
   const assigned = value !== null;
   const name = valueName || staff.find((s) => s.id === value)?.nome || "Sem responsável";
   const isMine = !!userId && value === userId;
+  const userNotInStaff = !!userId && !staff.some((s) => s.id === userId);
+
 
   return (
     <div
