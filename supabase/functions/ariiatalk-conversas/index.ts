@@ -352,6 +352,12 @@ serve(async (req) => {
 
         let instanceId = String(body.instancia_id ?? "").trim();
         if (!instanceId) {
+          // Reutiliza o histórico vinculado ao contato antes de escolher outra instância.
+          const { data: linked, error: linkedError } = await db.from("ariiatalk_conversas")
+            .select("id").eq("contato_id", contactId)
+            .order("ultima_mensagem_em", { ascending: false, nullsFirst: false }).limit(1);
+          if (linkedError) return jsonResponse({ error: "conversation_query_failed" }, 500);
+          if (linked?.length) return jsonResponse({ conversation_id: linked[0].id, created: false });
           const { data: inst } = await db.from("ariiatalk_instancias").select("id, status")
             .order("criado_em").limit(20);
           const chosen = (inst ?? []).find((i) => i.status === "connected") ?? (inst ?? [])[0];
