@@ -1,4 +1,8 @@
 # Cronograma
+## AriiaTalk: contatos e reabertura
+- [ ] Criar aba de contatos com filtros adicionais.
+- [ ] Ocultar encerradas da lista ativa e preservar histórico ao enviar novamente.
+- [ ] Verificar testes e fluxo disponível.
 ## AriiaTalk: responsável e assinatura
 - [x] Destacar responsável na conversa e na lista.
 - [x] Configurar assinatura individual e enviá-la somente no WhatsApp.
