@@ -33,6 +33,8 @@ import { useUser } from "@/contexts/UserContext";
 import { Button } from "@/components/ui/button";
 import ContactsView from "@/components/ariiatalk/ContactsView";
 import EditContactDialog from "@/components/ariiatalk/EditContactDialog";
+import { toast } from "sonner";
+import { detectNotifications, playNotificationSound } from "@/lib/ariiatalkNotifications";
 import DeleteContactDialog from "@/components/ariiatalk/DeleteContactDialog";
 import ConversationFilters from "@/components/ariiatalk/ConversationFilters";
 import ContactAvatar from "@/components/ariiatalk/ContactAvatar";
@@ -256,6 +258,10 @@ export default function AriiaTalk() {
   const [actionError, setActionError] = useState<string | null>(null);
   useEffect(() => { setReplyTo(null); setEditTarget(null); setAnnotationTarget(null); setActionError(null); }, [selectedId]);
 
+  const lastSnapshotRef = useRef<Conversation[] | null>(null);
+  const selfAssignedRef = useRef<Set<string>>(new Set());
+  const userIdRef = useRef<number | null>(null);
+  userIdRef.current = (user?.id as number | undefined) ?? null;
   const loadConversations = useCallback(async () => {
     setError(null);
 
@@ -281,6 +287,16 @@ export default function AriiaTalk() {
       ? (data.conversations as Conversation[])
       : [];
 
+    const alerts = detectNotifications(lastSnapshotRef.current, rows, userIdRef.current, selfAssignedRef.current);
+    lastSnapshotRef.current = rows;
+    selfAssignedRef.current.clear();
+    if (alerts.length) {
+      playNotificationSound();
+      alerts.slice(0, 3).forEach(a => toast(a.title, {
+        description: a.description || undefined, position: "top-right", duration: 6000,
+        action: { label: "Abrir", onClick: () => { setView("conversas"); setSelectedId(a.conversationId); } },
+      }));
+    }
     setConversations(rows);
     setSelectedId((current) =>
       current && rows.some((row) => row.id === current) ? current : null,
@@ -393,6 +409,7 @@ export default function AriiaTalk() {
 
   const assignTo = useCallback(async (responsavelId: number | null) => {
     if (!selectedId) return;
+    selfAssignedRef.current.add(selectedId);
     setAssigning(true);
     const { data, error: err } = await supabase.functions.invoke("ariiatalk-conversas", {
       method: "POST",
