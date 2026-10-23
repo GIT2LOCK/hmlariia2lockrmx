@@ -4,10 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
+import { maskPhoneInput, phoneDigits } from "@/lib/ariiatalkPhoneMask";
 import type { ContactRecord } from "@/lib/ariiatalkContacts";
 
 export default function EditContactDialog<T extends ContactRecord>({ contact, onClose, onSaved }: { contact: T; onClose: () => void; onSaved: (contact: T) => void }) {
-  const [form, setForm] = useState({ nome: contact.nome, telefone: contact.telefone ?? "", email: contact.email ?? "", categoria: contact.categoria ?? "" });
+  const [form, setForm] = useState({ nome: contact.nome, telefone: maskPhoneInput(contact.telefone ?? ""), email: contact.email ?? "", categoria: contact.categoria ?? "" });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   async function save(e: React.FormEvent) {
