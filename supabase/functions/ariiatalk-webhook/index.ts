@@ -300,7 +300,7 @@ serve(async (req) => {
         const incomingName = String(pushName ?? "").trim();
 
         const updates: Record<string, any> = {
-          ...(isGroup ? (!currentName || currentName === fallbackName ? { nome_contato: (await groupSubject(instance.evolution_instance_name, remoteJid)) ?? currentName || "Grupo" } : {}) : !currentName || currentName === fallbackName
+          ...(isGroup ? (!currentName || currentName === fallbackName ? { nome_contato: (await groupSubject(instanceName, remoteJid)) ?? (currentName || "Grupo") } : {}) : !currentName || currentName === fallbackName
             ? { nome_contato: incomingName || fallbackName }
             : {}
           ),
@@ -330,7 +330,7 @@ serve(async (req) => {
           .insert({
             instancia_id: instance.id,
             remote_jid: remoteJid,
-            nome_contato: isGroup ? ((await groupSubject(instance.evolution_instance_name, remoteJid)) ?? "Grupo") : pushName,
+            nome_contato: isGroup ? ((await groupSubject(instanceName, remoteJid)) ?? "Grupo") : pushName,
             is_grupo: isGroup,
             ultima_mensagem: isGroup && direction === "entrada" && senderName && extracted.content ? `${senderName}: ${extracted.content}` : extracted.content,
             ultima_mensagem_em: messageDate,
