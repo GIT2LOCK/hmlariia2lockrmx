@@ -862,10 +862,6 @@ export default function AriiaTalk() {
     () => [...new Set(conversations.map((c) => contactCategoria(c.contato ?? {})).filter(Boolean) as string[])].sort(),
     [conversations],
   );
-  const empresasDisponiveis = useMemo(() => {
-    const ids = new Set(conversations.map((c) => c.contato?.empresa_id).filter(Boolean));
-    return empresasOpt.filter((e) => ids.has(e.id));
-  }, [conversations, empresasOpt]);
 
   const inboxConversations = useMemo(
     () => conversations
@@ -1274,7 +1270,7 @@ export default function AriiaTalk() {
                   </select>
                   <select aria-label="Empresa" value={filters.empresa} onChange={(e) => setFilters({ ...filters, empresa: e.target.value })} className="h-8 rounded-md border bg-background px-1.5">
                     <option value="">Todas as empresas</option>
-                    {empresasDisponiveis.map((em) => <option key={em.id} value={em.id}>{em.nome_fantasia}</option>)}
+                    {empresasOpt.map((em) => <option key={em.id} value={em.id}>{em.nome_fantasia}</option>)}
                   </select>
                   <select aria-label="Categoria" value={filters.categoria} onChange={(e) => setFilters({ ...filters, categoria: e.target.value })} className="h-8 rounded-md border bg-background px-1.5">
                     <option value="">Todas as categorias</option>
