@@ -1727,6 +1727,58 @@ export default function AriiaTalk() {
                     </>
                   )}
                 </div>
+                <div className="space-y-2 border-t pt-3">
+                  <p className="flex items-center gap-1.5 text-xs font-semibold"><Search className="h-3.5 w-3.5" /> Pesquisar na conversa</p>
+                  <div className="relative">
+                    <input
+                      value={messageSearch}
+                      onChange={(e) => setMessageSearch(e.target.value)}
+                      maxLength={120}
+                      placeholder="Buscar nas mensagens desta conversa..."
+                      aria-label="Pesquisar na conversa"
+                      className="h-8 w-full rounded-md border bg-background pl-7 pr-7 text-xs outline-none focus:ring-1 focus:ring-ring"
+                    />
+                    <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                    {messageSearch && (
+                      <button type="button" onClick={() => setMessageSearch("")} aria-label="Limpar pesquisa da conversa" className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 hover:bg-muted">
+                        <X className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
+                  {messageSearch.trim() && (
+                    <div className="max-h-64 space-y-2 overflow-y-auto">
+                      <p className="text-[10.5px] text-muted-foreground">
+                        {messageMatches.length === 0
+                          ? "Nenhuma mensagem corresponde à pesquisa."
+                          : `${messageMatches.length} resultado${messageMatches.length === 1 ? "" : "s"} — clique para ir à mensagem`}
+                      </p>
+                      {messageMatches.map(({ message, start, end }) => {
+                        const text = message.conteudo ?? "";
+                        const from = Math.max(0, start - 40);
+                        const to = Math.min(text.length, end + 40);
+                        return (
+                          <button
+                            key={message.id}
+                            type="button"
+                            onClick={() => jumpToMessage(message.id)}
+                            className="w-full rounded-md border bg-background p-2 text-left text-xs hover:bg-muted/50"
+                          >
+                            <span className="block text-[10.5px] text-muted-foreground">
+                              {message.direcao === "saida" ? (message.autor_nome || "Equipe") : "Contato"} · {new Date(message.enviada_em || message.criado_em).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                            <span className="block whitespace-pre-wrap break-words">
+                              {from > 0 && "…"}
+                              {text.slice(from, start)}
+                              <mark className="rounded bg-primary/20 px-0.5">{text.slice(start, end)}</mark>
+                              {text.slice(end, to)}
+                              {to < text.length && "…"}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
             ) : (
               <p className="mt-3 text-sm text-muted-foreground">Selecione uma conversa para visualizar os dados do contato.</p>
