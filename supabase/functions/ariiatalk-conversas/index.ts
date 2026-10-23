@@ -3,6 +3,7 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { corsHeaders as sdkCorsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { isPhotoFresh, profilePictureUrl, whatsappNumber } from "./profilePicture.ts";
 import { ownsFolder } from "./folders.ts";
+import { contactEditSchema, editedContactValues } from "./contactEdit.ts";
 import {
   serviceClient,
 } from "../_shared/grafana.ts";
@@ -387,6 +388,28 @@ serve(async (req) => {
         const convMap = new Map<string, any>();
         [...(convRes.data ?? []), ...linked].forEach((c) => convMap.set(c.id, c));
         return jsonResponse({ contacts: contactsRes.data ?? [], conversations: [...convMap.values()] });
+      }
+
+      if (body.action === "edit_contact") {
+        const parsed = contactEditSchema.safeParse(body);
+        if (!parsed.success) return jsonResponse({ error: "invalid_contact" }, 400);
+        const input = parsed.data;
+        const { data: existing, error: lookupError } = await db.from("contatos").select("id, telefone").eq("id", input.contact_id).maybeSingle();
+        if (lookupError) return jsonResponse({ error: "contact_query_failed" }, 500);
+        if (!existing) return jsonResponse({ error: "contact_not_found" }, 404);
+        if (input.telefone) {
+          const canonical = normalizePhone(input.telefone);
+          const variants = canonical ? phoneVariants(canonical) : [input.telefone];
+          const { data: duplicates, error: duplicateError } = await db.from("contatos").select("id").in("telefone", variants).neq("id", input.contact_id).limit(1);
+          if (duplicateError) return jsonResponse({ error: "contact_query_failed" }, 500);
+          if (duplicates?.length) return jsonResponse({ error: "duplicate_phone" }, 409);
+        }
+        // Only editable identity fields change; company/unit scope and conversation
+        // IDs, remote JIDs, assignments and messages are deliberately untouched.
+        const { data: contact, error: updateError } = await db.from("contatos")
+          .update(editedContactValues(input, existing.telefone)).eq("id", input.contact_id).select(CONTACT_SELECT).single();
+        if (updateError) return jsonResponse({ error: "contact_update_failed" }, 500);
+        return jsonResponse({ contact });
       }
 
       if (body.action === "create_contact") {

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { LoaderCircle, MessageCircle, Search, UserPlus, X } from "lucide-react";
+import { LoaderCircle, MessageCircle, Pencil, Search, UserPlus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ContactAvatar from "./ContactAvatar";
 import { contactCategoria } from "@/lib/ariiatalkTags";
@@ -9,9 +9,9 @@ type Props<T extends ContactRecord> = {
   contacts: T[]; loading: boolean; error: string | null; startingId: number | null;
   empresas: { id: number; nome_fantasia: string }[];
   unidades: { id: number; nome_unidade: string; empresa_id: number | null }[];
-  onStart: (contact: T) => void; onCreate: () => void; onRetry: () => void;
+  onStart: (contact: T) => void; onCreate: () => void; onRetry: () => void; onEdit: (contact: T) => void;
 };
-export default function ContactsView<T extends ContactRecord>({ contacts, loading, error, startingId, empresas, unidades, onStart, onCreate, onRetry }: Props<T>) {
+export default function ContactsView<T extends ContactRecord>({ contacts, loading, error, startingId, empresas, unidades, onStart, onCreate, onRetry, onEdit }: Props<T>) {
   const [filters, setFilters] = useState(EMPTY_CONTACT_FILTERS);
   const rows = useMemo(() => filterContacts(contacts, filters), [contacts, filters]);
   const categorias = [...new Set(contacts.map(contactCategoria).filter((c): c is string => !!c))].sort();
@@ -39,7 +39,7 @@ export default function ContactsView<T extends ContactRecord>({ contacts, loadin
         : <table className="w-full text-left text-sm"><thead className="sticky top-0 z-10 bg-background"><tr className="border-b">{["Nome", "Telefone / E-mail", "Empresa / Unidade", "Categoria", ""].map((label, i) => <th key={i} className="px-4 py-3 font-medium text-muted-foreground">{label}</th>)}</tr></thead><tbody>{rows.map(c => <tr key={c.id} className="border-b hover:bg-muted/30">
           <td className="px-4 py-3 font-medium"><span className="flex items-center gap-3"><ContactAvatar name={c.nome} contactId={c.telefone ? c.id : null} photoUrl={c.foto_whatsapp_url} /><span className="min-w-0 break-words">{c.nome}</span></span></td><td className="px-4 py-3"><span className="block whitespace-nowrap">{c.telefone || "Sem telefone"}</span><span className="break-all text-xs text-muted-foreground">{c.email}</span></td>
           <td className="px-4 py-3"><span className="block">{empresas.find(e => e.id === c.empresa_id)?.nome_fantasia || "—"}</span><span className="text-xs text-muted-foreground">{unidades.find(u => u.id === c.unidade_id)?.nome_unidade}</span></td>
-          <td className="px-4 py-3">{contactCategoria(c) || "—"}</td><td className="px-4 py-3"><Button variant="outline" size="sm" disabled={startingId !== null || !c.telefone} onClick={() => onStart(c)}>{startingId === c.id ? <LoaderCircle className="animate-spin" /> : <MessageCircle />}Abrir conversa</Button></td>
+          <td className="px-4 py-3">{contactCategoria(c) || "—"}</td><td className="px-4 py-3"><span className="flex items-center justify-end gap-2"><Button variant="ghost" size="icon" title="Editar contato" aria-label={`Editar contato ${c.nome}`} onClick={() => onEdit(c)}><Pencil className="h-4 w-4" /></Button><Button variant="outline" size="sm" disabled={startingId !== null || !c.telefone} onClick={() => onStart(c)}>{startingId === c.id ? <LoaderCircle className="animate-spin" /> : <MessageCircle />}Abrir conversa</Button></span></td>
         </tr>)}</tbody></table>}
     </div>
   </main>;

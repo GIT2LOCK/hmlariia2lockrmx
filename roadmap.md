@@ -1,4 +1,8 @@
 # Cronograma
+## AriiaTalk: edição de contatos
+- [ ] Adicionar edição de nome, telefone, e-mail e categoria na lista.
+- [ ] Preservar vínculos e histórico e validar telefone sem máscara.
+- [ ] Testar e implantar; edição real depende de sessão autenticada disponível.
 ## AriiaTalk: pastas pessoais e filtros
 - [x] Restringir listagem, exclusão e associações de pastas ao criador.
 - [x] Reorganizar filtros em painel amplo com campos identificados e pastas pessoais.
