@@ -412,6 +412,17 @@ serve(async (req) => {
         return jsonResponse({ contact });
       }
 
+      if (body.action === "delete_contact") {
+        const contactId = Number(body.contact_id);
+        if (!Number.isInteger(contactId) || contactId <= 0) return jsonResponse({ error: "invalid_contact" }, 400);
+        // Conversations and messages are kept as history; only the link is cleared.
+        const { error: unlinkError } = await db.from("ariiatalk_conversas").update({ contato_id: null }).eq("contato_id", contactId);
+        if (unlinkError) return jsonResponse({ error: "contact_delete_failed" }, 500);
+        const { error: deleteError } = await db.from("contatos").delete().eq("id", contactId);
+        if (deleteError) return jsonResponse({ error: deleteError.code === "23503" ? "contact_in_use" : "contact_delete_failed" }, deleteError.code === "23503" ? 409 : 500);
+        return jsonResponse({ success: true, contact_id: contactId });
+      }
+
       if (body.action === "create_contact") {
         const nome = String(body.nome ?? "").trim().replace(/\s+/g, " ");
         const telefone = normalizePhone(body.telefone);
