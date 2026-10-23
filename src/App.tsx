@@ -7,7 +7,6 @@ import Index from "./pages/Index";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
-import AssigneePreview from "./pages/__AssigneePreview";
 
 import { DashboardLayout } from "./components/DashboardLayout";
 import Dashboard from "./pages/Dashboard";
@@ -57,7 +56,6 @@ const App = () => (
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/redefinir-senha" element={<ResetPassword />} />
             <Route path="/oauth/consent" element={<OAuthConsent />} />
-            <Route path="/assignee-preview" element={<AssigneePreview />} />
 
             <Route
               path="/dashboard"
