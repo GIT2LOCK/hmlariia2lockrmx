@@ -775,7 +775,7 @@ export default function AriiaTalk() {
 
   useEffect(() => {
     if (selectedId && view === "conversas") {
-      void loadMessages(selectedId, true);
+      void loadMessages(selectedId);
     } else {
       setMessages([]);
       setMessageError(null);
