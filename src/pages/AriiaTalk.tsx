@@ -1375,7 +1375,7 @@ export default function AriiaTalk() {
                   ) : searchResults && searchResults.contacts.length === 0 && searchResults.conversations.length === 0 ? (
                     <div className="p-5 text-center text-sm">
                       <p className="font-medium">Nenhum resultado</p>
-                      <button type="button" onClick={() => { setCForm((f) => ({ ...f, nome: /\d/.test(search) ? "" : search.trim(), telefone: /\d/.test(search) ? search.trim() : "" })); setContactDialog(true); }} className="mt-2 text-xs font-medium text-primary hover:underline">Cadastrar novo contato</button>
+                      <button type="button" onClick={() => { setCForm((f) => ({ ...f, nome: /\d/.test(search) ? "" : search.trim(), telefone: /\d/.test(search) ? maskPhoneInput(search.trim()) : "" })); setContactDialog(true); }} className="mt-2 text-xs font-medium text-primary hover:underline">Cadastrar novo contato</button>
                     </div>
                   ) : searchResults && (
                     <>
