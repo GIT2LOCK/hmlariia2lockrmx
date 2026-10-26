@@ -55,7 +55,9 @@ export default function OpenTicketDialog({ open, onOpenChange, prefill, empresas
       supabase.from("ticket_categorias").select("id,nome").is("parent_id", null).order("nome"),
       supabase.from("ticket_filas").select("id,nome").eq("ativo", true).order("nome"),
     ]).then(([c, f]) => { setCategorias((c.data as Opt[]) || []); setFilas((f.data as Opt[]) || []); });
-  }, [open, prefill]);
+    // Only reset when the dialog opens; prefill is recreated on every background refresh.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, !!prefill]);
 
   const set = (k: keyof typeof form, v: string) => setForm((p) => ({ ...p, [k]: v }));
   const emailOk = !form.email.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim());
