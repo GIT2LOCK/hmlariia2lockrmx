@@ -1607,7 +1607,7 @@ export default function AriiaTalk() {
                             : "rounded-bl-sm border bg-background"
                         }${message.id === highlightMessageId ? " ring-2 ring-primary ring-offset-2 ring-offset-background" : ""}`}>
                           <div className="absolute right-1 top-1 z-10 flex items-center gap-1">
-                            {message.anotacoes?.some(a => a.sinalizada) && <Flag className="h-3.5 w-3.5" aria-label="Sinalizada internamente" />}
+                            {message.anotacoes?.some(a => a.sinalizada) && <span className="flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground shadow-sm" aria-label="Sinalizada internamente" title="Sinalizada internamente"><Flag className="h-3 w-3" fill="currentColor" /></span>}
                             <MessageActions canReply={Boolean(message.evolution_message_id)} canEdit={canEditMessage(message, user?.id)} flagged={myAnnotation(message)?.sinalizada ?? false} disabled={actionBusy || sendingMessage || message.id.startsWith("optimistic-")}
                               onReply={() => { setReplyTo(message); document.querySelector<HTMLInputElement>('input[aria-label="Mensagem"]')?.focus(); }}
                               onEdit={() => { setEditTarget(message); setEditText(message.conteudo ?? ""); setActionError(null); }}
