@@ -1599,15 +1599,19 @@ export default function AriiaTalk() {
                       <div
                         key={message.id}
                         data-message-id={message.id}
-                        className={`flex ${message.direcao === "saida" ? "justify-end" : "justify-start"}`}
+                        className={`flex min-w-0 flex-col ${message.direcao === "saida" ? "items-end" : "items-start"}`}
                       >
-                        <div className={`group relative min-w-0 max-w-[85%] rounded-lg py-2 pl-3 shadow-sm [overflow-wrap:anywhere] sm:max-w-[75%] ${message.anotacoes?.some(a => a.sinalizada) ? "pr-14" : "pr-3 [@media(hover:none)]:pr-8"} ${
+                        {message.anotacoes?.some(a => a.sinalizada) && (
+                          <span className="mb-1 flex items-center gap-1 rounded-full bg-destructive px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-destructive-foreground shadow-sm" aria-label="Sinalizada internamente" title="Sinalizada internamente">
+                            <Flag className="h-3 w-3" fill="currentColor" />Sinalizada
+                          </span>
+                        )}
+                        <div className={`group relative min-w-0 max-w-[85%] rounded-lg py-2 pl-3 pr-8 shadow-sm [overflow-wrap:anywhere] sm:max-w-[75%] ${
                           message.direcao === "saida"
                             ? "rounded-br-sm bg-primary text-primary-foreground"
                             : "rounded-bl-sm border bg-background"
                         }${message.id === highlightMessageId ? " ring-2 ring-primary ring-offset-2 ring-offset-background" : ""}`}>
                           <div className="absolute right-1 top-1 z-10 flex items-center gap-1">
-                            {message.anotacoes?.some(a => a.sinalizada) && <span className="flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground shadow-sm" aria-label="Sinalizada internamente" title="Sinalizada internamente"><Flag className="h-3 w-3" fill="currentColor" /></span>}
                             <MessageActions canReply={Boolean(message.evolution_message_id)} canEdit={canEditMessage(message, user?.id)} flagged={myAnnotation(message)?.sinalizada ?? false} disabled={actionBusy || sendingMessage || message.id.startsWith("optimistic-")}
                               onReply={() => { setReplyTo(message); document.querySelector<HTMLInputElement>('input[aria-label="Mensagem"]')?.focus(); }}
                               onEdit={() => { setEditTarget(message); setEditText(message.conteudo ?? ""); setActionError(null); }}
