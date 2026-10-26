@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import AriiaTalk from "@/pages/AriiaTalk";
 
-const conversation = { id: "a1234567-1234-4234-8234-123456789012", instancia_id: "inst", remote_jid: "5511999999999@s.whatsapp.net", nome_contato: "Contato de teste", foto_url: null, contato_id: null, status: "open", nao_lidas: 0, responsavel_id: null };
+const conversation = { id: "a1234567-1234-4234-8234-123456789012", instancia_id: "inst", remote_jid: "5511999999999@s.whatsapp.net", nome_contato: "Contato de teste", foto_url: null, contato_id: null, status: "open", nao_lidas: 1, responsavel_id: null };
 const state = vi.hoisted(() => ({ sent: null as FormData | null, failed: false }));
 vi.mock("@/contexts/UserContext", () => ({ useUser: () => ({ user: { id: 7, nome: "Técnico" } }) }));
 vi.mock("@/components/ariiatalk/ContactAvatar", () => ({ default: () => null }));
