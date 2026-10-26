@@ -1,7 +1,8 @@
 # Cronograma
 ## Filas duplicadas no AriiaTalk
-- [ ] Identificar a origem das filas duplicadas e corrigir preservando vínculos existentes.
-- [ ] Verificar a lista de filas após a correção.
+- [x] Excluir filas desativadas da seleção de abertura no AriiaTalk, sem alterar registros ou vínculos históricos.
+- [x] Confirmar cinco filas ativas sem duplicação; teste da consulta passou e build OK.
+- [ ] Conferir dentro de uma conversa real: bloqueado por ausência de sessão autenticada no Supabase externo.
 ## AriiaTalk: ações nas mensagens
 - [x] Responder com citação e editar o próprio texto enviado pela Evolution, preservando autoria e assinatura.
 - [x] Copiar e adicionar sinalizações, notas e marcações internas por técnico; nenhuma anotação vai ao WhatsApp.
