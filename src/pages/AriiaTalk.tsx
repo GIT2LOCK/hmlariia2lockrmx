@@ -1601,7 +1601,7 @@ export default function AriiaTalk() {
                         data-message-id={message.id}
                         className={`flex ${message.direcao === "saida" ? "justify-end" : "justify-start"}`}
                       >
-                        <div className={`group relative min-w-0 max-w-[85%] rounded-lg px-3 py-2 shadow-sm sm:max-w-[75%] ${message.anotacoes?.some(a => a.sinalizada) ? "pr-8" : ""} [@media(hover:none)]:pr-8 ${
+                        <div className={`group relative min-w-0 max-w-[85%] rounded-lg py-2 pl-3 shadow-sm [overflow-wrap:anywhere] sm:max-w-[75%] ${message.anotacoes?.some(a => a.sinalizada) ? "pr-14" : "pr-3 [@media(hover:none)]:pr-8"} ${
                           message.direcao === "saida"
                             ? "rounded-br-sm bg-primary text-primary-foreground"
                             : "rounded-bl-sm border bg-background"
