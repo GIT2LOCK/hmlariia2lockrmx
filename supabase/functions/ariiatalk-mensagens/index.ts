@@ -7,6 +7,7 @@ import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { z } from "npm:zod@3.25.76";
 import { buildQuoted, quoteSnapshot } from "../_shared/ariiatalkMessageActions.ts";
 import { annotateMessage, editMessage } from "./messageActions.ts";
+import { ATTACHMENT_BUCKET, MAX_ATTACHMENT_BYTES, attachmentInfo, mediaPayload } from "../_shared/ariiatalkAttachments.ts";
 
 const historyFields = "id, conversa_id, evolution_message_id, direcao, tipo, conteudo, media_url, status, enviado_por, autor_nome, enviada_em, criado_em, resposta_mensagem_id, resposta_snapshot, editada_em, remetente_nome, remetente_jid";
 
@@ -16,6 +17,12 @@ function respond(data: unknown, status = 200) {
 
 async function withAuthors(db: ReturnType<typeof serviceClient>, messages: any[]) {
   if (!messages.length) return messages;
+  messages = await Promise.all(messages.map(async message => {
+    const prefix = `storage://${ATTACHMENT_BUCKET}/`;
+    if (!message.media_url?.startsWith(prefix)) return message;
+    const { data } = await db.storage.from(ATTACHMENT_BUCKET).createSignedUrl(message.media_url.slice(prefix.length), 3600);
+    return { ...message, media_url: data?.signedUrl ?? null };
+  }));
   const { data: annotations, error: annotationsError } = await db.from("ariiatalk_mensagem_anotacoes").select("*, usuarios(nome)").in("mensagem_id", messages.map(m => m.id));
   if (annotationsError) throw annotationsError;
   messages = messages.map(m => ({ ...m, anotacoes: (annotations ?? []).filter(a => a.mensagem_id === m.id) }));
@@ -114,7 +121,18 @@ serve(async (req) => {
       return respond({ messages: await withAuthors(db, messages ?? []) });
     }
 
-    const body = await req.json().catch(() => ({}));
+    let attachment: File | null = null;
+    let body: Record<string, any>;
+    if (req.headers.get("content-type")?.includes("multipart/form-data")) {
+      if (Number(req.headers.get("content-length") ?? 0) > MAX_ATTACHMENT_BYTES + 65536) return respond({ error: "attachment_too_large" }, 400);
+      const form = await req.formData();
+      const file = form.get("arquivo");
+      if (!(file instanceof File)) return respond({ error: "attachment_required" }, 400);
+      attachment = file;
+      body = { action: "send", conversa_id: form.get("conversa_id"), texto: form.get("texto") ?? "", resposta_mensagem_id: form.get("resposta_mensagem_id") || null };
+    } else {
+      body = await req.json().catch(() => ({}));
+    }
     const action = String(body.action ?? "");
     const conversationId = String(body.conversa_id ?? "").trim();
     const messageText = String(body.texto ?? "").trim();
@@ -192,14 +210,19 @@ serve(async (req) => {
       return respond({ error: "unknown_action" }, 400);
     }
 
-    const validSend = z.object({ conversa_id: z.string().uuid(), texto: z.string().trim().min(1).max(4000), resposta_mensagem_id: z.string().uuid().nullish() }).safeParse(body);
+    const validSend = z.object({ conversa_id: z.string().uuid(), texto: z.string().trim().min(attachment ? 0 : 1).max(4000), resposta_mensagem_id: z.string().uuid().nullish() }).safeParse(body);
     if (!validSend.success) return respond({ error: "invalid_message" }, 400);
+    let fileInfo: ReturnType<typeof attachmentInfo> | null = null;
+    if (attachment) {
+      try { fileInfo = attachmentInfo(attachment); }
+      catch (error) { return respond({ error: "invalid_attachment", message: error instanceof Error ? error.message : "Arquivo inválido." }, 400); }
+    }
 
     if (!conversationId) {
       return respond({ error: "conversation_id_required" }, 400);
     }
 
-    if (!messageText) {
+    if (!messageText && !attachment) {
       return respond({ error: "message_text_required" }, 400);
     }
 
@@ -243,7 +266,8 @@ serve(async (req) => {
       .select("assinatura").eq("usuario_id", caller.id).maybeSingle();
     if (signatureError) return respond({ error: "signature_query_failed" }, 500);
     const signature = signatureData?.assinatura ?? "";
-    const whatsappText = outgoingText(messageText, signature);
+    const cleanText = messageText || fileInfo?.name || "";
+    const whatsappText = outgoingText(cleanText, signature);
     let quoted;
     let snapshot = null;
     if (validSend.data.resposta_mensagem_id) {
@@ -254,13 +278,28 @@ serve(async (req) => {
       snapshot = quoteSnapshot(target);
     }
 
+    let storagePath: string | null = null;
+    let mediaUrl: string | null = null;
+    if (attachment && fileInfo) {
+      storagePath = `${conversation.id}/${crypto.randomUUID()}/${fileInfo.name}`;
+      const { error: uploadError } = await db.storage.from(ATTACHMENT_BUCKET).upload(storagePath, attachment, { contentType: fileInfo.mime, upsert: false });
+      if (uploadError) return respond({ error: "attachment_upload_failed" }, 500);
+      const { data: signed, error: signedError } = await db.storage.from(ATTACHMENT_BUCKET).createSignedUrl(storagePath, 3600);
+      if (signedError || !signed?.signedUrl) {
+        await db.storage.from(ATTACHMENT_BUCKET).remove([storagePath]);
+        return respond({ error: "attachment_link_failed" }, 500);
+      }
+      mediaUrl = signed.signedUrl;
+    }
+
     const { data: pendingMessage, error: pendingError } = await db
       .from("ariiatalk_mensagens")
       .insert({
         conversa_id: conversation.id,
         direcao: "saida",
-        tipo: "text",
-        conteudo: messageText,
+        tipo: fileInfo?.kind ?? "text",
+        conteudo: cleanText,
+        media_url: storagePath ? `storage://${ATTACHMENT_BUCKET}/${storagePath}` : null,
         status: "enviando",
         enviado_por: caller.id,
         autor_nome: user.nome,
@@ -273,20 +312,21 @@ serve(async (req) => {
       .single();
 
     if (pendingError || !pendingMessage) {
+      if (storagePath) await db.storage.from(ATTACHMENT_BUCKET).remove([storagePath]);
       console.error("Pending message creation failed:", pendingError);
       return respond({ error: "message_save_failed" }, 500);
     }
 
     try {
       const evoResponse = await fetch(
-        `${apiUrl}/message/sendText/${instanceName}`,
+        `${apiUrl}/message/${fileInfo ? "sendMedia" : "sendText"}/${instanceName}`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             apikey: apiKey,
           },
-          body: JSON.stringify({
+          body: JSON.stringify(fileInfo && mediaUrl ? mediaPayload(number, mediaUrl, fileInfo, whatsappText, quoted) : {
             number,
             text: whatsappText,
             ...(quoted ? { quoted } : {}),
@@ -343,7 +383,7 @@ serve(async (req) => {
 
       const { error: updateConversationError } = await db
         .from("ariiatalk_conversas")
-        .update(sentConversationUpdate(messageText, sentAt))
+        .update(sentConversationUpdate(cleanText, sentAt))
         .eq("id", conversation.id);
 
       if (updateConversationError) {
@@ -357,8 +397,9 @@ serve(async (req) => {
           conversa_id: conversation.id,
           evolution_message_id: messageId,
           direcao: "saida",
-          tipo: "text",
-          conteudo: messageText,
+          tipo: fileInfo?.kind ?? "text",
+          conteudo: cleanText,
+          media_url: mediaUrl,
           status: "enviada",
           enviado_por: caller.id,
           autor_nome: user.nome,
