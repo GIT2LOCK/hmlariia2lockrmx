@@ -46,6 +46,7 @@ import MessageActions from "@/components/ariiatalk/MessageActions";
 import OpenTicketDialog from "@/components/ariiatalk/OpenTicketDialog";
 import ConversationAssignee from "@/components/ariiatalk/ConversationAssignee";
 import { ATTACHMENT_ACCEPT, attachmentInfo } from "../../supabase/functions/_shared/ariiatalkAttachments";
+import { compressImage } from "@/lib/ariiatalkImageCompress";
 
 import { Ticket } from "lucide-react";
 import { canEditMessage, quoteSnapshot } from "../../supabase/functions/_shared/ariiatalkMessageActions";
@@ -1668,7 +1669,12 @@ export default function AriiaTalk() {
                             </a>
                             </div>
                           )}
-                          {!message.conteudo && !message.media_url && (
+                          {(message as { media_expirada?: boolean }).media_expirada && (
+                            <p className="mt-2 flex items-center gap-1 text-xs italic opacity-80">
+                              <Paperclip className="h-3 w-3" />Anexo expirado (disponível por 30 dias)
+                            </p>
+                          )}
+                          {!message.conteudo && !message.media_url && !(message as { media_expirada?: boolean }).media_expirada && (
                             <p className="text-sm italic opacity-80">Mensagem do tipo {message.tipo}</p>
                           )}
                           {message.anotacoes?.filter(a => a.sinalizada || a.nota || a.marcacao).map(a => <div key={a.usuario_id} className="mt-2 border-t border-current/20 pt-1.5 text-xs">
@@ -1749,10 +1755,11 @@ export default function AriiaTalk() {
               }}
               className="flex items-center gap-2 border-t p-3"
             >
-              <input ref={attachmentInputRef} type="file" accept={ATTACHMENT_ACCEPT} className="hidden" aria-label="Selecionar anexo" onChange={event => {
-                const file = event.target.files?.[0];
+              <input ref={attachmentInputRef} type="file" accept={ATTACHMENT_ACCEPT} className="hidden" aria-label="Selecionar anexo" onChange={async event => {
+                const original = event.target.files?.[0];
                 event.target.value = "";
-                if (!file) return;
+                if (!original) return;
+                const file = await compressImage(original);
                 try { attachmentInfo(file); setAttachment(file); setMessageError(null); }
                 catch (error) { toast.error(error instanceof Error ? error.message : "Arquivo inválido."); }
               }} />
