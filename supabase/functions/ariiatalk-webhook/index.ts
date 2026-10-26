@@ -42,7 +42,7 @@ function extractMessage(message: Record<string, any>) {
     const content =
       typeof item === "string"
         ? item
-        : item.text ?? item.caption ?? item.name ?? null;
+        : item.text ?? item.caption ?? item.fileName ?? item.name ?? null;
 
     return {
       type,
@@ -271,18 +271,20 @@ serve(async (req) => {
       // SEND_MESSAGE may arrive before sendText returns its ID. Attach the
       // echo to the pending row, preserving its clean text and real author.
       if (fromMe && conversation && messageId && extracted.content) {
-        const { data: pending, error: pendingError } = await db.from("ariiatalk_mensagens")
-          .select("id, texto_whatsapp, direcao, enviado_por")
+        let pendingQuery = db.from("ariiatalk_mensagens")
+          .select("id, texto_whatsapp, direcao, enviado_por, tipo")
           .eq("conversa_id", conversation.id)
           .eq("direcao", "saida")
           .not("enviado_por", "is", null)
           .is("evolution_message_id", null)
           .eq("status", "enviando")
-          .eq("texto_whatsapp", extracted.content)
+          .eq("tipo", extracted.type)
           .gte("criado_em", new Date(Date.now() - 120000).toISOString())
-          .order("criado_em", { ascending: true }).limit(1).maybeSingle();
+          .order("criado_em", { ascending: true }).limit(1);
+        if (extracted.type === "text" || extracted.content !== `[${extracted.type}]`) pendingQuery = pendingQuery.eq("texto_whatsapp", extracted.content);
+        const { data: pending, error: pendingError } = await pendingQuery.maybeSingle();
         if (pendingError) return respond({ error: "pending_echo_query_failed" }, 500);
-        if (pending && matchesOutboundEcho(pending, extracted.content)) {
+        if (pending && (matchesOutboundEcho(pending, extracted.content) || (pending.tipo !== "text" && extracted.content === `[${extracted.type}]`))) {
           const { error } = await db.from("ariiatalk_mensagens")
             .update({ evolution_message_id: messageId, enviada_em: messageDate })
             .eq("id", pending.id);
