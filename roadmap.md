@@ -1,4 +1,7 @@
 # Cronograma
+## Filas duplicadas no AriiaTalk
+- [ ] Identificar a origem das filas duplicadas e corrigir preservando vínculos existentes.
+- [ ] Verificar a lista de filas após a correção.
 ## AriiaTalk: ações nas mensagens
 - [x] Responder com citação e editar o próprio texto enviado pela Evolution, preservando autoria e assinatura.
 - [x] Copiar e adicionar sinalizações, notas e marcações internas por técnico; nenhuma anotação vai ao WhatsApp.
