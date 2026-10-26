@@ -60,11 +60,11 @@ export default function Equipes() {
   useEffect(() => { load(); }, []);
 
   const remove = async (g: Group) => {
-    if (!confirm(`Excluir a equipe "${g.nome}"?`)) return;
+    if (!confirm(`Excluir a fila / equipe "${g.nome}"?`)) return;
     await supabase.from("support_group_members").delete().eq("group_id", g.id);
     const { error } = await supabase.from("support_groups").delete().eq("id", g.id);
     if (error) return toast({ title: "Erro ao excluir", description: error.message, variant: "destructive" });
-    toast({ title: "Equipe excluída" });
+    toast({ title: "Fila / equipe excluída" });
     load();
   };
 
@@ -80,16 +80,15 @@ export default function Equipes() {
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2"><Users className="h-6 w-6 text-primary" /> Equipes de Atendimento</h1>
-          <p className="text-sm text-muted-foreground">Grupos operacionais usados nos chamados (atribuição, transferência, escalonamento).</p>
+          <h1 className="text-2xl font-bold flex items-center gap-2"><Users className="h-6 w-6 text-primary" /> Filas e Equipes de Atendimento</h1>
         </div>
         <Button onClick={() => { setEditing(null); setOpenForm(true); }}>
-          <Plus className="h-4 w-4 mr-1" /> Nova equipe
+          <Plus className="h-4 w-4 mr-1" /> Nova fila / equipe
         </Button>
       </div>
 
       <Card>
-        <CardHeader><CardTitle>Equipes</CardTitle></CardHeader>
+        <CardHeader><CardTitle>Filas e Equipes</CardTitle></CardHeader>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
@@ -104,7 +103,7 @@ export default function Equipes() {
             <TableBody>
               {loading && <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">Carregando…</TableCell></TableRow>}
               {!loading && groups.length === 0 && (
-                <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">Nenhuma equipe cadastrada.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">Nenhuma fila / equipe cadastrada.</TableCell></TableRow>
               )}
               {groups.map((g) => (
                 <TableRow key={g.id}>
@@ -118,10 +117,10 @@ export default function Equipes() {
                     <Button size="sm" variant="ghost" onClick={() => setOpenMembers(g)}>
                       <UserPlus2 className="h-4 w-4 mr-1" /> Membros
                     </Button>
-                    <Button size="sm" variant="ghost" onClick={() => { setEditing(g); setOpenForm(true); }}>
+                    <Button size="sm" variant="ghost" aria-label={`Editar ${g.nome}`} title="Editar fila / equipe" onClick={() => { setEditing(g); setOpenForm(true); }}>
                       <Pencil className="h-4 w-4" />
                     </Button>
-                    <Button size="sm" variant="ghost" onClick={() => remove(g)}>
+                    <Button size="sm" variant="ghost" aria-label={`Excluir ${g.nome}`} title="Excluir fila / equipe" onClick={() => remove(g)}>
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   </TableCell>
@@ -177,7 +176,7 @@ function GroupForm({ open, onClose, initial, onSaved }: { open: boolean; onClose
       : supabase.from("support_groups").insert(payload);
     const { error } = await op;
     if (error) return toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
-    toast({ title: initial ? "Equipe atualizada" : "Equipe criada" });
+    toast({ title: initial ? "Fila / equipe atualizada" : "Fila / equipe criada" });
     onSaved();
   };
 
@@ -185,8 +184,7 @@ function GroupForm({ open, onClose, initial, onSaved }: { open: boolean; onClose
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{initial ? "Editar equipe" : "Nova equipe"}</DialogTitle>
-          <DialogDescription>Equipes são usadas para atribuir, transferir e escalonar chamados.</DialogDescription>
+          <DialogTitle>{initial ? "Editar fila / equipe" : "Nova fila / equipe"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
           <div>
@@ -210,7 +208,7 @@ function GroupForm({ open, onClose, initial, onSaved }: { open: boolean; onClose
           </div>
           <div className="flex items-center gap-2">
             <Switch checked={ativo} onCheckedChange={setAtivo} />
-            <Label>Equipe ativa</Label>
+            <Label>Fila / equipe ativa</Label>
           </div>
         </div>
         <DialogFooter>
