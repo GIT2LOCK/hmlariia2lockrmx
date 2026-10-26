@@ -14,7 +14,6 @@ import {
   X,
   Wifi,
   WifiOff,
-  CheckCircle2,
   LoaderCircle,
   ArrowLeft,
   Inbox,
@@ -219,7 +218,6 @@ export default function AriiaTalk() {
   const [newName, setNewName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [instanceError, setInstanceError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [qrTitle, setQrTitle] = useState("");
   const [qrValue, setQrValue] = useState<string | null>(null);
@@ -410,7 +408,7 @@ export default function AriiaTalk() {
         contact_without_valid_phone: "Este contato não tem um telefone válido para WhatsApp.",
         group_conversation_not_found: "Ainda não há conversa registrada para este grupo.",
       };
-      setNotice(map[data?.error] ?? "Não foi possível iniciar a conversa.");
+      toast.error(map[data?.error] ?? "Não foi possível iniciar a conversa.");
       return;
     }
     selectedIdRef.current = data.conversation_id;
@@ -418,7 +416,7 @@ export default function AriiaTalk() {
     setListMode("conversas");
     setConversationTab("todos");
     openConversation(data.conversation_id);
-    setNotice(data.created ? "Conversa criada. Nenhuma mensagem foi enviada ainda." : "Conversa existente aberta.");
+    toast.success(data.created ? "Conversa criada. Nenhuma mensagem foi enviada ainda." : "Conversa existente aberta.");
   }, [loadConversations, openConversation]);
 
   const assignTo = useCallback(async (responsavelId: number | null) => {
@@ -431,13 +429,13 @@ export default function AriiaTalk() {
     });
     setAssigning(false);
     if (err || data?.error) {
-      setNotice("Não foi possível alterar o responsável pela conversa.");
+      toast.error("Não foi possível alterar o responsável pela conversa.");
       return;
     }
     setConversations((cur) => cur.map((c) => c.id === selectedId
       ? { ...c, responsavel_id: responsavelId, responsavel_nome: staff.find((s) => s.id === responsavelId)?.nome ?? null }
       : c));
-    setNotice(responsavelId ? "Responsável atualizado." : "Atribuição removida.");
+    toast.success(responsavelId ? "Responsável atualizado." : "Atribuição removida.");
     void loadConversations();
   }, [selectedId, staff, loadConversations]);
 
@@ -448,7 +446,7 @@ export default function AriiaTalk() {
       body: { action: "set_status", conversation_id: selectedId, status },
     });
     if (err || data?.error) {
-      setNotice("Não foi possível alterar o status da conversa.");
+      toast.error("Não foi possível alterar o status da conversa.");
       return;
     }
     setConversations((cur) => cur.map((c) => c.id === selectedId ? { ...c, status } : c));
@@ -460,7 +458,7 @@ export default function AriiaTalk() {
       setSearch("");
       setFilters(f => ({ ...f, status: "" }));
     }
-    setNotice(status === "closed" ? "Conversa encerrada." : "Conversa reaberta.");
+    toast.success(status === "closed" ? "Conversa encerrada." : "Conversa reaberta.");
     void loadConversations();
   }, [selectedId, loadConversations]);
 
@@ -477,7 +475,7 @@ export default function AriiaTalk() {
     const nome = newFolder.trim();
     if (!nome) return;
     const r = await callTalk({ action: "create_folder", nome });
-    if (!r.ok) return setNotice(r.data?.error === "folder_exists" ? "Já existe uma pasta com esse nome." : "Não foi possível criar a pasta.");
+    if (!r.ok) return toast.error(r.data?.error === "folder_exists" ? "Já existe uma pasta com esse nome." : "Não foi possível criar a pasta.");
     setFolders((cur) => [...cur, r.data.folder].sort((a, b) => a.nome.localeCompare(b.nome)));
     setNewFolder("");
   }, [newFolder, callTalk]);
@@ -485,7 +483,7 @@ export default function AriiaTalk() {
   const deleteFolder = useCallback(async (folder: Pasta) => {
     if (!window.confirm(`Excluir a pasta "${folder.nome}"? As conversas não serão apagadas.`)) return;
     const r = await callTalk({ action: "delete_folder", folder_id: folder.id });
-    if (!r.ok) return setNotice("Não foi possível excluir a pasta.");
+    if (!r.ok) return toast.error("Não foi possível excluir a pasta.");
     setFolders((cur) => cur.filter((f) => f.id !== folder.id));
     setConversations((cur) => cur.map((c) => ({ ...c, pasta_ids: (c.pasta_ids ?? []).filter((id) => id !== folder.id) })));
     setFilters((f) => (f.pasta === folder.id ? { ...f, pasta: "" } : f));
@@ -494,7 +492,7 @@ export default function AriiaTalk() {
   const toggleFolder = useCallback(async (folderId: string, add: boolean) => {
     if (!selectedId) return;
     const r = await callTalk({ action: "toggle_folder", conversation_id: selectedId, folder_id: folderId, add });
-    if (!r.ok) return setNotice("Não foi possível alterar a pasta da conversa.");
+    if (!r.ok) return toast.error("Não foi possível alterar a pasta da conversa.");
     setConversations((cur) => cur.map((c) => c.id === selectedId
       ? { ...c, pasta_ids: add ? [...new Set([...(c.pasta_ids ?? []), folderId])] : (c.pasta_ids ?? []).filter((id) => id !== folderId) }
       : c));
@@ -516,7 +514,7 @@ export default function AriiaTalk() {
     setSavingNote(true);
     const r = await callTalk({ action: "add_note", contact_id: selectedContactId, texto });
     setSavingNote(false);
-    if (!r.ok) return setNotice("Não foi possível salvar a observação.");
+    if (!r.ok) return toast.error("Não foi possível salvar a observação.");
     setNotes((cur) => [r.data.note, ...cur]);
     setNoteText("");
   }, [noteText, selectedContactId, callTalk]);
@@ -524,7 +522,7 @@ export default function AriiaTalk() {
   const deleteNote = useCallback(async (note: Nota) => {
     if (!window.confirm("Apagar esta observação?")) return;
     const r = await callTalk({ action: "delete_note", note_id: note.id });
-    if (!r.ok) return setNotice(r.data?.error === "forbidden" ? "Só quem escreveu (ou um administrador) pode apagar." : "Não foi possível apagar a observação.");
+    if (!r.ok) return toast.error(r.data?.error === "forbidden" ? "Só quem escreveu (ou um administrador) pode apagar." : "Não foi possível apagar a observação.");
     setNotes((cur) => cur.filter((n) => n.id !== note.id));
   }, [callTalk]);
 
@@ -570,7 +568,7 @@ export default function AriiaTalk() {
     setContacts((cur) => [...cur, payload.contact].sort((a, b) => a.nome.localeCompare(b.nome)));
     setContactDialog(false);
     setCForm({ nome: "", telefone: "", empresa_id: "", unidade_id: "", categoria: "" });
-    setNotice("Contato cadastrado. Nenhuma mensagem foi enviada.");
+    toast.success("Contato cadastrado. Nenhuma mensagem foi enviada.");
     if (search.trim().length >= 2) setSearch((s) => s + " ");
   }, [cForm, search]);
 
@@ -583,7 +581,6 @@ export default function AriiaTalk() {
     if (!previousConversation || previousConversation.contato_id === contactId) return;
 
     setSavingContact(true);
-    setNotice(null);
 
     try {
       const { data, error: invokeError } = await supabase.functions.invoke(
@@ -600,7 +597,7 @@ export default function AriiaTalk() {
 
       if (invokeError || data?.error || data?.success !== true) {
         console.error("[AriiaTalk] Erro ao associar contato:", invokeError ?? data?.error);
-        setNotice("Não foi possível salvar a associação do contato.");
+        toast.error("Não foi possível salvar a associação do contato.");
         return;
       }
 
@@ -612,12 +609,12 @@ export default function AriiaTalk() {
         ),
       );
 
-      setNotice(contactId === null
+      toast.success(contactId === null
         ? "Contato desvinculado da conversa."
         : "Contato associado à conversa.");
     } catch (err) {
       console.error("[AriiaTalk] Erro ao associar contato:", err);
-      setNotice("Não foi possível salvar a associação do contato.");
+      toast.error("Não foi possível salvar a associação do contato.");
     } finally {
       setSavingContact(false);
     }
@@ -1011,7 +1008,6 @@ export default function AriiaTalk() {
 
     setCreating(true);
     setInstanceError(null);
-    setNotice(null);
 
     const { data, error: invokeError } =
       await supabase.functions.invoke("ariiatalk-instancias", {
@@ -1037,7 +1033,7 @@ export default function AriiaTalk() {
     }
 
     setNewName("");
-    setNotice("Instância criada.");
+    toast.success("Instância criada.");
     await loadInstances();
 
     const qr = data?.qrcode;
@@ -1062,7 +1058,6 @@ export default function AriiaTalk() {
 
     setBusyId(instance.id);
     setInstanceError(null);
-    setNotice(null);
 
     const { data, error: invokeError } =
       await supabase.functions.invoke("ariiatalk-instancias", {
@@ -1086,14 +1081,14 @@ export default function AriiaTalk() {
     }
 
     if (action === "delete") {
-      setNotice("Instância excluída.");
+      toast.success("Instância excluída.");
       await loadInstances();
       return;
     }
 
     if (action === "status") {
       const status = data?.status;
-      setNotice(status ? `Status atualizado: ${statusLabel(status)}.` : "Status consultado.");
+      toast.success(status ? `Status atualizado: ${statusLabel(status)}.` : "Status consultado.");
       await loadInstances();
       return;
     }
@@ -1130,7 +1125,6 @@ export default function AriiaTalk() {
             type="button"
             onClick={() => {
               setView("conversas");
-              setNotice(null);
             }}
             className={`rounded-md px-3 py-2 text-sm ${view === "conversas" ? "bg-primary text-primary-foreground" : "border hover:bg-muted"}`}
           >
@@ -1140,14 +1134,13 @@ export default function AriiaTalk() {
               <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-[11px] font-semibold text-destructive-foreground">{totalUnread}</span>
             )}
           </button>
-          <Button variant={view === "contatos" ? "default" : "outline"} onClick={() => { setView("contatos"); setNotice(null); void loadContacts(); }}>
+          <Button variant={view === "contatos" ? "default" : "outline"} onClick={() => { setView("contatos"); void loadContacts(); }}>
             <UserRound />Contatos
           </Button>
           <button
             type="button"
             onClick={() => {
               setView("instancias");
-              setNotice(null);
               void loadInstances();
             }}
             className={`rounded-md px-3 py-2 text-sm ${view === "instancias" ? "bg-primary text-primary-foreground" : "border hover:bg-muted"}`}
@@ -1172,16 +1165,13 @@ export default function AriiaTalk() {
         </div>
       </header>
 
-      {(instanceError || notice) && (
-        <div className={`flex items-start gap-2 border-b px-5 py-3 text-sm ${instanceError ? "bg-destructive/5 text-destructive" : "bg-muted/50"}`}>
-          {instanceError ? <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /> : <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />}
-          <span className="min-w-0 flex-1">{instanceError || notice}</span>
+      {instanceError && (
+        <div className="flex items-start gap-2 border-b bg-destructive/5 px-5 py-3 text-sm text-destructive">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          <span className="min-w-0 flex-1">{instanceError}</span>
           <button
             type="button"
-            onClick={() => {
-              setInstanceError(null);
-              setNotice(null);
-            }}
+            onClick={() => setInstanceError(null)}
             aria-label="Fechar aviso"
           >
             <X className="h-4 w-4" />
@@ -1196,13 +1186,13 @@ export default function AriiaTalk() {
           setContacts(current => current.filter(c => c.id !== id));
           setConversations(current => current.map(c => c.contato_id === id ? { ...c, contato_id: null, contato: null } : c));
           setSearchResults(current => current ? { ...current, contacts: current.contacts.filter(c => c.id !== id) } : null);
-          setNotice("Contato excluído.");
+          toast.success("Contato excluído.");
         }} />}
         {editingContact && <EditContactDialog key={editingContact.id} contact={editingContact} onClose={() => setEditingContact(null)} onSaved={updated => {
           setContacts(current => current.map(c => c.id === updated.id ? updated : c).sort((a, b) => a.nome.localeCompare(b.nome)));
           setConversations(current => current.map(c => c.contato_id === updated.id ? { ...c, contato: updated } : c));
           setSearchResults(current => current ? { ...current, contacts: current.contacts.map(c => c.id === updated.id ? updated : c) } : null);
-          setNotice("Contato atualizado.");
+          toast.success("Contato atualizado.");
           void loadContacts();
         }} />}
         </>
@@ -1635,7 +1625,7 @@ export default function AriiaTalk() {
                             <MessageActions canReply={Boolean(message.evolution_message_id)} canEdit={canEditMessage(message, user?.id)} flagged={myAnnotation(message)?.sinalizada ?? false} disabled={actionBusy || sendingMessage || message.id.startsWith("optimistic-")}
                               onReply={() => { setReplyTo(message); document.querySelector<HTMLInputElement>('input[aria-label="Mensagem"]')?.focus(); }}
                               onEdit={() => { setEditTarget(message); setEditText(message.conteudo ?? ""); setActionError(null); }}
-                              onCopy={() => { void navigator.clipboard.writeText(message.conteudo || message.media_url || "").then(() => setNotice("Mensagem copiada."), () => setNotice("Não foi possível copiar. Verifique a permissão do navegador.")); }}
+                              onCopy={() => { void navigator.clipboard.writeText(message.conteudo || message.media_url || "").then(() => toast.success("Mensagem copiada."), () => toast.error("Não foi possível copiar. Verifique a permissão do navegador.")); }}
                               onFlag={() => { const mine = myAnnotation(message); void messageAction("annotate", message, { sinalizada: !mine?.sinalizada, nota: mine?.nota ?? "", marcacao: mine?.marcacao ?? "" }); }}
                               onNote={() => openAnnotation(message)} />
                           </div>
