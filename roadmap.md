@@ -1,8 +1,9 @@
 # Cronograma
 ## AriiaTalk: envio de anexos
-- [ ] Selecionar arquivo, remover seleção e enviar com legenda opcional na conversa.
-- [ ] Guardar anexos privados e enviar pela Evolution preservando autoria, assinatura e histórico.
-- [ ] Testar validação e envio; validar WhatsApp real depende de sessão autenticada externa.
+- [x] Selecionar arquivo, remover seleção e enviar com legenda opcional na conversa.
+- [x] Guardar anexos privados e enviar pela Evolution preservando autoria, assinatura e histórico; funções implantadas.
+- [x] Testar validação, envio sem legenda e recuperação em falha: 16 testes passaram.
+- [ ] Validar envio WhatsApp real: bloqueado por ausência de sessão autenticada no Supabase externo.
 ## Filas duplicadas no AriiaTalk
 - [x] Excluir filas desativadas da seleção de abertura no AriiaTalk, sem alterar registros ou vínculos históricos.
 - [x] Confirmar cinco filas ativas sem duplicação; teste da consulta passou e build OK.
