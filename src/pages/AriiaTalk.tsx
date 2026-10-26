@@ -45,6 +45,7 @@ import { maskPhoneInput } from "@/lib/ariiatalkPhoneMask";
 import MessageActions from "@/components/ariiatalk/MessageActions";
 import OpenTicketDialog from "@/components/ariiatalk/OpenTicketDialog";
 import ConversationAssignee from "@/components/ariiatalk/ConversationAssignee";
+import { ATTACHMENT_ACCEPT, attachmentInfo } from "../../supabase/functions/_shared/ariiatalkAttachments";
 
 import { Ticket } from "lucide-react";
 import { canEditMessage, quoteSnapshot } from "../../supabase/functions/_shared/ariiatalkMessageActions";
@@ -226,6 +227,8 @@ export default function AriiaTalk() {
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [sendingMessage, setSendingMessage] = useState(false);
   const [messageText, setMessageText] = useState("");
+  const [attachment, setAttachment] = useState<File | null>(null);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
   const [messageError, setMessageError] = useState<string | null>(null);
   const [contacts, setContacts] = useState<AriiaContact[]>([]);
   const [editingContact, setEditingContact] = useState<AriiaContact | null>(null);
@@ -688,7 +691,7 @@ export default function AriiaTalk() {
 
   const sendMessage = useCallback(async () => {
     const text = messageText.trim();
-    if (!selectedId || !text || sendingMessage) return;
+    if (!selectedId || (!text && !attachment) || sendingMessage) return;
 
     const conversationId = selectedId;
     const optimisticId = `optimistic-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -699,8 +702,8 @@ export default function AriiaTalk() {
       conversa_id: conversationId,
       evolution_message_id: null,
       direcao: "saida",
-      tipo: "texto",
-      conteudo: text,
+      tipo: attachment ? attachmentInfo(attachment).kind : "texto",
+      conteudo: text || attachment?.name || "",
       media_url: null,
       status: "enviando",
       enviado_por: user?.id ?? null,
@@ -722,10 +725,17 @@ export default function AriiaTalk() {
     });
 
     try {
+      const form = attachment ? new FormData() : null;
+      if (form && attachment) {
+        form.append("arquivo", attachment);
+        form.append("conversa_id", conversationId);
+        form.append("texto", text);
+        if (replyTo) form.append("resposta_mensagem_id", replyTo.id);
+      }
       const { data, error: invokeError } =
         await supabase.functions.invoke("ariiatalk-mensagens", {
           method: "POST",
-          body: {
+          body: form ?? {
             action: "send",
             conversa_id: conversationId,
             texto: text,
@@ -734,14 +744,17 @@ export default function AriiaTalk() {
         });
 
       if (invokeError || data?.error) {
-        const details = data?.details?.message || data?.details?.error || "";
+        let failure = data;
+        if (invokeError && !failure && "context" in invokeError && invokeError.context instanceof Response) failure = await invokeError.context.json().catch(() => null);
+        const details = failure?.message || failure?.details?.message || "";
         const errorText =
-          data?.error === "evolution_send_failed"
+          failure?.error === "evolution_send_failed"
             ? `A Evolution API recusou o envio.${details ? ` ${details}` : ""}`
-            : data?.error
-              ? `Não foi possível enviar a mensagem: ${data.error}`
+            : failure?.error
+              ? (details || "Não foi possível enviar o anexo ou a mensagem. Tente novamente.")
               : invokeError?.message || "Não foi possível enviar a mensagem.";
 
+        if (selectedIdRef.current !== conversationId) return;
         setMessages((current) =>
           current.map((message) =>
             message.id === optimisticId
@@ -755,10 +768,13 @@ export default function AriiaTalk() {
       }
 
       setConversations(cur => cur.map(c => c.id === conversationId ? { ...c, status: "open" } : c));
+      if (selectedIdRef.current !== conversationId) return;
+      setAttachment(null);
       setReplyTo(null);
       void loadMessages(conversationId, true);
     } catch (error) {
       console.error("[AriiaTalk] Erro ao enviar mensagem:", error);
+      if (selectedIdRef.current !== conversationId) return;
 
       setMessages((current) =>
         current.map((message) =>
@@ -772,7 +788,7 @@ export default function AriiaTalk() {
     } finally {
       setSendingMessage(false);
     }
-  }, [messageText, selectedId, sendingMessage, loadMessages, user, replyTo]);
+  }, [messageText, attachment, selectedId, sendingMessage, loadMessages, user, replyTo]);
 
   const loadInstances = useCallback(async () => {
     setLoadingInstances(true);
@@ -872,6 +888,9 @@ export default function AriiaTalk() {
   useEffect(() => {
     setMessageSearch("");
     setHighlightMessageId(null);
+    setAttachment(null);
+    setMessageText("");
+    setReplyTo(null);
   }, [selectedId]);
 
   const messageMatches = useMemo(() => findMessageMatches(messages, messageSearch), [messages, messageSearch]);
@@ -1635,14 +1654,19 @@ export default function AriiaTalk() {
                             <p className="whitespace-pre-wrap break-words text-sm">{message.conteudo}</p>
                           )}
                           {message.media_url && (
+                            <div className="mt-2 max-w-full">
+                              {message.tipo === "image" && <img src={message.media_url} alt={message.conteudo || "Imagem anexada"} loading="lazy" className="max-h-64 max-w-full rounded-md object-contain" />}
+                              {message.tipo === "video" && <video src={message.media_url} controls preload="metadata" className="max-h-64 max-w-full rounded-md" />}
+                              {message.tipo === "audio" && <audio src={message.media_url} controls preload="metadata" className="max-w-full" />}
                             <a
                               href={message.media_url}
                               target="_blank"
                               rel="noreferrer"
                               className="mt-1 block text-xs underline"
                             >
-                              Abrir mídia
+                              <Paperclip className="mr-1 inline h-3 w-3" />Abrir anexo
                             </a>
+                            </div>
                           )}
                           {!message.conteudo && !message.media_url && (
                             <p className="text-sm italic opacity-80">Mensagem do tipo {message.tipo}</p>
@@ -1713,6 +1737,11 @@ export default function AriiaTalk() {
                 <DialogFooter><Button variant="outline" disabled={actionBusy} onClick={() => setAnnotationTarget(null)}>Cancelar</Button><Button disabled={actionBusy} onClick={() => { if (annotationTarget) void messageAction("annotate", annotationTarget, annotationForm); }}>{actionBusy ? "Salvando..." : "Salvar anotação"}</Button></DialogFooter>
               </DialogContent>
             </Dialog>
+            {attachment && <div className="flex items-center gap-2 border-t bg-muted/40 px-4 py-2">
+              <Paperclip className="h-4 w-4 shrink-0 text-primary" />
+              <div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{attachment.name}</p><p className="text-xs text-muted-foreground">{(attachment.size / 1024 / 1024).toFixed(2)} MB</p></div>
+              <Button variant="ghost" size="icon" disabled={sendingMessage} aria-label="Remover anexo" title="Remover anexo" onClick={() => setAttachment(null)}><X className="h-4 w-4" /></Button>
+            </div>}
             <form
               onSubmit={(event) => {
                 event.preventDefault();
@@ -1720,35 +1749,43 @@ export default function AriiaTalk() {
               }}
               className="flex items-center gap-2 border-t p-3"
             >
-              <button
+              <input ref={attachmentInputRef} type="file" accept={ATTACHMENT_ACCEPT} className="hidden" aria-label="Selecionar anexo" onChange={event => {
+                const file = event.target.files?.[0];
+                event.target.value = "";
+                if (!file) return;
+                try { attachmentInfo(file); setAttachment(file); setMessageError(null); }
+                catch (error) { toast.error(error instanceof Error ? error.message : "Arquivo inválido."); }
+              }} />
+              <Button
                 type="button"
-                disabled
+                variant="ghost" size="icon"
+                disabled={!selectedConversation || sendingMessage}
+                onClick={() => attachmentInputRef.current?.click()}
                 aria-label="Anexar arquivo"
-                title="Anexos ainda não habilitados"
-                className="rounded-md p-2 text-muted-foreground opacity-50"
+                title="Anexar arquivo"
               >
                 <Paperclip className="h-5 w-5" />
-              </button>
+              </Button>
               <input
                 aria-label="Mensagem"
                 value={messageText}
                 onChange={(event) => setMessageText(event.target.value)}
-                placeholder={selectedConversation ? "Digite uma mensagem..." : "Selecione uma conversa"}
+                placeholder={selectedConversation ? (attachment ? "Legenda (opcional)..." : "Digite uma mensagem...") : "Selecione uma conversa"}
                 disabled={!selectedConversation || sendingMessage}
                 maxLength={4000}
                 className="h-10 min-w-0 flex-1 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
               />
-              <button
+              <Button
                 type="submit"
-                disabled={!selectedConversation || !messageText.trim() || sendingMessage}
+                size="icon"
+                disabled={!selectedConversation || (!messageText.trim() && !attachment) || sendingMessage}
                 aria-label="Enviar mensagem"
                 title="Enviar mensagem"
-                className="rounded-md bg-primary p-2 text-primary-foreground hover:opacity-90 disabled:opacity-50"
               >
                 {sendingMessage
                   ? <LoaderCircle className="h-5 w-5 animate-spin" />
                   : <Send className="h-5 w-5" />}
-              </button>
+              </Button>
             </form>
           </section>
 
