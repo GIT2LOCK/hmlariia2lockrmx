@@ -1875,6 +1875,38 @@ export default function AriiaTalk() {
                     </div>
                   )}
                 </div>
+                {(() => {
+                  const marked = messages.filter(m => m.anotacoes?.some(a => a.sinalizada || a.nota || a.marcacao));
+                  return (
+                    <div className="space-y-2 border-t pt-3">
+                      <p className="flex items-center gap-1.5 text-xs font-semibold"><Flag className="h-3.5 w-3.5 text-destructive" /> Sinalizadas e notas ({marked.length})</p>
+                      {marked.length === 0 ? (
+                        <p className="text-[10.5px] text-muted-foreground">Nenhuma mensagem sinalizada ou com nota nesta conversa.</p>
+                      ) : (
+                        <div className="max-h-64 space-y-2 overflow-y-auto">
+                          {marked.map(message => {
+                            const notes = (message.anotacoes ?? []).filter(a => a.sinalizada || a.nota || a.marcacao);
+                            const flagged = notes.some(a => a.sinalizada);
+                            return (
+                              <button key={message.id} type="button" onClick={() => jumpToMessage(message.id)} className="w-full rounded-md border bg-background p-2 text-left text-xs hover:bg-muted/50">
+                                <span className="flex items-center gap-1 text-[10.5px] text-muted-foreground">
+                                  {flagged ? <Flag className="h-3 w-3 text-destructive" fill="currentColor" /> : <StickyNote className="h-3 w-3" />}
+                                  {new Date(message.enviada_em || message.criado_em).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                                </span>
+                                <span className="line-clamp-2 block break-words">{message.conteudo || "(mídia)"}</span>
+                                {notes.map(a => (a.marcacao || a.nota) && (
+                                  <span key={a.usuario_id} className="mt-1 block text-[10.5px] text-muted-foreground">
+                                    {a.usuarios?.nome || "Técnico"}: {[a.marcacao, a.nota].filter(Boolean).join(" — ")}
+                                  </span>
+                                ))}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             ) : (
               <p className="mt-3 text-sm text-muted-foreground">Selecione uma conversa para visualizar os dados do contato.</p>
