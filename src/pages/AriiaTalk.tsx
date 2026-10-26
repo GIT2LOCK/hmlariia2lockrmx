@@ -14,7 +14,6 @@ import {
   X,
   Wifi,
   WifiOff,
-  CheckCircle2,
   LoaderCircle,
   ArrowLeft,
   Inbox,
