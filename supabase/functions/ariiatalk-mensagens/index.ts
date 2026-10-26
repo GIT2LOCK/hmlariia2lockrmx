@@ -7,7 +7,7 @@ import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { z } from "npm:zod@3.25.76";
 import { buildQuoted, quoteSnapshot } from "../_shared/ariiatalkMessageActions.ts";
 import { annotateMessage, editMessage } from "./messageActions.ts";
-import { ATTACHMENT_BUCKET, MAX_ATTACHMENT_BYTES, attachmentInfo, mediaPayload } from "../_shared/ariiatalkAttachments.ts";
+import { ATTACHMENT_BUCKET, ATTACHMENT_RETENTION_MS, EXPIRED_MEDIA, MAX_ATTACHMENT_BYTES, attachmentInfo, isAttachmentExpired, mediaPayload } from "../_shared/ariiatalkAttachments.ts";
 
 const historyFields = "id, conversa_id, evolution_message_id, direcao, tipo, conteudo, media_url, status, enviado_por, autor_nome, enviada_em, criado_em, resposta_mensagem_id, resposta_snapshot, editada_em, remetente_nome, remetente_jid";
 
@@ -15,13 +15,28 @@ function respond(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
+// Remove arquivos com mais de 30 dias (lote pequeno, executado a cada envio/leitura).
+async function purgeExpiredAttachments(db: ReturnType<typeof serviceClient>) {
+  const prefix = `storage://${ATTACHMENT_BUCKET}/`;
+  const cutoff = new Date(Date.now() - ATTACHMENT_RETENTION_MS).toISOString();
+  const { data } = await db.from("ariiatalk_mensagens").select("id, media_url").like("media_url", `${prefix}%`).lt("criado_em", cutoff).limit(100);
+  if (!data?.length) return;
+  const { error } = await db.storage.from(ATTACHMENT_BUCKET).remove(data.map(m => m.media_url.slice(prefix.length)));
+  if (error) { console.error("Attachment purge failed:", error); return; }
+  await db.from("ariiatalk_mensagens").update({ media_url: EXPIRED_MEDIA }).in("id", data.map(m => m.id));
+}
+
 async function withAuthors(db: ReturnType<typeof serviceClient>, messages: any[]) {
   if (!messages.length) return messages;
+  purgeExpiredAttachments(db).catch(e => console.error("purge", e));
   messages = await Promise.all(messages.map(async message => {
     const prefix = `storage://${ATTACHMENT_BUCKET}/`;
+    if (message.media_url === EXPIRED_MEDIA || (message.media_url?.startsWith(prefix) && isAttachmentExpired(message.criado_em))) {
+      return { ...message, media_url: null, media_expirada: true };
+    }
     if (!message.media_url?.startsWith(prefix)) return message;
     const { data } = await db.storage.from(ATTACHMENT_BUCKET).createSignedUrl(message.media_url.slice(prefix.length), 3600);
-    return { ...message, media_url: data?.signedUrl ?? null };
+    return data?.signedUrl ? { ...message, media_url: data.signedUrl } : { ...message, media_url: null, media_expirada: true };
   }));
   const { data: annotations, error: annotationsError } = await db.from("ariiatalk_mensagem_anotacoes").select("*, usuarios(nome)").in("mensagem_id", messages.map(m => m.id));
   if (annotationsError) throw annotationsError;

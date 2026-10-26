@@ -25,3 +25,16 @@ describe("Anexos AriiaTalk", () => {
     expect(body).not.toHaveProperty("nota");
   });
 });
+import { isAttachmentExpired } from "../../supabase/functions/_shared/ariiatalkAttachments";
+import { scaledSize } from "./ariiatalkImageCompress";
+describe("Retenção e compressão", () => {
+  const now = Date.parse("2026-10-26T00:00:00Z");
+  it("anexo expira após 30 dias", () => {
+    expect(isAttachmentExpired("2026-09-25T00:00:00Z", now)).toBe(true);
+    expect(isAttachmentExpired("2026-09-27T00:00:00Z", now)).toBe(false);
+  });
+  it("redimensiona imagens para no máximo 1920px", () => {
+    expect(scaledSize(4000, 3000)).toEqual({ width: 1920, height: 1440 });
+    expect(scaledSize(800, 600)).toEqual({ width: 800, height: 600 });
+  });
+});
