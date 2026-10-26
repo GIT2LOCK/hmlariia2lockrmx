@@ -1,5 +1,12 @@
 export const ATTACHMENT_BUCKET = "ariiatalk-attachments";
 export const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024;
+export const ATTACHMENT_RETENTION_DAYS = 30;
+export const ATTACHMENT_RETENTION_MS = ATTACHMENT_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+export const EXPIRED_MEDIA = "expired://";
+export function isAttachmentExpired(createdAt: string | null | undefined, now = Date.now()) {
+  if (!createdAt) return false;
+  return now - new Date(createdAt).getTime() > ATTACHMENT_RETENTION_MS;
+}
 const documentTypes: Record<string, string> = {
   pdf: "application/pdf", txt: "text/plain", csv: "text/csv", zip: "application/zip",
   doc: "application/msword", docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
