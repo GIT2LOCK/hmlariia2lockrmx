@@ -1,9 +1,11 @@
-import { type DragEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { type DragEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
   Clock,
-  Filter,
+  ChevronLeft,
+  ChevronRight,
+  X,
   GripVertical,
   RefreshCw,
   Search,
@@ -38,6 +40,8 @@ import {
   type TicketStatus,
   isClosed,
 } from "@/lib/ticketSla";
+import { Switch } from "@/components/ui/switch";
+import { filterKanbanTickets, sortKanbanTickets, type KanbanQuickFilter, type KanbanSort } from "@/lib/kanbanFilters";
 import { cn } from "@/lib/utils";
 
 interface TicketRow {
@@ -68,50 +72,43 @@ const CLOSED_COLUMNS = STATUS_ORDER.filter((status) =>
 
 const PRIORITY_COLORS: Record<TicketPriority, string> = {
   CRITICO: "bg-destructive text-destructive-foreground",
-  ALTO: "bg-orange-500 text-white",
-  MEDIO: "bg-amber-500 text-white",
+  ALTO: "bg-status-warn-bg text-status-warn",
+  MEDIO: "bg-status-warn-bg text-status-warn",
   BAIXO: "bg-secondary text-secondary-foreground",
 };
 
 const STATUS_COLORS: Record<TicketStatus, string> = {
-  NOVO: "bg-blue-500 text-white",
-  TRIAGEM: "bg-cyan-500 text-white",
+  NOVO: "bg-secondary text-secondary-foreground",
+  TRIAGEM: "bg-status-info-bg text-status-info",
   EM_ATENDIMENTO: "bg-primary text-primary-foreground",
-  AGUARDANDO_CLIENTE: "bg-amber-400 text-black",
-  AGUARDANDO_OPERADORA: "bg-amber-500 text-white",
-  AGUARDANDO_TERCEIRO: "bg-amber-600 text-white",
-  AGENDADO: "bg-purple-500 text-white",
-  RESOLVIDO: "bg-emerald-600 text-white",
+  AGUARDANDO_CLIENTE: "bg-status-warn-bg text-status-warn",
+  AGUARDANDO_OPERADORA: "bg-status-warn-bg text-status-warn",
+  AGUARDANDO_TERCEIRO: "bg-status-warn-bg text-status-warn",
+  AGENDADO: "bg-status-info-bg text-status-info",
+  RESOLVIDO: "bg-status-ok-bg text-status-ok",
   FECHADO: "bg-muted text-muted-foreground",
-  CANCELADO: "bg-zinc-500 text-white",
+  CANCELADO: "bg-muted text-muted-foreground",
 };
 
 const COLUMN_TONES: Record<TicketStatus, string> = {
-  NOVO: "border-blue-500/45 bg-blue-500/10",
-  TRIAGEM: "border-cyan-500/45 bg-cyan-500/10",
+  NOVO: "border-secondary/45 bg-secondary/10",
+  TRIAGEM: "border-status-info-border bg-status-info-bg",
   EM_ATENDIMENTO: "border-primary/45 bg-primary/10",
-  AGUARDANDO_CLIENTE: "border-amber-400/50 bg-amber-400/10",
-  AGUARDANDO_OPERADORA: "border-amber-500/50 bg-amber-500/10",
-  AGUARDANDO_TERCEIRO: "border-amber-600/50 bg-amber-600/10",
-  AGENDADO: "border-purple-500/45 bg-purple-500/10",
-  RESOLVIDO: "border-emerald-600/45 bg-emerald-600/10",
+  AGUARDANDO_CLIENTE: "border-status-warn-border bg-status-warn-bg",
+  AGUARDANDO_OPERADORA: "border-status-warn-border bg-status-warn-bg",
+  AGUARDANDO_TERCEIRO: "border-status-warn-border bg-status-warn-bg",
+  AGENDADO: "border-status-info-border bg-status-info-bg",
+  RESOLVIDO: "border-status-ok-border bg-status-ok-bg",
   FECHADO: "border-muted-foreground/30 bg-muted/50",
-  CANCELADO: "border-zinc-500/45 bg-zinc-500/10",
+  CANCELADO: "border-border bg-muted/50",
 };
 
 const SLA_COLORS = {
-  ok: "bg-emerald-600 text-white",
-  warn: "bg-amber-500 text-white",
+  ok: "bg-status-ok-bg text-status-ok",
+  warn: "bg-status-warn-bg text-status-warn",
   overdue: "bg-destructive text-destructive-foreground",
   done: "bg-muted text-muted-foreground",
-  paused: "bg-zinc-500 text-white",
-};
-
-const PRIORITY_WEIGHT: Record<TicketPriority, number> = {
-  CRITICO: 4,
-  ALTO: 3,
-  MEDIO: 2,
-  BAIXO: 1,
+  paused: "bg-muted text-muted-foreground",
 };
 
 function formatDate(value?: string | null) {
@@ -123,40 +120,6 @@ function formatDate(value?: string | null) {
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-  });
-}
-
-function getTicketSearchText(ticket: TicketRow) {
-  return [
-    ticket.codigo,
-    ticket.titulo,
-    ticket.status,
-    ticket.prioridade,
-    ticket.empresas?.nome_fantasia,
-    ticket.unidades?.nome_unidade,
-    ticket.usuarios?.nome,
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-}
-
-function sortByUrgency(tickets: TicketRow[]) {
-  return [...tickets].sort((a, b) => {
-    const slaA = computeSlaSolucao(a);
-    const slaB = computeSlaSolucao(b);
-    const aOverdue = slaA.remainingSeconds !== null && slaA.remainingSeconds < 0;
-    const bOverdue = slaB.remainingSeconds !== null && slaB.remainingSeconds < 0;
-
-    if (aOverdue !== bOverdue) return aOverdue ? -1 : 1;
-
-    const priorityDiff =
-      PRIORITY_WEIGHT[b.prioridade] - PRIORITY_WEIGHT[a.prioridade];
-    if (priorityDiff !== 0) return priorityDiff;
-
-    const remA = slaA.remainingSeconds ?? Number.MAX_SAFE_INTEGER;
-    const remB = slaB.remainingSeconds ?? Number.MAX_SAFE_INTEGER;
-    return remA - remB;
   });
 }
 
@@ -173,7 +136,13 @@ export default function ChamadosKanban() {
   const [draggingTicketId, setDraggingTicketId] = useState<number | null>(null);
   const [dragOverStatus, setDragOverStatus] = useState<TicketStatus | null>(null);
   const [updatingTicketId, setUpdatingTicketId] = useState<number | null>(null);
-  const [, setClockTick] = useState(0);
+  const [clockTick, setClockTick] = useState(0);
+  const [quick, setQuick] = useState<KanbanQuickFilter>("ALL");
+  const [sort, setSort] = useState<KanbanSort>("URGENCY");
+  const [hideEmpty, setHideEmpty] = useState(false);
+  const boardRef = useRef<HTMLDivElement>(null);
+  const hasFilters = !!search || scope !== "ABERTOS" || priority !== "ALL" || quick !== "ALL";
+  const resetFilters = () => { setSearch(""); setScope("ABERTOS"); setPriority("ALL"); setQuick("ALL"); };
 
   const loadTickets = useCallback(async () => {
     setLoading(true);
@@ -335,20 +304,16 @@ export default function ChamadosKanban() {
     [canUpdateStatus, changeTicketStatus, draggingTicketId, tickets],
   );
 
-  const filteredTickets = useMemo(() => {
-    const query = search.trim().toLowerCase();
-
-    return tickets.filter((ticket) => {
-      if (scope === "ABERTOS" && isClosed(ticket.status)) return false;
-      if (priority !== "ALL" && ticket.prioridade !== priority) return false;
-      if (query && !getTicketSearchText(ticket).includes(query)) return false;
-      return true;
-    });
-  }, [tickets, search, scope, priority]);
+  const filteredTickets = useMemo(() => filterKanbanTickets(tickets, {
+    search, scope, priority, quick, userId: user.id,
+  }), [tickets, search, scope, priority, quick, user.id, clockTick]);
 
   const columns = useMemo(() => {
-    return scope === "TODOS" ? [...OPEN_COLUMNS, ...CLOSED_COLUMNS] : OPEN_COLUMNS;
-  }, [scope]);
+    const available = scope === "TODOS" ? [...OPEN_COLUMNS, ...CLOSED_COLUMNS] : OPEN_COLUMNS;
+    return hideEmpty && draggingTicketId === null
+      ? available.filter(status => filteredTickets.some(ticket => ticket.status === status))
+      : available;
+  }, [scope, hideEmpty, filteredTickets, draggingTicketId]);
 
   const stats = useMemo(() => {
     const openTickets = tickets.filter((ticket) => !isClosed(ticket.status));
@@ -373,20 +338,18 @@ export default function ChamadosKanban() {
       warning: warning.length,
       unassigned: openTickets.filter((ticket) => !ticket.tecnico_id).length,
     };
-  }, [tickets, filteredTickets]);
+  }, [tickets, filteredTickets, clockTick]);
 
   return (
     <div className="space-y-4 p-4">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">Kanban de Chamados</h1>
-          <p className="text-sm text-muted-foreground">
-            Arraste os cartões entre as colunas para alterar o status.
-          </p>
+
         </div>
 
         <div className="flex gap-2">
-          <Button variant="outline" size="icon" onClick={loadTickets} title="Atualizar">
+          <Button variant="outline" size="icon" onClick={loadTickets} disabled={loading || updatingTicketId !== null} title="Atualizar" aria-label="Atualizar Kanban">
             <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
           </Button>
           <Button variant="outline" onClick={() => navigate("/dashboard/chamados")}>
@@ -401,27 +364,29 @@ export default function ChamadosKanban() {
         <StatCard title="Filtrados" value={loading ? "..." : stats.filtered} />
         <StatCard title="Abertos" value={loading ? "..." : stats.open} accent="text-primary" />
         <StatCard title="SLA vencido" value={loading ? "..." : stats.overdue} accent="text-destructive" />
-        <StatCard title="Vencendo" value={loading ? "..." : stats.warning} accent="text-amber-600" />
+        <StatCard title="Vencendo" value={loading ? "..." : stats.warning} accent="text-status-warn" />
         <StatCard title="Sem técnico" value={loading ? "..." : stats.unassigned} accent="text-muted-foreground" />
       </div>
 
-      <Card>
-        <CardContent className="grid grid-cols-1 gap-2 p-3 md:grid-cols-5">
+      <section aria-label="Filtros do Kanban" className="space-y-3 border-y py-3">
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-6">
           <div className="relative md:col-span-3">
             <Search className="pointer-events-none absolute left-2 top-3 h-4 w-4 text-muted-foreground" />
             <Input
+              aria-label="Pesquisar chamados"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Buscar por código, título, cliente, unidade, técnico..."
-              className="pl-8"
+              className="pl-8 pr-10"
             />
+            {search && <Button variant="ghost" size="icon" className="absolute right-0 top-0" aria-label="Limpar busca" title="Limpar busca" onClick={() => setSearch("")}><X className="h-4 w-4" /></Button>}
           </div>
 
           <Select
             value={scope}
             onValueChange={(value) => setScope(value as "ABERTOS" | "TODOS")}
           >
-            <SelectTrigger>
+            <SelectTrigger aria-label="Exibir chamados">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -431,7 +396,7 @@ export default function ChamadosKanban() {
           </Select>
 
           <Select value={priority} onValueChange={setPriority}>
-            <SelectTrigger>
+            <SelectTrigger aria-label="Prioridade">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -443,18 +408,37 @@ export default function ChamadosKanban() {
               ))}
             </SelectContent>
           </Select>
-        </CardContent>
-      </Card>
+          <Select value={sort} onValueChange={value => setSort(value as KanbanSort)}>
+            <SelectTrigger aria-label="Ordenar chamados"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="URGENCY">Mais urgentes</SelectItem>
+              <SelectItem value="NEWEST">Mais recentes</SelectItem>
+              <SelectItem value="OLDEST">Mais antigos</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap gap-2" aria-label="Filtros rápidos">
+            {([{ value: "ALL", label: "Todos" }, { value: "MINE", label: "Meus chamados" }, { value: "UNASSIGNED", label: "Sem técnico" }, { value: "OVERDUE", label: "SLA vencido" }] as const).map(item => (
+              <Button key={item.value} size="sm" variant={quick === item.value ? "secondary" : "outline"} aria-pressed={quick === item.value} onClick={() => setQuick(item.value)}>{item.label}</Button>
+            ))}
+            {hasFilters && <Button variant="ghost" size="sm" onClick={resetFilters}><X className="mr-1 h-4 w-4" />Limpar filtros</Button>}
+          </div>
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 text-sm" htmlFor="kanban-hide-empty"><Switch id="kanban-hide-empty" checked={hideEmpty} onCheckedChange={setHideEmpty} />Ocultar colunas vazias</label>
+            <Button variant="outline" size="icon" aria-label="Colunas anteriores" title="Colunas anteriores" onClick={() => boardRef.current?.scrollBy({ left: -560, behavior: "auto" })}><ChevronLeft className="h-4 w-4" /></Button>
+            <Button variant="outline" size="icon" aria-label="Próximas colunas" title="Próximas colunas" onClick={() => boardRef.current?.scrollBy({ left: 560, behavior: "auto" })}><ChevronRight className="h-4 w-4" /></Button>
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground" aria-live="polite">{filteredTickets.length} de {tickets.length} chamados</p>
+      </section>
 
       {loading ? (
         <EmptyBlock title="Carregando chamados..." />
       ) : filteredTickets.length === 0 ? (
-        <EmptyBlock
-          title="Nenhum chamado encontrado"
-          description="Ajuste os filtros ou tente uma nova busca."
-        />
+        <div className="space-y-2 text-center"><EmptyBlock title="Nenhum chamado encontrado" />{hasFilters && <Button variant="outline" onClick={resetFilters}>Limpar filtros</Button>}</div>
       ) : (
-        <div className="overflow-x-auto pb-4">
+        <div ref={boardRef} role="region" aria-label="Quadro de chamados" tabIndex={0} className="max-h-[65vh] overflow-auto pb-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <div
             className="grid gap-4"
             style={{
@@ -463,8 +447,8 @@ export default function ChamadosKanban() {
             }}
           >
             {columns.map((status) => {
-              const columnTickets = sortByUrgency(
-                filteredTickets.filter((ticket) => ticket.status === status),
+              const columnTickets = sortKanbanTickets(
+                filteredTickets.filter((ticket) => ticket.status === status), sort,
               );
               const isDropTarget = dragOverStatus === status;
 
@@ -534,8 +518,8 @@ export default function ChamadosKanban() {
       )}
 
       {!canUpdateStatus && (
-        <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-muted-foreground">
-          <AlertTriangle className="h-4 w-4 text-amber-600" />
+        <div className="flex items-center gap-2 rounded-lg border border-status-warn-border bg-status-warn-bg px-3 py-2 text-sm text-muted-foreground">
+          <AlertTriangle className="h-4 w-4 text-status-warn" />
           Seu perfil pode visualizar o Kanban, mas não pode alterar status por arrastar.
         </div>
       )}
@@ -572,9 +556,15 @@ function KanbanCard({
       onClick={() => {
         if (!isUpdating) onClick();
       }}
+      role="link"
+      tabIndex={isUpdating ? -1 : 0}
+      aria-label={`Abrir chamado ${ticket.codigo || ticket.id}: ${ticket.titulo}`}
+      onKeyDown={event => {
+        if (!isUpdating && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); onClick(); }
+      }}
       aria-busy={isUpdating}
       className={cn(
-        "select-none transition hover:-translate-y-0.5 hover:shadow-md",
+        "min-w-0 select-none transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-safe:hover:-translate-y-0.5 hover:shadow-md",
         draggable ? "cursor-grab active:cursor-grabbing" : "cursor-pointer",
         isOverdue && "border-destructive/70 bg-destructive/5",
         isCritical && "ring-1 ring-destructive/40",
@@ -599,7 +589,7 @@ function KanbanCard({
             </Badge>
           </div>
 
-          <h3 className="line-clamp-2 text-sm font-semibold leading-snug">
+          <h3 title={ticket.titulo} className="line-clamp-2 break-words text-sm font-semibold leading-snug">
             {ticket.titulo || "Chamado sem título"}
           </h3>
         </div>
