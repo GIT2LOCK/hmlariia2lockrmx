@@ -26,6 +26,7 @@ import {
   Flag,
   Pencil,
   Users,
+  ArrowDown,
 } from "lucide-react";
 import { empresaTagColor, categoriaTagColor, contactCategoria, CATEGORIAS_SUGERIDAS, normalizeKey } from "@/lib/ariiatalkTags";
 import { supabase } from "@/integrations/supabase/client";
@@ -46,6 +47,7 @@ import OpenTicketDialog from "@/components/ariiatalk/OpenTicketDialog";
 import ConversationAssignee from "@/components/ariiatalk/ConversationAssignee";
 import { ATTACHMENT_ACCEPT, attachmentInfo } from "../../supabase/functions/_shared/ariiatalkAttachments";
 import { compressImage } from "@/lib/ariiatalkImageCompress";
+import { useConversationDraft } from "@/hooks/useConversationDraft";
 
 import { Ticket } from "lucide-react";
 import { canEditMessage, quoteSnapshot } from "../../supabase/functions/_shared/ariiatalkMessageActions";
@@ -204,6 +206,10 @@ export default function AriiaTalk() {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const previousMessageCountRef = useRef(0);
   const shouldAutoScrollRef = useRef(true);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
+  const [awayFromLatest, setAwayFromLatest] = useState(false);
+  const [newMessageCount, setNewMessageCount] = useState(0);
+  const knownMessageIdsRef = useRef(new Set<string>());
   const [view, setView] = useState<View>("conversas");
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [instances, setInstances] = useState<Instance[]>([]);
@@ -225,7 +231,7 @@ export default function AriiaTalk() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [sendingMessage, setSendingMessage] = useState(false);
-  const [messageText, setMessageText] = useState("");
+  const { text: messageText, setText: setMessageText, saveDraft } = useConversationDraft(user?.id, selectedId);
   const [attachment, setAttachment] = useState<File | null>(null);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const [messageError, setMessageError] = useState<string | null>(null);
@@ -386,13 +392,13 @@ export default function AriiaTalk() {
   }, [search]);
 
   const openConversation = useCallback((id: string) => {
+    if (selectedIdRef.current === id) return;
     selectedIdRef.current = id;
     setSelectedId(id);
     setView("conversas");
     setSearch("");
     setMessages([]);
     setLoadingMessages(true);
-    setMessageText("");
   }, []);
 
   const startConversation = useCallback(async (contact: AriiaContact) => {
@@ -454,7 +460,6 @@ export default function AriiaTalk() {
       selectedIdRef.current = null;
       setSelectedId(null);
       setMessages([]);
-      setMessageText("");
       setSearch("");
       setFilters(f => ({ ...f, status: "" }));
     }
@@ -632,6 +637,7 @@ export default function AriiaTalk() {
       },
     );
 
+    if (selectedIdRef.current !== conversationId) return;
     if (invokeError || data?.error) {
       console.error("[AriiaTalk] Erro ao carregar histórico:", invokeError, data);
       setMessageError(
@@ -645,16 +651,20 @@ export default function AriiaTalk() {
 
     const container = messagesContainerRef.current;
     const previousScrollTop = container?.scrollTop ?? 0;
-    const wasNearBottom = container
-      ? container.scrollHeight - container.scrollTop - container.clientHeight < 100
-      : true;
+    const wasNearBottom = !silent || shouldAutoScrollRef.current;
 
     if (selectedIdRef.current !== conversationId) return;
-    setMessages(Array.isArray(data?.messages) ? data.messages : []);
+    const incoming: ChatMessage[] = Array.isArray(data?.messages) ? data.messages : [];
+    if (silent && !wasNearBottom) {
+      const arrived = incoming.filter(message => message.direcao === "entrada" && !knownMessageIdsRef.current.has(message.id));
+      setNewMessageCount(count => count + arrived.length);
+    }
+    knownMessageIdsRef.current = new Set(incoming.map(message => message.id));
+    setMessages(incoming);
 
     requestAnimationFrame(() => {
       const current = messagesContainerRef.current;
-      if (!current) return;
+      if (!current || selectedIdRef.current !== conversationId) return;
       current.scrollTop = wasNearBottom
         ? current.scrollHeight
         : previousScrollTop;
@@ -752,6 +762,7 @@ export default function AriiaTalk() {
               ? (details || "Não foi possível enviar o anexo ou a mensagem. Tente novamente.")
               : invokeError?.message || "Não foi possível enviar a mensagem.";
 
+        saveDraft(conversationId, text);
         if (selectedIdRef.current !== conversationId) return;
         setMessages((current) =>
           current.map((message) =>
@@ -761,7 +772,6 @@ export default function AriiaTalk() {
           ),
         );
         setMessageError(errorText);
-        setMessageText(text);
         return;
       }
 
@@ -772,6 +782,7 @@ export default function AriiaTalk() {
       void loadMessages(conversationId, true);
     } catch (error) {
       console.error("[AriiaTalk] Erro ao enviar mensagem:", error);
+      saveDraft(conversationId, text);
       if (selectedIdRef.current !== conversationId) return;
 
       setMessages((current) =>
@@ -782,11 +793,13 @@ export default function AriiaTalk() {
         ),
       );
       setMessageError("Falha de comunicação ao enviar a mensagem.");
-      setMessageText(text);
     } finally {
       setSendingMessage(false);
+      requestAnimationFrame(() => {
+        if (selectedIdRef.current === conversationId) composerRef.current?.focus();
+      });
     }
-  }, [messageText, attachment, selectedId, sendingMessage, loadMessages, user, replyTo]);
+  }, [messageText, attachment, selectedId, sendingMessage, loadMessages, user, replyTo, setMessageText, saveDraft]);
 
   const loadInstances = useCallback(async () => {
     setLoadingInstances(true);
@@ -887,8 +900,12 @@ export default function AriiaTalk() {
     setMessageSearch("");
     setHighlightMessageId(null);
     setAttachment(null);
-    setMessageText("");
     setReplyTo(null);
+    setAwayFromLatest(false);
+    setNewMessageCount(0);
+    knownMessageIdsRef.current = new Set();
+    shouldAutoScrollRef.current = true;
+    previousMessageCountRef.current = 0;
   }, [selectedId]);
 
   const messageMatches = useMemo(() => findMessageMatches(messages, messageSearch), [messages, messageSearch]);
@@ -924,6 +941,8 @@ export default function AriiaTalk() {
     const updateScrollIntent = () => {
       shouldAutoScrollRef.current =
         container.scrollHeight - container.scrollTop - container.clientHeight < 120;
+      setAwayFromLatest(!shouldAutoScrollRef.current);
+      if (shouldAutoScrollRef.current) setNewMessageCount(0);
     };
 
     container.addEventListener("scroll", updateScrollIntent, { passive: true });
@@ -1479,7 +1498,7 @@ export default function AriiaTalk() {
                   <button
                     type="button"
                     key={conversation.id}
-                    onClick={() => setSelectedId(conversation.id)}
+                    onClick={() => openConversation(conversation.id)}
                     className={`flex w-full items-start gap-3 border-b p-3 text-left transition-colors hover:bg-muted/60 ${selectedId === conversation.id ? "bg-muted" : ""}`}
                   >
                     <ContactAvatar name={conversation.contato?.nome || conversation.nome_contato || phoneLabel(conversation.remote_jid)} conversationId={conversation.id} contactId={conversation.contato_id} photoUrl={conversation.foto_url} />
@@ -1623,7 +1642,7 @@ export default function AriiaTalk() {
                         }${message.id === highlightMessageId ? " ring-2 ring-primary ring-offset-2 ring-offset-background" : ""}`}>
                           <div className="absolute right-1 top-1 z-10 flex items-center gap-1">
                             <MessageActions canReply={Boolean(message.evolution_message_id)} canEdit={canEditMessage(message, user?.id)} flagged={myAnnotation(message)?.sinalizada ?? false} disabled={actionBusy || sendingMessage || message.id.startsWith("optimistic-")}
-                              onReply={() => { setReplyTo(message); document.querySelector<HTMLInputElement>('input[aria-label="Mensagem"]')?.focus(); }}
+                              onReply={() => { setReplyTo(message); composerRef.current?.focus(); }}
                               onEdit={() => { setEditTarget(message); setEditText(message.conteudo ?? ""); setActionError(null); }}
                               onCopy={() => { void navigator.clipboard.writeText(message.conteudo || message.media_url || "").then(() => toast.success("Mensagem copiada."), () => toast.error("Não foi possível copiar. Verifique a permissão do navegador.")); }}
                               onFlag={() => { const mine = myAnnotation(message); void messageAction("annotate", message, { sinalizada: !mine?.sinalizada, nota: mine?.nota ?? "", marcacao: mine?.marcacao ?? "" }); }}
@@ -1691,6 +1710,19 @@ export default function AriiaTalk() {
                     ))
                   )}
                 </div>
+                {awayFromLatest && !loadingMessages && (
+                  <div className="flex justify-center border-t bg-background px-3 py-1.5">
+                    <Button type="button" variant="secondary" size="sm" className="h-8 gap-2" aria-label="Ir para últimas mensagens" onClick={() => {
+                      const container = messagesContainerRef.current;
+                      if (container) container.scrollTop = container.scrollHeight;
+                      shouldAutoScrollRef.current = true;
+                      setAwayFromLatest(false);
+                      setNewMessageCount(0);
+                    }}>
+                      <ArrowDown className="h-4 w-4" />{newMessageCount ? `${newMessageCount} nova${newMessageCount === 1 ? " mensagem" : "s mensagens"}` : "Últimas mensagens"}
+                    </Button>
+                  </div>
+                )}
                 {messageError && messages.length > 0 && (
                   <div className="border-t border-destructive/20 bg-destructive/5 px-4 py-2 text-xs text-destructive">
                     {messageError}
@@ -1743,7 +1775,7 @@ export default function AriiaTalk() {
                 event.preventDefault();
                 void sendMessage();
               }}
-              className="flex items-center gap-2 border-t p-3"
+              className="flex items-end gap-2 border-t p-3"
             >
               <input ref={attachmentInputRef} type="file" accept={ATTACHMENT_ACCEPT} className="hidden" aria-label="Selecionar anexo" onChange={async event => {
                 const original = event.target.files?.[0];
@@ -1763,14 +1795,22 @@ export default function AriiaTalk() {
               >
                 <Paperclip className="h-5 w-5" />
               </Button>
-              <input
+              <Textarea
+                ref={composerRef}
                 aria-label="Mensagem"
                 value={messageText}
                 onChange={(event) => setMessageText(event.target.value)}
+                rows={Math.min(5, Math.max(1, messageText.split("\n").length))}
+                onKeyDown={event => {
+                  if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing && event.keyCode !== 229) {
+                    event.preventDefault();
+                    void sendMessage();
+                  }
+                }}
                 placeholder={selectedConversation ? (attachment ? "Legenda (opcional)..." : "Digite uma mensagem...") : "Selecione uma conversa"}
                 disabled={!selectedConversation || sendingMessage}
                 maxLength={4000}
-                className="h-10 min-w-0 flex-1 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+                className="min-h-10 min-w-0 flex-1 resize-none py-2"
               />
               <Button
                 type="submit"

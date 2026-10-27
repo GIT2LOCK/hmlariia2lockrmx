@@ -1,4 +1,10 @@
 # Cronograma
+## AriiaTalk: melhorias de uso diário
+- [x] Preservar rascunhos por conversa durante a sessão, sem guardar texto no dispositivo.
+- [x] Permitir mensagens em várias linhas, com Enter para enviar e Shift+Enter para quebra de linha.
+- [x] Facilitar voltar às últimas mensagens sem interromper a leitura do histórico.
+- [x] Testar rascunhos, teclado e regressões do envio; página pública sem erros.
+- [ ] Conferir as melhorias em conversa real: acesso autenticado indisponível no Supabase externo.
 ## AriiaTalk: envio de anexos
 - [x] Selecionar arquivo, remover seleção e enviar com legenda opcional na conversa.
 - [x] Guardar anexos privados e enviar pela Evolution preservando autoria, assinatura e histórico; funções implantadas.
