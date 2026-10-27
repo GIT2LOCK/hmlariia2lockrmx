@@ -14,7 +14,7 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {
       state.sent = options.body;
       return state.failed ? { data: { error: "attachment_upload_failed" } } : { data: { success: true } };
     }
-    if (name.startsWith("ariiatalk-conversas") && !options.body) return { data: { conversations: [conversation] } };
+    if (name.startsWith("ariiatalk-conversas") && !options.body) return { data: { conversations: [conversation, { ...conversation, id: "second-conversation", nome_contato: "Segundo contato" }] } };
     if (options.body?.action === "history") return { data: { messages: [] } };
     if (options.body?.action === "send") { state.textSent = options.body.texto ?? ""; return { data: { success: true } }; }
     return { data: { instances: [], contacts: [], staff: [], empresas: [], unidades: [], folders: [] } };
@@ -69,4 +69,28 @@ it("não envia Enter durante composição de texto", async () => {
   fireEvent.keyDown(composer, { key: "Enter", isComposing: true });
   expect(state.textSent).toBeNull();
   expect(composer).toHaveValue("Texto em composição");
+});
+
+it("mantém o texto ao alternar conversas pela lista", async () => {
+  render(<AriiaTalk />);
+  fireEvent.click(await screen.findByText("Contato de teste"));
+  fireEvent.change(screen.getByLabelText("Mensagem"), { target: { value: "Resumo ainda não enviado" } });
+  fireEvent.click(screen.getByText("Segundo contato"));
+  expect(screen.getByLabelText("Mensagem")).toHaveValue("");
+  fireEvent.click(screen.getByText("Contato de teste"));
+  expect(screen.getByLabelText("Mensagem")).toHaveValue("Resumo ainda não enviado");
+});
+
+it("permite voltar ao fim após rolar o histórico", async () => {
+  render(<AriiaTalk />);
+  fireEvent.click(await screen.findByText("Contato de teste"));
+  const empty = await screen.findByText("Nenhuma mensagem registrada");
+  const container = empty.parentElement?.parentElement;
+  if (!container) throw new Error("Histórico não encontrado");
+  Object.defineProperties(container, { scrollHeight: { value: 1000, configurable: true }, clientHeight: { value: 200, configurable: true } });
+  container.scrollTop = 100;
+  fireEvent.scroll(container);
+  fireEvent.click(screen.getByLabelText("Ir para últimas mensagens"));
+  expect(container.scrollTop).toBe(1000);
+  expect(screen.queryByLabelText("Ir para últimas mensagens")).not.toBeInTheDocument();
 });
