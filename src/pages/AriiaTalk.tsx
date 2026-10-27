@@ -1498,7 +1498,7 @@ export default function AriiaTalk() {
                   <button
                     type="button"
                     key={conversation.id}
-                    onClick={() => setSelectedId(conversation.id)}
+                    onClick={() => openConversation(conversation.id)}
                     className={`flex w-full items-start gap-3 border-b p-3 text-left transition-colors hover:bg-muted/60 ${selectedId === conversation.id ? "bg-muted" : ""}`}
                   >
                     <ContactAvatar name={conversation.contato?.nome || conversation.nome_contato || phoneLabel(conversation.remote_jid)} conversationId={conversation.id} contactId={conversation.contato_id} photoUrl={conversation.foto_url} />
