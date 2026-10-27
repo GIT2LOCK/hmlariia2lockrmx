@@ -1,4 +1,7 @@
 # Cronograma
+## Kanban: melhorias de uso diário
+- [ ] Facilitar busca, filtros rápidos, ordenação e navegação das colunas sem alterar regras de chamados.
+- [ ] Testar filtros e controles e verificar a página disponível.
 ## Filas e Equipes: melhorias de uso diário
 - [x] Busca por nome/descrição, filtros por status e nível e contagem de resultados.
 - [x] Busca de membros e usuários disponíveis, lista de membros com rolagem e nomes legíveis.
