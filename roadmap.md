@@ -1,9 +1,10 @@
 # Cronograma
 ## Filas e Equipes: melhorias de uso diário
-- [ ] Busca por nome/descrição, filtros por status e nível e contagem de resultados.
-- [ ] Busca de membros e usuários disponíveis, lista de membros com rolagem e nomes legíveis.
-- [ ] Melhorar estados de carregamento e controles de formulário sem alterar permissões.
-- [ ] Testar filtros e conferir a página disponível; conversa autenticada depende de acesso ao Supabase externo.
+- [x] Busca por nome/descrição, filtros por status e nível e contagem de resultados.
+- [x] Busca de membros e usuários disponíveis, lista de membros com rolagem e nomes legíveis.
+- [x] Melhorar estados de carregamento e controles de formulário sem alterar permissões.
+- [x] Cinco testes de filtros e interação passaram; página pública sem erros.
+- [ ] Conferir com dados reais: acesso autenticado indisponível no Supabase externo.
 ## AriiaTalk: melhorias de uso diário
 - [x] Preservar rascunhos por conversa durante a sessão, sem guardar texto no dispositivo.
 - [x] Permitir mensagens em várias linhas, com Enter para enviar e Shift+Enter para quebra de linha.
