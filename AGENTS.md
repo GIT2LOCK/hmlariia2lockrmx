@@ -1,4 +1,5 @@
 # Architecture rules
+- Filas e Equipes search and status/level filters derive visible rows from the existing support-group registry client-side — improves navigation without changing queue synchronization, memberships or access rules.
 - AriiaTalk text drafts stay in a session-only, user-scoped conversation hook; no browser storage or server persistence — avoids losing text on conversation switches without retaining sensitive chat content on the device.
 - AriiaTalk attachments upload through the authenticated message Edge Function to a private bucket; messages store storage paths and history renews signed links, while Evolution receives temporary URLs — prevents public files and arbitrary client URLs.
 - AriiaTalk message replies resolve WhatsApp keys from same-conversation stored messages; edits call Evolution before changing clean text and preserve original author/signature; technician annotations are isolated in a service-only table keyed by message and caller — prevents internal notes reaching WhatsApp or editing another technician's message.
