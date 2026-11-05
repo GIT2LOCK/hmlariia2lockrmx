@@ -85,6 +85,7 @@ const menuItems: MenuItem[] = [
   { title: "Filas e Equipes", url: "/dashboard/equipes", icon: Users, permission: "team.view", tabKey: "equipes" },
   { title: "Relatório de Chamados", url: "/dashboard/relatorios/chamados", icon: BarChart3, permission: "registry.view", tabKey: "relatorios" },
   { title: "Relatórios Zabbix", url: "/dashboard/zabbix/relatorio-alertas", icon: AlertTriangle, permission: "registry.view", tabKey: "zabbix" },
+  { title: "Disponibilidade de Links", url: "/dashboard/zabbix/disponibilidade-links", icon: Wifi, permission: "registry.view", tabKey: "zabbix" },
   { title: "Monitoramento", url: "/dashboard/zabbix", icon: Activity, permission: "registry.view", tabKey: "zabbix" },
   { title: "Linkai", url: "/dashboard/linkai", icon: Link2, tabKey: "linkai" },
   { title: "Elevadores", url: "/dashboard/elevadores", icon: ArrowUpDown, permission: "registry.view", tabKey: "elevadores" },

@@ -32,6 +32,7 @@ import Equipes from "./pages/Equipes";
 import OAuthConsent from "./pages/OAuthConsent";
 import GrafanaControle from "./pages/GrafanaControle";
 import RelatorioAlertasZabbix from "./pages/RelatorioAlertasZabbix";
+import RelatorioDisponibilidadeLinks from "./pages/RelatorioDisponibilidadeLinks";
 import Permissoes from "./pages/Permissoes";
 import GrafanaKiosk from "./pages/GrafanaKiosk";
 import Linkai from "./pages/Linkai";
@@ -86,6 +87,7 @@ const App = () => (
               <Route path="equipes" element={<ProtectedRoute tabKey="equipes" forbidRoles={["CLIENTE"]}><Equipes /></ProtectedRoute>} />
               <Route path="zabbix" element={<ProtectedRoute tabKey="zabbix" forbidRoles={["CLIENTE"]}><DashboardZabbix /></ProtectedRoute>} />
               <Route path="zabbix/tv" element={<ProtectedRoute tabKey="zabbix" forbidRoles={["CLIENTE"]}><ZabbixTvView /></ProtectedRoute>} />
+              <Route path="zabbix/disponibilidade-links" element={<ProtectedRoute tabKey="zabbix" forbidRoles={["CLIENTE"]}><RelatorioDisponibilidadeLinks /></ProtectedRoute>} />
               <Route path="zabbix/relatorio-alertas" element={<ProtectedRoute tabKey="zabbix" forbidRoles={["CLIENTE"]}><RelatorioAlertasZabbix /></ProtectedRoute>} />
               <Route path="grafana" element={<ProtectedRoute tabKey="grafana" forbidRoles={["CLIENTE"]}><GrafanaControle /></ProtectedRoute>} />
               <Route path="linkai" element={<ProtectedRoute tabKey="linkai" forbidRoles={["CLIENTE"]}><Linkai /></ProtectedRoute>} />
