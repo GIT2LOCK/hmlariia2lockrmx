@@ -28,6 +28,7 @@
   Boxes,
   MessageCircle,
 
+  Wifi,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
