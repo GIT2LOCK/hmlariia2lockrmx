@@ -65,9 +65,25 @@ export function monthWindows(from: number, till: number): MonthWindow[] {
 export const fmtPct = (v: number) => `${v.toFixed(2).replace(".", ",")}%`;
 
 export function fmtHours(sec: number): string {
-  const h = Math.floor(sec / 3600);
-  const m = Math.round((sec % 3600) / 60);
-  return h ? `${h}h ${String(m).padStart(2, "0")}min` : `${m}min`;
+  const totalMinutes = Math.floor(Math.max(0, sec) / 60);
+  const days = Math.floor(totalMinutes / 1440);
+  const hours = Math.floor((totalMinutes % 1440) / 60);
+  const minutes = totalMinutes % 60;
+
+  const dayText = `${days} dia${days !== 1 ? "s" : ""}`;
+  const hourText = `${hours} hora${hours !== 1 ? "s" : ""}`;
+  const minuteText = `${minutes} minuto${minutes !== 1 ? "s" : ""}`;
+
+  if (days > 0) {
+    if (hours > 0 && minutes > 0) return `${dayText}, ${hourText} e ${minuteText}`;
+    if (hours > 0) return `${dayText} e ${hourText}`;
+    if (minutes > 0) return `${dayText} e ${minuteText}`;
+    return dayText;
+  }
+
+  if (hours > 0 && minutes > 0) return `${hourText} e ${minuteText}`;
+  if (hours > 0) return hourText;
+  return minuteText;
 }
 
 /** Merge intervals (clipped) into a sorted disjoint list. */

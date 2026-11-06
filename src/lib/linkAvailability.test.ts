@@ -8,6 +8,11 @@ describe("linkAvailability", () => {
     expect(isLinkOutage("Indisponibilidade de DDNS")).toBe(false);
     expect(isLinkOutage("Switch offline")).toBe(false);
   });
+it("keeps the unit-wide trigger out of individual link outages", () => {
+    expect(isLinkOutage("Indisponibilidade de Link 1")).toBe(true);
+    expect(isLinkOutage("Sem conexao na unidade")).toBe(false);
+    expect(isLinkOutage("Indisponibilidade de DDNS")).toBe(false);
+  });
 
   it("does not double count overlapping outages", () => {
     expect(mergedDowntime([[0, 100], [50, 150], [300, 400]], 0, 1000)).toBe(250);

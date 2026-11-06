@@ -9,6 +9,7 @@ import { FileText, Loader2, Wifi } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import logo2lockWhite from "@/assets/logo-branca.png?inline";
 import { format } from "date-fns";
 import {
   availabilityPct, fmtHours, fmtPct, isLinkOutage, matchLink, mergedDowntime, monthWindows, simultaneousIntervals,
@@ -75,7 +76,7 @@ export default function RelatorioDisponibilidadeLinks() {
         body: { action: "events_history", source: "z2", time_from: from, time_till: till, severities: [0, 1, 2, 3, 4, 5] },
       });
       if (error) throw error;
-      setEvents(((data?.events as OutageEvent[]) || []).filter((e) => isLinkOutage(e.name)));
+      setEvents((data?.events as OutageEvent[]) || []);
       setRange({ from, till });
       if (data?.truncated) toast.warning("O Zabbix limitou o volume de eventos; reduza o período para maior precisão.");
     } catch (e: any) {
@@ -91,33 +92,38 @@ export default function RelatorioDisponibilidadeLinks() {
       u,
       tokens: [u.hostname, u.abreviacao, u.nome_unidade]
         .filter((v): v is string => !!v && v.trim().length >= 2)
-        .map((v) => v.trim().toLowerCase())
+        .map((v) => v.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/gi, "").toLowerCase())
         .sort((a, b) => b.length - a.length),
     })).sort((a, b) => (b.tokens[0]?.length || 0) - (a.tokens[0]?.length || 0));
 
     // events per unit, split by link; unidentified events = whole unit offline
     const byLink = new Map<number, Array<[number, number]>>();
-    const unitWide = new Map<number, Array<[number, number]>>();
     for (const e of events) {
-      const hs = `${e.hostname || ""} ${e.host_visible || ""} ${(e.groups || []).join(" ")}`.toLowerCase();
+      const hs = `${e.hostname || ""} ${e.host_visible || ""} ${(e.groups || []).join(" ")}`.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/gi, "").toLowerCase();
       const hit = index.find((x) => x.tokens.some((t) => hs.includes(t)));
       if (!hit) continue;
       const iv: [number, number] = [e.clock, e.clock + e.duration_sec];
+// Demais eventos permanecem restritos a indisponibilidade de links.
+      if (!isLinkOutage(e.name)) continue;
+
       const links = linksByUnit.get(hit.u.id) || [];
       const link = links.length === 1 ? links[0] : matchLink(e, links);
-      const target = link ? byLink : unitWide;
-      const key = link ? link.id : hit.u.id;
-      target.set(key, [...(target.get(key) || []), iv]);
+      if (!link) continue;
+
+      byLink.set(link.id, [...(byLink.get(link.id) || []), iv]);
     }
     const unitDown = (uid: number, from: number, till: number) => {
       const links = linksByUnit.get(uid) || [];
-      const wide = unitWide.get(uid) || [];
-      return mergedDowntime([...wide, ...simultaneousIntervals(links.map((l) => byLink.get(l.id) || []), from, till)], from, till);
+      return mergedDowntime(
+        simultaneousIntervals(links.map((l) => byLink.get(l.id) || []), from, till),
+        from,
+        till
+      );
     };
 
     const rows = scoped.map((u) => {
       const links = (linksByUnit.get(u.id) || []).map((l) => {
-        const iv = [...(byLink.get(l.id) || []), ...(unitWide.get(u.id) || [])];
+        const iv = byLink.get(l.id) || [];
         const down = mergedDowntime(iv, range.from, range.till);
         const quedas = iv.length;
         return { id: l.id, operadora: l.operadora, down, quedas, mttr: quedas ? down / quedas : 0, pct: availabilityPct(down, range.from, range.till) };
@@ -142,18 +148,49 @@ export default function RelatorioDisponibilidadeLinks() {
     if (!report) return;
     const doc = new jsPDF({ unit: "pt", format: "a4" });
     const W = doc.internal.pageSize.getWidth();
+
+    // Identidade visual 2LOCK
     doc.setFillColor(0, 10, 92);
-    doc.rect(0, 0, W, 70, "F");
+    doc.rect(0, 0, W, 78, "F");
+
+    // Faixa azul de destaque
+    doc.setFillColor(97, 153, 242);
+    doc.rect(0, 78, W, 4, "F");
+
+    // Logo 2LOCK branca, sem fundo ou moldura
+    const logoProps = doc.getImageProperties(logo2lockWhite);
+    const logoScale = Math.min(140 / logoProps.width, 48 / logoProps.height);
+    const logoWidth = logoProps.width * logoScale;
+    const logoHeight = logoProps.height * logoScale;
+
+    doc.addImage(
+      logo2lockWhite,
+      "PNG",
+      28,
+      (78 - logoHeight) / 2,
+      logoWidth,
+      logoHeight
+    );
+
+    // Titulo e identificacao
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(16).text("Relatório de Disponibilidade de Links", 40, 32);
-    doc.setFontSize(10).text(`${empresaNome}  •  ${periodo}`, 40, 52);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.text("Relatorio de Disponibilidade de Links", 190, 34);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.text(`${empresaNome}  |  ${periodo}`, 190, 55, {
+      maxWidth: W - 170,
+    });
+
     doc.setTextColor(0, 10, 92);
-    doc.setFontSize(40).text(fmtPct(report.geral), W / 2, 130, { align: "center" });
+    doc.setFontSize(40).text(fmtPct(report.geral), W / 2, 142, { align: "center" });
     doc.setTextColor(90, 90, 90);
-    doc.setFontSize(10).text("Disponibilidade geral dos links de internet", W / 2, 150, { align: "center" });
-    doc.text(`${report.rows.length} unidades  •  ${report.semQueda} sem nenhuma queda`, W / 2, 166, { align: "center" });
+    doc.setFontSize(10).text("Disponibilidade geral dos links de internet", W / 2, 162, { align: "center" });
+    doc.text(`${report.rows.length} unidades  •  ${report.semQueda} sem nenhuma queda`, W / 2, 178, { align: "center" });
     autoTable(doc, {
-      startY: 190,
+      startY: 202,
       head: [report.mensal.map((m) => m.mes)],
       body: [report.mensal.map((m) => fmtPct(m.pct))],
       headStyles: { fillColor: [0, 10, 92], halign: "center" },
@@ -164,7 +201,7 @@ export default function RelatorioDisponibilidadeLinks() {
       startY: (doc as any).lastAutoTable.finalY + 20,
       head: [["Unidade / Operadora", "Quedas", "Tempo fora", "Tempo médio p/ retorno", "Disponibilidade"]],
       body: report.rows.flatMap((r) => [
-        [{ content: `${r.nome}  (unidade toda fora: ${r.down ? fmtHours(r.down) : "nunca"})`, styles: { fontStyle: "bold", fillColor: [235, 240, 250] } },
+        [{ content: `${r.nome}`, styles: { fontStyle: "bold", fillColor: [235, 240, 250] } },
           { content: "", styles: { fillColor: [235, 240, 250] } }, { content: "", styles: { fillColor: [235, 240, 250] } },
           { content: "", styles: { fillColor: [235, 240, 250] } }, { content: fmtPct(r.pct), styles: { fontStyle: "bold", fillColor: [235, 240, 250] } }],
         ...r.links.map((l) => ["    " + l.operadora, String(l.quedas), l.down ? fmtHours(l.down) : "—", l.quedas ? fmtHours(l.mttr) : "—", fmtPct(l.pct)]),
