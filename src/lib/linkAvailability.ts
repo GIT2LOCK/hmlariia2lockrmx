@@ -69,3 +69,57 @@ export function fmtHours(sec: number): string {
   const m = Math.round((sec % 3600) / 60);
   return h ? `${h}h ${String(m).padStart(2, "0")}min` : `${m}min`;
 }
+
+/** Merge intervals (clipped) into a sorted disjoint list. */
+export function mergeIntervals(intervals: Array<[number, number]>, from: number, till: number): Array<[number, number]> {
+  const clipped = intervals
+    .map(([s, e]) => [Math.max(s, from), Math.min(e, till)] as [number, number])
+    .filter(([s, e]) => e > s)
+    .sort((a, b) => a[0] - b[0]);
+  const out: Array<[number, number]> = [];
+  for (const iv of clipped) {
+    const last = out[out.length - 1];
+    if (last && iv[0] <= last[1]) last[1] = Math.max(last[1], iv[1]);
+    else out.push([...iv]);
+  }
+  return out;
+}
+
+/** Intervals where ALL given lists are down at the same time. */
+export function simultaneousIntervals(lists: Array<Array<[number, number]>>, from: number, till: number): Array<[number, number]> {
+  if (!lists.length) return [];
+  let acc = mergeIntervals(lists[0], from, till);
+  for (const l of lists.slice(1)) {
+    const b = mergeIntervals(l, from, till);
+    const next: Array<[number, number]> = [];
+    let i = 0, j = 0;
+    while (i < acc.length && j < b.length) {
+      const s = Math.max(acc[i][0], b[j][0]);
+      const e = Math.min(acc[i][1], b[j][1]);
+      if (e > s) next.push([s, e]);
+      if (acc[i][1] < b[j][1]) i++; else j++;
+    }
+    acc = next;
+  }
+  return acc;
+}
+
+/** Seconds where ALL given interval lists are down at the same time (unit fully offline). */
+export function simultaneousDowntime(lists: Array<Array<[number, number]>>, from: number, till: number): number {
+  return simultaneousIntervals(lists, from, till).reduce((s, [a, b]) => s + (b - a), 0);
+}
+
+export interface LinkRef { id: number; abrev: string; index: number; operadora: string }
+
+/** Pick which link of the unit an event belongs to: exact W<n> host, then operator abbreviation, then operator name. */
+export function matchLink(ev: OutageEvent, links: LinkRef[]): LinkRef | null {
+  const host = norm(`${ev.hostname || ""} ${ev.host_visible || ""}`);
+  const text = norm(`${host} ${ev.name || ""}`);
+  const ab = (l: LinkRef) => norm(l.abrev);
+  return (
+    links.find((l) => l.abrev && host.includes(`${ab(l)}w${l.index}`)) ||
+    links.find((l) => l.abrev && new RegExp(`_${ab(l)}w?\\d`).test(host)) ||
+    links.find((l) => l.operadora && text.includes(norm(l.operadora))) ||
+    null
+  );
+}
