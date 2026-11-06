@@ -85,9 +85,9 @@ export function mergeIntervals(intervals: Array<[number, number]>, from: number,
   return out;
 }
 
-/** Seconds where ALL given interval lists are down at the same time (unit fully offline). */
-export function simultaneousDowntime(lists: Array<Array<[number, number]>>, from: number, till: number): number {
-  if (!lists.length) return 0;
+/** Intervals where ALL given lists are down at the same time. */
+export function simultaneousIntervals(lists: Array<Array<[number, number]>>, from: number, till: number): Array<[number, number]> {
+  if (!lists.length) return [];
   let acc = mergeIntervals(lists[0], from, till);
   for (const l of lists.slice(1)) {
     const b = mergeIntervals(l, from, till);
@@ -101,7 +101,12 @@ export function simultaneousDowntime(lists: Array<Array<[number, number]>>, from
     }
     acc = next;
   }
-  return acc.reduce((s, [a, b]) => s + (b - a), 0);
+  return acc;
+}
+
+/** Seconds where ALL given interval lists are down at the same time (unit fully offline). */
+export function simultaneousDowntime(lists: Array<Array<[number, number]>>, from: number, till: number): number {
+  return simultaneousIntervals(lists, from, till).reduce((s, [a, b]) => s + (b - a), 0);
 }
 
 export interface LinkRef { id: number; abrev: string; index: number; operadora: string }
