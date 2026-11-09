@@ -23,7 +23,7 @@ import RelatorioCronogramaDialog from "@/components/elevadores/RelatorioCronogra
 import CadastrosView from "@/components/elevadores/CadastrosView";
 import ElevadorDetalhe, { SituacaoBadges } from "@/components/elevadores/ElevadorDetalhe";
 import {
-  Elevador, Facial, Situacao, Status, STATUS_LABEL, SIT_LABEL, VALID_LABEL, FSIT_LABEL, INST_LABEL, PRES_LABEL, situacao, traduzErro,
+  Elevador, Facial, Situacao, Status, STATUS_LABEL, SIT_LABEL, VALID_LABEL, FSIT_LABEL, INST_LABEL, PRES_LABEL, situacao, traduzErro, progressoUnidade,
 } from "@/components/elevadores/elevModel";
 
 interface Loja { unidade_id: number; ano_migracao: string | null; lote: string | null; data_prevista: string | null; estoque_leitoras: number; observacoes: string | null; unidades?: { nome_unidade: string } }
@@ -81,6 +81,7 @@ export default function Elevadores() {
   const [visao, setVisao] = useState<"cadastros" | "kanban" | "cronograma">("cronograma");
   const [novoOpen, setNovoOpen] = useState(false);
   const [relOpen, setRelOpen] = useState(false);
+  const [unidOpen, setUnidOpen] = useState(false);
   const [novo, setNovo] = useState({ unidade_id: "", tipo: "", marca: "", numero_serie: "", observacao: "" });
   const [salvando, setSalvando] = useState(false);
   const tiposExistentes = useMemo(() => Array.from(new Set(elev.map((e) => e.tipo).filter(Boolean))).sort(), [elev]);
@@ -167,6 +168,12 @@ export default function Elevadores() {
     { label: "Pausados", value: count("PAUSADO") },
     { label: "Pendentes", value: count("PENDENTE") },
   ];
+  const unidadesProg = lojas.map((l) => ({
+    l, p: progressoUnidade(elev.filter((e) => e.unidade_id === l.unidade_id), l.data_prevista),
+  })).sort((a, b) => (a.l.unidades?.nome_unidade || "").localeCompare(b.l.unidades?.nome_unidade || ""));
+  const uConcluidas = unidadesProg.filter((x) => x.p === "CONCLUIDA");
+  const uAndamento = unidadesProg.filter((x) => x.p === "EM_ANDAMENTO");
+  const uPendentes = unidadesProg.filter((x) => x.p === "NAO_INICIADA" || x.p === "ATRASADA");
   const sits = elev.map((e) => situacao(e, facialDe(e.id)));
   const nSit = (s: Situacao) => sits.filter((x) => x === s).length;
   const kpis2: { label: string; value: number; sit?: Situacao }[] = [
@@ -342,6 +349,50 @@ export default function Elevadores() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={unidOpen} onOpenChange={setUnidOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Unidades por andamento</DialogTitle></DialogHeader>
+          <div className="grid gap-4 sm:grid-cols-3">
+            {([
+              ["Concluídas", uConcluidas],
+              ["Em andamento", uAndamento],
+              ["Não iniciadas ou em atraso", uPendentes],
+            ] as const).map(([titulo, rows]) => (
+              <div key={titulo} className="space-y-2">
+                <p className="text-sm font-semibold text-foreground">{titulo} <span className="text-muted-foreground">({rows.length})</span></p>
+                {rows.length === 0 && <p className="text-xs text-muted-foreground">Nenhuma unidade.</p>}
+                <ul className="space-y-1">
+                  {rows.map(({ l, p }) => (
+                    <li key={l.unidade_id}>
+                      <button type="button" className="flex w-full items-center justify-between gap-2 rounded-md border border-border px-2 py-1.5 text-left text-xs hover:bg-muted"
+                        onClick={() => { setBusca(l.unidades?.nome_unidade || ""); setVisao("cadastros"); setUnidOpen(false); }}>
+                        <span className="font-medium text-foreground">{(l.unidades?.nome_unidade || `Loja ${l.unidade_id}`).toUpperCase()}</span>
+                        {p === "ATRASADA" ? <Badge variant="destructive">Atraso</Badge> : p === "NAO_INICIADA" ? <Badge variant="outline">Não iniciada</Badge> : null}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Card className="cursor-pointer transition-colors hover:bg-muted/50" role="button" tabIndex={0}
+        onClick={() => setUnidOpen(true)} onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && setUnidOpen(true)}>
+        <CardContent className="flex flex-wrap items-center justify-between gap-3 p-3 sm:p-4">
+          <div>
+            <p className="text-xs text-muted-foreground">Unidades concluídas</p>
+            <p className="text-2xl font-semibold text-foreground">{uConcluidas.length} <span className="text-base font-normal text-muted-foreground">de {lojas.length}</span></p>
+          </div>
+          <div className="flex gap-4 text-xs text-muted-foreground">
+            <span>Em andamento: <strong className="text-foreground">{uAndamento.length}</strong></span>
+            <span>Não iniciadas/atraso: <strong className="text-foreground">{uPendentes.length}</strong></span>
+            <span className="text-primary">Ver lista →</span>
+          </div>
+        </CardContent>
+      </Card>
 
       <section className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-3">
         {kpis.map((k) => (
