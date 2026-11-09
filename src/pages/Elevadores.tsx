@@ -173,7 +173,9 @@ export default function Elevadores() {
   })).sort((a, b) => (a.l.unidades?.nome_unidade || "").localeCompare(b.l.unidades?.nome_unidade || ""));
   const uConcluidas = unidadesProg.filter((x) => x.p === "CONCLUIDA");
   const uAndamento = unidadesProg.filter((x) => x.p === "EM_ANDAMENTO");
-  const uPendentes = unidadesProg.filter((x) => x.p === "NAO_INICIADA" || x.p === "ATRASADA");
+  const uAtrasadas = unidadesProg.filter((x) => x.p === "ATRASADA");
+  const uNaoIniciadas = unidadesProg.filter((x) => x.p === "NAO_INICIADA");
+  const comecou = (unidadeId: number) => elev.some((e) => e.unidade_id === unidadeId && e.status !== "PENDENTE");
   const sits = elev.map((e) => situacao(e, facialDe(e.id)));
   const nSit = (s: Situacao) => sits.filter((x) => x === s).length;
   const kpis2: { label: string; value: number; sit?: Situacao }[] = [
@@ -351,13 +353,14 @@ export default function Elevadores() {
       </Dialog>
 
       <Dialog open={unidOpen} onOpenChange={setUnidOpen}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-5xl max-h-[85vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Unidades por andamento</DialogTitle></DialogHeader>
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {([
               ["Concluídas", uConcluidas],
               ["Em andamento", uAndamento],
-              ["Não iniciadas ou em atraso", uPendentes],
+              ["Em atraso", uAtrasadas],
+              ["Não iniciadas", uNaoIniciadas],
             ] as const).map(([titulo, rows]) => (
               <div key={titulo} className="space-y-2">
                 <p className="text-sm font-semibold text-foreground">{titulo} <span className="text-muted-foreground">({rows.length})</span></p>
@@ -368,7 +371,10 @@ export default function Elevadores() {
                       <button type="button" className="flex w-full items-center justify-between gap-2 rounded-md border border-border px-2 py-1.5 text-left text-xs hover:bg-muted"
                         onClick={() => { setBusca(l.unidades?.nome_unidade || ""); setVisao("cadastros"); setUnidOpen(false); }}>
                         <span className="font-medium text-foreground">{(l.unidades?.nome_unidade || `Loja ${l.unidade_id}`).toUpperCase()}</span>
-                        {p === "ATRASADA" ? <Badge variant="destructive">Atraso</Badge> : p === "NAO_INICIADA" ? <Badge variant="outline">Não iniciada</Badge> : null}
+                        <span className="flex shrink-0 items-center gap-1">
+                          {p === "ATRASADA" && <Badge variant="destructive">Atraso</Badge>}
+                          {(p === "NAO_INICIADA" || (p === "ATRASADA" && !comecou(l.unidade_id))) && <Badge variant="outline">Não iniciada</Badge>}
+                        </span>
                       </button>
                     </li>
                   ))}
@@ -388,7 +394,8 @@ export default function Elevadores() {
           </div>
           <div className="flex gap-4 text-xs text-muted-foreground">
             <span>Em andamento: <strong className="text-foreground">{uAndamento.length}</strong></span>
-            <span>Não iniciadas/atraso: <strong className="text-foreground">{uPendentes.length}</strong></span>
+            <span>Em atraso: <strong className="text-foreground">{uAtrasadas.length}</strong></span>
+            <span>Não iniciadas: <strong className="text-foreground">{uNaoIniciadas.length}</strong></span>
             <span className="text-primary">Ver lista →</span>
           </div>
         </CardContent>
