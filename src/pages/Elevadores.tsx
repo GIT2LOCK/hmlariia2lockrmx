@@ -394,7 +394,8 @@ export default function Elevadores() {
           </div>
           <div className="flex gap-4 text-xs text-muted-foreground">
             <span>Em andamento: <strong className="text-foreground">{uAndamento.length}</strong></span>
-            <span>Não iniciadas/atraso: <strong className="text-foreground">{uPendentes.length}</strong></span>
+            <span>Em atraso: <strong className="text-foreground">{uAtrasadas.length}</strong></span>
+            <span>Não iniciadas: <strong className="text-foreground">{uNaoIniciadas.length}</strong></span>
             <span className="text-primary">Ver lista →</span>
           </div>
         </CardContent>
