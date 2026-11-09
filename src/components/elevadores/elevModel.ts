@@ -66,3 +66,12 @@ export const traduzErro = (m: string) =>
   m.includes("já possui outro facial") || m.includes("elev_faciais_elevador_uniq") ? "Este elevador já possui outro facial associado." :
   m.includes("facial_instalado_exige_elevador") ? "Um facial só pode ser marcado como instalado se estiver associado a um elevador." :
   m.includes("transicao_nao_permitida") ? "Essa ação não é permitida no estado atual." : m;
+
+export type UnidadeProgresso = "CONCLUIDA" | "EM_ANDAMENTO" | "NAO_INICIADA" | "ATRASADA";
+/** Concluída: tem elevadores e todos instalados. Atrasada: não concluída e data prevista já passou. */
+export function progressoUnidade(es: { status: Status }[], dataPrevista: string | null, hoje = new Date().toISOString().slice(0, 10)): UnidadeProgresso {
+  if (es.length && es.every((e) => e.status === "INSTALADO")) return "CONCLUIDA";
+  if (dataPrevista && dataPrevista.slice(0, 10) < hoje) return "ATRASADA";
+  if (es.some((e) => e.status !== "PENDENTE")) return "EM_ANDAMENTO";
+  return "NAO_INICIADA";
+}
