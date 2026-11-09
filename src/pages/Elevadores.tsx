@@ -173,7 +173,9 @@ export default function Elevadores() {
   })).sort((a, b) => (a.l.unidades?.nome_unidade || "").localeCompare(b.l.unidades?.nome_unidade || ""));
   const uConcluidas = unidadesProg.filter((x) => x.p === "CONCLUIDA");
   const uAndamento = unidadesProg.filter((x) => x.p === "EM_ANDAMENTO");
-  const uPendentes = unidadesProg.filter((x) => x.p === "NAO_INICIADA" || x.p === "ATRASADA");
+  const uAtrasadas = unidadesProg.filter((x) => x.p === "ATRASADA");
+  const uNaoIniciadas = unidadesProg.filter((x) => x.p === "NAO_INICIADA");
+  const comecou = (unidadeId: number) => elev.some((e) => e.unidade_id === unidadeId && e.status !== "PENDENTE");
   const sits = elev.map((e) => situacao(e, facialDe(e.id)));
   const nSit = (s: Situacao) => sits.filter((x) => x === s).length;
   const kpis2: { label: string; value: number; sit?: Situacao }[] = [

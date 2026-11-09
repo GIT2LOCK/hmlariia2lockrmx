@@ -6,4 +6,6 @@ describe("progressoUnidade", () => {
   it("em andamento quando algum começou", () => expect(progressoUnidade([{ status: "INSTALADO" }, { status: "PENDENTE" }], null, H)).toBe("EM_ANDAMENTO"));
   it("não iniciada quando todos pendentes ou sem elevadores", () => { expect(progressoUnidade([{ status: "PENDENTE" }], null, H)).toBe("NAO_INICIADA"); expect(progressoUnidade([], null, H)).toBe("NAO_INICIADA"); });
   it("atrasada quando a data prevista passou sem concluir", () => expect(progressoUnidade([{ status: "EM_ANDAMENTO" }], "2026-11-01", H)).toBe("ATRASADA"));
+  it("atraso vem antes de não iniciada quando a data passou sem começar", () => expect(progressoUnidade([{ status: "PENDENTE" }], "2026-11-01", H)).toBe("ATRASADA"));
+  it("não iniciada quando nada começou e a data ainda não passou", () => { expect(progressoUnidade([{ status: "PENDENTE" }], "2026-12-01", H)).toBe("NAO_INICIADA"); expect(progressoUnidade([], "2026-12-01", H)).toBe("NAO_INICIADA"); });
 });
