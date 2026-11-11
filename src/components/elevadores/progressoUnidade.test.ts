@@ -3,7 +3,11 @@ import { progressoUnidade, type AtividadeProgresso } from "./elevModel";
 const H = "2026-11-11";
 const etapas = [{ id: 8, nome: "Instalação Facial", data_fim: null }, { id: 7, nome: "Aquisição", data_fim: null }];
 const part = { id: 80, etapa_id: 8, unidade_id: 1, status: "NAO_INICIADO", data_fim: null };
-const atv = (id: number, status: string, data_fim: string | null = null): AtividadeProgresso => ({ id, etapa_id: 8, status, data_inicio: null, data_fim });
+const atv = (id: number, status: string, data_fim: string | null = null, data_inicio: string | null = null): AtividadeProgresso => ({ id, etapa_id: 8, status, data_inicio, data_fim  it("em andamento literal dentro do prazo", () => expect(avaliar([atv(1, "EM_ANDAMENTO", "2026-12-01", "2026-11-01")])).toBe("EM_ANDAMENTO"));
+  it("em andamento após a data de término é atraso", () => expect(avaliar([atv(1, "EM_ANDAMENTO", "2026-11-05", "2026-11-01")])).toBe("ATRASADA"));
+  it("não iniciada com início já passado é atraso", () => expect(avaliar([atv(1, "NAO_INICIADO", "2026-12-01", "2026-11-01")])).toBe("ATRASADA"));
+  it("não iniciada com início futuro", () => expect(avaliar([atv(1, "NAO_INICIADO", "2026-12-20", "2026-12-01")])).toBe("NAO_INICIADA"));
+});
 const avaliar = (atividades: AtividadeProgresso[]) => progressoUnidade(1, etapas, [part], atividades, atividades.map((a) => ({ atividade_id: a.id, etapa_unidade_id: 80 })), H).status;
 describe("progressoUnidade", () => {
   it("conclui pela atividade da Instalação Facial, mesmo com prazo passado", () => expect(avaliar([atv(1, "CONCLUIDO", "2026-01-01")])).toBe("CONCLUIDA"));
@@ -14,4 +18,8 @@ describe("progressoUnidade", () => {
   it("atividade atual prevalece sobre marcação legada concluída", () => expect(progressoUnidade(1, etapas, [{ ...part, status: "CONCLUIDO" }], [atv(1, "NAO_INICIADO")], [{ atividade_id: 1, etapa_unidade_id: 80 }], H).status).toBe("NAO_INICIADA"));
   it("mantém atraso separado de não iniciada", () => expect(avaliar([atv(1, "NAO_INICIADO", "2026-11-01")])).toBe("ATRASADA"));
   it("não iniciada se a instalação ainda não começou", () => expect(avaliar([atv(1, "NAO_INICIADO", "2026-12-01")])).toBe("NAO_INICIADA"));
+ it("em andamento literal dentro do prazo", () => expect(avaliar([atv(1, "EM_ANDAMENTO", "2026-12-01", "2026-11-01")])).toBe("EM_ANDAMENTO"));
+  it("em andamento após a data de término é atraso", () => expect(avaliar([atv(1, "EM_ANDAMENTO", "2026-11-05", "2026-11-01")])).toBe("ATRASADA"));
+  it("não iniciada com início já passado é atraso", () => expect(avaliar([atv(1, "NAO_INICIADO", "2026-12-01", "2026-11-01")])).toBe("ATRASADA"));
+  it("não iniciada com início futuro", () => expect(avaliar([atv(1, "NAO_INICIADO", "2026-12-20", "2026-12-01")])).toBe("NAO_INICIADA"));
 });
