@@ -68,10 +68,23 @@ export const traduzErro = (m: string) =>
   m.includes("transicao_nao_permitida") ? "Essa ação não é permitida no estado atual." : m;
 
 export type UnidadeProgresso = "CONCLUIDA" | "EM_ANDAMENTO" | "NAO_INICIADA" | "ATRASADA";
-/** Concluída: tem elevadores e todos instalados. Atrasada: não concluída e data prevista já passou. */
-export function progressoUnidade(es: { status: Status }[], dataPrevista: string | null, hoje = new Date().toISOString().slice(0, 10)): UnidadeProgresso {
-  if (es.length && es.every((e) => e.status === "INSTALADO")) return "CONCLUIDA";
-  if (dataPrevista && dataPrevista.slice(0, 10) < hoje) return "ATRASADA";
-  if (es.some((e) => e.status !== "PENDENTE")) return "EM_ANDAMENTO";
-  return "NAO_INICIADA";
+export type EtapaProgresso = { id: number; nome: string; data_fim: string | null };
+export type ParticipacaoProgresso = { id: number; etapa_id: number; unidade_id: number; status: string; data_fim: string | null };
+export type AtividadeProgresso = { id: number; etapa_id: number; status: string; data_inicio: string | null; data_fim: string | null };
+export type VinculoProgresso = { atividade_id: number; etapa_unidade_id: number };
+
+/** Usa as atividades vinculadas na Instalação Facial; participação legada só quando não há atividades vinculadas. */
+export function progressoUnidade(unidadeId: number, etapas: EtapaProgresso[], participacoes: ParticipacaoProgresso[], atividades: AtividadeProgresso[], vinculos: VinculoProgresso[], hoje = new Date().toISOString().slice(0, 10)): { status: UnidadeProgresso; iniciou: boolean } {
+  const ids = new Set(etapas.filter((e) => e.nome.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/^\s*\d+[.\s)\-:]+/, "").trim() === "instalacao facial").map((e) => e.id));
+  const parts = participacoes.filter((p) => p.unidade_id === unidadeId && ids.has(p.etapa_id));
+  const partIds = new Set(parts.map((p) => p.id));
+  const atvIds = new Set(vinculos.filter((v) => partIds.has(v.etapa_unidade_id)).map((v) => v.atividade_id));
+  const atvs = atividades.filter((a) => ids.has(a.etapa_id) && atvIds.has(a.id));
+  const rows = atvs.length ? atvs : parts;
+  const iniciou = rows.some((r) => !["NAO_INICIADO", "PENDENTE", "CANCELADO"].includes(r.status));
+  if (rows.length && rows.every((r) => r.status === "CONCLUIDO")) return { status: "CONCLUIDA", iniciou };
+  const atrasada = atvs.length
+    ? atvs.some((a) => a.status !== "CONCLUIDO" && !!(a.data_fim || a.data_inicio) && (a.data_fim || a.data_inicio || "").slice(0, 10) < hoje)
+    : parts.some((p) => p.status !== "CONCLUIDO" && !!(p.data_fim || etapas.find((e) => e.id === p.etapa_id)?.data_fim) && (p.data_fim || etapas.find((e) => e.id === p.etapa_id)?.data_fim || "").slice(0, 10) < hoje);
+  return { status: atrasada ? "ATRASADA" : iniciou ? "EM_ANDAMENTO" : "NAO_INICIADA", iniciou };
 }
