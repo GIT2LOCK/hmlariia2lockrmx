@@ -3,7 +3,7 @@ import { progressoUnidade, type AtividadeProgresso } from "./elevModel";
 const H = "2026-11-11";
 const etapas = [{ id: 8, nome: "Instalação Facial", data_fim: null }, { id: 7, nome: "Aquisição", data_fim: null }];
 const part = { id: 80, etapa_id: 8, unidade_id: 1, status: "NAO_INICIADO", data_fim: null };
-const atv = (id: number, status: string, data_fim: string | null = null, data_inicio: string | null = null): AtividadeProgresso => ({ id, etapa_id: 8, status, data_inicio, data_fim  it("em andamento literal dentro do prazo", () => expect(avaliar([atv(1, "EM_ANDAMENTO", "2026-12-01", "2026-11-01")])).toBe("EM_ANDAMENTO"));
+const atv = (id: number, status: string, data_fim: string | null = null, data_inicio: string | null = null): AtividadeProgresso => ({ id, etapa_id: 8, status, data_inicio, data_fim   it("em andamento literal dentro do prazo", () => expect(avaliar([atv(1, "EM_ANDAMENTO", "2026-12-01", "2026-11-01")])).toBe("EM_ANDAMENTO"));
   it("em andamento após a data de término é atraso", () => expect(avaliar([atv(1, "EM_ANDAMENTO", "2026-11-05", "2026-11-01")])).toBe("ATRASADA"));
   it("não iniciada com início já passado é atraso", () => expect(avaliar([atv(1, "NAO_INICIADO", "2026-12-01", "2026-11-01")])).toBe("ATRASADA"));
   it("não iniciada com início futuro", () => expect(avaliar([atv(1, "NAO_INICIADO", "2026-12-20", "2026-12-01")])).toBe("NAO_INICIADA"));
