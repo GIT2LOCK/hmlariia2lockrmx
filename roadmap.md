@@ -1,4 +1,7 @@
 # Cronograma
+## Elevadores: corrigir unidades concluídas
+- [ ] Derivar conclusão da etapa 8. Instalação Facial, não dos elevadores instalados.
+- [ ] Testar o critério e conferir as verificações disponíveis; dados reais dependem de acesso autenticado externo.
 ## Kanban: melhorias de uso diário
 - [ ] Facilitar busca, filtros rápidos, ordenação e navegação das colunas sem alterar regras de chamados.
 - [ ] Testar filtros e controles e verificar a página disponível.
