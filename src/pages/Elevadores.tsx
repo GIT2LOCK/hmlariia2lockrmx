@@ -24,6 +24,7 @@ import CadastrosView from "@/components/elevadores/CadastrosView";
 import ElevadorDetalhe, { SituacaoBadges } from "@/components/elevadores/ElevadorDetalhe";
 import {
   Elevador, Facial, Situacao, Status, STATUS_LABEL, SIT_LABEL, VALID_LABEL, FSIT_LABEL, INST_LABEL, PRES_LABEL, situacao, traduzErro, progressoUnidade,
+  type EtapaProgresso, type ParticipacaoProgresso, type AtividadeProgresso, type VinculoProgresso,
 } from "@/components/elevadores/elevModel";
 
 interface Loja { unidade_id: number; ano_migracao: string | null; lote: string | null; data_prevista: string | null; estoque_leitoras: number; observacoes: string | null; unidades?: { nome_unidade: string } }
@@ -68,6 +69,10 @@ export default function Elevadores() {
   const isWctech = (user?.email || "").trim().toLowerCase().split("@")[1] === "wctech.com.br";
   const admin = isAdmin || user?.role === "SUPERADMIN" || user?.role === "ADMIN" || isWctech;
   const [lojas, setLojas] = useState<Loja[]>([]);
+  const [etapasProgresso, setEtapasProgresso] = useState<EtapaProgresso[]>([]);
+  const [partsProgresso, setPartsProgresso] = useState<ParticipacaoProgresso[]>([]);
+  const [atvsProgresso, setAtvsProgresso] = useState<AtividadeProgresso[]>([]);
+  const [vinculosProgresso, setVinculosProgresso] = useState<VinculoProgresso[]>([]);
   const [elev, setElev] = useState<Elevador[]>([]);
   const [busca, setBusca] = useState("");
   const [lote, setLote] = useState("todos");
@@ -105,13 +110,19 @@ export default function Elevadores() {
   };
 
   const load = async () => {
-    const [l, e, f] = await Promise.all([
+    const [l, e, f, etapas, parts, atvs, vinculos] = await Promise.all([
       db.from("elev_lojas").select("*, unidades(nome_unidade)"),
       db.from("elev_elevadores").select("*, ini:usuarios!elev_elevadores_iniciado_por_fkey(nome), fim:usuarios!elev_elevadores_instalado_por_fkey(nome), val:usuarios!elev_elevadores_validado_por_fkey(nome)").order("id"),
       db.from("elev_faciais").select("*").order("codigo"),
+      db.from("elev_cronograma_etapas").select("id,nome,data_fim"),
+      db.from("elev_cronograma_etapa_unidades").select("id,etapa_id,unidade_id,status,data_fim"),
+      db.from("elev_cronograma_atividades").select("id,etapa_id,status,data_inicio,data_fim"),
+      db.from("elev_cronograma_execucoes").select("atividade_id,etapa_unidade_id").limit(5000),
     ]);
-    const err = l.error || e.error || f.error;
+    const err = l.error || e.error || f.error || etapas.error || parts.error || atvs.error || vinculos.error;
     if (err) toast({ title: "Erro ao carregar", description: err.message, variant: "destructive" });
+    setEtapasProgresso(etapas.data || []); setPartsProgresso(parts.data || []);
+    setAtvsProgresso(atvs.data || []); setVinculosProgresso(vinculos.data || []);
     setLojas(l.data || []); setElev(e.data || []); setFaciais(f.data || []); setLoading(false);
   };
   useEffect(() => {
@@ -119,6 +130,10 @@ export default function Elevadores() {
     const ch = db.channel("elev-rt")
       .on("postgres_changes", { event: "*", schema: "public", table: "elev_elevadores" }, () => load())
       .on("postgres_changes", { event: "*", schema: "public", table: "elev_faciais" }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "elev_cronograma_etapas" }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "elev_cronograma_etapa_unidades" }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "elev_cronograma_atividades" }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "elev_cronograma_execucoes" }, () => load())
       .subscribe();
     return () => { db.removeChannel(ch); };
   }, []);
@@ -168,14 +183,14 @@ export default function Elevadores() {
     { label: "Pausados", value: count("PAUSADO") },
     { label: "Pendentes", value: count("PENDENTE") },
   ];
-  const unidadesProg = lojas.map((l) => ({
-    l, p: progressoUnidade(elev.filter((e) => e.unidade_id === l.unidade_id), l.data_prevista),
-  })).sort((a, b) => (a.l.unidades?.nome_unidade || "").localeCompare(b.l.unidades?.nome_unidade || ""));
+  const unidadesProg = lojas.map((l) => {
+    const progresso = progressoUnidade(l.unidade_id, etapasProgresso, partsProgresso, atvsProgresso, vinculosProgresso);
+    return { l, p: progresso.status, iniciou: progresso.iniciou };
+  }).sort((a, b) => (a.l.unidades?.nome_unidade || "").localeCompare(b.l.unidades?.nome_unidade || ""));
   const uConcluidas = unidadesProg.filter((x) => x.p === "CONCLUIDA");
   const uAndamento = unidadesProg.filter((x) => x.p === "EM_ANDAMENTO");
   const uAtrasadas = unidadesProg.filter((x) => x.p === "ATRASADA");
   const uNaoIniciadas = unidadesProg.filter((x) => x.p === "NAO_INICIADA");
-  const comecou = (unidadeId: number) => elev.some((e) => e.unidade_id === unidadeId && e.status !== "PENDENTE");
   const sits = elev.map((e) => situacao(e, facialDe(e.id)));
   const nSit = (s: Situacao) => sits.filter((x) => x === s).length;
   const kpis2: { label: string; value: number; sit?: Situacao }[] = [
@@ -366,14 +381,14 @@ export default function Elevadores() {
                 <p className="text-sm font-semibold text-foreground">{titulo} <span className="text-muted-foreground">({rows.length})</span></p>
                 {rows.length === 0 && <p className="text-xs text-muted-foreground">Nenhuma unidade.</p>}
                 <ul className="space-y-1">
-                  {rows.map(({ l, p }) => (
+                  {rows.map(({ l, p, iniciou }) => (
                     <li key={l.unidade_id}>
                       <button type="button" className="flex w-full items-center justify-between gap-2 rounded-md border border-border px-2 py-1.5 text-left text-xs hover:bg-muted"
                         onClick={() => { setBusca(l.unidades?.nome_unidade || ""); setVisao("cadastros"); setUnidOpen(false); }}>
                         <span className="font-medium text-foreground">{(l.unidades?.nome_unidade || `Loja ${l.unidade_id}`).toUpperCase()}</span>
                         <span className="flex shrink-0 items-center gap-1">
                           {p === "ATRASADA" && <Badge variant="destructive">Atraso</Badge>}
-                          {(p === "NAO_INICIADA" || (p === "ATRASADA" && !comecou(l.unidade_id))) && <Badge variant="outline">Não iniciada</Badge>}
+                          {(p === "NAO_INICIADA" || (p === "ATRASADA" && !iniciou)) && <Badge variant="outline">Não iniciada</Badge>}
                         </span>
                       </button>
                     </li>

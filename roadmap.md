@@ -1,4 +1,8 @@
 # Cronograma
+## Elevadores: corrigir unidades concluídas
+- [x] Derivar conclusão da etapa 8. Instalação Facial, não dos elevadores instalados.
+- [x] Oito testes passaram e build OK.
+- [ ] Conferir com dados reais: acesso autenticado indisponível no Supabase externo.
 ## Kanban: melhorias de uso diário
 - [ ] Facilitar busca, filtros rápidos, ordenação e navegação das colunas sem alterar regras de chamados.
 - [ ] Testar filtros e controles e verificar a página disponível.

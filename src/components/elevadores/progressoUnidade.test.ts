@@ -1,11 +1,17 @@
 import { describe, it, expect } from "vitest";
-import { progressoUnidade } from "./elevModel";
-const H = "2026-11-09";
+import { progressoUnidade, type AtividadeProgresso } from "./elevModel";
+const H = "2026-11-11";
+const etapas = [{ id: 8, nome: "Instalação Facial", data_fim: null }, { id: 7, nome: "Aquisição", data_fim: null }];
+const part = { id: 80, etapa_id: 8, unidade_id: 1, status: "NAO_INICIADO", data_fim: null };
+const atv = (id: number, status: string, data_fim: string | null = null): AtividadeProgresso => ({ id, etapa_id: 8, status, data_inicio: null, data_fim });
+const avaliar = (atividades: AtividadeProgresso[]) => progressoUnidade(1, etapas, [part], atividades, atividades.map((a) => ({ atividade_id: a.id, etapa_unidade_id: 80 })), H).status;
 describe("progressoUnidade", () => {
-  it("concluída quando todos os elevadores estão instalados", () => expect(progressoUnidade([{ status: "INSTALADO" }, { status: "INSTALADO" }], "2026-01-01", H)).toBe("CONCLUIDA"));
-  it("em andamento quando algum começou", () => expect(progressoUnidade([{ status: "INSTALADO" }, { status: "PENDENTE" }], null, H)).toBe("EM_ANDAMENTO"));
-  it("não iniciada quando todos pendentes ou sem elevadores", () => { expect(progressoUnidade([{ status: "PENDENTE" }], null, H)).toBe("NAO_INICIADA"); expect(progressoUnidade([], null, H)).toBe("NAO_INICIADA"); });
-  it("atrasada quando a data prevista passou sem concluir", () => expect(progressoUnidade([{ status: "EM_ANDAMENTO" }], "2026-11-01", H)).toBe("ATRASADA"));
-  it("atraso vem antes de não iniciada quando a data passou sem começar", () => expect(progressoUnidade([{ status: "PENDENTE" }], "2026-11-01", H)).toBe("ATRASADA"));
-  it("não iniciada quando nada começou e a data ainda não passou", () => { expect(progressoUnidade([{ status: "PENDENTE" }], "2026-12-01", H)).toBe("NAO_INICIADA"); expect(progressoUnidade([], "2026-12-01", H)).toBe("NAO_INICIADA"); });
+  it("conclui pela atividade da Instalação Facial, mesmo com prazo passado", () => expect(avaliar([atv(1, "CONCLUIDO", "2026-01-01")])).toBe("CONCLUIDA"));
+  it("não conclui com instalação facial parcialmente concluída", () => expect(avaliar([atv(1, "CONCLUIDO"), atv(2, "NAO_INICIADO")])).toBe("EM_ANDAMENTO"));
+  it("não conclui por outra etapa concluída", () => expect(progressoUnidade(1, etapas, [{ ...part, etapa_id: 7, status: "CONCLUIDO" }], [], [], H).status).toBe("NAO_INICIADA"));
+  it("não usa conclusão de outra unidade", () => expect(progressoUnidade(2, etapas, [part], [atv(1, "CONCLUIDO")], [{ atividade_id: 1, etapa_unidade_id: 80 }], H).status).toBe("NAO_INICIADA"));
+  it("usa marcação legada da unidade na etapa sem atividades vinculadas", () => expect(progressoUnidade(1, [{ ...etapas[0], nome: "8. Instalação Facial" }], [{ ...part, status: "CONCLUIDO" }], [], [], H).status).toBe("CONCLUIDA"));
+  it("atividade atual prevalece sobre marcação legada concluída", () => expect(progressoUnidade(1, etapas, [{ ...part, status: "CONCLUIDO" }], [atv(1, "NAO_INICIADO")], [{ atividade_id: 1, etapa_unidade_id: 80 }], H).status).toBe("NAO_INICIADA"));
+  it("mantém atraso separado de não iniciada", () => expect(avaliar([atv(1, "NAO_INICIADO", "2026-11-01")])).toBe("ATRASADA"));
+  it("não iniciada se a instalação ainda não começou", () => expect(avaliar([atv(1, "NAO_INICIADO", "2026-12-01")])).toBe("NAO_INICIADA"));
 });
