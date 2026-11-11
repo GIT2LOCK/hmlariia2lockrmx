@@ -81,10 +81,18 @@ export function progressoUnidade(unidadeId: number, etapas: EtapaProgresso[], pa
   const atvIds = new Set(vinculos.filter((v) => partIds.has(v.etapa_unidade_id)).map((v) => v.atividade_id));
   const atvs = atividades.filter((a) => ids.has(a.etapa_id) && atvIds.has(a.id));
   const rows = atvs.length ? atvs : parts;
-  const iniciou = rows.some((r) => !["NAO_INICIADO", "PENDENTE", "CANCELADO"].includes(r.status));
-  if (rows.length && rows.every((r) => r.status === "CONCLUIDO")) return { status: "CONCLUIDA", iniciou };
-  const atrasada = atvs.length
-    ? atvs.some((a) => a.status !== "CONCLUIDO" && !!(a.data_fim || a.data_inicio) && (a.data_fim || a.data_inicio || "").slice(0, 10) < hoje)
-    : parts.some((p) => p.status !== "CONCLUIDO" && !!(p.data_fim || etapas.find((e) => e.id === p.etapa_id)?.data_fim) && (p.data_fim || etapas.find((e) => e.id === p.etapa_id)?.data_fim || "").slice(0, 10) < hoje);
-  return { status: atrasada ? "ATRASADA" : iniciou ? "EM_ANDAMENTO" : "NAO_INICIADA", iniciou };
+  const d = (x: string | null | undefined) => (x || "").slice(0, 10);
+  const naoIniciado = (st: string) => ["NAO_INICIADO", "PENDENTE", "CANCELADO"].includes(st);
+  const iniciou = rows.some((r) => !naoIniciado(r.status));
+  if (!rows.length) return { status: "NAO_INICIADA", iniciou };
+  const estado = (r: { status: string; data_inicio?: string | null; data_fim: string | null }): UnidadeProgresso => {
+    if (r.status === "CONCLUIDO") return "CONCLUIDA";
+    const ini = d(r.data_inicio ?? etapas.find((e) => e.id === (r as ParticipacaoProgresso).etapa_id)?.data_fim ?? null);
+    const fim = d(r.data_fim);
+    if (naoIniciado(r.status)) return (ini || fim) && (ini || fim) < hoje ? "ATRASADA" : "NAO_INICIADA";
+    return fim && fim < hoje ? "ATRASADA" : "EM_ANDAMENTO";
+  };
+  const est = rows.map(estado);
+  const status: UnidadeProgresso = est.every((e) => e === "CONCLUIDA") ? "CONCLUIDA" : est.includes("ATRASADA") ? "ATRASADA" : est.some((e) => e === "EM_ANDAMENTO" || e === "CONCLUIDA") ? "EM_ANDAMENTO" : "NAO_INICIADA";
+  return { status, iniciou };
 }
