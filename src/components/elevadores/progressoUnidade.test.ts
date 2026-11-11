@@ -18,8 +18,4 @@ describe("progressoUnidade", () => {
   it("em andamento após a data de término é atraso", () => expect(avaliar([atv(1, "EM_ANDAMENTO", "2026-11-05", "2026-11-01")])).toBe("ATRASADA"));
   it("não iniciada com início já passado é atraso", () => expect(avaliar([atv(1, "NAO_INICIADO", "2026-12-01", "2026-11-01")])).toBe("ATRASADA"));
   it("não iniciada com início futuro", () => expect(avaliar([atv(1, "NAO_INICIADO", "2026-12-20", "2026-12-01")])).toBe("NAO_INICIADA"));
- it("em andamento literal dentro do prazo", () => expect(avaliar([atv(1, "EM_ANDAMENTO", "2026-12-01", "2026-11-01")])).toBe("EM_ANDAMENTO"));
-  it("em andamento após a data de término é atraso", () => expect(avaliar([atv(1, "EM_ANDAMENTO", "2026-11-05", "2026-11-01")])).toBe("ATRASADA"));
-  it("não iniciada com início já passado é atraso", () => expect(avaliar([atv(1, "NAO_INICIADO", "2026-12-01", "2026-11-01")])).toBe("ATRASADA"));
-  it("não iniciada com início futuro", () => expect(avaliar([atv(1, "NAO_INICIADO", "2026-12-20", "2026-12-01")])).toBe("NAO_INICIADA"));
 });
