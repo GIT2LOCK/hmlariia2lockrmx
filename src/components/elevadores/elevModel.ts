@@ -99,3 +99,26 @@ export function progressoUnidade(unidadeId: number, etapas: EtapaProgresso[], pa
   const status: UnidadeProgresso = est.every((e) => e === "CONCLUIDA") ? "CONCLUIDA" : est.includes("ATRASADA") ? "ATRASADA" : est.some((e) => e === "EM_ANDAMENTO" || e === "CONCLUIDA") ? "EM_ANDAMENTO" : "NAO_INICIADA";
   return { status, iniciou };
 }
+
+const semAcento = (x: string) => x.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+export const ehEtapaInstalacaoFacial = (nome: string) => semAcento(nome).toLowerCase().replace(/^\s*\d+[.\s)\-:]+/, "").trim() === "instalacao facial";
+
+/** Status de uma atividade da etapa 8, literal: Concluído → concluída; Em andamento após o fim → atraso; não iniciada após o início → atraso. */
+export function estadoAtividade(a: { status: string; data_inicio: string | null; data_fim: string | null }, hoje = new Date().toISOString().slice(0, 10)): UnidadeProgresso {
+  const st = semAcento(a.status || "").toUpperCase().replace(/[^A-Z]+/g, "_");
+  const ini = (a.data_inicio || "").slice(0, 10), fim = (a.data_fim || "").slice(0, 10);
+  if (st.startsWith("CONCLU")) return "CONCLUIDA";
+  if (["NAO_INICIADO", "NAO_INICIADA", "PENDENTE", ""].includes(st)) return ini && ini < hoje ? "ATRASADA" : "NAO_INICIADA";
+  return fim && fim < hoje ? "ATRASADA" : "EM_ANDAMENTO";
+}
+
+/** Uma linha por atividade da etapa 8. Instalação Facial. */
+export function progressoAtividadesFacial(etapas: EtapaProgresso[], atividades: AtividadeProgresso[], hoje = new Date().toISOString().slice(0, 10)) {
+  const ids = new Set(etapas.filter((e) => ehEtapaInstalacaoFacial(e.nome)).map((e) => e.id));
+  return atividades.filter((a) => ids.has(a.etapa_id)).map((a) => ({
+    id: a.id,
+    nome: (a.nome || `Atividade ${a.id}`).replace(/^\s*instala[cç][aã]o\s*(facial)?\s*[-–:]?\s*/i, "").trim().toUpperCase() || (a.nome || "").toUpperCase(),
+    p: estadoAtividade(a, hoje),
+    iniciou: !["NAO_INICIADO", "PENDENTE"].includes(a.status),
+  })).sort((x, y) => x.nome.localeCompare(y.nome));
+}

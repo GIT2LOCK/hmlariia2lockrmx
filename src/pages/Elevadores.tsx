@@ -23,7 +23,7 @@ import RelatorioCronogramaDialog from "@/components/elevadores/RelatorioCronogra
 import CadastrosView from "@/components/elevadores/CadastrosView";
 import ElevadorDetalhe, { SituacaoBadges } from "@/components/elevadores/ElevadorDetalhe";
 import {
-  Elevador, Facial, Situacao, Status, STATUS_LABEL, SIT_LABEL, VALID_LABEL, FSIT_LABEL, INST_LABEL, PRES_LABEL, situacao, traduzErro, progressoUnidade,
+  Elevador, Facial, Situacao, Status, STATUS_LABEL, SIT_LABEL, VALID_LABEL, FSIT_LABEL, INST_LABEL, PRES_LABEL, situacao, traduzErro, progressoAtividadesFacial,
   type EtapaProgresso, type ParticipacaoProgresso, type AtividadeProgresso, type VinculoProgresso,
 } from "@/components/elevadores/elevModel";
 
@@ -183,10 +183,7 @@ export default function Elevadores() {
     { label: "Pausados", value: count("PAUSADO") },
     { label: "Pendentes", value: count("PENDENTE") },
   ];
-  const unidadesProg = lojas.map((l) => {
-    const progresso = progressoUnidade(l.unidade_id, etapasProgresso, partsProgresso, atvsProgresso, vinculosProgresso, undefined, l.unidades?.nome_unidade);
-    return { l, p: progresso.status, iniciou: progresso.iniciou };
-  }).sort((a, b) => (a.l.unidades?.nome_unidade || "").localeCompare(b.l.unidades?.nome_unidade || ""));
+  const unidadesProg = progressoAtividadesFacial(etapasProgresso, atvsProgresso);
   const uConcluidas = unidadesProg.filter((x) => x.p === "CONCLUIDA");
   const uAndamento = unidadesProg.filter((x) => x.p === "EM_ANDAMENTO");
   const uAtrasadas = unidadesProg.filter((x) => x.p === "ATRASADA");
@@ -381,11 +378,11 @@ export default function Elevadores() {
                 <p className="text-sm font-semibold text-foreground">{titulo} <span className="text-muted-foreground">({rows.length})</span></p>
                 {rows.length === 0 && <p className="text-xs text-muted-foreground">Nenhuma unidade.</p>}
                 <ul className="space-y-1">
-                  {rows.map(({ l, p, iniciou }) => (
-                    <li key={l.unidade_id}>
+                  {rows.map(({ id, nome, p, iniciou }) => (
+                    <li key={id}>
                       <button type="button" className="flex w-full items-center justify-between gap-2 rounded-md border border-border px-2 py-1.5 text-left text-xs hover:bg-muted"
-                        onClick={() => { setBusca(l.unidades?.nome_unidade || ""); setVisao("cadastros"); setUnidOpen(false); }}>
-                        <span className="font-medium text-foreground">{(l.unidades?.nome_unidade || `Loja ${l.unidade_id}`).toUpperCase()}</span>
+                        onClick={() => { setBusca(nome); setVisao("cadastros"); setUnidOpen(false); }}>
+                        <span className="font-medium text-foreground">{nome}</span>
                         <span className="flex shrink-0 items-center gap-1">
                           {p === "ATRASADA" && <Badge variant="destructive">Atraso</Badge>}
                           {(p === "NAO_INICIADA" || (p === "ATRASADA" && !iniciou)) && <Badge variant="outline">Não iniciada</Badge>}
@@ -405,7 +402,7 @@ export default function Elevadores() {
         <CardContent className="flex flex-wrap items-center justify-between gap-3 p-3 sm:p-4">
           <div>
             <p className="text-xs text-muted-foreground">Unidades concluídas</p>
-            <p className="text-2xl font-semibold text-foreground">{uConcluidas.length} <span className="text-base font-normal text-muted-foreground">de {lojas.length}</span></p>
+            <p className="text-2xl font-semibold text-foreground">{uConcluidas.length} <span className="text-base font-normal text-muted-foreground">de {unidadesProg.length}</span></p>
           </div>
           <div className="flex gap-4 text-xs text-muted-foreground">
             <span>Em andamento: <strong className="text-foreground">{uAndamento.length}</strong></span>
