@@ -70,16 +70,19 @@ export const traduzErro = (m: string) =>
 export type UnidadeProgresso = "CONCLUIDA" | "EM_ANDAMENTO" | "NAO_INICIADA" | "ATRASADA";
 export type EtapaProgresso = { id: number; nome: string; data_fim: string | null };
 export type ParticipacaoProgresso = { id: number; etapa_id: number; unidade_id: number; status: string; data_fim: string | null };
-export type AtividadeProgresso = { id: number; etapa_id: number; status: string; data_inicio: string | null; data_fim: string | null };
+export type AtividadeProgresso = { id: number; etapa_id: number; nome?: string | null; status: string; data_inicio: string | null; data_fim: string | null };
 export type VinculoProgresso = { atividade_id: number; etapa_unidade_id: number };
 
 /** Usa as atividades vinculadas na Instalação Facial; participação legada só quando não há atividades vinculadas. */
-export function progressoUnidade(unidadeId: number, etapas: EtapaProgresso[], participacoes: ParticipacaoProgresso[], atividades: AtividadeProgresso[], vinculos: VinculoProgresso[], hoje = new Date().toISOString().slice(0, 10)): { status: UnidadeProgresso; iniciou: boolean } {
+export function progressoUnidade(unidadeId: number, etapas: EtapaProgresso[], participacoes: ParticipacaoProgresso[], atividades: AtividadeProgresso[], vinculos: VinculoProgresso[], hoje = new Date().toISOString().slice(0, 10), unidadeNome?: string | null): { status: UnidadeProgresso; iniciou: boolean } {
   const ids = new Set(etapas.filter((e) => e.nome.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/^\s*\d+[.\s)\-:]+/, "").trim() === "instalacao facial").map((e) => e.id));
   const parts = participacoes.filter((p) => p.unidade_id === unidadeId && ids.has(p.etapa_id));
   const partIds = new Set(parts.map((p) => p.id));
   const atvIds = new Set(vinculos.filter((v) => partIds.has(v.etapa_unidade_id)).map((v) => v.atividade_id));
-  const atvs = atividades.filter((a) => ids.has(a.etapa_id) && atvIds.has(a.id));
+  const norm = (x: string) => ` ${x.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[^A-Z0-9]+/g, " ").trim()} `;
+  const alvo = unidadeNome ? norm(unidadeNome) : "";
+  const porNome = (a: AtividadeProgresso) => alvo.trim().length > 0 && !!a.nome && norm(a.nome).includes(alvo);
+  const atvs = atividades.filter((a) => ids.has(a.etapa_id) && (atvIds.has(a.id) || porNome(a)));
   const rows = atvs.length ? atvs : parts;
   const d = (x: string | null | undefined) => (x || "").slice(0, 10);
   const naoIniciado = (st: string) => ["NAO_INICIADO", "PENDENTE", "CANCELADO"].includes(st);

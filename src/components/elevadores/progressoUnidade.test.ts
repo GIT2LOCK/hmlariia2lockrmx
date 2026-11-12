@@ -19,3 +19,10 @@ describe("progressoUnidade", () => {
   it("não iniciada com início já passado é atraso", () => expect(avaliar([atv(1, "NAO_INICIADO", "2026-12-01", "2026-11-01")])).toBe("ATRASADA"));
   it("não iniciada com início futuro", () => expect(avaliar([atv(1, "NAO_INICIADO", "2026-12-20", "2026-12-01")])).toBe("NAO_INICIADA"));
 });
+
+import { progressoUnidade as pu } from "./elevModel";
+import { it as it2, expect as ex2 } from "vitest";
+it2("atividade 'Instalação BERRINI' concluída sem vínculo conclui a unidade BERRINI", () => {
+  const r = pu(1, [{ id: 8, nome: "8. Instalação Facial", data_fim: null }], [], [{ id: 1, etapa_id: 8, nome: "Instalação BERRINI", status: "CONCLUIDO", data_inicio: "2026-01-01", data_fim: "2026-01-02" }], [], "2026-11-12", "BERRINI");
+  ex2(r.status).toBe("CONCLUIDA");
+});
