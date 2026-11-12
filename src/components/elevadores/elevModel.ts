@@ -101,7 +101,7 @@ export function progressoUnidade(unidadeId: number, etapas: EtapaProgresso[], pa
 }
 
 const semAcento = (x: string) => x.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-export const ehEtapaInstalacaoFacial = (nome: string) => semAcento(nome).toLowerCase().replace(/^\s*\d+[.\s)\-:]+/, "").trim() === "instalacao facial";
+export const ehEtapaInstalacaoFacial = (nome: string) => semAcento(nome).toLowerCase().replace(/^\s*\d+[.\s)\-:]+/, "").trim().startsWith("instalacao facial");
 
 /** Status de uma atividade da etapa 8, literal: Concluído → concluída; Em andamento após o fim → atraso; não iniciada após o início → atraso. */
 export function estadoAtividade(a: { status: string; data_inicio: string | null; data_fim: string | null }, hoje = new Date().toISOString().slice(0, 10)): UnidadeProgresso {

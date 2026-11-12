@@ -39,3 +39,8 @@ it2("cada atividade da etapa 8 vira uma unidade com seu status", () => {
   ], "2026-11-12");
   ex2(Object.fromEntries(r.map((x) => [x.nome, x.p]))).toEqual({ BERRINI: "CONCLUIDA", "ACLIMAÇÃO": "EM_ANDAMENTO", MOOCA: "ATRASADA", LAPA: "NAO_INICIADA", "TATUAPÉ": "ATRASADA" });
 });
+
+it2("reconhece a etapa 'Instalação Facial 2026'", () => {
+  const r = progressoAtividadesFacial([{ id: 18, nome: "Instalação Facial 2026", data_fim: null }], [{ id: 1, etapa_id: 18, nome: "Instalação BERRINI", status: "CONCLUIDO", data_inicio: null, data_fim: null }], "2026-11-12");
+  ex2(r.map((x) => [x.nome, x.p])).toEqual([["BERRINI", "CONCLUIDA"]]);
+});
