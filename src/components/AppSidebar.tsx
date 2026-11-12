@@ -29,7 +29,9 @@
   MessageCircle,
 
   Wifi,
+  ChevronDown,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -50,6 +52,7 @@ import {
   SidebarFooter,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 import { Permission, canAccessElevadores } from "@/lib/permissions";
 import { useAllowedTabs, type TabKey } from "@/hooks/useAllowedTabs";
@@ -138,6 +141,14 @@ export function AppSidebar() {
   const { user, refreshUser, canManageUsers, can, isGrafanaOnly, isBlocked, saveAccountTheme, isSavingTheme } = useUser();
   const { allows } = useAllowedTabs();
   const { theme = "light" } = useTheme();
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("ariia-sidebar-collapsed-groups") || "{}");
+      return saved && typeof saved === "object" ? saved : {};
+    } catch {
+      return {};
+    }
+  });
 
   const isCliente = user.role === "CLIENTE";
   const isActive = (path: string) => currentPath === path;
@@ -151,6 +162,25 @@ export function AppSidebar() {
         return (!it.permission || can(it.permission)) && allows(it.tabKey);
         }),
       })).filter((group) => group.items.length > 0);
+
+  useEffect(() => {
+    const activeGroup = menuGroups.find((group) => group.items.some((item) => isActive(item.url)));
+    if (activeGroup && collapsedGroups[activeGroup.title]) {
+      setCollapsedGroups((current) => {
+        const next = { ...current, [activeGroup.title]: false };
+        localStorage.setItem("ariia-sidebar-collapsed-groups", JSON.stringify(next));
+        return next;
+      });
+    }
+  }, [currentPath, collapsedGroups]);
+
+  const setGroupOpen = (title: string, open: boolean) => {
+    setCollapsedGroups((current) => {
+      const next = { ...current, [title]: !open };
+      localStorage.setItem("ariia-sidebar-collapsed-groups", JSON.stringify(next));
+      return next;
+    });
+  };
 
 
   const handleLogout = async (e: React.MouseEvent) => {
@@ -187,30 +217,40 @@ export function AppSidebar() {
 
       <SidebarContent>
         {visibleGroups.map((group) => (
-          <SidebarGroup key={group.title}>
-            <SidebarGroupLabel className="text-primary-foreground/60 text-xs uppercase tracking-wider">
-              {group.title}
-            </SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {group.items.map((item) => (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={isActive(item.url)}
-                      tooltip={item.title}
-                      className={glassMenuButtonClassName}
-                    >
-                      <NavLink to={item.url} className="flex items-center gap-3">
-                        <item.icon className="h-5 w-5" />
-                        <span>{item.title}</span>
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
+          <Collapsible key={group.title} open={!collapsedGroups[group.title]} onOpenChange={(open) => setGroupOpen(group.title, open)}>
+            <SidebarGroup className="ariia-sidebar-group">
+              <SidebarGroupLabel asChild className="ariia-sidebar-group-label">
+                <CollapsibleTrigger className="ariia-sidebar-group-trigger" aria-label={`${collapsedGroups[group.title] ? "Expandir" : "Recolher"} ${group.title}`}>
+                  <span>{group.title}</span>
+                  <span className="ariia-sidebar-group-meta">
+                    <span className="ariia-sidebar-group-count">{group.items.length}</span>
+                    <ChevronDown className="ariia-sidebar-chevron" aria-hidden="true" />
+                  </span>
+                </CollapsibleTrigger>
+              </SidebarGroupLabel>
+              <CollapsibleContent>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {group.items.map((item) => (
+                      <SidebarMenuItem key={item.title}>
+                        <SidebarMenuButton
+                          asChild
+                          isActive={isActive(item.url)}
+                          tooltip={item.title}
+                          className={glassMenuButtonClassName}
+                        >
+                          <NavLink to={item.url} className="flex items-center gap-3">
+                            <item.icon className="h-5 w-5" />
+                            <span>{item.title}</span>
+                          </NavLink>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    ))}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </CollapsibleContent>
+            </SidebarGroup>
+          </Collapsible>
         ))}
 
         <SidebarGroup>

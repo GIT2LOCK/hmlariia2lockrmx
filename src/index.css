@@ -358,6 +358,73 @@ All colors MUST be HSL.
     letter-spacing: 0;
   }
 
+  .ariia-glass-sidebar .ariia-sidebar-group {
+    padding: 0.35rem 0.65rem;
+  }
+
+  .ariia-glass-sidebar .ariia-sidebar-group + .ariia-sidebar-group {
+    border-top: 1px solid hsl(var(--glass-highlight) / 0.1);
+  }
+
+  .ariia-glass-sidebar .ariia-sidebar-group-label {
+    height: 2.15rem;
+    padding: 0;
+  }
+
+  .ariia-glass-sidebar .ariia-sidebar-group-trigger {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    align-items: center;
+    justify-content: space-between;
+    border: 0;
+    border-radius: 0.4rem;
+    background: transparent;
+    padding: 0 0.5rem;
+    color: inherit;
+    cursor: pointer;
+    text-align: left;
+    transition: background-color 150ms ease, color 150ms ease;
+  }
+
+  .ariia-glass-sidebar .ariia-sidebar-group-trigger:hover {
+    background: hsl(var(--glass-surface) / 0.1);
+    color: hsl(var(--glass-ink));
+  }
+
+  .ariia-glass-sidebar .ariia-sidebar-group-trigger:focus-visible {
+    outline: 2px solid hsl(var(--glass-accent));
+    outline-offset: 2px;
+  }
+
+  .ariia-glass-sidebar .ariia-sidebar-group-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+  }
+
+  .ariia-glass-sidebar .ariia-sidebar-group-count {
+    min-width: 1.15rem;
+    border-radius: 999px;
+    background: hsl(var(--glass-surface) / 0.14);
+    padding: 0.05rem 0.3rem;
+    color: hsl(var(--glass-muted));
+    font-size: 0.65rem;
+    line-height: 1rem;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .ariia-glass-sidebar .ariia-sidebar-chevron {
+    width: 0.85rem;
+    height: 0.85rem;
+    transition: transform 160ms ease;
+  }
+
+  .ariia-glass-sidebar .ariia-sidebar-group-trigger[data-state="closed"] .ariia-sidebar-chevron {
+    transform: rotate(-90deg);
+  }
+
   .ariia-glass-user-card {
     border: 1px solid hsl(var(--glass-highlight) / 0.2);
     border-radius: 0.95rem;
@@ -370,7 +437,7 @@ All colors MUST be HSL.
     position: relative;
     background: hsl(var(--glass-surface) / 0.07);
     border: 1px solid hsl(var(--glass-highlight) / 0.1);
-    border-radius: 0.75rem;
+    border-radius: 0.5rem;
     color: hsl(var(--glass-ink) / 0.82);
     transition:
       background-color 160ms ease,
