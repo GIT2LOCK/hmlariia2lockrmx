@@ -698,7 +698,7 @@ export default function AriiaTalk() {
         : previousScrollTop;
     });
     if (!silent) setLoadingMessages(false);
-    void loadConversations();
+    if (!silent) void loadConversations();
   }, [loadConversations]);
 
   async function messageAction(action: "edit" | "annotate", target: ChatMessage, values: Record<string, unknown>) {
@@ -883,6 +883,7 @@ export default function AriiaTalk() {
           event: "*",
           schema: "public",
           table: "ariiatalk_mensagens",
+          ...(selectedId ? { filter: `conversa_id=eq.${selectedId}` } : {}),
         },
         () => {
           if (selectedId && view === "conversas") {
@@ -902,14 +903,17 @@ export default function AriiaTalk() {
       if (view === "instancias") {
         void loadInstances();
       }
+    }, 10000);
 
-      if (selectedId && view === "conversas") {
+    const messageInterval = window.setInterval(() => {
+      if (document.visibilityState === "visible" && selectedId && view === "conversas") {
         void loadMessages(selectedId, true);
       }
-    }, 10000);
+    }, 3000);
 
     return () => {
       window.clearInterval(interval);
+      window.clearInterval(messageInterval);
       void supabase.removeChannel(channel);
     };
   }, [loadConversations, loadInstances, loadMessages, selectedId, view]);
