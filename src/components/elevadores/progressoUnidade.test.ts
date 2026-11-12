@@ -26,3 +26,16 @@ it2("atividade 'Instalação BERRINI' concluída sem vínculo conclui a unidade 
   const r = pu(1, [{ id: 8, nome: "8. Instalação Facial", data_fim: null }], [], [{ id: 1, etapa_id: 8, nome: "Instalação BERRINI", status: "CONCLUIDO", data_inicio: "2026-01-01", data_fim: "2026-01-02" }], [], "2026-11-12", "BERRINI");
   ex2(r.status).toBe("CONCLUIDA");
 });
+
+import { progressoAtividadesFacial } from "./elevModel";
+it2("cada atividade da etapa 8 vira uma unidade com seu status", () => {
+  const r = progressoAtividadesFacial([{ id: 8, nome: "8. Instalação Facial", data_fim: null }, { id: 7, nome: "7. Outra", data_fim: null }], [
+    { id: 1, etapa_id: 8, nome: "Instalação BERRINI", status: "CONCLUIDO", data_inicio: "2026-01-01", data_fim: "2026-01-02" },
+    { id: 2, etapa_id: 8, nome: "Instalação ACLIMAÇÃO", status: "EM_ANDAMENTO", data_inicio: "2026-11-01", data_fim: "2026-11-30" },
+    { id: 3, etapa_id: 8, nome: "Instalação MOOCA", status: "EM_ANDAMENTO", data_inicio: "2026-10-01", data_fim: "2026-11-01" },
+    { id: 4, etapa_id: 8, nome: "Instalação LAPA", status: "NAO_INICIADO", data_inicio: "2026-12-01", data_fim: "2026-12-10" },
+    { id: 5, etapa_id: 8, nome: "Instalação TATUAPÉ", status: "NAO_INICIADO", data_inicio: "2026-11-01", data_fim: "2026-12-10" },
+    { id: 6, etapa_id: 7, nome: "Outra BERRINI", status: "CONCLUIDO", data_inicio: null, data_fim: null },
+  ], "2026-11-12");
+  ex2(Object.fromEntries(r.map((x) => [x.nome, x.p]))).toEqual({ BERRINI: "CONCLUIDA", "ACLIMAÇÃO": "EM_ANDAMENTO", MOOCA: "ATRASADA", LAPA: "NAO_INICIADA", "TATUAPÉ": "ATRASADA" });
+});
