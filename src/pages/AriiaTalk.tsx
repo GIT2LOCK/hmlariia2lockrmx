@@ -54,6 +54,7 @@ import { canEditMessage, quoteSnapshot } from "../../supabase/functions/_shared/
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type Instance = {
   id: string;
@@ -256,6 +257,7 @@ export default function AriiaTalk() {
   const [cDuplicate, setCDuplicate] = useState<AriiaContact | null>(null);
   const [cSaving, setCSaving] = useState(false);
   const [assigning, setAssigning] = useState(false);
+  const [changingInstance, setChangingInstance] = useState(false);
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [showFilters, setShowFilters] = useState(false);
   const [folders, setFolders] = useState<Pasta[]>([]);
@@ -466,6 +468,32 @@ export default function AriiaTalk() {
     toast.success(status === "closed" ? "Conversa encerrada." : "Conversa reaberta.");
     void loadConversations();
   }, [selectedId, loadConversations]);
+
+  const changeConversationInstance = useCallback(async (instanceId: string) => {
+    const conversation = conversations.find((item) => item.id === selectedId);
+    if (!conversation || instanceId === conversation.instancia_id || changingInstance) return;
+    setChangingInstance(true);
+    const { data, error: invokeError } = await supabase.functions.invoke("ariiatalk-conversas", {
+      method: "POST",
+      body: { action: "set_conversation_instance", conversation_id: conversation.id, instancia_id: instanceId },
+    });
+    setChangingInstance(false);
+
+    if (invokeError || data?.error) {
+      toast.error(data?.error === "conversation_exists_on_instance"
+        ? "Já existe uma conversa deste contato nessa instância."
+        : "Não foi possível trocar a instância desta conversa.");
+      return;
+    }
+
+    const instance = instances.find((item) => item.id === instanceId);
+    if (instance) {
+      setConversations((current) => current.map((item) => item.id === conversation.id
+        ? { ...item, instancia_id: instance.id, ariiatalk_instancias: { id: instance.id, nome: instance.nome, telefone: instance.telefone, status: instance.status } }
+        : item));
+    }
+    toast.success("Instância da conversa atualizada.");
+  }, [selectedId, conversations, changingInstance, instances]);
 
   const callTalk = useCallback(async (body: Record<string, unknown>) => {
     const { data, error: err } = await supabase.functions.invoke("ariiatalk-conversas", { method: "POST", body });
@@ -1550,6 +1578,18 @@ export default function AriiaTalk() {
                     <ContactTags contact={selectedConversation.contato} />
                   </div>
                   <div className="ml-auto flex flex-wrap items-center gap-2">
+                    <Select value={selectedConversation.instancia_id} onValueChange={(value) => void changeConversationInstance(value)} disabled={changingInstance || sendingMessage || loadingInstances}>
+                      <SelectTrigger className="h-8 w-[190px] text-xs" aria-label="Instância de envio">
+                        <SelectValue placeholder="Instância de envio" />
+                      </SelectTrigger>
+                      <SelectContent align="end">
+                        {instances.map((instance) => (
+                          <SelectItem key={instance.id} value={instance.id}>
+                            {instance.nome} · {statusLabel(instance.status)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <ConversationAssignee
                       staff={staff}
                       value={selectedConversation.responsavel_id}

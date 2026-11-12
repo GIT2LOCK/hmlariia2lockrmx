@@ -108,6 +108,37 @@ serve(async (req) => {
         return jsonResponse({ error: "invalid_request" }, 400);
       }
 
+      if (body.action === "set_conversation_instance") {
+        const conversationId = String(body.conversation_id ?? "").trim();
+        const instanceId = String(body.instancia_id ?? "").trim();
+        const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (!uuidPattern.test(conversationId) || !uuidPattern.test(instanceId)) {
+          return jsonResponse({ error: "invalid_instance_selection" }, 400);
+        }
+
+        const [{ data: conversation, error: conversationError }, { data: instance, error: instanceError }] = await Promise.all([
+          db.from("ariiatalk_conversas").select("id, instancia_id, remote_jid").eq("id", conversationId).maybeSingle(),
+          db.from("ariiatalk_instancias").select("id").eq("id", instanceId).maybeSingle(),
+        ]);
+        if (conversationError || instanceError) return jsonResponse({ error: "instance_selection_query_failed" }, 500);
+        if (!conversation) return jsonResponse({ error: "conversation_not_found" }, 404);
+        if (!instance) return jsonResponse({ error: "instance_not_found" }, 404);
+        if (conversation.instancia_id === instanceId) return jsonResponse({ success: true });
+
+        const { data: duplicate, error: duplicateError } = await db.from("ariiatalk_conversas")
+          .select("id").eq("instancia_id", instanceId).eq("remote_jid", conversation.remote_jid).maybeSingle();
+        if (duplicateError) return jsonResponse({ error: "instance_selection_query_failed" }, 500);
+        if (duplicate) return jsonResponse({ error: "conversation_exists_on_instance" }, 409);
+
+        const { error: updateError } = await db.from("ariiatalk_conversas")
+          .update({ instancia_id: instanceId, atualizado_em: new Date().toISOString() }).eq("id", conversationId);
+        if (updateError) {
+          console.error("[ariiatalk-conversas] Falha ao trocar instância da conversa:", updateError.message);
+          return jsonResponse({ error: "conversation_instance_update_failed" }, 500);
+        }
+        return jsonResponse({ success: true, conversation_id: conversationId, instancia_id: instanceId });
+      }
+
       if (body.action === "get_profile_picture") {
         const conversationId = body.conversation_id;
         const contactId = body.contact_id;
