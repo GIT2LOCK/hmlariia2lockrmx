@@ -29,7 +29,6 @@
   MessageCircle,
 
   Wifi,
-  ChevronDown,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
@@ -221,14 +220,10 @@ export function AppSidebar() {
             <SidebarGroup className="ariia-sidebar-group">
               <SidebarGroupLabel asChild className="ariia-sidebar-group-label">
                 <CollapsibleTrigger className="ariia-sidebar-group-trigger" aria-label={`${collapsedGroups[group.title] ? "Expandir" : "Recolher"} ${group.title}`}>
-                  <span>{group.title}</span>
-                  <span className="ariia-sidebar-group-meta">
-                    <span className="ariia-sidebar-group-count">{group.items.length}</span>
-                    <ChevronDown className="ariia-sidebar-chevron" aria-hidden="true" />
-                  </span>
+                  {group.title}
                 </CollapsibleTrigger>
               </SidebarGroupLabel>
-              <CollapsibleContent>
+              <CollapsibleContent className="ariia-sidebar-group-content">
                 <SidebarGroupContent>
                   <SidebarMenu>
                     {group.items.map((item) => (

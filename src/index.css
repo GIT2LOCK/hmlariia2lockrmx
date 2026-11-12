@@ -376,7 +376,7 @@ All colors MUST be HSL.
     width: 100%;
     height: 100%;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
     border: 0;
     border-radius: 0.4rem;
     background: transparent;
@@ -397,32 +397,26 @@ All colors MUST be HSL.
     outline-offset: 2px;
   }
 
-  .ariia-glass-sidebar .ariia-sidebar-group-meta {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
+  .ariia-glass-sidebar .ariia-sidebar-group-content {
+    overflow: hidden;
   }
 
-  .ariia-glass-sidebar .ariia-sidebar-group-count {
-    min-width: 1.15rem;
-    border-radius: 999px;
-    background: hsl(var(--glass-surface) / 0.14);
-    padding: 0.05rem 0.3rem;
-    color: hsl(var(--glass-muted));
-    font-size: 0.65rem;
-    line-height: 1rem;
-    text-align: center;
-    font-variant-numeric: tabular-nums;
+  .ariia-glass-sidebar .ariia-sidebar-group-content[data-state="open"] {
+    animation: ariia-sidebar-expand 180ms ease-out;
   }
 
-  .ariia-glass-sidebar .ariia-sidebar-chevron {
-    width: 0.85rem;
-    height: 0.85rem;
-    transition: transform 160ms ease;
+  .ariia-glass-sidebar .ariia-sidebar-group-content[data-state="closed"] {
+    animation: ariia-sidebar-collapse 150ms ease-in;
   }
 
-  .ariia-glass-sidebar .ariia-sidebar-group-trigger[data-state="closed"] .ariia-sidebar-chevron {
-    transform: rotate(-90deg);
+  @keyframes ariia-sidebar-expand {
+    from { height: 0; opacity: 0; }
+    to { height: var(--radix-collapsible-content-height); opacity: 1; }
+  }
+
+  @keyframes ariia-sidebar-collapse {
+    from { height: var(--radix-collapsible-content-height); opacity: 1; }
+    to { height: 0; opacity: 0; }
   }
 
   .ariia-glass-user-card {
@@ -476,6 +470,10 @@ All colors MUST be HSL.
   @media (prefers-reduced-motion: reduce), (update: slow) {
     .ariia-glass-sidebar .ariia-glass-menu-button {
       transition: none;
+    }
+
+    .ariia-glass-sidebar .ariia-sidebar-group-content[data-state] {
+      animation: none;
     }
 
     .ariia-glass-sidebar[data-sidebar="sidebar"],
