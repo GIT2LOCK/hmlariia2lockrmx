@@ -3,7 +3,7 @@ import * as XLSX from "xlsx";
 type R = { u: { id: number; nome_unidade: string; empresa_id?: number | null; cidade?: string | null; estado?: string | null }; sw: string | null; an: string | null; swQ: number; anQ: number; wan: string | null; cam: string | null };
 type It = { unidade_id: number; tipo: string; modelo: string; quantidade: number; origem?: string; host_name?: string | null; ctrl?: boolean; observacao?: string | null };
 
-const NOVAS = ["U7LT", "UAL6", "UAP6MP", "UAPLR6V2"];
+const NOVAS = ["U7LT", "UAL6", "UAPL6", "UALR6V2", "UAP6MP", "UAPLR6V2"];
 const up = (s?: string | null) => (s ?? "").trim().toUpperCase();
 const ni = (v: string | null) => v ?? "Não informado";
 

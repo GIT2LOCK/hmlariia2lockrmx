@@ -7,7 +7,7 @@ describe("isAntenaNova", () => {
     (model) => expect(isAntenaNova(model)).toBe(false),
   );
 
-  it.each(["UAL6", "U6 Lite", "U6+", "U6-Pro", "UAP6MP", "U7 Lite", "U7-Pro"])(
+  it.each(["UAL6", "UAPL6", "UALR6v2", "U6 Lite", "U6+", "U6-Pro", "UAP6MP", "U7 Lite", "U7-Pro"])(
     "classifica geração U6+ %s como nova",
     (model) => expect(isAntenaNova(model)).toBe(true),
   );

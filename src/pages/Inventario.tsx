@@ -33,7 +33,7 @@ export function isAntenaNova(modelo: string): boolean {
   const normalized = norm(modelo);
   if (/\bAC\b/.test(normalized) || /\bU7LT\b/.test(normalized)) return false;
   const code = normalized.replace(/[^A-Z0-9]/g, "");
-  if (code === "UAL6") return true;
+  if (["UAL6", "UAPL6", "UALR6V2"].includes(code)) return true;
   if (code === "U2LV2" || code === "BZ2") return false;
   if (/^(?:UAP)?AC/.test(code) || code.startsWith("U7LT")) return false;
   const generation = code.match(/^(?:UAP)?U([0-9]+)/);
