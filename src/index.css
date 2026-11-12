@@ -356,10 +356,11 @@ All colors MUST be HSL.
   .ariia-glass-sidebar [data-sidebar="group-label"] {
     color: hsl(var(--glass-muted));
     letter-spacing: 0;
+    text-transform: uppercase;
   }
 
   .ariia-glass-sidebar .ariia-sidebar-group {
-    padding: 0.35rem 0.65rem;
+    padding: 0.5rem 0.65rem;
   }
 
   .ariia-glass-sidebar .ariia-sidebar-group + .ariia-sidebar-group {
@@ -402,11 +403,11 @@ All colors MUST be HSL.
   }
 
   .ariia-glass-sidebar .ariia-sidebar-group-content[data-state="open"] {
-    animation: ariia-sidebar-expand 180ms ease-out;
+    animation: ariia-sidebar-expand 260ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .ariia-glass-sidebar .ariia-sidebar-group-content[data-state="closed"] {
-    animation: ariia-sidebar-collapse 150ms ease-in;
+    animation: ariia-sidebar-collapse 220ms cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   @keyframes ariia-sidebar-expand {
