@@ -115,8 +115,8 @@ export default function Elevadores() {
       db.from("elev_elevadores").select("*, ini:usuarios!elev_elevadores_iniciado_por_fkey(nome), fim:usuarios!elev_elevadores_instalado_por_fkey(nome), val:usuarios!elev_elevadores_validado_por_fkey(nome)").order("id"),
       db.from("elev_faciais").select("*").order("codigo"),
       db.from("elev_cronograma_etapas").select("id,nome,data_fim"),
-      db.from("elev_cronograma_etapa_unidades").select("id,etapa_id,unidade_id,status,data_fim"),
-      db.from("elev_cronograma_atividades").select("id,etapa_id,status,data_inicio,data_fim"),
+      db.from("elev_cronograma_etapa_unidades").select("id,etapa_id,unidade_id,status,data_fim").limit(5000),
+      db.from("elev_cronograma_atividades").select("id,etapa_id,nome,status,data_inicio,data_fim").limit(5000),
       db.from("elev_cronograma_execucoes").select("atividade_id,etapa_unidade_id").limit(5000),
     ]);
     const err = l.error || e.error || f.error || etapas.error || parts.error || atvs.error || vinculos.error;
@@ -184,7 +184,7 @@ export default function Elevadores() {
     { label: "Pendentes", value: count("PENDENTE") },
   ];
   const unidadesProg = lojas.map((l) => {
-    const progresso = progressoUnidade(l.unidade_id, etapasProgresso, partsProgresso, atvsProgresso, vinculosProgresso);
+    const progresso = progressoUnidade(l.unidade_id, etapasProgresso, partsProgresso, atvsProgresso, vinculosProgresso, undefined, l.unidades?.nome_unidade);
     return { l, p: progresso.status, iniciou: progresso.iniciou };
   }).sort((a, b) => (a.l.unidades?.nome_unidade || "").localeCompare(b.l.unidades?.nome_unidade || ""));
   const uConcluidas = unidadesProg.filter((x) => x.p === "CONCLUIDA");
