@@ -12,7 +12,7 @@
 
 
 - Elevadores cronograma: Project → Stages → Activities → Units; dates/status/responsible live on the activity, units are only linked (elev_cronograma_execucoes is the activity↔unit link reusing etapa_unidades, which the Kanban depends on); stage period/status are always derived from activities — keeps one source of truth.
-- Elevadores unit progress uses linked activities in the completion stage, falling back to legacy stage participation only when no activity is linked; subscribe to stage/activity/link updates — keeps the metric aligned with schedule edits without duplicating status.
+- Elevadores unit progress lists one row per activity in stage 8 (Instalação Facial), using that activity's literal status and dates — each stage-8 activity represents one unit, so no unit linking is needed.
 - Elevadores inventory: Unidade → elev_elevadores → elev_faciais (one facial belongs to at most one elevator, an elevator may have many faciais); units come from the central unidades/elev_lojas registry, never duplicated in the cronograma; validation and situation are derived, never stored.
 - Inventory batch registration reuses the existing unit selector and equipment drafts in the same dialog; save the unit link before elevators and resolve draft elevator IDs before saving facials — prevents duplicate units and preserves equipment relationships.
 - Holidays/ponto facultativo are computed client-side in cronogramaModel (Easter-based) and only flag dates, never move them.
