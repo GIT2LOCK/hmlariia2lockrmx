@@ -27,9 +27,18 @@ interface Item { id?: number; unidade_id: number; tipo: Tipo; modelo: string; qu
 interface Geral { unidade_id: number; wan_qtd_links: number | null; wan_problemas: boolean; camera_tipo: "IP" | "ANALOG" | null; observacoes: string | null }
 interface Unidade { id: number; nome_unidade: string; empresa_id?: number | null; cidade?: string | null; estado?: string | null }
 
-/** Únicos modelos considerados antenas NOVAS; qualquer outro é velho. */
-const NOVAS_ANTENAS = ["U7LT", "UAL6", "UAP6MP", "UAPLR6V2"];
 const norm = (s: string) => s.trim().toUpperCase().replace(/\s+/g, " ");
+/** WiFi 6 (U6) e posteriores são as únicas gerações consideradas novas. */
+export function isAntenaNova(modelo: string): boolean {
+  const normalized = norm(modelo);
+  if (/\bAC\b/.test(normalized) || /\bU7LT\b/.test(normalized)) return false;
+  const code = normalized.replace(/[^A-Z0-9]/g, "");
+  if (code === "UAL6") return true;
+  if (code === "U2LV2" || code === "BZ2") return false;
+  if (/^(?:UAP)?AC/.test(code) || code.startsWith("U7LT")) return false;
+  const generation = code.match(/^(?:UAP)?U([0-9]+)/);
+  return !!generation && Number(generation[1]) >= 6;
+}
 const isCtrl = (i: Item) => !!i.ctrl || norm(i.modelo).includes("CTRL") || norm(i.host_name ?? "").includes("CTRL");
 const qty = (items: Item[], tipo: Tipo) => items.filter((i) => i.tipo === tipo).reduce((s, i) => s + (Number(i.quantidade) || 0), 0);
 
@@ -45,7 +54,7 @@ export function statusAntenas(items: Item[]): string | null {
   const a = items.filter((i) => i.tipo === "ANTENA" && i.quantidade > 0);
   if (!a.length) return null;
   const total = a.reduce((t, i) => t + i.quantidade, 0);
-  const novas = a.filter((i) => NOVAS_ANTENAS.includes(norm(i.modelo))).reduce((t, i) => t + i.quantidade, 0);
+  const novas = a.filter((i) => isAntenaNova(i.modelo)).reduce((t, i) => t + i.quantidade, 0);
   if (!novas) return "N/E";
   return novas === total ? "TOTAL" : "PARCIAL";
 }
@@ -399,7 +408,7 @@ function InventarioModal({ unidade, canEdit, itens, geral, links, onClose, onSav
 
   const section = (tipo: Tipo, label: string, placeholder: string) => (
     <div className="space-y-2">
-      <div className="text-xs text-muted-foreground">Total: <b className="text-foreground">{qty(list, tipo)}</b>{tipo === "SWITCH" && <> · CTRL: {list.filter((x) => x.tipo === "SWITCH" && isCtrl(x)).reduce((t, x) => t + x.quantidade, 0)} (não conta no status)</>}{tipo === "ANTENA" && <> · Novas: {list.filter((x) => x.tipo === "ANTENA" && NOVAS_ANTENAS.includes(norm(x.modelo))).reduce((t, x) => t + x.quantidade, 0)}</>}</div>
+      <div className="text-xs text-muted-foreground">Total: <b className="text-foreground">{qty(list, tipo)}</b>{tipo === "SWITCH" && <> · CTRL: {list.filter((x) => x.tipo === "SWITCH" && isCtrl(x)).reduce((t, x) => t + x.quantidade, 0)} (não conta no status)</>}{tipo === "ANTENA" && <> · Novas: {list.filter((x) => x.tipo === "ANTENA" && isAntenaNova(x.modelo)).reduce((t, x) => t + x.quantidade, 0)}</>}</div>
       <div className="grid grid-cols-[1fr_120px_40px] gap-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
         <span>{label}</span><span>Quantidade</span><span />
       </div>

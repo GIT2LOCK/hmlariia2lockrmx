@@ -70,26 +70,61 @@ interface MenuItem {
   tabKey?: TabKey;
 }
 
-const menuItems: MenuItem[] = [
-  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, tabKey: "dashboard" },
-  { title: "Chamados", url: "/dashboard/chamados", icon: Ticket, permission: "tickets.view_own", tabKey: "chamados" },
-  { title: "Kanban", url: "/dashboard/chamados-kanban", icon: Trello, permission: "tickets.view_own", tabKey: "chamados" },
-  { title: "Dashboard Atendimento", url: "/dashboard/atendimento", icon: Gauge, permission: "dashboard.team", tabKey: "atendimento" },
-  { title: "AriiaTalk", url: "/dashboard/ariiatalk", icon: MessageCircle, tabKey: "ariiatalk" },
-  { title: "Empresas", url: "/dashboard/empresas", icon: Building2, permission: "registry.view", tabKey: "empresas" },
-  { title: "Unidades", url: "/dashboard/unidades", icon: MapPin, permission: "registry.view", tabKey: "unidades" },
-  { title: "Inventário", url: "/dashboard/inventario", icon: Boxes, permission: "registry.view", tabKey: "inventario" },
-  { title: "Operadoras", url: "/dashboard/operadoras", icon: Radio, permission: "registry.view", tabKey: "operadoras" },
-  { title: "Pessoas", url: "/dashboard/pessoas", icon: Contact, permission: "registry.view", tabKey: "pessoas" },
-  { title: "Responsáveis", url: "/dashboard/responsaveis", icon: UserCheck, permission: "registry.view", tabKey: "responsaveis" },
-  { title: "Base de Conhecimento", url: "/dashboard/base-conhecimento", icon: BookOpen, tabKey: "base_conhecimento" },
-  { title: "Filas e Equipes", url: "/dashboard/equipes", icon: Users, permission: "team.view", tabKey: "equipes" },
-  { title: "Relatório de Chamados", url: "/dashboard/relatorios/chamados", icon: BarChart3, permission: "registry.view", tabKey: "relatorios" },
-  { title: "Relatórios Zabbix", url: "/dashboard/zabbix/relatorio-alertas", icon: AlertTriangle, permission: "registry.view", tabKey: "zabbix" },
-  { title: "Disponibilidade de Links", url: "/dashboard/zabbix/disponibilidade-links", icon: Wifi, permission: "registry.view", tabKey: "zabbix" },
-  { title: "Monitoramento", url: "/dashboard/zabbix", icon: Activity, permission: "registry.view", tabKey: "zabbix" },
-  { title: "Linkai", url: "/dashboard/linkai", icon: Link2, tabKey: "linkai" },
-  { title: "Elevadores", url: "/dashboard/elevadores", icon: ArrowUpDown, permission: "registry.view", tabKey: "elevadores" },
+interface MenuGroup {
+  title: string;
+  items: MenuItem[];
+}
+
+const menuGroups: MenuGroup[] = [
+  {
+    title: "Visão geral",
+    items: [
+      { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, tabKey: "dashboard" },
+      { title: "Dashboard Atendimento", url: "/dashboard/atendimento", icon: Gauge, permission: "dashboard.team", tabKey: "atendimento" },
+    ],
+  },
+  {
+    title: "Atendimento",
+    items: [
+      { title: "Chamados", url: "/dashboard/chamados", icon: Ticket, permission: "tickets.view_own", tabKey: "chamados" },
+      { title: "Kanban", url: "/dashboard/chamados-kanban", icon: Trello, permission: "tickets.view_own", tabKey: "chamados" },
+      { title: "Filas e Equipes", url: "/dashboard/equipes", icon: Users, permission: "team.view", tabKey: "equipes" },
+      { title: "Base de Conhecimento", url: "/dashboard/base-conhecimento", icon: BookOpen, tabKey: "base_conhecimento" },
+      { title: "Relatório de Chamados", url: "/dashboard/relatorios/chamados", icon: BarChart3, permission: "registry.view", tabKey: "relatorios" },
+    ],
+  },
+  {
+    title: "Comunicação",
+    items: [
+      { title: "AriiaTalk", url: "/dashboard/ariiatalk", icon: MessageCircle, tabKey: "ariiatalk" },
+    ],
+  },
+  {
+    title: "Cadastros e ativos",
+    items: [
+      { title: "Empresas", url: "/dashboard/empresas", icon: Building2, permission: "registry.view", tabKey: "empresas" },
+      { title: "Unidades", url: "/dashboard/unidades", icon: MapPin, permission: "registry.view", tabKey: "unidades" },
+      { title: "Operadoras", url: "/dashboard/operadoras", icon: Radio, permission: "registry.view", tabKey: "operadoras" },
+      { title: "Pessoas", url: "/dashboard/pessoas", icon: Contact, permission: "registry.view", tabKey: "pessoas" },
+      { title: "Responsáveis", url: "/dashboard/responsaveis", icon: UserCheck, permission: "registry.view", tabKey: "responsaveis" },
+      { title: "Inventário", url: "/dashboard/inventario", icon: Boxes, permission: "registry.view", tabKey: "inventario" },
+      { title: "Elevadores", url: "/dashboard/elevadores", icon: ArrowUpDown, permission: "registry.view", tabKey: "elevadores" },
+    ],
+  },
+  {
+    title: "Observabilidade",
+    items: [
+      { title: "Monitoramento", url: "/dashboard/zabbix", icon: Activity, permission: "registry.view", tabKey: "zabbix" },
+      { title: "Disponibilidade de Links", url: "/dashboard/zabbix/disponibilidade-links", icon: Wifi, permission: "registry.view", tabKey: "zabbix" },
+      { title: "Relatórios Zabbix", url: "/dashboard/zabbix/relatorio-alertas", icon: AlertTriangle, permission: "registry.view", tabKey: "zabbix" },
+    ],
+  },
+  {
+    title: "Ferramentas",
+    items: [
+      { title: "Linkai", url: "/dashboard/linkai", icon: Link2, tabKey: "linkai" },
+    ],
+  },
 ];
 
 const glassMenuButtonClassName = "ariia-glass-menu-button";
@@ -106,13 +141,16 @@ export function AppSidebar() {
 
   const isCliente = user.role === "CLIENTE";
   const isActive = (path: string) => currentPath === path;
-  const visibleItems = (isGrafanaOnly || isBlocked)
+  const visibleGroups = (isGrafanaOnly || isBlocked)
     ? []
-    : menuItems.filter((it) => {
+    : menuGroups.map((group) => ({
+        ...group,
+        items: group.items.filter((it) => {
         if (it.tabKey === "elevadores") return canAccessElevadores(user.role, user.email) || allows("elevadores");
         if (isCliente) return it.url === "/dashboard/chamados";
         return (!it.permission || can(it.permission)) && allows(it.tabKey);
-      });
+        }),
+      })).filter((group) => group.items.length > 0);
 
 
   const handleLogout = async (e: React.MouseEvent) => {
@@ -148,30 +186,32 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-primary-foreground/60 text-xs uppercase tracking-wider">
-            Menu
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {visibleItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton 
-                    asChild 
-                    isActive={isActive(item.url)}
-                    tooltip={item.title}
-                    className={glassMenuButtonClassName}
-                  >
-                    <NavLink to={item.url} className="flex items-center gap-3">
-                      <item.icon className="h-5 w-5" />
-                      <span>{item.title}</span>
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {visibleGroups.map((group) => (
+          <SidebarGroup key={group.title}>
+            <SidebarGroupLabel className="text-primary-foreground/60 text-xs uppercase tracking-wider">
+              {group.title}
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {group.items.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive(item.url)}
+                      tooltip={item.title}
+                      className={glassMenuButtonClassName}
+                    >
+                      <NavLink to={item.url} className="flex items-center gap-3">
+                        <item.icon className="h-5 w-5" />
+                        <span>{item.title}</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
 
         <SidebarGroup>
           <SidebarGroupLabel className="text-primary-foreground/60 text-xs uppercase tracking-wider">
