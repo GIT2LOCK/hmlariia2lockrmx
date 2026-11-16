@@ -249,7 +249,7 @@ export function AppSidebar() {
         ))}
 
         <SidebarGroup>
-          <SidebarGroupLabel className="text-primary-foreground/60 text-xs uppercase tracking-wider">
+          <SidebarGroupLabel>
             Conta
           </SidebarGroupLabel>
           <SidebarGroupContent>
