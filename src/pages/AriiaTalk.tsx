@@ -411,13 +411,14 @@ export default function AriiaTalk() {
       body: { action: "start_conversation", contact_id: contact.id },
     });
     setStartingContact(null);
-    if (err || data?.error || !data?.conversation_id) {
+    const code = await edgeErrorCode({ data, error: err });
+    if (err || code || !data?.conversation_id) {
       const map: Record<string, string> = {
         no_instance: "Nenhuma instância do WhatsApp configurada.",
         contact_without_valid_phone: "Este contato não tem um telefone válido para WhatsApp.",
         group_conversation_not_found: "Ainda não há conversa registrada para este grupo.",
       };
-      toast.error(map[data?.error] ?? "Não foi possível iniciar a conversa.");
+      toast.error((code && map[code]) ?? "Não foi possível iniciar a conversa.");
       return;
     }
     selectedIdRef.current = data.conversation_id;
@@ -480,8 +481,9 @@ export default function AriiaTalk() {
     });
     setChangingInstance(false);
 
-    if (invokeError || data?.error) {
-      toast.error(data?.error === "conversation_exists_on_instance"
+    const code = await edgeErrorCode({ data, error: invokeError });
+    if (invokeError || code) {
+      toast.error(code === "conversation_exists_on_instance"
         ? "Já existe uma conversa deste contato nessa instância."
         : "Não foi possível trocar a instância desta conversa.");
       return;
@@ -667,13 +669,10 @@ export default function AriiaTalk() {
     );
 
     if (selectedIdRef.current !== conversationId) return;
-    if (invokeError || data?.error) {
-      console.error("[AriiaTalk] Erro ao carregar histórico:", invokeError, data);
-      setMessageError(
-        data?.error
-          ? `Não foi possível carregar as mensagens: ${data.error}`
-          : invokeError?.message || "Não foi possível carregar o histórico.",
-      );
+    const code = await edgeErrorCode({ data, error: invokeError });
+    if (invokeError || code) {
+      console.error("[AriiaTalk] Erro ao carregar histórico:", invokeError ?? code);
+      setMessageError("Não foi possível carregar as mensagens desta conversa. Tente novamente.");
       if (!silent) setLoadingMessages(false);
       return;
     }
