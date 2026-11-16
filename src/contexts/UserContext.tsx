@@ -292,7 +292,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         .then(async (ch) => {
           try {
             const { supabase } = await import("@/integrations/supabase/client");
-            supabase.removeChannel(ch);
+            await supabase.removeChannel(ch);
           } catch {
             /* canal já encerrado — nada a fazer */
           }
