@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { empresaTagColor, categoriaTagColor, contactCategoria, CATEGORIAS_SUGERIDAS, normalizeKey } from "@/lib/ariiatalkTags";
 import { supabase } from "@/integrations/supabase/client";
+import { edgeErrorCode } from "@/lib/edgeFunctionError";
 import { useUser } from "@/contexts/UserContext";
 import { Button } from "@/components/ui/button";
 import ContactsView from "@/components/ariiatalk/ContactsView";
@@ -838,9 +839,14 @@ export default function AriiaTalk() {
         method: "GET",
       });
 
-    if (invokeError) {
-      console.warn("[AriiaTalk] Erro ao carregar instâncias:", invokeError);
-      setInstanceError("Não foi possível carregar as instâncias. Confira a sessão e os logs da Edge Function.");
+    if (invokeError || data?.error) {
+      const code = await edgeErrorCode({ data, error: invokeError });
+      console.warn("[AriiaTalk] Erro ao carregar instâncias:", invokeError ?? code);
+      setInstanceError(
+        code === "evolution_secrets_not_configured"
+          ? "Os Secrets da Evolution API não foram encontrados pela função."
+          : "Não foi possível carregar as instâncias. Confira a sessão e a conexão com a Evolution API.",
+      );
       setLoadingInstances(false);
       return;
     }
@@ -1070,7 +1076,7 @@ export default function AriiaTalk() {
 
     if (invokeError || data?.error) {
       console.error("[AriiaTalk] Erro ao criar instância:", invokeError, data);
-      const code = data?.error;
+      const code = await edgeErrorCode({ data, error: invokeError });
       const messages: Record<string, string> = {
         evolution_secrets_not_configured: "Os Secrets da Evolution API não estão configurados corretamente.",
         instance_already_exists: "Já existe uma instância com esse nome.",
@@ -1079,7 +1085,7 @@ export default function AriiaTalk() {
         instance_created_but_database_save_failed: "A instância foi criada na Evolution, mas falhou ao salvar no banco. Não tente recriar antes de verificar o servidor.",
         forbidden: "Seu usuário não tem permissão para gerenciar o AriiaTalk.",
       };
-      setInstanceError(messages[code] || code || invokeError?.message || "Não foi possível criar a instância.");
+      setInstanceError((code && messages[code]) || "Não foi possível criar a instância. Tente novamente.");
       return;
     }
 
@@ -1120,14 +1126,16 @@ export default function AriiaTalk() {
 
     if (invokeError || data?.error) {
       console.error(`[AriiaTalk] Ação ${action} falhou:`, invokeError, data);
+      const code = await edgeErrorCode({ data, error: invokeError });
       const messages: Record<string, string> = {
         evolution_instance_deletion_failed: "Não foi possível excluir a instância na Evolution API.",
         instance_deleted_from_evolution_but_database_delete_failed: "A instância foi excluída na Evolution, mas não foi removida do banco. Verifique os logs.",
         evolution_connect_failed: "Não foi possível solicitar o QR Code à Evolution API.",
-        evolution_status_failed: "Não foi possível consultar o estado da conexão.",
+        evolution_status_failed: "Não foi possível consultar o estado da conexão. A Evolution API não respondeu — tente novamente em instantes.",
+        instance_not_found: "Esta instância não existe mais. Atualize a lista.",
         forbidden: "Seu usuário não tem permissão para gerenciar o AriiaTalk.",
       };
-      setInstanceError(messages[data?.error] || data?.error || invokeError?.message || "A operação falhou.");
+      setInstanceError((code && messages[code]) || "A operação falhou. Tente novamente.");
       return;
     }
 
