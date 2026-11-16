@@ -36,7 +36,7 @@ export function isAntenaNova(modelo: string): boolean {
   if (["UAL6", "UAPL6", "UALR6V2"].includes(code)) return true;
   if (code === "U2LV2" || code === "BZ2") return false;
   if (/^(?:UAP)?AC/.test(code) || code.startsWith("U7LT")) return false;
-  const generation = code.match(/^(?:UAP)?U([0-9]+)/);
+  const generation = code.match(/^(?:UAP)?U?([0-9]+)/);
   return !!generation && Number(generation[1]) >= 6;
 }
 const isCtrl = (i: Item) => !!i.ctrl || norm(i.modelo).includes("CTRL") || norm(i.host_name ?? "").includes("CTRL");

@@ -288,10 +288,18 @@ export function UserProvider({ children }: { children: ReactNode }) {
     })();
 
     return () => {
-      channel.then(async (ch) => {
-        const { supabase } = await import("@/integrations/supabase/client");
-        supabase.removeChannel(ch);
-      });
+      channel
+        .then(async (ch) => {
+          try {
+            const { supabase } = await import("@/integrations/supabase/client");
+            await supabase.removeChannel(ch);
+          } catch {
+            /* canal já encerrado — nada a fazer */
+          }
+        })
+        .catch(() => {
+          /* canal já encerrado — nada a fazer */
+        });
     };
   }, [isAuthenticated, user.id, refreshContext, setTheme]);
 
