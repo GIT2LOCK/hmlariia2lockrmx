@@ -354,8 +354,8 @@ All colors MUST be HSL.
   }
 
   .ariia-glass-sidebar [data-sidebar="group-label"] {
-    color: hsl(var(--glass-muted));
-    letter-spacing: 0;
+    color: hsl(var(--primary-foreground) / 0.6);
+    letter-spacing: 0.05em;
     text-transform: uppercase;
   }
 
@@ -368,7 +368,7 @@ All colors MUST be HSL.
   }
 
   .ariia-glass-sidebar .ariia-sidebar-group-label {
-    height: 2.15rem;
+    height: 2rem;
     padding: 0;
   }
 
