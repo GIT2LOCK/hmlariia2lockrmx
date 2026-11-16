@@ -850,16 +850,6 @@ export default function AriiaTalk() {
       return;
     }
 
-    if (data?.error) {
-      setInstanceError(
-        data.error === "evolution_secrets_not_configured"
-          ? "Os Secrets da Evolution API não foram encontrados pela função."
-          : `Falha ao carregar instâncias: ${data.error}`,
-      );
-      setLoadingInstances(false);
-      return;
-    }
-
     setInstances(Array.isArray(data?.instances) ? data.instances : []);
     setLoadingInstances(false);
   }, []);
