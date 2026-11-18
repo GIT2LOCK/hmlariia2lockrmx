@@ -57,3 +57,6 @@ verify_jwt = false
 
 [functions.ariiatalk-mensagens]
 verify_jwt = false
+
+[functions.unifi-observability]
+verify_jwt = false

@@ -29,6 +29,7 @@
   MessageCircle,
 
   Wifi,
+  Router,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
@@ -119,6 +120,7 @@ const menuGroups: MenuGroup[] = [
       { title: "Monitoramento", url: "/dashboard/zabbix", icon: Activity, permission: "registry.view", tabKey: "zabbix" },
       { title: "Disponibilidade de Links", url: "/dashboard/zabbix/disponibilidade-links", icon: Wifi, permission: "registry.view", tabKey: "zabbix" },
       { title: "Relatórios Zabbix", url: "/dashboard/zabbix/relatorio-alertas", icon: AlertTriangle, permission: "registry.view", tabKey: "zabbix" },
+      { title: "UniFi", url: "/dashboard/unifi", icon: Router, permission: "registry.view", tabKey: "zabbix" },
     ],
   },
   {
