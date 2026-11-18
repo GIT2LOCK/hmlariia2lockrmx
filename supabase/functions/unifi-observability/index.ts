@@ -79,7 +79,7 @@ Deno.serve(async (req) => {
       const c = st.counts ?? {};
       return {
         siteId: s.siteId,
-        unidade: String(rs.hostname || rs.name || s.meta?.desc || s.siteId).replace(/^GS[-_ ]?UDM[-_ ]?/i, "").toUpperCase(),
+        unidade: String(rs.hostname || rs.name || s.meta?.desc || s.siteId).replace(/^GS[-_ ]?UDM[-_ ]?/i, "").replace(/[-_]+/g, " ").toUpperCase(),
         hostname: rs.hostname ?? null,
         gateway: st.gateway?.shortname ?? null,
         online: rs.state ? rs.state === "connected" : null,
