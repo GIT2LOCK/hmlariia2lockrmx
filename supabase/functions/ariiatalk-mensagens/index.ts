@@ -7,6 +7,7 @@ import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { z } from "npm:zod@3.25.76";
 import { buildQuoted, quoteSnapshot } from "../_shared/ariiatalkMessageActions.ts";
 import { annotateMessage, editMessage } from "./messageActions.ts";
+import { importIncomingMedia, isRemoteWhatsappMedia } from "../_shared/ariiatalkIncomingMedia.ts";
 import { ATTACHMENT_BUCKET, ATTACHMENT_RETENTION_MS, EXPIRED_MEDIA, MAX_ATTACHMENT_BYTES, attachmentInfo, isAttachmentExpired, mediaPayload } from "../_shared/ariiatalkAttachments.ts";
 
 const historyFields = "id, conversa_id, evolution_message_id, direcao, tipo, conteudo, media_url, status, enviado_por, autor_nome, enviada_em, criado_em, resposta_mensagem_id, resposta_snapshot, editada_em, remetente_nome, remetente_jid";
@@ -33,6 +34,14 @@ async function withAuthors(db: ReturnType<typeof serviceClient>, messages: any[]
     const prefix = `storage://${ATTACHMENT_BUCKET}/`;
     if (message.media_url === EXPIRED_MEDIA || (message.media_url?.startsWith(prefix) && isAttachmentExpired(message.criado_em))) {
       return { ...message, media_url: null, media_expirada: true };
+    }
+    if (isRemoteWhatsappMedia(message.media_url) && !isAttachmentExpired(message.criado_em)) {
+      const { data: conv } = await db.from("ariiatalk_conversas").select("instancia_id").eq("id", message.conversa_id).maybeSingle();
+      const { data: instRow } = conv?.instancia_id ? await db.from("ariiatalk_instancias").select("evolution_instance_name").eq("id", conv.instancia_id).maybeSingle() : { data: null };
+      const inst = instRow?.evolution_instance_name;
+      const { data: raw } = inst ? await db.from("ariiatalk_mensagens").select("payload").eq("id", message.id).maybeSingle() : { data: null };
+      const stored = inst && raw?.payload ? await importIncomingMedia(db, inst, raw.payload, message.tipo) : null;
+      if (stored) { await db.from("ariiatalk_mensagens").update({ media_url: stored }).eq("id", message.id); message = { ...message, media_url: stored }; }
     }
     if (!message.media_url?.startsWith(prefix)) return message;
     const { data } = await db.storage.from(ATTACHMENT_BUCKET).createSignedUrl(message.media_url.slice(prefix.length), 3600);

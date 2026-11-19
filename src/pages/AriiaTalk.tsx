@@ -1701,12 +1701,12 @@ export default function AriiaTalk() {
                           {message.direcao === "entrada" && selectedConversation?.is_grupo && (
                             <div className="mb-1 text-xs font-semibold text-primary break-words">{message.remetente_nome || (message.remetente_jid ? phoneLabel(message.remetente_jid) : "Participante")}</div>
                           )}
-                          {message.conteudo && (
+                          {message.conteudo && !(message.media_url && /^\[(image|video|audio|sticker)\]$/.test(message.conteudo)) && (
                             <p className="whitespace-pre-wrap break-words text-sm">{message.conteudo}</p>
                           )}
                           {message.media_url && (
                             <div className="mt-2 max-w-full">
-                              {message.tipo === "image" && <img src={message.media_url} alt={message.conteudo || "Imagem anexada"} loading="lazy" className="max-h-64 max-w-full rounded-md object-contain" />}
+                              {(message.tipo === "image" || message.tipo === "sticker") && <a href={message.media_url} target="_blank" rel="noreferrer"><img src={message.media_url} alt={message.conteudo || "Imagem anexada"} loading="lazy" className="max-h-64 max-w-full cursor-zoom-in rounded-md object-contain" /></a>}
                               {message.tipo === "video" && <video src={message.media_url} controls preload="metadata" className="max-h-64 max-w-full rounded-md" />}
                               {message.tipo === "audio" && <audio src={message.media_url} controls preload="metadata" className="max-w-full" />}
                             <a

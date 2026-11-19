@@ -1,6 +1,7 @@
 ﻿import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { serviceClient } from "../_shared/grafana.ts";
 import { matchesOutboundEcho } from "../_shared/ariiatalkSignature.ts";
+import { importIncomingMedia } from "../_shared/ariiatalkIncomingMedia.ts";
 import { quotedContext, editedContent, cleanEditedText } from "../_shared/ariiatalkWebhookActions.ts";
 
 const corsHeaders = {
@@ -385,7 +386,7 @@ serve(async (req) => {
           direcao: direction,
           tipo: extracted.type,
           conteudo: extracted.content,
-          media_url: extracted.mediaUrl,
+          media_url: (await importIncomingMedia(db, instanceName, item, extracted.type)) ?? extracted.mediaUrl,
           status: direction === "entrada" ? "recebida" : "enviada",
           enviada_em: messageDate,
           payload: item,
