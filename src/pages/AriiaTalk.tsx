@@ -235,6 +235,7 @@ export default function AriiaTalk() {
   const [sendingMessage, setSendingMessage] = useState(false);
   const { text: messageText, setText: setMessageText, saveDraft } = useConversationDraft(user?.id, selectedId);
   const [attachment, setAttachment] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<{ url: string; alt: string } | null>(null);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const [messageError, setMessageError] = useState<string | null>(null);
   const [contacts, setContacts] = useState<AriiaContact[]>([]);
@@ -1706,7 +1707,7 @@ export default function AriiaTalk() {
                           )}
                           {message.media_url && (
                             <div className="mt-2 max-w-full">
-                              {(message.tipo === "image" || message.tipo === "sticker") && <a href={message.media_url} target="_blank" rel="noreferrer"><img src={message.media_url} alt={message.conteudo || "Imagem anexada"} loading="lazy" className="max-h-64 max-w-full cursor-zoom-in rounded-md object-contain" /></a>}
+                              {(message.tipo === "image" || message.tipo === "sticker") && <button type="button" aria-label="Ver imagem" className="block max-w-full" onClick={() => setImagePreview({ url: message.media_url!, alt: message.conteudo || "Imagem anexada" })}><img src={message.media_url} alt={message.conteudo || "Imagem anexada"} loading="lazy" className="max-h-64 max-w-full cursor-zoom-in rounded-md object-contain" /></button>}
                               {message.tipo === "video" && <video src={message.media_url} controls preload="metadata" className="max-h-64 max-w-full rounded-md" />}
                               {message.tipo === "audio" && <audio src={message.media_url} controls preload="metadata" className="max-w-full" />}
                             <a
@@ -2143,6 +2144,12 @@ export default function AriiaTalk() {
         unidades={unidadesOpt}
         staff={staff}
       />
+      <Dialog open={!!imagePreview} onOpenChange={open => { if (!open) setImagePreview(null); }}>
+        <DialogContent className="max-w-[95vw] w-auto border-none bg-background/95 p-2 sm:max-w-[90vw]">
+          <DialogTitle className="sr-only">Visualizar imagem</DialogTitle>
+          {imagePreview && <img src={imagePreview.url} alt={imagePreview.alt} className="mx-auto max-h-[85vh] max-w-full rounded-md object-contain" />}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 
